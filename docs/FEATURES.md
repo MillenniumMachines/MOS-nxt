@@ -32,11 +32,11 @@ These features form the core of the new NeXT system and must be implemented for 
 #### **Probe Results Management**
 - [x] **Decoupled Probing:** Probing cycles will **no longer** directly set a Work Coordinate System (WCS) origin. Their sole purpose is to find a coordinate and record it.
 - [x] **Probe Results Table:** A new global variable (e.g., a vector) will be implemented to store a history of the last ~10 probe results. Each entry will record the axis/axes probed and the final, compensated coordinate(s).
-- [ ] **UI for WCS Application & Result Manipulation:** A new UI panel will display the Probe Results Table. From this panel, the user can:
-    - [ ] **Push to WCS:** Select a result row and apply its coordinates to a chosen WCS.
-    - [ ] **Merge Results:** Select a result row, run a new probe cycle for a different axis, and have the new result populate the selected row.
-    - [ ] **Overwrite Results:** If a new probe cycle's axis already exists in a selected row, the new value will overwrite the old one.
-    - [ ] **Average Results:** Select one row, then click an "average" button on another row to merge them by averaging their respective axis coordinates.
+- [x] **UI for WCS Application & Result Manipulation:** A new UI panel will display the Probe Results Table. From this panel, the user can:
+    - [x] **Push to WCS:** Select a result row and apply its coordinates to a chosen WCS.
+    - [x] **Merge Results:** Select a result row, run a new probe cycle for a different axis, and have the new result populate the selected row.
+    - [x] **Overwrite Results:** If a new probe cycle's axis already exists in a selected row, the new value will overwrite the old one.
+    - [x] **Average Results:** Select one row, then click an "average" button on another row to merge them by averaging their respective axis coordinates.
 
 #### **Probing Cycles**
 - [x] These will be re-implemented to log their results to the new Probe Results Table.
@@ -62,7 +62,7 @@ These features form the core of the new NeXT system and must be implemented for 
     - [x] **Status Widget:** A persistent widget displaying: selected tool name, tool offset, machine state, selected WCS, and spindle state (direction, RPM).
     - [x] **Action Confirmation Widget:** A persistent widget that replaces blocking `M291` dialogs. It will pause the job queue and display a confirmation request (e.g., "Start Spindle?") that the operator must interact with to resume the job.
 - [x] **UI-Based Configuration:** A new settings panel within the UI plugin will completely replace the `G8000` configuration wizard, allowing for non-serial, direct editing of all settings.
-- [ ] **UI-Driven Probing:** All probing cycles will be initiated and configured through the DWC UI.
+- [x] **UI-Driven Probing:** All probing cycles will be initiated and configured through the DWC UI.
 
 #### **Machine Control**
 - [x] **Spindle Control:** Core macros for safe spindle start/stop with acceleration waits (`M3.9`, `M4.9`, `M5.9`).
