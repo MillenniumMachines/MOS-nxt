@@ -48,18 +48,18 @@ if { #var.resultVector < #move.axes }
 M5000
 
 ; Build the offset command
-; G10 L2 P<wcs> sets the WCS origin relative to machine zero
-; We need to set the offset so that current position becomes the specified coordinate
+; G10 L2 P<wcs> X Y Z A sets the WCS origin coordinates in machine coordinates
+; The probe result IS the desired origin in machine coordinates, so we use it directly
 
 var wcsNumber = { param.W }
 
-; Calculate offsets: offset = current_position - desired_origin
-; For each axis, if the flag is present, use the probe result as the desired origin
+; Use probe result coordinates directly as the origin
+; Only set axes that are flagged AND have non-zero values
 
-var offsetX = { exists(param.X) && var.resultVector[0] != 0 ? (global.nxtAbsPos[0] - var.resultVector[0]) : null }
-var offsetY = { exists(param.Y) && var.resultVector[1] != 0 ? (global.nxtAbsPos[1] - var.resultVector[1]) : null }
-var offsetZ = { exists(param.Z) && var.resultVector[2] != 0 ? (global.nxtAbsPos[2] - var.resultVector[2]) : null }
-var offsetA = { exists(param.A) && #var.resultVector > 3 && var.resultVector[3] != 0 ? (global.nxtAbsPos[3] - var.resultVector[3]) : null }
+var offsetX = { exists(param.X) && var.resultVector[0] != 0 ? var.resultVector[0] : null }
+var offsetY = { exists(param.Y) && var.resultVector[1] != 0 ? var.resultVector[1] : null }
+var offsetZ = { exists(param.Z) && var.resultVector[2] != 0 ? var.resultVector[2] : null }
+var offsetA = { exists(param.A) && #var.resultVector > 3 && var.resultVector[3] != 0 ? var.resultVector[3] : null }
 
 ; Build and execute the G10 L2 command
 ; Note: G10 L2 P<n> X Y Z A sets absolute offsets for the specified WCS
@@ -80,12 +80,12 @@ if { var.offsetA != null }
 ; Execute the WCS offset command
 { var.gcode }
 
-echo "M6520: Set WCS G" ^ (53 + var.wcsNumber) ^ " from probe result " ^ param.P
+echo "M6520: Set WCS G" ^ (53 + var.wcsNumber) ^ " origin from probe result " ^ param.P
 if { var.offsetX != null }
-    echo "M6520:   X origin at " ^ var.resultVector[0]
+    echo "M6520:   X origin = " ^ var.offsetX
 if { var.offsetY != null }
-    echo "M6520:   Y origin at " ^ var.resultVector[1]
+    echo "M6520:   Y origin = " ^ var.offsetY
 if { var.offsetZ != null }
-    echo "M6520:   Z origin at " ^ var.resultVector[2]
+    echo "M6520:   Z origin = " ^ var.offsetZ
 if { var.offsetA != null }
-    echo "M6520:   A origin at " ^ var.resultVector[3]
+    echo "M6520:   A origin = " ^ var.offsetA

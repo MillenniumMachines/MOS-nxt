@@ -273,7 +273,7 @@ Validates that target coordinates are within machine limits.
 
 ### M6520: Set WCS Offset from Probe Result
 
-Sets a Work Coordinate System (WCS) offset using coordinates from the probe results table.
+Sets a Work Coordinate System (WCS) origin using coordinates from the probe results table. The probe result coordinates (in machine coordinates) are used directly as the WCS origin.
 
 **Usage:** `M6520 P<resultIndex> W<wcsNumber> [X] [Y] [Z] [A]`
 
@@ -282,10 +282,20 @@ Sets a Work Coordinate System (WCS) offset using coordinates from the probe resu
 - `W`: WCS number (1-6 for G54-G59) - **REQUIRED**
 - `X|Y|Z|A`: Axis flags - at least one required
 
+**How it works:**
+- Reads the probe result from the specified index
+- For each flagged axis, sets the WCS origin to the probe result coordinate
+- Uses `G10 L2` internally to set the WCS origin
+
 **Example:**
 ```gcode
-M6520 P0 W1 X Y    ; Push X and Y from result 0 to G54
-M6520 P2 W3 Z      ; Push Z from result 2 to G56
+; Probe bore center and set as G54 origin
+G6500 P0 D25.4 L10    ; Probe bore, result stored at index 0
+M6520 P0 W1 X Y       ; Set G54 origin to bore center
+
+; Probe Z surface and add to same WCS
+G6510 P0 Z-20         ; Probe Z, adds to result 0
+M6520 P0 W1 X Y Z     ; Update G54 with X, Y, and Z
 ```
 
 ---
