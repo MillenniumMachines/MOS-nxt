@@ -293,9 +293,15 @@ export default BaseComponent.extend({
     async clearResult(index: number) {
       try {
         await this.sendCode(`M6521 P${index}`)
-        this.$makeNotification('success', 'Probe Result Cleared', `Cleared result at index ${index}`)
+        this.$store.dispatch('machine/showMessage', {
+          type: 'success',
+          message: `Cleared probe result at index ${index}`
+        })
       } catch (error) {
-        this.$makeNotification('error', 'Clear Failed', `Failed to clear result: ${error}`)
+        this.$store.dispatch('machine/showMessage', {
+          type: 'error',
+          message: `Failed to clear result: ${error}`
+        })
       }
     },
     async clearAllResults() {
@@ -303,9 +309,15 @@ export default BaseComponent.extend({
         await this.sendCode('M6521')
         this.selectedResults = []
         this.averageWithIndex = null
-        this.$makeNotification('success', 'All Results Cleared', 'Cleared all probe results')
+        this.$store.dispatch('machine/showMessage', {
+          type: 'success',
+          message: 'Cleared all probe results'
+        })
       } catch (error) {
-        this.$makeNotification('error', 'Clear Failed', `Failed to clear results: ${error}`)
+        this.$store.dispatch('machine/showMessage', {
+          type: 'error',
+          message: `Failed to clear results: ${error}`
+        })
       }
     },
     async pushToWcs() {
@@ -322,7 +334,10 @@ export default BaseComponent.extend({
       if (this.pushAxes.a && this.selectedResultData.a) axisFlags.push('A')
 
       if (axisFlags.length === 0) {
-        this.$makeNotification('warning', 'No Axes Selected', 'Select at least one axis to push')
+        this.$store.dispatch('machine/showMessage', {
+          type: 'warning',
+          message: 'Select at least one axis to push'
+        })
         return
       }
 
@@ -330,9 +345,15 @@ export default BaseComponent.extend({
 
       try {
         await this.sendCode(gcode)
-        this.$makeNotification('success', 'WCS Updated', `Pushed result ${index} to ${this.wcsLabel}`)
+        this.$store.dispatch('machine/showMessage', {
+          type: 'success',
+          message: `Pushed result ${index} to ${this.wcsLabel}`
+        })
       } catch (error) {
-        this.$makeNotification('error', 'Push Failed', `Failed to push to WCS: ${error}`)
+        this.$store.dispatch('machine/showMessage', {
+          type: 'error',
+          message: `Failed to push to WCS: ${error}`
+        })
       }
     },
     async averageResults() {
@@ -343,11 +364,16 @@ export default BaseComponent.extend({
 
       try {
         await this.sendCode(`M6522 P${index1} Q${index2}`)
-        this.$makeNotification('success', 'Results Averaged', 
-          `Averaged results ${index1} and ${index2}, stored in ${index1}`)
+        this.$store.dispatch('machine/showMessage', {
+          type: 'success',
+          message: `Averaged results ${index1} and ${index2}, stored in ${index1}`
+        })
         this.averageWithIndex = null
       } catch (error) {
-        this.$makeNotification('error', 'Average Failed', `Failed to average results: ${error}`)
+        this.$store.dispatch('machine/showMessage', {
+          type: 'error',
+          message: `Failed to average results: ${error}`
+        })
       }
     }
   }

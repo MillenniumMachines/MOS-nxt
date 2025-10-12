@@ -430,11 +430,15 @@ export default BaseComponent.extend({
       try {
         const gcode = this.buildGcode()
         await this.sendCode(gcode)
-        this.$makeNotification('success', 'Probing Complete', 
-          `${this.selectedCycle} completed successfully`)
+        this.$store.dispatch('machine/showMessage', {
+          type: 'success',
+          message: `${this.selectedCycle} completed successfully`
+        })
       } catch (error) {
-        this.$makeNotification('error', 'Probing Failed', 
-          `${this.selectedCycle} failed: ${error}`)
+        this.$store.dispatch('machine/showMessage', {
+          type: 'error',
+          message: `${this.selectedCycle} failed: ${error}`
+        })
       } finally {
         this.executing = false
       }
