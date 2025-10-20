@@ -3,13 +3,14 @@
 ; Probes a vise corner by first probing the top surface in Z, then probing
 ; the corner in X and Y using an outside corner probe sequence.
 ;
-; USAGE: G6520 P<index> L<depth> [X<x-surface>] [Y<y-surface>] [F<speed>] [R<retries>] [C<clearance>] [O<overtravel>]
+; USAGE: G6520 P<index> L<depth> [X<x-surface>] [Y<y-surface>] [I<probeID>] [F<speed>] [R<retries>] [C<clearance>] [O<overtravel>]
 ;
 ; Parameters:
 ;   P: Result table index (0-based) where results will be stored - REQUIRED
 ;   L: Probe depth below starting position - REQUIRED
 ;   X: Target coordinate for X-axis surface probe (defaults to current X - overtravel)
 ;   Y: Target coordinate for Y-axis surface probe (defaults to current Y - overtravel)
+;   I: Probe ID (defaults to global.nxtTouchProbeID if not specified)
 ;   F: Optional speed override in mm/min
 ;   R: Number of retries for averaging
 ;   C: Clearance distance between probes (default: 5mm)
@@ -41,6 +42,7 @@ if { !exists(param.L) || param.L == null || param.L <= 0 }
     abort { "G6520: Depth parameter L is required and must be positive" }
 
 ; Set defaults for optional parameters
+var probeID = { exists(param.I) ? param.I : global.nxtTouchProbeID }
 var clearance = { exists(param.C) ? param.C : 10.0 }
 var feedRate = { exists(param.F) ? param.F : null }
 var retries = { exists(param.R) ? param.R : null }
@@ -66,7 +68,7 @@ echo "G6520: Probing Z surface (top of vise corner)"
 var zTarget = { var.startZ - var.depth }
 
 ; Execute Z surface probe
-G6512 X{var.startX} Y{var.startY} Z{var.zTarget} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries}
+G6512 X{var.startX} Y{var.startY} Z{var.zTarget} I{var.probeID} F{var.feedRate} R{var.retries}
 var zSurface = { global.nxtLastProbeResult }
 
 ; Update current position after Z probe
@@ -83,7 +85,7 @@ var xProbeY = { var.ySurfaceTarget < var.startY ? var.ySurfaceTarget + var.clear
 G6550 X{var.startX} Y{var.xProbeY}
 
 ; Execute X surface probe at the Z level we found
-G6512 X{var.xSurfaceTarget} Y{var.xProbeY} Z{var.currentZ} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries}
+G6512 X{var.xSurfaceTarget} Y{var.xProbeY} Z{var.currentZ} I{var.probeID} F{var.feedRate} R{var.retries}
 var xSurface = { global.nxtLastProbeResult }
 
 ; Move away from X surface
@@ -98,7 +100,7 @@ var yProbeX = { var.xSurfaceTarget < var.startX ? var.xSurfaceTarget + var.clear
 G6550 X{var.yProbeX} Y{var.startY}
 
 ; Execute Y surface probe at the Z level we found
-G6512 X{var.yProbeX} Y{var.ySurfaceTarget} Z{var.currentZ} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries}
+G6512 X{var.yProbeX} Y{var.ySurfaceTarget} Z{var.currentZ} I{var.probeID} F{var.feedRate} R{var.retries}
 var ySurface = { global.nxtLastProbeResult }
 
 ; The vise corner coordinates are the intersection of the surfaces

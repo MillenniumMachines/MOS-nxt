@@ -221,13 +221,18 @@ Low-level single-axis probe move with compensation and averaging. This is the co
 
 Runs a single surface Z probe for vise top, then outside corner probe for X/Y position.
 
-**Usage:** `G6520 P<index> N<axis> [F<speed>] [R<retries>]`
+**Usage:** `G6520 P<index> L<depth> [X<x-surface>] [Y<y-surface>] [I<probeID>] [F<speed>] [R<retries>] [C<clearance>] [O<overtravel>]`
 
 **Parameters:**
 - `P`: Result table index (0-9) - **REQUIRED**
-- `N`: Primary axis for corner (0=X, 1=Y) - **REQUIRED**
+- `L`: Probe depth below starting position - **REQUIRED**
+- `X`: Target coordinate for X-axis surface probe (defaults to current X - overtravel)
+- `Y`: Target coordinate for Y-axis surface probe (defaults to current Y - overtravel)
+- `I`: Probe ID (defaults to global.nxtTouchProbeID if not specified)
 - `F`: Optional speed override (mm/min)
 - `R`: Number of retries for averaging
+- `C`: Clearance distance between probes (default: 10mm)
+- `O`: Overtravel distance beyond expected surfaces (default: 2mm)
 
 **Results:** Stores X, Y, and Z coordinates in the probe results table.
 
@@ -279,7 +284,7 @@ Sets a Work Coordinate System (WCS) origin using coordinates from the probe resu
 
 **Parameters:**
 - `P`: Probe results table index (0-9) to read from - **REQUIRED**
-- `W`: WCS number (1-6 for G54-G59) - **REQUIRED**
+- `W`: WCS number (1-9 for G54-G59.3) - **REQUIRED**
 - `X|Y|Z|A`: Axis flags - at least one required
 
 **How it works:**

@@ -6,7 +6,7 @@
 ;
 ; Parameters:
 ;   P: Probe results table index (0-9) to read from - REQUIRED
-;   W: WCS number (1-6 for G54-G59) - REQUIRED
+;   W: WCS number (1-9 for G54-G59.3) - REQUIRED
 ;   X: If present, set X offset from result
 ;   Y: If present, set Y offset from result
 ;   Z: If present, set Z offset from result
@@ -26,8 +26,8 @@ if { param.P >= #global.nxtProbeResults }
     abort { "M6520: Result index P=" ^ param.P ^ " exceeds table size (" ^ #global.nxtProbeResults ^ ")" }
 
 ; Validate WCS number parameter
-if { !exists(param.W) || param.W == null || param.W < 1 || param.W > 6 }
-    abort { "M6520: WCS number W is required and must be 1-6 (for G54-G59)" }
+if { !exists(param.W) || param.W == null || param.W < 1 || param.W > 9 }
+    abort { "M6520: WCS number W is required and must be 1-9 (for G54-G59.3)" }
 
 ; Check that at least one axis is specified
 if { !exists(param.X) && !exists(param.Y) && !exists(param.Z) && !exists(param.A) }
@@ -61,24 +61,40 @@ var offsetY = { exists(param.Y) && var.resultVector[1] != 0 ? var.resultVector[1
 var offsetZ = { exists(param.Z) && var.resultVector[2] != 0 ? var.resultVector[2] : null }
 var offsetA = { exists(param.A) && #var.resultVector > 3 && var.resultVector[3] != 0 ? var.resultVector[3] : null }
 
-; Build and execute the G10 L2 command
-; Note: G10 L2 P<n> X Y Z A sets absolute offsets for the specified WCS
-var gcode = "G10 L2 P" ^ var.wcsNumber
+; Execute G10 L2 command directly based on which axes are specified
+; G10 L2 P<n> X Y Z A sets the WCS origin coordinates
+; We must call G10 L2 with the appropriate combination of axes
 
-if { var.offsetX != null }
-    set var.gcode = { var.gcode ^ " X" ^ var.offsetX }
-
-if { var.offsetY != null }
-    set var.gcode = { var.gcode ^ " Y" ^ var.offsetY }
-
-if { var.offsetZ != null }
-    set var.gcode = { var.gcode ^ " Z" ^ var.offsetZ }
-
-if { var.offsetA != null }
-    set var.gcode = { var.gcode ^ " A" ^ var.offsetA }
-
-; Execute the WCS offset command
-{ var.gcode }
+if { var.offsetX != null && var.offsetY != null && var.offsetZ != null && var.offsetA != null }
+    G10 L2 P{var.wcsNumber} X{var.offsetX} Y{var.offsetY} Z{var.offsetZ} A{var.offsetA}
+elif { var.offsetX != null && var.offsetY != null && var.offsetZ != null }
+    G10 L2 P{var.wcsNumber} X{var.offsetX} Y{var.offsetY} Z{var.offsetZ}
+elif { var.offsetX != null && var.offsetY != null && var.offsetA != null }
+    G10 L2 P{var.wcsNumber} X{var.offsetX} Y{var.offsetY} A{var.offsetA}
+elif { var.offsetX != null && var.offsetZ != null && var.offsetA != null }
+    G10 L2 P{var.wcsNumber} X{var.offsetX} Z{var.offsetZ} A{var.offsetA}
+elif { var.offsetY != null && var.offsetZ != null && var.offsetA != null }
+    G10 L2 P{var.wcsNumber} Y{var.offsetY} Z{var.offsetZ} A{var.offsetA}
+elif { var.offsetX != null && var.offsetY != null }
+    G10 L2 P{var.wcsNumber} X{var.offsetX} Y{var.offsetY}
+elif { var.offsetX != null && var.offsetZ != null }
+    G10 L2 P{var.wcsNumber} X{var.offsetX} Z{var.offsetZ}
+elif { var.offsetX != null && var.offsetA != null }
+    G10 L2 P{var.wcsNumber} X{var.offsetX} A{var.offsetA}
+elif { var.offsetY != null && var.offsetZ != null }
+    G10 L2 P{var.wcsNumber} Y{var.offsetY} Z{var.offsetZ}
+elif { var.offsetY != null && var.offsetA != null }
+    G10 L2 P{var.wcsNumber} Y{var.offsetY} A{var.offsetA}
+elif { var.offsetZ != null && var.offsetA != null }
+    G10 L2 P{var.wcsNumber} Z{var.offsetZ} A{var.offsetA}
+elif { var.offsetX != null }
+    G10 L2 P{var.wcsNumber} X{var.offsetX}
+elif { var.offsetY != null }
+    G10 L2 P{var.wcsNumber} Y{var.offsetY}
+elif { var.offsetZ != null }
+    G10 L2 P{var.wcsNumber} Z{var.offsetZ}
+elif { var.offsetA != null }
+    G10 L2 P{var.wcsNumber} A{var.offsetA}
 
 echo "M6520: Set WCS G" ^ (53 + var.wcsNumber) ^ " origin from probe result " ^ param.P
 if { var.offsetX != null }

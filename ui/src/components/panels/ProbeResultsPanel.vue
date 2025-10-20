@@ -214,7 +214,10 @@ export default BaseComponent.extend({
         { text: 'G56 (WCS 3)', value: 3 },
         { text: 'G57 (WCS 4)', value: 4 },
         { text: 'G58 (WCS 5)', value: 5 },
-        { text: 'G59 (WCS 6)', value: 6 }
+        { text: 'G59 (WCS 6)', value: 6 },
+        { text: 'G59.1 (WCS 7)', value: 7 },
+        { text: 'G59.2 (WCS 8)', value: 8 },
+        { text: 'G59.3 (WCS 9)', value: 9 }
       ]
     }
   },
