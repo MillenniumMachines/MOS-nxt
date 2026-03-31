@@ -27,6 +27,10 @@ else
 ; Run boot-time sanity checks
 M98 P"nxt-boot.g"
 
+; Initialize metadata-driven plugins once boot checks pass.
+if { global.nxtLoaded && fileexists("0:/sys/nxt/plugins/nxt-plugin-init-dispatch.g") }
+    M98 P"nxt/plugins/nxt-plugin-init-dispatch.g"
+
 ; Final check if NeXT loaded successfully
 if { global.nxtLoaded }
     echo "NeXT v" ^ global.nxtVersion ^ " loaded successfully."

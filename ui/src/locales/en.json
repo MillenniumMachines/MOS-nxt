@@ -54,6 +54,25 @@
     "probing": {
       "caption": "Probing"
     },
+    "toolLibrary": {
+      "caption": "Tool Library",
+      "intro": "Tools listed here use the RRF object model and mos-atc globals (atcToolToPocket / atcPocketToTool). Persistent bay assignments are saved on the machine by M878 and restored at boot via M879 (0:/sys/mos-atc-library.g).",
+      "noLayout": "ATC layout is not initialized (atcPocketCount is 0). Install mos-atc firmware files and run M870 / set layout (M876) so bay status can appear.",
+      "bays": "Bays:",
+      "magazines": "Magazines × slots:",
+      "selectTool": "Select tool (T n)",
+      "resolveMapping": "Resolve pocket (M873)",
+      "selected": "Selected: T{n}",
+      "colTool": "Tool",
+      "colDescription": "Description",
+      "colRadius": "Radius",
+      "colStatus": "Status",
+      "statusSpindle": "In spindle",
+      "statusProbe": "Probe",
+      "statusBay": "Bay {b}",
+      "statusUnassigned": "Unassigned",
+      "noTools": "No tools defined in the object model yet."
+    },
     "spindleControl": {
       "caption": "Spindle Control",
       "placeholder": "Spindle control panel will be implemented in a future phase"
@@ -71,8 +90,8 @@
   },
   "messages": {
     "uiReady": "NeXT UI is ready",
-    "chooseSubsection": "Use the NeXT menu section to navigate to Status, Configuration, Stock Preparation, and Probing.",
-    "menuMoved": "NeXT features are now accessible via the NeXT menu. Use Status, Configuration, Stock Preparation, or Probing from the left-hand menu.",
+    "chooseSubsection": "Use the NeXT menu section to navigate to Status, Tool Library, Configuration, Stock Preparation, and Probing.",
+    "menuMoved": "NeXT features are now accessible via the NeXT menu. Use Status, Tool Library, Configuration, Stock Preparation, or Probing from the left-hand menu.",
     "disconnectedShort": "Disconnected",
     "loading": "Loading...",
     "error": "Error",

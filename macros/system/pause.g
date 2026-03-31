@@ -9,3 +9,7 @@ while { iterations < #state.gpOut }
 ; Raise the spindle to the top of the Z axis and
 ; then stop it, but do not move the table.
 G27 Z1
+
+; Run plugin pause hooks, if generated.
+if { fileexists("0:/sys/nxt/plugins/nxt-plugin-hooks-pause.g") }
+    M98 P"nxt/plugins/nxt-plugin-hooks-pause.g"

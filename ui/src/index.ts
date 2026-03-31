@@ -18,7 +18,8 @@ import {
   ConfigurationPanel,
   StockPreparationPanel,
   GCodeViewer3D,
-  ProbingPanel
+  ProbingPanel,
+  ToolLibraryPanel
 } from './components/panels'
 
 // Import and register component modules
@@ -86,6 +87,17 @@ async function registerNeXTRoutes() {
         icon: 'mdi-cog',
         caption: 'plugins.next.name',
         path: '/NeXT/Configuration'
+      }
+    }
+  })
+
+  // ATC tool library (mos-atc persistent globals + M878/M879 on firmware)
+  await registerRoute(ToolLibraryPanel, {
+    Control: {
+      NeXT_ToolLibrary: {
+        icon: 'mdi-bookshelf',
+        caption: 'plugins.next.panels.toolLibrary.caption',
+        path: '/NeXT/ToolLibrary'
       }
     }
   })

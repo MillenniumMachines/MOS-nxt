@@ -25,3 +25,7 @@ M9 R1
 
 ; Move down to the stored co-ordinates.
 G53 G0 R1 X0 Y0 Z0
+
+; Run plugin resume hooks, if generated.
+if { fileexists("0:/sys/nxt/plugins/nxt-plugin-hooks-resume.g") }
+    M98 P"nxt/plugins/nxt-plugin-hooks-resume.g"
