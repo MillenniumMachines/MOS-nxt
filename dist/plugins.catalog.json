@@ -1,0 +1,16 @@
+{
+  "plugins": [
+    {
+      "id": "NeXT",
+      "repoPath": ".",
+      "manifestPath": "ui/plugin.json",
+      "required": true
+    },
+    {
+      "id": "MosAtc",
+      "repoPath": "../mos-atc",
+      "manifestPath": "dwc-plugin/plugin.json",
+      "required": false
+    }
+  ]
+}

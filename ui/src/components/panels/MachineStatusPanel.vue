@@ -2,7 +2,12 @@
   <v-card>
     <v-card-title>
       <v-icon left>mdi-information-outline</v-icon>
-      Machine Status
+      {{ $t('plugins.next.panels.status.caption') }}
+      <v-spacer />
+      <div v-if="!isConnected || !nxtReady" class="d-flex align-center">
+        <v-icon small class="mr-2" color="warning">mdi-lan-disconnect</v-icon>
+        <span class="text-caption">{{ $t('plugins.next.messages.disconnectedShort') }}</span>
+      </div>
     </v-card-title>
     
     <v-card-text>

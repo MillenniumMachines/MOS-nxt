@@ -117,6 +117,7 @@ To help us work out any issues, please run `M7600 D1` and paste the whole output
 
 - **[GCODE.md](GCODE.md)** - Complete reference for all NeXT G-codes and M-codes
 - **[docs/CALIBRATION.md](docs/CALIBRATION.md)** - Comprehensive guide to machine calibration (steps-per-mm, backlash, probe deflection)
+- **[docs/STOCK_PREPARATION.md](docs/STOCK_PREPARATION.md)** - Stock preparation UI implementation approach and technical specifications
 - **[docs/ROADMAP.md](docs/ROADMAP.md)** - Development roadmap and feature implementation plan
 - **[docs/FEATURES.md](docs/FEATURES.md)** - Feature requirements and implementation status
 - **[docs/CODE.md](docs/CODE.md)** - Coding standards and style guide for contributors

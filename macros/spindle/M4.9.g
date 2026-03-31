@@ -41,20 +41,6 @@ if { exists(param.D) && param.D < 0 }
 ; Wait for all movement to stop before continuing.
 M400
 
-; True if spindle is stopping
-var spindleStopping = { spindles[var.spindleID].current > 0 && param.S == 0 }
-
-; Warning Message for Operator
-var warningMessage = {"<b>CAUTION</b>: Spindle <b>#" ^ var.spindleID ^ "</b> will now start <b>counter-clockwise!</b><br/>Check that workpiece and tool are secure, and all safety precautions have been taken before pressing <b>Continue</b>."}
-
-; If the spindle is stationary and not in expert mode, warn the operator
-if { spindles[var.spindleID].current == 0 && !global.nxtExpertMode }
-    M291 P{var.warningMessage} R"NeXT: Warning" S4 K{"Continue", "Cancel"} F0
-
-    ; If operator picked cancel, then abort the job
-    if { input == 1 }
-        abort { "Operator aborted spindle startup!" }
-
 ; Dwell time defaults to the previously timed spindle acceleration time.
 var dwellTime = { global.nxtSpindleAccelSec }
 

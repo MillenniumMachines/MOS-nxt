@@ -7,5 +7,21 @@
   "homepage": "https://github.com/benagricola/NeXT",
   "dwcVersion": "auto",
   "rrfVersion": "auto",
-  "dwcWebpackChunk": "NeXT"
+  "dwcWebpackChunk": "NeXT",
+  "data": {
+    "nxt": {
+      "tag": "nxt-plugin",
+      "enabled": true,
+      "loadOrder": 10,
+      "failureMode": "soft",
+      "entrypoints": {
+        "init": "plugins/next/next-init.g",
+        "daemon": "plugins/next/next-daemon.g",
+        "pause": "plugins/next/next-pause.g",
+        "resume": "plugins/next/next-resume.g",
+        "stop": "plugins/next/next-stop.g",
+        "cancel": "plugins/next/next-cancel.g"
+      }
+    }
+  }
 }

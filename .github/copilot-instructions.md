@@ -105,6 +105,7 @@ NeXT (Next-Gen Extended Tooling) is a complete rewrite of the legacy MillenniumO
 - **Testing Procedures**: `docs/TESTING.md` - Live machine testing guidelines
 - **Legacy Documentation**: `docs/DETAILS.md` - Understanding existing MillenniumOS functionality
 - **G-Code Reference**: `GCODE.md` - Custom G-code and M-code documentation
+- **UI Development**: `docs/UI_DEVELOPMENT.md` - Complete guide for developing the NeXT UI plugin in DuetWebControl
 
 ## Safety & Liability Considerations
 - **Physical Hardware**: All testing involves real CNC machines

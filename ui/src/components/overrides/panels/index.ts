@@ -1,15 +1,17 @@
 /**
  * Panel Override Registration
  * 
- * Placeholder for DWC panel overrides. Will be implemented to replace
- * standard DWC panels with NeXT custom versions when required.
+ * Registers NeXT panel overrides to replace DWC's default panels.
+ * This allows NeXT to control the CNC machine dashboard layout.
  */
 
-// import Vue from 'vue'
+import Vue from 'vue'
 
-// TODO: Implement panel overrides in later phases
-// Example from legacy MillenniumOS:
-// import CNCDashboardPanel from './CNCDashboardPanel.vue'
-// Vue.component('cnc-dashboard-panel', CNCDashboardPanel)
+// Import NeXT panel overrides
+import CNCContainerPanel from './CNCContainerPanel.vue'
 
-console.log('NeXT UI: Panel overrides ready for implementation')
+// Register CNCContainerPanel override
+// This replaces DWC's default CNC mode dashboard with NeXT's custom version
+Vue.component('cnc-container-panel', CNCContainerPanel)
+
+console.log('NeXT UI: CNCContainerPanel override registered')

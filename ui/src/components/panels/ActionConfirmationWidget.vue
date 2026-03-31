@@ -6,7 +6,7 @@
     </v-card-title>
     
     <!-- Active Dialog Display -->
-    <v-card-text v-if="hasActiveDialog" class="py-2">
+    <v-card-text class="py-2">
       <div class="dialog-container">
         <div class="dialog-title">{{ dialogTitle }}</div>
         <div class="dialog-message">{{ dialogMessage }}</div>
@@ -28,16 +28,6 @@
         </div>
       </div>
     </v-card-text>
-
-    <!-- No Active Dialog State -->
-    <v-card-text v-else class="py-2">
-      <div class="no-dialog-state">
-        <v-icon large color="grey lighten-1">mdi-check-circle-outline</v-icon>
-        <div class="mt-2 text-caption text--secondary">
-          No actions pending
-        </div>
-      </div>
-    </v-card-text>
   </v-card>
 </template>
 
@@ -54,16 +44,6 @@ import BaseComponent from '../base/BaseComponent.vue'
 export default BaseComponent.extend({
   name: 'NxtActionConfirmationWidget',
   
-  data() {
-    return {
-      // Test dialog for development
-      showTestDialog: false,
-      testDialogMessage: 'This is a test dialog for UI development',
-      testDialogTitle: 'Test Dialog',
-      testDialogButtons: ['Continue', 'Cancel']
-    }
-  },
-
   computed: {
     /**
      * Get active message box from DWC object model
@@ -74,22 +54,18 @@ export default BaseComponent.extend({
     },
 
     hasActiveDialog(): boolean {
-      return this.activeMessageBox !== null || this.showTestDialog
+      return this.activeMessageBox !== null
     },
 
     dialogMessage(): string {
-      if (this.showTestDialog) return this.testDialogMessage
       return this.activeMessageBox?.message || ''
     },
 
     dialogTitle(): string {
-      if (this.showTestDialog) return this.testDialogTitle
       return this.activeMessageBox?.title || 'NeXT'
     },
 
     dialogButtons(): string[] {
-      if (this.showTestDialog) return this.testDialogButtons
-      
       const messageBox = this.activeMessageBox
       if (!messageBox) return ['OK']
       
@@ -139,13 +115,6 @@ export default BaseComponent.extend({
     },
 
     async respondToDialog(buttonIndex: number): Promise<void> {
-      if (this.showTestDialog) {
-        // Handle test dialog
-        this.showTestDialog = false
-        console.log(`NeXT UI: Test dialog response: ${buttonIndex}`)
-        return
-      }
-
       const messageBox = this.activeMessageBox
       if (!messageBox) return
 
@@ -162,10 +131,6 @@ export default BaseComponent.extend({
           message: 'Failed to send dialog response'
         })
       }
-    },
-
-    showTestDialogMethod(): void {
-      this.showTestDialog = true
     }
   },
 
@@ -180,22 +145,12 @@ export default BaseComponent.extend({
         }
       }
     })
-
-    // For development: show test dialog in 3 seconds if in dev environment
-    if (process.env.NODE_ENV === 'development') {
-      setTimeout(() => {
-        this.showTestDialogMethod()
-      }, 3000)
-    }
   }
 })
 </script>
 
 <style scoped>
 .nxt-action-widget {
-  position: sticky;
-  top: 180px; /* Below status widget */
-  z-index: 9;
   transition: box-shadow 0.3s ease;
 }
 
@@ -204,7 +159,7 @@ export default BaseComponent.extend({
 }
 
 .dialog-container {
-  min-height: 120px;
+  min-height: 80px;
 }
 
 .dialog-title {
@@ -226,12 +181,6 @@ export default BaseComponent.extend({
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-start;
-}
-
-.no-dialog-state {
-  text-align: center;
-  padding: 20px 0;
-  opacity: 0.6;
 }
 
 .v-card-title {

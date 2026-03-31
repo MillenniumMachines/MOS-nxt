@@ -61,7 +61,4 @@ if { !var.doWait }
 ; Spindle feedback functionality is now part of the 'Nice-to-Have' features and will be implemented later.
 
 elif { var.dwellTime > 0 }
-    ; Otherwise wait for spindle to stop manually
-    if { !global.nxtExpertMode }
-        echo { "NeXT: Waiting " ^ var.dwellTime ^ " seconds for spindle #" ^ var.spindleID ^ " to stop" }
     G4 S{var.dwellTime}

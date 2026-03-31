@@ -79,6 +79,14 @@ These features add value but are not part of the initial core rewrite. They can 
 - [ ] **Drilling Canned Cycles (`G73`, `G81`, `G83`):** Useful for manual operations, but not essential to the core OS. Can be re-implemented after the main rewrite.
 - [ ] **Variable Spindle Speed Control (VSSC):** A valuable feature for improving surface finish, but its complexity is self-contained. It can be re-added as a modular component.
 - [ ] **Spindle Feedback:** Use sensor input to detect when the spindle has reached target speed or stopped.
+- [x] **Stock Preparation UI (Issue #34):** A dedicated UI panel for generating facing toolpaths to prepare raw stock. Features include:
+  - [x] Multiple pattern types: rectilinear, zigzag, and spiral
+  - [x] Support for rectangular and circular stock geometries
+  - [x] Configurable parameters: tool radius, stock dimensions, pattern angle, stepover/stepdown, feed rates, spindle speed
+  - [x] Real-time SVG visualization of generated toolpath
+  - [x] G-code generation with safety features (M3.9/M5.9 wrappers, parking)
+  - [x] Save-as-file or run-immediately functionality
+  - [ ] Future enhancement: Material-based feed/speed calculator with tool flutes and coating consideration
 
 ---
 

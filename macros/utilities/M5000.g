@@ -12,15 +12,9 @@ if { !inputs[state.thisInput].active }
 M400 ; Wait for all moves to complete before reading positions
 
 ; Ensure the global variable is initialized as a 4-element array (X,Y,Z,A)
-if { #global.nxtAbsPos != 4 }
-    global nxtAbsPos = vector(4, 0.0)
+var numAxes          = { #move.axes }
+var currentTool      = { state.currentTool }
+set global.nxtAbsPos = { vector(var.numAxes, null) }
 
-; Iterate through the first 4 axes (X, Y, Z, A)
-while { iterations < 4 }
-    var currentTool = {state.currentTool}
-    if { var.currentTool >= 0 && var.currentTool < #tools && iterations < #tools[var.currentTool].offsets }
-        ; If a valid tool is active, subtract its offset from the machine position
-        set global.nxtAbsPos[iterations] = {move.axes[iterations].machinePosition - tools[var.currentTool].offsets[iterations]}
-    else
-        ; If no tool is active or offsets are not defined, use machine position directly
-        set global.nxtAbsPos[iterations] = {move.axes[iterations].machinePosition}
+while { iterations < var.numAxes }
+    set global.nxtAbsPos[iterations] = { move.axes[iterations].workplaceOffsets[move.workplaceNumber] + (var.currentTool < 0 ? 0 : tools[var.currentTool].offsets[iterations]) + move.axes[iterations].userPosition }

@@ -1,6 +1,6 @@
 ; nxt.g
 ; NeXT Entrypoint
-; To be called from config.g using M98 P"macros/system/nxt.g"
+; To be called from config.g using M98 P"nxt.g"
 
 ; Set NeXT Version
 if { !exists(global.nxtVersion) }
@@ -8,10 +8,15 @@ if { !exists(global.nxtVersion) }
 else
     set global.nxtVersion = "%%NXT_VERSION%%"
 
-; Load default variables
-M98 P"macros/system/nxt-vars.g"
+; Load default variables if not already loaded
+if { !exists(global.nxtVarsLoaded) }
+    M98 P"nxt-vars.g"
+    global nxtVarsLoaded=true
 
 ; Load user-defined variables if they exist
+; This MUST set already-defined globals and
+; not define new ones as it can be loaded 
+; multiple times without restarting the system.
 if { fileexists("0:/sys/nxt-user-vars.g") }
     M98 P"nxt-user-vars.g"
 else
@@ -20,7 +25,11 @@ else
     M99
 
 ; Run boot-time sanity checks
-M98 P"macros/system/nxt-boot.g"
+M98 P"nxt-boot.g"
+
+; Initialize metadata-driven plugins once boot checks pass.
+if { global.nxtLoaded && fileexists("0:/sys/nxt/plugins/nxt-plugin-init-dispatch.g") }
+    M98 P"nxt/plugins/nxt-plugin-init-dispatch.g"
 
 ; Final check if NeXT loaded successfully
 if { global.nxtLoaded }

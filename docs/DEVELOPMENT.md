@@ -49,6 +49,7 @@ All feature branches must be merged into `main` via a Pull Request (PR). This en
         *   Fragile or overly complex code that violates the principle of simplicity.
         *   Unused, unneeded, or dead code.
         *   Deviations from the agreed-upon architecture or feature requirements.
+        *   **Dead code removal policy:** When removing dead or unused code, do not add inline comments stating that the code was removed or what was removed; rely on the repository's VCS history and the PR description to document the change and reason.
 
 4.  **Correcting and Amending Commits:**
     *   If issues are found during the self-review, they will first be documented as comments on the PR using `gh pr review --comment` for transparency.

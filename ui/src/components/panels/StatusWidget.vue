@@ -2,7 +2,7 @@
   <v-card class="nxt-status-widget">
     <v-card-title class="py-2">
       <v-icon left small>mdi-information</v-icon>
-      {{ $t('NeXT.panels.status') }}
+      {{ $t('plugins.next.panels.status') }}
     </v-card-title>
     
     <v-card-text class="py-2">
@@ -10,7 +10,7 @@
         <!-- Tool Status -->
         <v-col cols="6" sm="3">
           <div class="status-item">
-            <div class="status-label">{{ $t('NeXT.status.tool') }}</div>
+            <div class="status-label">{{ $t('plugins.next.status.tool') }}</div>
             <div class="status-value" :class="toolStatusClass">
               <v-icon small left>{{ toolIcon }}</v-icon>
               {{ toolDisplay }}
@@ -21,7 +21,7 @@
         <!-- WCS Status -->
         <v-col cols="6" sm="3">
           <div class="status-item">
-            <div class="status-label">{{ $t('NeXT.status.wcs') }}</div>
+            <div class="status-label">{{ $t('plugins.next.status.wcs') }}</div>
             <div class="status-value">
               <v-icon small left>mdi-axis-arrow</v-icon>
               G{{ 53 + currentWorkplace }}
@@ -32,7 +32,7 @@
         <!-- Spindle Status -->
         <v-col cols="6" sm="3">
           <div class="status-item">
-            <div class="status-label">{{ $t('NeXT.status.spindle') }}</div>
+            <div class="status-label">{{ $t('plugins.next.status.spindle') }}</div>
             <div class="status-value" :class="spindleStatusClass">
               <v-icon small left>{{ spindleIcon }}</v-icon>
               {{ spindleDisplay }}
@@ -43,7 +43,7 @@
         <!-- Position Status -->
         <v-col cols="6" sm="3">
           <div class="status-item">
-            <div class="status-label">{{ $t('NeXT.status.position') }}</div>
+            <div class="status-label">{{ $t('plugins.next.status.position') }}</div>
             <div class="status-value" :class="positionStatusClass">
               <v-icon small left>{{ positionIcon }}</v-icon>
               {{ positionDisplay }}
