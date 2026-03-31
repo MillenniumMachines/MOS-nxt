@@ -65,16 +65,42 @@
               {{ $t('plugins.next.messages.chooseSubsection') }}
             </v-alert>
 
-            <!-- The plugin now exposes separate pages (Status, Configuration, Stock Preparation, Probing) under the NeXT menu. -->
-            <v-row>
-              <v-col cols="12">
-                <v-card outlined>
-                  <v-card-text>
-                    <div>{{ $t('plugins.next.messages.menuMoved') }}</div>
-                  </v-card-text>
-                </v-card>
-              </v-col>
-            </v-row>
+            <!-- Tab Navigation for different sections -->
+            <v-tabs v-model="activeTab" grow>
+              <v-tab>{{ $t('NeXT.panels.status') }}</v-tab>
+              <v-tab>{{ $t('NeXT.panels.configuration') }}</v-tab>
+              <v-tab>{{ $t('NeXT.panels.probing') }}</v-tab>
+            </v-tabs>
+
+            <v-tabs-items v-model="activeTab">
+              <!-- Status Tab -->
+              <v-tab-item>
+                <div class="pa-4">
+                  <nxt-machine-status-panel />
+                </div>
+              </v-tab-item>
+
+              <!-- Configuration Tab -->
+              <v-tab-item>
+                <div class="pa-4">
+                  <nxt-configuration-panel />
+                </div>
+              </v-tab-item>
+
+              <!-- Probing Tab -->
+              <v-tab-item>
+                <div class="pa-4">
+                  <v-row>
+                    <v-col cols="12">
+                      <nxt-probing-cycles-panel />
+                    </v-col>
+                    <v-col cols="12">
+                      <nxt-probe-results-panel />
+                    </v-col>
+                  </v-row>
+                </div>
+              </v-tab-item>
+            </v-tabs-items>
           </v-card-text>
         </v-card>
       </v-col>

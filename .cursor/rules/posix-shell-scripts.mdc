@@ -1,0 +1,33 @@
+---
+description: Enforce POSIX-compliant shell scripting for project scripts
+globs:
+  - **/*.sh
+  - dist/*
+alwaysApply: false
+---
+
+# POSIX Shell Scripts
+
+Use POSIX `sh`-compatible syntax for shell scripts unless a task explicitly requires Bash-only features.
+
+- Prefer `#!/usr/bin/env sh` for new scripts.
+- Avoid Bash-specific syntax: arrays, `[[ ... ]]`, `${var//x/y}`, `source`, `pipefail`.
+- Use POSIX equivalents: `case`, `[ ... ]`, `.` for sourcing, and simple parameter expansion.
+- Quote variable expansions and paths: `"$var"`, `"$path"`.
+- Keep commands portable across common POSIX shells.
+
+## Examples
+
+```sh
+# BAD (bash-only)
+if [[ -f "$file" ]]; then
+  source ./env.sh
+fi
+```
+
+```sh
+# GOOD (POSIX)
+if [ -f "$file" ]; then
+  . "./env.sh"
+fi
+```
