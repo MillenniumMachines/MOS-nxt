@@ -122,6 +122,8 @@ var gcode = {"G0 X" ^ var.x ^ " Y" ^ var.y}
 - `M3000.g` - Operator dialog prompt (called as `M3000`)  
 - `M6515.g` - Coordinate limit checking (called as `M6515`)
 - `G6500.g` - Bore probing cycle (called as `G6500`)
+- `G80.g` / `G81.g` / `G73.g` / `G83.g` / `G82.g` / `G85.g` / `G89.g` - Drilling and boring canned cycles (see §8.1)
+- `G98.g` / `G99.g` - Canned cycle retract mode (initial Z vs R plane)
 
 ### ❌ INCORRECT - Named Macros Requiring M98
 - `measure-tool-length.g` - Requires `M98 P"measure-tool-length.g"`
@@ -132,6 +134,26 @@ var gcode = {"G0 X" ^ var.x ^ " Y" ^ var.y}
 - `nxt-boot.g` - System initialization, called once from config
 - `nxt-vars.g` - Variable definitions, called from system files
 - `display-startup-messages.g` - Internal helper, called only by other macros
+- `nxt-canned-spindle.g`, `nxt-canned-zindex.g`, `nxt-canned-preliminary.g`, `nxt-canned-finish-retract.g` - Canned cycle helpers (`M98` only from `macros/canned/`)
+
+### 8.1 Canned drilling cycles (LinuxCNC-oriented)
+
+NeXT implements milling canned cycles as RRF macros under `macros/canned/`, aligned with [LinuxCNC G-code canned cycles](https://linuxcnc.org/docs/html/gcode/g-code.html#gcode:g73) for XY drilling with Z as the hole axis. **Not supported in v1:** G91 incremental hole patterns, `L` repeat, other planes (G18/G19), cutter compensation while cycling, or tapping cycles (`G84` / `G74` — RRF rigid tap is a separate workflow). **Deferred:** `G86` (spindle stop), `G76` (lathe), `G87`/`G88` (back-bore / manual out).
+
+**Modal state:** `global.nxtCannedCycle` (see `nxt-vars.g`) holds sticky `Z`, `R`, `Q`, `F`, series initial Z for G98, retract mode, and optional `P` (dwell). **`G80`** clears it. Switching cycle type (e.g. `G81` → `G83`) starts fresh parameters.
+
+**Retract mode:** **`G98`** — final rapid retract to the higher of series-start Z and `R`. **`G99`** — final retract to `R`. Default is **G98** (`global.nxtCannedRetractMode` in `nxt-vars.g`).
+
+**Conventions:** Absolute work coordinates (**G90**); **R** must be **above** **Z** (tool at positive Z is above the hole bottom). Spindle must be running (`M3`/`M4`); macros use `global.nxtSpindleID`. Chip-break clearance between pecks matches LinuxCNC (0.254 mm); **G73** uses short retracts, **G83** full retract to **R**.
+
+| Code | First block requires | Notes |
+|------|----------------------|--------|
+| `G81` | `Z`, `R`, `F` | Single feed to depth |
+| `G73` | `Z`, `R`, `Q`, `F` | Peck, chip break |
+| `G83` | `Z`, `R`, `Q`, `F` | Peck, full retract to R |
+| `G82` | `Z`, `R`, `F`, `P` | Dwell `P` in seconds (`G4 S`) at bottom |
+| `G85` | `Z`, `R`, `F` | Feed out to R then rapid clear |
+| `G89` | `Z`, `R`, `F`, `P` | Dwell then feed out to clear height |
 
 ---
 

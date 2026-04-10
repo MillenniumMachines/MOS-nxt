@@ -81,19 +81,19 @@ When you first open DWC, the "Connect to Machine" modal dialog will appear. **Be
 
 1. Navigate to `http://localhost:8080/`
 2. The "Connect to Machine" dialog will appear
-3. **Look at the sidebar behind the dialog** - check if "NeXT" appears under the "Control" section
+3. **Look at the sidebar behind the dialog** - under **Control**, check for **NeXT** and **Tool Library** (separate entries)
 4. **If "NeXT" menu item is NOT visible**:
    - Click **Cancel** to close the connect dialog
    - Go to **Settings → Plugins**
    - Find "NeXT - Next-Gen Extended Tooling" in the plugin list
    - Click **Start** to enable the plugin
-   - The "NeXT" menu item will now appear under **Control** in the sidebar
+   - **NeXT** and **Tool Library** will appear under **Control** in the sidebar
 5. **Now connect to the machine**:
    - Click the **Connect** button in the top banner
    - Enter hostname: `<server address>` (port 80 is default)
    - Leave password blank unless configured on the machine
    - Click **Connect**
-6. Once connected, click **NeXT** in the sidebar to view the plugin interface
+6. Once connected, use **NeXT** (dashboard: Status, Configuration, Probing) or **Tool Library** (configured RRF tools; mos-atc plugin adds ATC UI) under **Control**
 
 ### Subsequent Sessions (Plugin Already Enabled)
 
@@ -104,7 +104,7 @@ If the plugin is already enabled (you can see "NeXT" in the sidebar):
 3. Enter hostname: `<server address>`
 4. Leave password blank unless configured on the machine
 5. Click **Connect**
-6. Click **NeXT** in the sidebar to view the plugin interface
+6. Open **NeXT** or **Tool Library** under **Control** as needed
 
 **Note**: The plugin must be enabled (started) at least once. This setting persists in browser localStorage, so you typically only need to enable it once per browser/profile.
 

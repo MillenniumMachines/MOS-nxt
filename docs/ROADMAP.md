@@ -146,13 +146,11 @@ This phase implements the advanced probing functionality and result management s
 
 This phase focuses on completing the tool change system and advanced features.
 
-1.  **Complete Tool Change Logic:**
-    *   Implement the "probe-on-removal" logic in `tfree.g` for standard tools.
-    *   Implement the relative offset calculation in `tpre.g`.
-    *   Implement the special case for the touch probe in `tpost.g` (probing a reference surface).
+1.  **Complete Tool Change Logic:** ✅ (baseline)
+    *   Implemented in `macros/tooling/tfree.g`, `tpre.g`, `tpost.g` — manual install/remove via `M291`, probe-on-removal / toolsetter (`G37`), relative offsets and touch-probe path in `tpost.g`. Optional ATC magazine pack remains separate; see `docs/TOOLCHANGING.md`.
 
-2.  **Drilling Canned Cycles:**
-    *   Re-implement `G73`, `G81`, and `G83` for convenience.
+2.  **Drilling Canned Cycles:** ✅ (see `docs/CODE.md` §8.1)
+    *   `G80`, `G81`, `G73`, `G83`, `G82`, `G85`, `G89`, `G98`, `G99` in `macros/canned/` (LinuxCNC-oriented, absolute coordinates).
 
 3.  **VSSC (Variable Spindle Speed Control):**
     *   Re-implement VSSC as a self-contained feature that can be enabled via the new UI configuration.
@@ -167,16 +165,14 @@ This phase focuses on completing the tool change system and advanced features.
     *   Store calibration data and history in nxt-user-vars.g.
     *   Full documentation provided in `docs/CALIBRATION.md`.
 
-5.  **Stock Preparation UI (Issue #34):**
-    *   Implement UI panel for generating facing toolpaths for stock preparation.
-    *   Create toolpath generation algorithms for multiple pattern types (rectilinear, zigzag, spiral).
-    *   Add SVG-based visualization for real-time toolpath preview.
-    *   Implement G-code generation from toolpath data.
-    *   Support both rectangular and circular stock geometries.
-    *   Provide configurable parameters: tool radius, stock dimensions, pattern type/angle, stepover/stepdown, feed rates, spindle speed.
-    *   Include save-as-file and run-immediately functionality.
-    *   Add comprehensive input validation and safety features.
-    *   Full documentation and implementation approach in `docs/STOCK_PREPARATION.md`.
+5.  **Stock Preparation UI (Issue #34):** ✅
+    *   Panel: `ui/src/components/panels/StockPreparationPanel.vue` (facing toolpaths, worker-backed generation).
+    *   Algorithms: `ui/src/utils/toolpath.ts` — rectilinear, zigzag, spiral; rectangular and circular stock.
+    *   Preview: 2D **SVG** plan view (rapids vs cuts) via `ui/src/utils/stockPreparationSvgPreview.ts`; 3D viewer stays off for plugin stability.
+    *   G-code: `ui/src/utils/gcode.ts` (M3.9/M5.9-style headers, metadata, validation).
+    *   Parameters: tool radius, stock size/origin, pattern angle, stepover/stepdown, depth, feeds, spindle speed, finishing options.
+    *   Save to SD (`/rr_upload`) and run via `M98 P"..."`; form validation and `validateGCodeParameters`.
+    *   Design and parameters: `docs/STOCK_PREPARATION.md`.
 
 ---
 

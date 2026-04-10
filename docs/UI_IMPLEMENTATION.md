@@ -68,7 +68,7 @@ The Action Confirmation Widget integrates with the M291 dialog system from PR #1
 - **MessageBoxDialog Override**: Replaces DWC's built-in MessageBoxDialog component with conditional rendering
 - **Persistent Dialogs**: When NeXT UI is active, dialogs appear in the ActionConfirmationWidget instead of blocking modals
 - **Critical Message Fallback**: Emergency/error messages still show as blocking modals for safety
-- **Automatic Detection**: Uses `nxtUiReady` flag and message content analysis to determine rendering mode
+- **Automatic Detection**: Uses `global.nxtLoaded` and message content analysis to determine MessageBox rendering mode
 - Responds to dialogs using M292 commands
 - Provides responsive button interface for user actions
 

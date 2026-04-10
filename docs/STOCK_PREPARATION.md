@@ -11,7 +11,7 @@ The Stock Preparation UI provides a guided interface for generating facing opera
 
 ### Key Capabilities
 - Interactive UI for configuring facing operations
-- Real-time toolpath visualization (SVG or WebGL)
+- Real-time **2D SVG** plan-view toolpath preview (stock outline, rapids dashed, cuts solid); WebGL/3D preview disabled in the plugin for stability
 - Multiple facing pattern support (rectilinear, zigzag, spiral)
 - G-code generation for direct execution or file saving
 - Integration with current tool and WCS settings
