@@ -81,7 +81,7 @@ NeXT (Next-Gen Extended Tooling) is a complete rewrite of the legacy MillenniumO
 - **Daemon Integration**: Uses `daemon.g` for repetitive tasks (VSSC, etc.)
 
 ### UI Integration
-- **Fallback Strategy**: Check `global.nxtUiReady` for UI availability
+- **Fallback Strategy**: Check `global.nxtLoaded` for NeXT firmware boot success (not a DWC handshake flag)
 - **Manual Alternatives**: Always provide M291 dialogs as fallback
 - **Plugin System**: Integrates with Duet Web Control plugin architecture
 
