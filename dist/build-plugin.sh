@@ -4,24 +4,135 @@
 #
 # Usage:
 #   ./dist/build-plugin.sh [path-to-DuetWebControl]
+#   ./dist/build-plugin.sh --clean-only [path-to-DuetWebControl]
 #
 # Default DWC path: <NeXT-repo>/../DuetWebControl
 #
 # Output: dist/NeXT-<git-describe>.zip
+#
+# Artifact cleanup runs automatically before staging and npm/webpack (not after the build).
+# --clean-only removes artifacts and exits. --clean is accepted as a no-op for backwards compatibility.
+#
+# Cleanup removes:
+#   - DuetWebControl/dist/          (webpack output: js/, css/, zips from last build)
+#   - DuetWebControl/src/plugins/NeXT/  (staged plugin tree if a prior build stopped early)
+#   - DuetWebControl/node_modules/.cache/ (vue-cli / webpack cache; optional but helps stale chunks)
+#   - DuetWebControl/scripts/build-plugin.js.next-bak (leftover if a build was interrupted)
+#   - NeXT/dist/NeXT-*.zip        (previous plugin zip outputs only; other files under dist/ are kept)
 
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-DWC_REPO_PATH="${1:-${ROOT}/../DuetWebControl}"
-TMP_DIR="$(mktemp -d -t next-plugin-build-XXXXX)"
-COMMIT_ID="$(git -C "${ROOT}" describe --tags --exclude "release-*" --always --dirty)"
-OUT_ZIP="NeXT-${COMMIT_ID}.zip"
 OUT_DIR="${ROOT}/dist"
 
-cleanup() {
+CLEAN_ONLY=false
+REMAINING=()
+for arg in "$@"; do
+  case "${arg}" in
+    --clean-only)
+      CLEAN_ONLY=true
+      ;;
+    --clean)
+      ;; # no-op: cleanup always runs before each build
+    *)
+      REMAINING+=("${arg}")
+      ;;
+  esac
+done
+
+DWC_REPO_PATH="${REMAINING[0]:-${ROOT}/../DuetWebControl}"
+
+sanitize_ref() {
+  local raw="$1"
+  printf '%s' "${raw}" | sed 's/[^A-Za-z0-9._-]/-/g'
+}
+
+clean_next_plugin_artifacts() {
+  local dwc="$1"
+  echo "NeXT plugin artifact cleanup (DWC: ${dwc})"
+  if [[ -d "${dwc}/dist" ]]; then
+    echo "  rm -rf ${dwc}/dist"
+    rm -rf "${dwc}/dist"
+  else
+    echo "  (skip) no ${dwc}/dist"
+  fi
+  if [[ -d "${dwc}/src/plugins/NeXT" ]]; then
+    echo "  rm -rf ${dwc}/src/plugins/NeXT"
+    rm -rf "${dwc}/src/plugins/NeXT"
+  else
+    echo "  (skip) no ${dwc}/src/plugins/NeXT"
+  fi
+  local bak="${dwc}/scripts/build-plugin.js.next-bak"
+  if [[ -f "${bak}" ]]; then
+    echo "  rm -f ${bak}"
+    rm -f "${bak}"
+  fi
+  if [[ -d "${dwc}/node_modules/.cache" ]]; then
+    echo "  rm -rf ${dwc}/node_modules/.cache"
+    rm -rf "${dwc}/node_modules/.cache"
+  else
+    echo "  (skip) no ${dwc}/node_modules/.cache"
+  fi
+  mkdir -p "${OUT_DIR}"
+  local found_zip=false
+  shopt -s nullglob
+  for z in "${OUT_DIR}"/NeXT-*.zip; do
+    echo "  rm -f ${z}"
+    rm -f "${z}"
+    found_zip=true
+  done
+  shopt -u nullglob
+  if [[ "${found_zip}" == false ]]; then
+    echo "  (skip) no ${OUT_DIR}/NeXT-*.zip"
+  fi
+  echo "Cleanup finished."
+}
+
+if [[ ! -d "${DWC_REPO_PATH}" ]]; then
+  echo "error: DuetWebControl repository not found at ${DWC_REPO_PATH}" >&2
+  exit 1
+fi
+
+clean_next_plugin_artifacts "${DWC_REPO_PATH}"
+
+if [[ "${CLEAN_ONLY}" == true ]]; then
+  exit 0
+fi
+
+if [[ ! -f "${ROOT}/ui/plugin.json" ]]; then
+  echo "error: ${ROOT}/ui/plugin.json not found" >&2
+  exit 1
+fi
+
+TMP_DIR="$(mktemp -d -t next-plugin-build-XXXXX)"
+
+GIT_TAG="$(git -C "${ROOT}" describe --tags --exact-match 2>/dev/null || true)"
+GIT_BRANCH="$(git -C "${ROOT}" rev-parse --abbrev-ref HEAD)"
+GIT_SHA="$(git -C "${ROOT}" rev-parse --short HEAD)"
+if git -C "${ROOT}" diff-index --quiet HEAD --; then
+  DIRTY_SUFFIX=""
+else
+  DIRTY_SUFFIX="-dirty"
+fi
+
+if [[ -n "${GIT_TAG}" ]]; then
+  BUILD_VERSION="$(sanitize_ref "${GIT_TAG}")${DIRTY_SUFFIX}"
+  BUILD_BASIS="tag:${GIT_TAG}"
+else
+  BUILD_VERSION="$(sanitize_ref "${GIT_BRANCH}")-${GIT_SHA}${DIRTY_SUFFIX}"
+  BUILD_BASIS="branch:${GIT_BRANCH}@${GIT_SHA}"
+fi
+
+OUT_ZIP="NeXT-${BUILD_VERSION}.zip"
+BUILD_PLUGIN_JS="${DWC_REPO_PATH}/scripts/build-plugin.js"
+
+plugin_build_exit() {
+  if [[ -f "${BUILD_PLUGIN_JS}.next-bak" ]]; then
+    mv -f "${BUILD_PLUGIN_JS}.next-bak" "${BUILD_PLUGIN_JS}"
+  fi
   rm -rf "${TMP_DIR}"
 }
-trap cleanup EXIT
+trap plugin_build_exit EXIT
 
 generate_nxt_plugin_dispatchers() {
   local plugin_json="${TMP_DIR}/plugin.json"
@@ -132,23 +243,14 @@ EOF
   append_hook "${cancel_dispatch}" "${cancel_path}" "cancel"
 }
 
-if [[ ! -f "${ROOT}/ui/plugin.json" ]]; then
-  echo "error: ${ROOT}/ui/plugin.json not found" >&2
-  exit 1
-fi
-
-if [[ ! -d "${DWC_REPO_PATH}" ]]; then
-  echo "error: DuetWebControl repository not found at ${DWC_REPO_PATH}" >&2
-  exit 1
-fi
-
 echo "Building NeXT plugin (${OUT_ZIP}) using DWC at ${DWC_REPO_PATH}..."
+echo "Build basis: ${BUILD_BASIS}"
 
 # Stage sd/sys* the same way as dist/release.sh. DWC's build-plugin archives a top-level
 # sd/ tree into the plugin zip (see DuetWebControl scripts/build-plugin.js).
 mkdir -p "${TMP_DIR}/sd/sys/nxt"
 SYNC_CMD=(rsync -a --exclude=README.md --exclude='*.gitkeep')
-for _macro_dir in system probing tooling spindle coolant utilities; do
+for _macro_dir in system probing tooling spindle coolant utilities canned; do
   if [[ -d "${ROOT}/macros/${_macro_dir}" ]]; then
     "${SYNC_CMD[@]}" "${ROOT}/macros/${_macro_dir}/" "${TMP_DIR}/sd/sys/"
   fi
@@ -160,18 +262,22 @@ if [[ -d "${ROOT}/macros/plugins" ]]; then
   mkdir -p "${TMP_DIR}/sd/sys/plugins"
   "${SYNC_CMD[@]}" "${ROOT}/macros/plugins/" "${TMP_DIR}/sd/sys/plugins/"
 fi
+if [[ -d "${ROOT}/macros/nxt-config" ]]; then
+  mkdir -p "${TMP_DIR}/sd/sys/nxt/config"
+  "${SYNC_CMD[@]}" "${ROOT}/macros/nxt-config/" "${TMP_DIR}/sd/sys/nxt/config/"
+fi
 
 if [[ -f "${TMP_DIR}/sd/sys/nxt.g" ]]; then
-  echo "Replacing %%NXT_VERSION%% in sd/sys/nxt.g with ${COMMIT_ID}..."
+  echo "Replacing %%NXT_VERSION%% in sd/sys/nxt.g with ${BUILD_VERSION}..."
   _tmp_nxt="${TMP_DIR}/sd/sys/nxt.g.bak"
-  sed "s/%%NXT_VERSION%%/${COMMIT_ID}/g" "${TMP_DIR}/sd/sys/nxt.g" > "${_tmp_nxt}" && mv "${_tmp_nxt}" "${TMP_DIR}/sd/sys/nxt.g"
+  sed "s/%%NXT_VERSION%%/${BUILD_VERSION}/g" "${TMP_DIR}/sd/sys/nxt.g" > "${_tmp_nxt}" && mv "${_tmp_nxt}" "${TMP_DIR}/sd/sys/nxt.g"
 fi
 
 cp -a "${ROOT}/ui/." "${TMP_DIR}/"
 
 # Replace version placeholder (portable; avoids sed -i differences)
 _tmp_plugin="${TMP_DIR}/plugin.json.bak"
-sed "s/%%NXT_VERSION%%/${COMMIT_ID}/g" "${TMP_DIR}/plugin.json" > "${_tmp_plugin}" && mv "${_tmp_plugin}" "${TMP_DIR}/plugin.json"
+sed "s/%%NXT_VERSION%%/${BUILD_VERSION}/g" "${TMP_DIR}/plugin.json" > "${_tmp_plugin}" && mv "${_tmp_plugin}" "${TMP_DIR}/plugin.json"
 
 generate_nxt_plugin_dispatchers
 
@@ -180,12 +286,25 @@ if [[ -f "${ROOT}/dist/generate-plugin-dispatchers.sh" && -f "${ROOT}/dist/plugi
   bash "${ROOT}/dist/generate-plugin-dispatchers.sh" "${ROOT}/dist/plugins.catalog.json" "${TMP_DIR}/sd/sys"
 fi
 
+if [[ ! -f "${BUILD_PLUGIN_JS}" ]]; then
+  echo "error: ${BUILD_PLUGIN_JS} not found" >&2
+  exit 1
+fi
+cp "${BUILD_PLUGIN_JS}" "${BUILD_PLUGIN_JS}.next-bak"
+node "${ROOT}/dist/patch-dwc-build-plugin-zip.cjs" "${BUILD_PLUGIN_JS}"
+
 (
   cd "${DWC_REPO_PATH}"
   npm ci
   npm install three@0.181.0
   npm run build-plugin "${TMP_DIR}"
 )
+
+# DWC client only uploads zip members whose names start with "sd/" (see @duet3d/connectors
+# PollConnector.installPlugin). Re-pack sd/ from staging so M-code macros always land under 0:/sys/.
+DWC_REPO_PATH="${DWC_REPO_PATH}" node "${ROOT}/dist/merge-sd-into-plugin-zip.cjs" \
+  "${DWC_REPO_PATH}/dist/${OUT_ZIP}" \
+  "${TMP_DIR}"
 
 mkdir -p "${OUT_DIR}"
 cp "${DWC_REPO_PATH}/dist/${OUT_ZIP}" "${OUT_DIR}/"

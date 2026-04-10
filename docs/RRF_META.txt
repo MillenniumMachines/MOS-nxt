@@ -1,0 +1,85 @@
+NeXT — RepRapFirmware meta G-code / arrays (single reference)
+==============================================================
+
+Official doc (arrays, expressions, functions):
+  https://docs.duet3d.com/User_manual/Reference/Gcode_meta_commands
+
+Reference implementation (sibling repo): MillenniumOS loads vector-backed globals
+and runtime arrays using a consistent RHS form — see especially:
+  ../MillenniumOS/sys/mos-vars.g   (global mosTT, mosPS, mosWPCtrPos, …)
+  ../MillenniumOS/sys/mos.g        (load order: vars → user → boot)
+  ../MillenniumOS/macro/machine/M5000.g  (set global.mosMI = { vector(#move.axes, null) })
+  ../MillenniumOS/sys/pause.g      (gpOut snapshot into global.mosPS by index)
+NeXT mirrors that pattern: wrap vector() in { } on global / set / var RHS.
+
+1) WHAT “VECTOR” MEANS IN RRF
+-----------------------------
+  * vector(count, fill) is a META FUNCTION that allocates an array of length
+    “count” filled with copies of “fill”.
+  * Documented minimum: RepRapFirmware 3.5.0 and later (same page, Functions table).
+  * It is NOT a separate file type or plugin feature — if the parser says
+    “unknown value: vector”, that interpreter does not implement vector().
+
+2) ARRAY LITERALS { a, b, c } vs vector() — NeXT / MillenniumOS style
+--------------------------------------------------------------------
+  * From 3.5 onward, comma-separated expressions inside { } can form array
+    values (see “Array expressions” on the same doc page).
+  * vector(n, x) builds a dynamic-length array (e.g. limits.tools, #move.axes).
+  * For global, set, and var assignments, MillenniumOS wraps the call:
+      global mosPS = { vector(limits.gpOutPorts, 0.0) }
+      global nxtPinStates = { vector(min(limits.gpOutPorts, 32), 0.0) }
+      set global.nxtAbsPos = { vector(var.numAxes, null) }
+      var averaged = { vector(#move.axes + 1, 0.0) }
+    Use this form throughout NeXT so parsing matches the proven MOS macros.
+  * RRF 3.7.0+ also allows [a, b, c]; NeXT stays on { } for 3.5.x compatibility.
+
+3) GLOBAL ARRAYS AND NeXT
+---------------------------
+  * Duet docs: array-valued variables / globals are a 3.5-era feature.
+  * nxt-vars.g uses { vector(...) } for large/dynamic globals (same idea as mos-vars.g).
+  * If vector() fails, compare M115 / OM firmware to what you expect (stale SD copy, etc.).
+
+4) “TOO MANY ARRAY ELEMENTS”
+----------------------------
+  * Separate from “unknown vector”: vector() is recognized but “count” exceeds
+    firmware limits. MOS uses full limits.gpOutPorts; NeXT caps gpOut to avoid
+    “too many array elements” on large configs:
+      { vector(min(limits.gpOutPorts, 32), 0.0) }
+      { vector(min(limits.tools, 50), null) }
+
+5) NeXT POLICY (stops churn)
+----------------------------
+  * Declared minimum: RepRapFirmware 3.5.0+ for full NeXT (globals + probing).
+  * NeXT uses { vector(...) } for nxt-vars globals (probe table, tool cache, pin states)
+    and for probe-result rows in boot + G65xx + M5000/M6522 (MillenniumOS-aligned).
+  * Keep short array expressions (e.g. listing coordinates) as { a, b, c } where
+    that is clearer than vector(n, x) plus many assignments.
+  * If you must run older RRF: NeXT is not supported; upgrade the board.
+
+6) CNC MODE (NeXT assumes M453 / CNC — see nxt-boot.g)
+-------------------------------------------------------
+  NeXT enforces CNC machine mode at boot. In CNC mode, RepRapFirmware treats
+  ( ... ) as a COMMENT on normal G-code lines unless the parentheses are inside
+  a meta expression wrapped in { }. See “Expressions” in the same Duet meta doc.
+
+  Rules for writing / reviewing NeXT macros:
+
+  a) Meta conditions and loops — always use braces, never raw parentheses:
+       GOOD:  if { move.axes[0].homed }
+       GOOD:  while { iterations < #global.nxtProbeResults }
+       BAD:   while (iterations < #spindles)   ; “(” starts a comment → broken parse
+
+  b) On set/var/global RHS, put the whole vector() (and min(), etc.) inside
+     one braced expression (MOS style), e.g.
+           global nxtToolCache = { vector(min(limits.tools, 50), null) }
+           if { exists(global.nxtError) && global.nxtError != null }
+
+  c) Grouping subexpressions with ( ) is OK only INSIDE { }, e.g.
+       if { (var.a + var.b) > 0 }   ; parens are inside the braced expression
+
+  d) Ordinary G-code (G0, G1, M3, …) still uses (text) as line comments per
+     CNC convention. Do not put meta if/while/set on the same physical line
+     after an unclosed G-code comment.
+
+  e) When adding macros, grep for “while (”, “if (”, “elif (” at line start —
+     replace with braced forms.

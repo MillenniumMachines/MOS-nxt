@@ -123,7 +123,7 @@ echo "Building NeXT release ${ZIP_NAME} for ${COMMIT_ID}..."
 mkdir -p "${TMP_DIR}/sd/sys/nxt"
 
 # Copy all macros to sys/ for system functionality (G/M-codes)
-${SYNC_CMD} macros/system/* macros/probing/* macros/tooling/* macros/spindle/* macros/coolant/* macros/utilities/* "${TMP_DIR}/sd/sys/"
+${SYNC_CMD} macros/system/* macros/probing/* macros/tooling/* macros/spindle/* macros/coolant/* macros/utilities/* macros/canned/* "${TMP_DIR}/sd/sys/"
 
 # Copy all daemon scripts to sys/nxt
 if [[ -d "${WD}/macros/daemon" ]]; then
@@ -132,6 +132,10 @@ fi
 if [[ -d "${WD}/macros/plugins" ]]; then
     mkdir -p "${TMP_DIR}/sd/sys/plugins"
     ${SYNC_CMD} macros/plugins/* "${TMP_DIR}/sd/sys/plugins/"
+fi
+if [[ -d "${WD}/macros/nxt-config" ]]; then
+    mkdir -p "${TMP_DIR}/sd/sys/nxt/config"
+    ${SYNC_CMD} "${WD}/macros/nxt-config/" "${TMP_DIR}/sd/sys/nxt/config/"
 fi
 
 [[ -f "${ZIP_PATH}" ]] && rm "${ZIP_PATH}"
@@ -159,6 +163,10 @@ if [[ -f "${WD}/ui/plugin.json" ]]; then
         npm ci
         npm install three@0.181.0
         npm run build-plugin "${TMP_DIR}" || exit 1
+        # Ensure sd/ entries use dwc/expected "sd/..." paths so PollConnector installs M-codes to 0:/sys/
+        DWC_REPO_PATH="${DWC_REPO_PATH}" node "${WD}/dist/merge-sd-into-plugin-zip.cjs" \
+            "${PWD}/dist/NeXT-${COMMIT_ID}.zip" \
+            "${TMP_DIR}" || exit 1
         # Copy the built plugin to the main dist folder
         cp dist/NeXT-${COMMIT_ID}.zip "${WD}/dist/" || exit 1
     ) || exit 1
