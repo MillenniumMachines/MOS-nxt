@@ -5,8 +5,10 @@
       {{ $t('plugins.next.panels.status.caption') }}
       <v-spacer />
       <div v-if="!isConnected || !nxtReady" class="d-flex align-center">
-        <v-icon small class="mr-2" color="warning">mdi-lan-disconnect</v-icon>
-        <span class="text-caption">{{ $t('plugins.next.messages.disconnectedShort') }}</span>
+        <v-icon small class="mr-2" color="warning">{{ !isConnected ? 'mdi-lan-disconnect' : 'mdi-alert-circle-outline' }}</v-icon>
+        <span class="text-caption">{{
+          !isConnected ? $t('plugins.next.messages.disconnectedShort') : $t('plugins.next.messages.notReadyShort')
+        }}</span>
       </div>
     </v-card-title>
     
@@ -20,30 +22,22 @@
               <v-list dense>
                 <v-list-item>
                   <v-list-item-content>
-                    <v-list-item-title>Backend Loaded</v-list-item-title>
+                    <v-list-item-title>NeXT loaded (firmware)</v-list-item-title>
+                    <v-list-item-subtitle class="text-caption">
+                      <code>global.nxtLoaded</code> true after successful boot
+                    </v-list-item-subtitle>
                   </v-list-item-content>
                   <v-list-item-action>
-                    <v-icon :color="globals.nxtLoaded ? 'success' : 'error'">
-                      {{ globals.nxtLoaded ? 'mdi-check' : 'mdi-close' }}
-                    </v-icon>
-                  </v-list-item-action>
-                </v-list-item>
-                
-                <v-list-item>
-                  <v-list-item-content>
-                    <v-list-item-title>UI Ready</v-list-item-title>
-                  </v-list-item-content>
-                  <v-list-item-action>
-                    <v-icon :color="globals.nxtUiReady ? 'success' : 'error'">
-                      {{ globals.nxtUiReady ? 'mdi-check' : 'mdi-close' }}
+                    <v-icon :color="nxtBackendReady ? 'success' : 'error'">
+                      {{ nxtBackendReady ? 'mdi-check' : 'mdi-close' }}
                     </v-icon>
                   </v-list-item-action>
                 </v-list-item>
 
-                <v-list-item v-if="globals.nxtError">
+                <v-list-item v-if="nxtErrorText">
                   <v-list-item-content>
                     <v-list-item-title class="error--text">
-                      Last Error: {{ globals.nxtError }}
+                      Last Error: {{ nxtErrorText }}
                     </v-list-item-title>
                   </v-list-item-content>
                 </v-list-item>
@@ -144,7 +138,31 @@ import BaseComponent from '../base/BaseComponent.vue'
  */
 export default BaseComponent.extend({
   name: 'NxtMachineStatusPanel',
-  
+
+  computed: {
+    /**
+     * RRF may expose globals as strings, numbers, or occasionally structured values.
+     * Normalize so Vuetify / Vue never receives a value that breaks text rendering.
+     */
+    nxtErrorText(): string {
+      const e = this.globals.nxtError
+      if (e == null || e === '') {
+        return ''
+      }
+      if (typeof e === 'string') {
+        return e
+      }
+      if (typeof e === 'number' || typeof e === 'boolean') {
+        return String(e)
+      }
+      try {
+        return JSON.stringify(e)
+      } catch {
+        return String(e)
+      }
+    }
+  },
+
   methods: {
     formatPosition(position: number | null | undefined): string {
       if (position === null || position === undefined) {

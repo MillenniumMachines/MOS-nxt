@@ -1,7 +1,8 @@
 /**
- * Panel Components Registration
+ * Global panel tags for NeXT.vue and shared widgets only.
  *
- * Registers all NeXT panel components globally for use in templates
+ * Route-only panels (Stock prep, Tool library, etc.) are NOT imported here so they
+ * do not run at plugin startup — they load when their route is registered via dynamic import.
  */
 
 import Vue from 'vue'
@@ -9,28 +10,24 @@ import StatusWidget from './StatusWidget.vue'
 import ActionConfirmationWidget from './ActionConfirmationWidget.vue'
 import MachineStatusPanel from './MachineStatusPanel.vue'
 import ConfigurationPanel from './ConfigurationPanel.vue'
-import StockPreparationPanel from './StockPreparationPanel.vue'
-import GCodeViewer3D from './GCodeViewer3D.vue'
-import ProbingPanel from './ProbingPanel.vue'
-import ToolLibraryPanel from './ToolLibraryPanel.vue'
+import ProbingCyclesPanel from './ProbingCyclesPanel.vue'
+import ProbeResultsPanel from './ProbeResultsPanel.vue'
+import ToolManagementPanel from './ToolManagementPanel.vue'
 
-// Register panel components
 Vue.component('nxt-status-widget', StatusWidget)
 Vue.component('nxt-action-confirmation-widget', ActionConfirmationWidget)
 Vue.component('nxt-machine-status-panel', MachineStatusPanel)
 Vue.component('nxt-configuration-panel', ConfigurationPanel)
-Vue.component('nxt-stock-preparation-panel', StockPreparationPanel)
-Vue.component('g-code-viewer-3-d', GCodeViewer3D)
-Vue.component('nxt-probing-panel', ProbingPanel)
-Vue.component('nxt-tool-library-panel', ToolLibraryPanel)
+Vue.component('nxt-probing-cycles-panel', ProbingCyclesPanel)
+Vue.component('nxt-probe-results-panel', ProbeResultsPanel)
+Vue.component('nxt-tool-management-panel', ToolManagementPanel)
 
 export {
   StatusWidget,
   ActionConfirmationWidget,
   MachineStatusPanel,
   ConfigurationPanel,
-  StockPreparationPanel,
-  ProbingPanel,
-  GCodeViewer3D,
-  ToolLibraryPanel
+  ProbingCyclesPanel,
+  ProbeResultsPanel,
+  ToolManagementPanel
 }

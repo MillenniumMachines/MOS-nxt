@@ -5,8 +5,10 @@
       {{ $t('plugins.next.panels.stockPreparation.caption') }}
       <v-spacer />
       <div v-if="!isConnected || !nxtReady" class="d-flex align-center mr-2">
-        <v-icon small class="mr-2" color="warning">mdi-lan-disconnect</v-icon>
-        <span class="text-caption mr-2">{{ $t('plugins.next.messages.disconnectedShort') }}</span>
+        <v-icon small class="mr-2" color="warning">{{ !isConnected ? 'mdi-lan-disconnect' : 'mdi-alert-circle-outline' }}</v-icon>
+        <span class="text-caption mr-2">{{
+          !isConnected ? $t('plugins.next.messages.disconnectedShort') : $t('plugins.next.messages.notReadyShort')
+        }}</span>
       </div>
       <v-spacer />
       <v-chip
@@ -61,15 +63,47 @@
               Toolpath Preview
             </v-card-subtitle>
             <v-card-text>
-              <!-- Three.js-based G-code Viewer -->
-                          <g-code-viewer-3-d
-              ref="gcodeViewer"
-              :gcode="generatedGcode"
-              :auto-update="true"
-              :highlighted-lines="highlightedGcodeLines"
-              @line-selected="onLineSelectedFrom3D"
-              @lines-selected="onLinesSelectedFromOverlay"
-            />
+              <div class="toolpath-preview-container">
+                <svg
+                  v-if="svgPreview.stockPathD"
+                  class="nxt-sp-svg"
+                  xmlns="http://www.w3.org/2000/svg"
+                  :viewBox="svgPreview.viewBox"
+                  preserveAspectRatio="xMidYMid meet"
+                >
+                  <path
+                    :d="svgPreview.stockPathD"
+                    class="nxt-sp-svg-stock"
+                    fill="rgba(120, 144, 156, 0.08)"
+                    :stroke-width="svgPreview.strokeStock"
+                    stroke-linejoin="round"
+                  />
+                  <path
+                    v-if="svgPreview.rapidPathD"
+                    :d="svgPreview.rapidPathD"
+                    class="nxt-sp-svg-rapid"
+                    fill="none"
+                    :stroke-width="svgPreview.strokeRapid"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                  <path
+                    v-if="svgPreview.cutPathD"
+                    :d="svgPreview.cutPathD"
+                    class="nxt-sp-svg-cut"
+                    fill="none"
+                    :stroke-width="svgPreview.strokeCut"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                </svg>
+                <div v-else class="text-caption pa-4 text-center">
+                  Configure valid stock dimensions to show preview.
+                </div>
+              </div>
+              <div class="text-caption mt-2 grey--text">
+                Plan view (XY). Orange dashed = rapid, teal solid = cut. 3D preview remains disabled for plugin stability.
+              </div>
             </v-card-text>
           </v-card>
         </v-col>
@@ -550,9 +584,6 @@
             </v-expansion-panels>
           </v-form>
 
-          <!-- Statistics (in right column) -->
-
-          <!-- Statistics (in right column) -->
           <v-card outlined class="mt-4">
             <v-card-subtitle class="font-weight-bold">
               <v-icon left small>mdi-chart-box</v-icon>
@@ -649,7 +680,6 @@
 <script lang="ts">
 // @ts-nocheck - Vue 2 component with Vuex store integration
 import BaseComponent from '../base/BaseComponent.vue'
-import GCodeViewer3D from './GCodeViewer3D.vue'
 import {
   generateToolpath,
   calculateToolpathStatistics,
@@ -657,13 +687,10 @@ import {
   ToolpathPoint
 } from '../../utils/toolpath'
 import { generateGCode, validateGCodeParameters } from '../../utils/gcode'
+import { buildStockPreparationSvgPreview } from '../../utils/stockPreparationSvgPreview'
 
 export default BaseComponent.extend({
   name: 'NxtStockPreparationPanel',
-
-  components: {
-    GCodeViewer3D
-  },
 
   data() {
     return {
@@ -734,24 +761,6 @@ export default BaseComponent.extend({
       feedRateZInput: 300,
       spindleSpeed: 10000,
       spindleSpeedInput: 10000,
-      // Buffered inputs to avoid generating preview while typing
-      toolRadiusInput: '',
-      stockXInput: '',
-      stockYInput: '',
-      stockZInput: '',
-      stockDiameterInput: '',
-      patternAngleInput: '',
-      stepoverInput: '',
-      stepdownInput: '',
-      totalDepthInput: '',
-      zOffsetInput: '',
-      safeZHeightInput: '',
-      finishingPassHeightInput: '',
-      finishingPassOffsetInput: '',
-      feedRateXYInput: '',
-      feedRateZInput: '',
-      spindleSpeedInput: '',
-      filenameInput: '',
 
       // Preview and Generation
       generatedToolpath: [] as ToolpathPoint[][],
@@ -878,6 +887,27 @@ export default BaseComponent.extend({
     },
     pendingCount(): number {
       return this.pendingFields.length
+    },
+
+    svgPreview() {
+      try {
+        return buildStockPreparationSvgPreview(
+          this.generatedToolpath || [],
+          this.buildGenerationParams()
+        )
+      } catch (e) {
+        console.warn('Stock prep SVG preview:', e)
+        return {
+          viewBox: '0 0 100 100',
+          strokeStock: 0.5,
+          strokeRapid: 0.35,
+          strokeCut: 0.5,
+          stockPathD: '',
+          rapidPathD: '',
+          cutPathD: '',
+          hasToolpath: false
+        }
+      }
     }
   },
 
@@ -1335,13 +1365,33 @@ export default BaseComponent.extend({
 }
 
 .toolpath-preview-container {
-  border: 1px solid #ddd;
+  border: 1px solid rgba(0, 0, 0, 0.12);
   border-radius: 4px;
   overflow: hidden;
-  background: #f5f5f5;
+  background: #eceff1;
   display: flex;
   justify-content: center;
   align-items: center;
+  min-height: 280px;
+}
+
+.nxt-sp-svg {
+  display: block;
+  width: 100%;
+  height: 320px;
+}
+
+.nxt-sp-svg-stock {
+  stroke: #546e7a;
+}
+
+.nxt-sp-svg-rapid {
+  stroke: #ef6c00;
+  stroke-dasharray: 4 3;
+}
+
+.nxt-sp-svg-cut {
+  stroke: #00897b;
 }
 
 .toolpath-preview {

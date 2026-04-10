@@ -7,6 +7,7 @@
 import Vue from 'vue'
 import { Axis, AxisLetter, Tool } from "@duet3d/objectmodel";
 import store from "@/store";
+import { readFirmwareGlobal } from "../../utils/nxtToolChangerOm";
 
 /**
  * BaseComponent - Foundation component for all NeXT UI components
@@ -113,10 +114,19 @@ export default Vue.extend({
     },
 
     /**
-     * Check if NeXT system is loaded and ready
+     * RRF / JSON may expose booleans as true or 1 in the object model.
+     */
+    nxtBackendReady(): boolean {
+      const v = readFirmwareGlobal(store.state.machine.model.global, 'nxtLoaded')
+      return v === true || v === 1
+    },
+
+    /**
+     * NeXT firmware globals are present and boot reported success (`global.nxtLoaded`).
+     * No DWC→RRF UI handshake; avoids false negatives when OM lags or Map shape differs.
      */
     nxtReady(): boolean {
-      return this.globals.nxtLoaded === true && this.globals.nxtUiReady === true
+      return this.nxtBackendReady
     },
 
     /**

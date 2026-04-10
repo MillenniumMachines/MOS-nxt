@@ -251,6 +251,34 @@ export default Vue.extend({
   },
 
   methods: {
+    patchThreeEventDispatcher() {
+      // The crash `undefined is not an object (evaluating 'v[ee].call')` happens inside
+      // Three.js' EventDispatcher when a listener entry is `undefined`.
+      // Patch dispatchEvent once to filter out non-functions before dispatch.
+      const ED = (THREE as any)?.EventDispatcher
+      const proto: any = ED?.prototype
+      if (!proto?.dispatchEvent || proto.__nextPatchedEventDispatcher) return
+
+      const originalDispatch = proto.dispatchEvent
+      proto.dispatchEvent = function (event: any) {
+        try {
+          if (event?.type && this?._listeners) {
+            const arr = this._listeners[event.type]
+            if (Array.isArray(arr)) {
+              // Mutate in-place so we don't grow the bad list over time.
+              for (let i = arr.length - 1; i >= 0; i--) {
+                if (typeof arr[i] !== 'function') arr.splice(i, 1)
+              }
+            }
+          }
+        } catch {
+          // Ignore - this is purely defensive.
+        }
+        return originalDispatch.call(this, event)
+      }
+      proto.__nextPatchedEventDispatcher = true
+    },
+
     getGcodeLine(lineNumber: number): string {
       return this.allGcodeLines[lineNumber] || "";
     },
@@ -368,6 +396,9 @@ export default Vue.extend({
     },
 
     initThreeJS() {
+      // Ensure the defensive patch is applied before creating OrbitControls.
+      this.patchThreeEventDispatcher()
+
       const canvas = this.$refs.canvas as HTMLCanvasElement;
       if (!canvas) return;
 

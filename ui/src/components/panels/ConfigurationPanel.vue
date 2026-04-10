@@ -5,8 +5,10 @@
       {{ $t('plugins.next.panels.configuration.caption') }}
       <v-spacer />
       <div v-if="!isConnected || !nxtReady" class="d-flex align-center">
-        <v-icon small class="mr-2" color="warning">mdi-lan-disconnect</v-icon>
-        <span class="text-caption">{{ $t('plugins.next.messages.disconnectedShort') }}</span>
+        <v-icon small class="mr-2" color="warning">{{ !isConnected ? 'mdi-lan-disconnect' : 'mdi-alert-circle-outline' }}</v-icon>
+        <span class="text-caption">{{
+          !isConnected ? $t('plugins.next.messages.disconnectedShort') : $t('plugins.next.messages.notReadyShort')
+        }}</span>
       </div>
     </v-card-title>
 
@@ -18,6 +20,123 @@
 
       <!-- Configuration Sections -->
       <v-expansion-panels v-model="openPanels" multiple class="mb-4">
+        <!-- Board & kit -->
+        <v-expansion-panel>
+          <v-expansion-panel-header>
+            <div>
+              <v-icon left>mdi-circuit-board</v-icon>
+              <strong>{{ $t('plugins.next.panels.configuration.boardSection') }}</strong>
+              <v-spacer />
+              <v-icon
+                v-if="boardKitMismatch"
+                small
+                color="warning"
+                class="mr-2"
+              >mdi-alert</v-icon>
+            </div>
+          </v-expansion-panel-header>
+          <v-expansion-panel-content>
+            <v-alert type="info" dense outlined class="mb-3">
+              <span class="text-caption">{{ $t('plugins.next.panels.configuration.boardBootstrapHint') }}</span>
+            </v-alert>
+            <p class="text-caption grey--text mb-2">{{ $t('plugins.next.panels.configuration.boardDetected') }}</p>
+            <v-chip
+              v-for="(b, i) in machineBoardsList"
+              :key="'brd-' + i"
+              small
+              class="mr-2 mb-2"
+              outlined
+            >
+              [{{ i }}] {{ b.shortName || '—' }} — {{ b.name || '' }}
+            </v-chip>
+            <p v-if="machineBoardsList.length === 0" class="text-caption grey--text">—</p>
+            <v-row class="mt-2">
+              <v-col cols="12" md="6">
+                <v-text-field
+                  :value="primaryBoardShortName"
+                  :label="$t('plugins.next.panels.configuration.boardPrimaryShortName')"
+                  readonly
+                  dense
+                  outlined
+                  hide-details
+                />
+              </v-col>
+              <v-col cols="12" md="6">
+                <v-select
+                  :value="globals.nxtPlatformProfile"
+                  :items="nxtPlatformSelectItems"
+                  item-text="title"
+                  item-value="value"
+                  :label="$t('plugins.next.panels.configuration.boardPlatform')"
+                  clearable
+                  :disabled="uiFrozen"
+                  hide-details
+                  @change="onPlatformProfileChange"
+                />
+              </v-col>
+            </v-row>
+            <v-row>
+              <v-col cols="12" md="6">
+                <v-select
+                  :value="globals.nxtBoardKitKey"
+                  :items="boardKitSelectItems"
+                  item-text="title"
+                  item-value="value"
+                  :label="$t('plugins.next.panels.configuration.boardKit')"
+                  :disabled="uiFrozen || boardKitSelectItems.length === 0"
+                  clearable
+                  hide-details
+                  @change="onBoardKitKeyChange"
+                />
+                <p v-if="boardKitSelectItems.length === 0" class="text-caption grey--text mt-1">
+                  {{ $t('plugins.next.panels.configuration.boardNoKitsPlatform') }}
+                </p>
+              </v-col>
+              <v-col cols="12" md="6">
+                <v-select
+                  :value="boardBootstrapModeUi"
+                  :items="boardBootstrapModeItems"
+                  item-text="title"
+                  item-value="value"
+                  :label="$t('plugins.next.panels.configuration.boardBootstrapMode')"
+                  :disabled="uiFrozen"
+                  hide-details
+                  @change="onBoardBootstrapModeChange"
+                />
+              </v-col>
+            </v-row>
+            <v-alert v-if="boardKitMismatch" type="warning" dense outlined class="mt-3">
+              {{ $t('plugins.next.panels.configuration.boardMismatch') }}
+            </v-alert>
+            <v-textarea
+              :value="kitEntryPathForUi"
+              :label="$t('plugins.next.panels.configuration.boardKitEntry')"
+              readonly
+              outlined
+              dense
+              rows="2"
+              class="mt-3"
+              hide-details
+            />
+            <div class="d-flex flex-wrap mt-2" style="gap: 8px">
+              <v-btn small outlined color="primary" :disabled="!isConnected" @click="copyBoardConfigHint">
+                <v-icon small left>mdi-content-copy</v-icon>
+                {{ $t('plugins.next.panels.configuration.boardCopySnippet') }}
+              </v-btn>
+              <v-btn
+                small
+                outlined
+                :disabled="!isConnected || uiFrozen || pinmapSaving"
+                :loading="pinmapSaving"
+                @click="savePinmapStub"
+              >
+                {{ $t('plugins.next.panels.configuration.boardSavePinmap') }}
+              </v-btn>
+            </div>
+            <p class="text-caption grey--text mt-2 mb-0">{{ $t('plugins.next.panels.configuration.boardPinmapHint') }}</p>
+          </v-expansion-panel-content>
+        </v-expansion-panel>
+
         <!-- Spindle Configuration -->
         <v-expansion-panel>
           <v-expansion-panel-header>
@@ -402,7 +521,7 @@
               <v-col cols="12" md="4">
                 <v-select
                   v-model="globals.nxtCoolantAirID"
-                  :items="availableGpOutputs"
+                  :items="boardKitGpOutputs"
                   item-text="name"
                   item-value="id"
                   label="Air Blast Output"
@@ -422,7 +541,7 @@
               <v-col cols="12" md="4">
                 <v-select
                   v-model="globals.nxtCoolantMistID"
-                  :items="availableGpOutputs"
+                  :items="boardKitGpOutputs"
                   item-text="name"
                   item-value="id"
                   label="Mist Coolant Output"
@@ -442,7 +561,7 @@
               <v-col cols="12" md="4">
                 <v-select
                   v-model="globals.nxtCoolantFloodID"
-                  :items="availableGpOutputs"
+                  :items="boardKitGpOutputs"
                   item-text="name"
                   item-value="id"
                   label="Flood Coolant Output"
@@ -482,6 +601,49 @@
                 </v-switch>
               </v-col>
             </v-row>
+          </v-expansion-panel-content>
+        </v-expansion-panel>
+
+        <!-- NeXT globals snapshot (read-only) -->
+        <v-expansion-panel>
+          <v-expansion-panel-header>
+            <div>
+              <v-icon left>mdi-database-eye</v-icon>
+              <strong>{{ $t('plugins.next.panels.configuration.globalsSnapshotTitle') }}</strong>
+            </div>
+          </v-expansion-panel-header>
+          <v-expansion-panel-content>
+            <p class="body-2 grey--text text--darken-1 mb-3">
+              {{ $t('plugins.next.panels.configuration.globalsSnapshotIntro') }}
+            </p>
+            <div class="d-flex flex-wrap mb-2" style="gap: 8px">
+              <v-btn small outlined color="primary" :disabled="!isConnected" @click="copyNxtGlobalsSnapshot">
+                <v-icon small left>mdi-content-copy</v-icon>
+                {{ $t('plugins.next.panels.configuration.globalsSnapshotCopy') }}
+              </v-btn>
+            </div>
+            <v-simple-table dense class="nxt-globals-snapshot-table">
+              <template #default>
+                <thead>
+                  <tr>
+                    <th class="text-left text-no-wrap">{{ $t('plugins.next.panels.configuration.globalsColKey') }}</th>
+                    <th class="text-left">{{ $t('plugins.next.panels.configuration.globalsColDescription') }}</th>
+                    <th class="text-left">{{ $t('plugins.next.panels.configuration.globalsColValue') }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr
+                    v-for="row in nxtGlobalsSnapshotRows"
+                    :key="row.key"
+                    :class="{ 'grey lighten-4': row.missing }"
+                  >
+                    <td class="text-no-wrap font-mono">{{ row.key }}</td>
+                    <td class="body-2">{{ row.description }}</td>
+                    <td class="font-mono body-2 nxt-globals-snapshot-value">{{ row.valueText }}</td>
+                  </tr>
+                </tbody>
+              </template>
+            </v-simple-table>
           </v-expansion-panel-content>
         </v-expansion-panel>
       </v-expansion-panels>
@@ -566,6 +728,17 @@
   </template>
 <script lang="ts">
 import BaseComponent from '../base/BaseComponent.vue'
+import { snapshotNxtGlobals } from '../../utils/nxtGlobalsManifest'
+import {
+  NXT_PLATFORM_OPTIONS,
+  NXT_LDO_KIT_OPTIONS,
+  nxtKitEntryPath,
+  suggestKitKeyFromBoardShortName,
+  gpOutItemsForKit,
+  applyKitKeyToGlobals,
+  type NxtPlatformId,
+  type NxtBoardKitKey
+} from '../../utils/nxtBoardManifest'
 
 /**
  * NeXT Configuration Panel
@@ -606,7 +779,9 @@ export default BaseComponent.extend({
         x: 0,
         y: 0,
         z: 0
-      }
+      },
+
+      pinmapSaving: false
     }
   },
 
@@ -727,6 +902,90 @@ export default BaseComponent.extend({
         return 'At least one output configured - feature can be enabled'
       }
       return 'Required: At least one coolant output (Air, Mist, or Flood)'
+    },
+
+    machineBoardsList(): Array<{ shortName?: string; name?: string }> {
+      const boards = this.$store.state.machine.model.boards
+      if (!Array.isArray(boards)) {
+        return []
+      }
+      return boards.map((b: { shortName?: string; name?: string }) => ({
+        shortName: b?.shortName,
+        name: b?.name
+      }))
+    },
+
+    primaryBoardShortName(): string {
+      const b = this.machineBoardsList[0]
+      return b?.shortName != null && String(b.shortName).length > 0 ? String(b.shortName) : '—'
+    },
+
+    omSuggestedKitKey(): NxtBoardKitKey | null {
+      return suggestKitKeyFromBoardShortName(this.machineBoardsList[0]?.shortName)
+    },
+
+    boardKitMismatch(): boolean {
+      const sel = this.globals.nxtBoardKitKey as NxtBoardKitKey | null | undefined
+      const om = this.omSuggestedKitKey
+      if (om == null || sel == null) {
+        return false
+      }
+      return om !== sel
+    },
+
+    nxtPlatformSelectItems() {
+      return NXT_PLATFORM_OPTIONS
+    },
+
+    boardKitSelectItems() {
+      const p = this.globals.nxtPlatformProfile
+      if (p === 'v1.5' || p === 'v1.6_v2') {
+        return NXT_LDO_KIT_OPTIONS
+      }
+      return []
+    },
+
+    boardBootstrapModeUi(): string {
+      const m = this.globals.nxtBoardBootstrapMode
+      return m === 'auto' ? 'auto' : 'off'
+    },
+
+    boardBootstrapModeItems() {
+      return [
+        { value: 'off', title: 'Off (SD sentinel only)' },
+        { value: 'auto', title: 'Auto (documented — use sentinel + nxt-user-board.g)' }
+      ]
+    },
+
+    kitEntryPathForUi(): string {
+      const k = this.globals.nxtBoardKitKey as NxtBoardKitKey | null | undefined
+      if (k == null) {
+        return ''
+      }
+      const platRaw = this.globals.nxtPlatformProfile as NxtPlatformId | null | undefined
+      const plat = platRaw === 'v1.6_v2' ? 'v1.6_v2' : 'v1.5'
+      return `M98 P"${nxtKitEntryPath(plat, k)}"`
+    },
+
+    boardConfigGHint(): string {
+      const kitLine = this.kitEntryPathForUi
+      return (
+        '; NeXT: call early in config.g. If using board bootstrap, create 0:/sys/nxt-board-bootstrap.requested.\n' +
+        '; Avoid duplicating drives/limits/spindle M98 if the kit entry already loads them.\n' +
+        'M98 P"nxt.g"\n\n' +
+        (kitLine ? `; Or load one kit entry only:\n${kitLine}\n` : '')
+      )
+    },
+
+    boardKitGpOutputs() {
+      const lim = this.$store.state.machine.model.limits as { gpOutPorts?: number } | undefined
+      const n = lim?.gpOutPorts
+      const maxPorts = typeof n === 'number' && n > 0 ? n : 8
+      return gpOutItemsForKit(this.globals.nxtBoardKitKey as NxtBoardKitKey | null, maxPorts)
+    },
+
+    nxtGlobalsSnapshotRows() {
+      return snapshotNxtGlobals(this.$store.state.machine.model.global)
     }
   },
 
@@ -735,6 +994,94 @@ export default BaseComponent.extend({
   },
 
   methods: {
+    async onPlatformProfileChange(value: NxtPlatformId | null) {
+      await this.updateVariable('nxtPlatformProfile', value)
+    },
+
+    async onBoardKitKeyChange(value: NxtBoardKitKey | null) {
+      if (value == null || value === ('' as any)) {
+        await this.updateVariable('nxtBoardKitKey', null)
+        await this.updateVariable('nxtScyllaMotorVoltage', null)
+        return
+      }
+      const u = applyKitKeyToGlobals(value)
+      await this.updateVariable('nxtBoardKitKey', u.nxtBoardKitKey)
+      await this.updateVariable('nxtScyllaMotorVoltage', u.nxtScyllaMotorVoltage)
+    },
+
+    async onBoardBootstrapModeChange(value: string) {
+      await this.updateVariable('nxtBoardBootstrapMode', value === 'auto' ? 'auto' : 'off')
+    },
+
+    copyBoardConfigHint() {
+      const text = this.boardConfigGHint
+      const done = () => {
+        const msg = (this as any).$t('plugins.next.panels.configuration.boardSnippetCopied')
+        this.showStatus(typeof msg === 'string' ? msg : 'Copied', 'success')
+      }
+      const fail = () => this.showStatus('Copy failed', 'error')
+      try {
+        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+          navigator.clipboard.writeText(text).then(done).catch(fail)
+        } else {
+          fail()
+        }
+      } catch {
+        fail()
+      }
+    },
+
+    async savePinmapStub() {
+      this.pinmapSaving = true
+      try {
+        const filePath = '/sys/nxt-user-pinmap.g'
+        const lines = [
+          '; nxt-user-pinmap.g — stub generated from NeXT Configuration UI',
+          '; Add M950 or other pin overrides below; load after nxt.g if needed.',
+          '; ' + new Date().toISOString(),
+          ''
+        ]
+        const firstLine = lines[0].replace(/"/g, '""')
+        await this.sendCode(`echo >"${filePath}" "${firstLine}"`)
+        for (let i = 1; i < lines.length; i++) {
+          const escapedLine = lines[i].replace(/"/g, '""')
+          await this.sendCode(`echo >>"${filePath}" "${escapedLine}"`)
+        }
+        const msg = (this as any).$t('plugins.next.panels.configuration.boardPinmapSaved')
+        this.showStatus(typeof msg === 'string' ? msg : 'Saved', 'success')
+      } catch (e) {
+        console.error('NeXT: savePinmapStub', e)
+        this.showStatus('Failed to write pinmap file', 'error')
+      } finally {
+        this.pinmapSaving = false
+      }
+    },
+
+    copyNxtGlobalsSnapshot() {
+      const rows = this.nxtGlobalsSnapshotRows as Array<{ key: string; valueText: string }>
+      const lines = rows.map((r) => `${r.key}\t${r.valueText}`)
+      const text = ['key\tvalue', ...lines].join('\n')
+      const done = () => {
+        const msg = (this as any).$t('plugins.next.panels.configuration.globalsSnapshotCopied')
+        this.showStatus(typeof msg === 'string' ? msg : 'Copied to clipboard', 'success')
+      }
+      const fail = () => {
+        this.showStatus(
+          (this as any).$t('plugins.next.panels.configuration.globalsSnapshotCopyFailed'),
+          'error'
+        )
+      }
+      try {
+        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+          navigator.clipboard.writeText(text).then(done).catch(fail)
+        } else {
+          fail()
+        }
+      } catch {
+        fail()
+      }
+    },
+
     /**
      * Update a feature flag with validation
      */
@@ -804,6 +1151,10 @@ export default BaseComponent.extend({
           `global nxtFeatureToolSetter = ${g.nxtFeatureToolSetter || false}`,
           `global nxtFeatureCoolantControl = ${g.nxtFeatureCoolantControl || false}`,
           '',
+          '; Probe tool index and static datum (touch probe / toolsetter calibration)',
+          `global nxtProbeToolID = ${g.nxtProbeToolID !== null && g.nxtProbeToolID !== undefined ? g.nxtProbeToolID : 'null'}`,
+          `global nxtDeltaMachine = ${g.nxtDeltaMachine !== null && g.nxtDeltaMachine !== undefined ? g.nxtDeltaMachine : 'null'}`,
+          '',
           '; Spindle Configuration',
           `global nxtSpindleID = ${g.nxtSpindleID !== null && g.nxtSpindleID !== undefined ? g.nxtSpindleID : 'null'}`,
           `global nxtSpindleAccelSec = ${g.nxtSpindleAccelSec !== null && g.nxtSpindleAccelSec !== undefined ? g.nxtSpindleAccelSec : 'null'}`,
@@ -821,7 +1172,27 @@ export default BaseComponent.extend({
           '; Coolant Configuration',
           `global nxtCoolantAirID = ${g.nxtCoolantAirID !== null && g.nxtCoolantAirID !== undefined ? g.nxtCoolantAirID : 'null'}`,
           `global nxtCoolantMistID = ${g.nxtCoolantMistID !== null && g.nxtCoolantMistID !== undefined ? g.nxtCoolantMistID : 'null'}`,
-          `global nxtCoolantFloodID = ${g.nxtCoolantFloodID !== null && g.nxtCoolantFloodID !== undefined ? g.nxtCoolantFloodID : 'null'}`
+          `global nxtCoolantFloodID = ${g.nxtCoolantFloodID !== null && g.nxtCoolantFloodID !== undefined ? g.nxtCoolantFloodID : 'null'}`,
+          '',
+          '; Board / platform (Configuration panel)',
+          `global nxtPlatformProfile = ${
+            g.nxtPlatformProfile != null && g.nxtPlatformProfile !== ''
+              ? '"' + String(g.nxtPlatformProfile).replace(/"/g, '') + '"'
+              : 'null'
+          }`,
+          `global nxtBoardKitKey = ${
+            g.nxtBoardKitKey != null && g.nxtBoardKitKey !== ''
+              ? '"' + String(g.nxtBoardKitKey).replace(/"/g, '') + '"'
+              : 'null'
+          }`,
+          `global nxtScyllaMotorVoltage = ${
+            g.nxtScyllaMotorVoltage !== null && g.nxtScyllaMotorVoltage !== undefined
+              ? g.nxtScyllaMotorVoltage
+              : 'null'
+          }`,
+          `global nxtBoardBootstrapMode = "${
+            g.nxtBoardBootstrapMode === 'auto' ? 'auto' : 'off'
+          }"`
         ]
 
         // Write file using echo
@@ -1103,5 +1474,13 @@ export default BaseComponent.extend({
 <style scoped>
 .v-expansion-panel-content >>> .v-expansion-panel-content__wrap {
   padding-top: 16px;
+}
+.nxt-globals-snapshot-table .nxt-globals-snapshot-value {
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-width: 36rem;
+}
+.font-mono {
+  font-family: monospace;
 }
 </style>

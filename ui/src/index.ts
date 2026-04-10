@@ -3,124 +3,85 @@
  *
  * This file registers the NeXT plugin routes, localization, and plugin data
  * for the DuetWebControl plugin integration.
+ *
+ * Compatibility: NeXT UI is developed against **Duet Web Control 3.6.1** (Vue 2.7 toolchain).
+ * Building or running the plugin inside a much older or newer DWC tree can cause opaque
+ * webpack/runtime errors at plugin start (e.g. `undefined is not an object (evaluating '…​.call')`)
+ * if chunk loading or the plugin host API does not match.
+ *
+ * Routes use **static** panel imports so the NeXT chunk does not rely on async `import()`
+ * sub-chunks (which can fail on some embedded / cached deployments).
+ *
+ * Route/i18n registration stays synchronous so /NeXT exists as soon as the chunk evaluates.
  */
 
-import { Menu } from '@/routes'
-import Vue from 'vue'
-import { registerRoute, Routes } from '@/routes'
+import { registerRoute } from '@/routes'
 import { registerPluginLocalization } from '@/i18n'
 import { registerPluginData, PluginDataType } from '@/store'
+import store from '@/store'
 
 // Import main components
 import NeXT from './NeXT.vue'
-import {
-  MachineStatusPanel,
-  ConfigurationPanel,
-  StockPreparationPanel,
-  GCodeViewer3D,
-  ProbingPanel,
-  ToolLibraryPanel
-} from './components/panels'
+import ToolManagementPanel from './components/panels/ToolManagementPanel.vue'
 
 // Import and register component modules
 import './components/base'
 import './components/inputs'
+// Side-effect: registers kebab-case tags used inside NeXT.vue.
 import './components/panels'
-import './components/overrides'
+// Overrides (CNC dashboard + MessageBoxDialog) — re-enable after plugin starts reliably.
+// import './components/overrides'
 
 // Import localization
 import en from './locales/en.json'
 
-// Register plugin localization
-registerPluginLocalization('next', 'en', en)
+const NE_ROUTE_PATH = '/NeXT'
 
-// Register plugin-specific data in the machine cache
-registerPluginData('NeXT', PluginDataType.machineCache, 'nxtUiState', {
-  ready: false,
-  dialogActive: false,
-  dialogMessage: null,
-  dialogResponse: null,
-  lastProbeResults: [],
-  selectedResultIndex: 0
-})
-
-
-
-async function registerNeXTRoutes() {
-  // Machine Status under Control with caption 'NeXT'
-  await registerRoute(MachineStatusPanel, {
-    Control: {
-      NeXT: {
-        icon: 'mdi-information-outline',
-        caption: 'plugins.next.name',
-        path: '/NeXT/Status'
+function registerNeXTSideEffects(): void {
+  try {
+    try {
+      registerPluginLocalization('next', 'en', en)
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err)
+      if (!msg.includes('already exists')) {
+        throw err
       }
+      console.warn('[NeXT] Skipping duplicate plugin i18n registration')
     }
-  })
 
-  // Probing under Control
-  await registerRoute(ProbingPanel, {
-    Control: {
-      NeXT_Probing: {
-        icon: 'mdi-target-variant',
-        caption: 'plugins.next.panels.probing.caption',
-        path: '/NeXT/Probing'
-      }
-    }
-  })
+    registerPluginData('NeXT', PluginDataType.globalSetting, 'nxtUiState', {
+      ready: false,
+      dialogActive: false,
+      dialogMessage: null,
+      dialogResponse: null,
+      lastProbeResults: [],
+      selectedResultIndex: 0
+    })
 
-  // Stock Preparation under Job
-  await registerRoute(StockPreparationPanel, {
-    Job: {
-      NeXT_StockPreparation: {
-        icon: 'mdi-cube-outline',
-        caption: 'plugins.next.panels.stockPreparation.caption',
-        path: '/NeXT/StockPreparation'
+    registerRoute(NeXT, {
+      Control: {
+        NeXT: {
+          icon: 'mdi-wrench',
+          caption: 'plugins.next.name',
+          path: NE_ROUTE_PATH
+        }
       }
-    }
-  })
+    })
 
-  // Configuration under Settings with caption 'NeXT'
-  await registerRoute(ConfigurationPanel, {
-    Settings: {
-      NeXT_Configuration: {
-        icon: 'mdi-cog',
-        caption: 'plugins.next.name',
-        path: '/NeXT/Configuration'
+    registerRoute(ToolManagementPanel, {
+      Control: {
+        NeXTToolLibrary: {
+          icon: 'mdi-bookshelf',
+          caption: 'plugins.next.panels.toolManagement.caption',
+          path: `${NE_ROUTE_PATH}/ToolLibrary`
+        }
       }
-    }
-  })
-
-  // ATC tool library (mos-atc persistent globals + M878/M879 on firmware)
-  await registerRoute(ToolLibraryPanel, {
-    Control: {
-      NeXT_ToolLibrary: {
-        icon: 'mdi-bookshelf',
-        caption: 'plugins.next.panels.toolLibrary.caption',
-        path: '/NeXT/ToolLibrary'
-      }
-    }
-  })
+    })
+  } catch (err) {
+    console.error('[NeXT] Plugin registration failed:', err)
+  }
 }
 
-registerNeXTRoutes().catch((err) => console.error('NeXT: failed to register routes', err))
-
-// Set nxtUiReady flag when plugin loads
-Vue.nextTick(() => {
-  try {
-    const store = Vue.prototype.$store
-    if (store) {
-      store.dispatch('machine/sendCode', 'set global.nxtUiReady = true')
-        .then(() => {
-          console.log('NeXT UI: Plugin loaded and ready')
-        })
-        .catch((error: any) => {
-          console.error('NeXT UI: Failed to set ready flag', error)
-        })
-    }
-  } catch (err) {
-    console.error('NeXT: failed to set ready flag', err)
-  }
-})
+registerNeXTSideEffects()
 
 export default NeXT

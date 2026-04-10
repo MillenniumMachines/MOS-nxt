@@ -46,7 +46,30 @@
       "coolant": "Coolant Control Configuration",
       "saveSuccess": "Configuration saved successfully",
       "saveError": "Failed to save configuration",
-      "loadError": "Failed to load configuration"
+      "loadError": "Failed to load configuration",
+      "globalsSnapshotTitle": "NeXT globals (object model)",
+      "globalsSnapshotIntro": "Expected NeXT global variables from nxt.g / nxt-vars.g and their current values from the live RRF object model. Large vectors are summarized.",
+      "globalsSnapshotCopy": "Copy TSV",
+      "globalsSnapshotCopied": "Snapshot copied to clipboard (tab-separated)",
+      "globalsSnapshotCopyFailed": "Could not copy (clipboard unavailable)",
+      "globalsColKey": "Global",
+      "globalsColDescription": "Description",
+      "globalsColValue": "Current value",
+      "boardSection": "Board & kit",
+      "boardDetected": "Detected boards (object model)",
+      "boardPrimaryShortName": "Primary shortName",
+      "boardPlatform": "Platform",
+      "boardKit": "LDO kit",
+      "boardBootstrapMode": "Bootstrap mode (preference)",
+      "boardBootstrapHint": "To load kit files before nxt-vars.g on boot, create empty 0:/sys/nxt-board-bootstrap.requested on the SD card. Use 0:/sys/nxt-board-bootstrap.skip to disable. Override with 0:/sys/nxt-user-board.g (see nxt-user-board.g.example on SD).",
+      "boardMismatch": "Selected kit does not match the suggested kit from boards[0].shortName. Verify wiring before running bootstrap.",
+      "boardKitEntry": "Kit entry path",
+      "boardCopySnippet": "Copy config.g hint",
+      "boardSnippetCopied": "Copied to clipboard",
+      "boardNoKitsPlatform": "No vendored kits for this platform yet.",
+      "boardSavePinmap": "Write stub nxt-user-pinmap.g",
+      "boardPinmapSaved": "Wrote stub /sys/nxt-user-pinmap.g",
+      "boardPinmapHint": "Optional file for M950 overrides; edit on SD or extend in a future UI release."
     },
     "stockPreparation": {
       "caption": "Stock Preparation"
@@ -54,24 +77,18 @@
     "probing": {
       "caption": "Probing"
     },
-    "toolLibrary": {
+    "toolManagement": {
       "caption": "Tool Library",
-      "intro": "Tools listed here use the RRF object model and mos-atc globals (atcToolToPocket / atcPocketToTool). Persistent bay assignments are saved on the machine by M878 and restored at boot via M879 (0:/sys/mos-atc-library.g).",
-      "noLayout": "ATC layout is not initialized (atcPocketCount is 0). Install mos-atc firmware files and run M870 / set layout (M876) so bay status can appear.",
-      "bays": "Bays:",
-      "magazines": "Magazines × slots:",
-      "selectTool": "Select tool (T n)",
-      "resolveMapping": "Resolve pocket (M873)",
-      "selected": "Selected: T{n}",
-      "colTool": "Tool",
+      "libraryIntro": "Tools defined in the RepRapFirmware object model (configured slots, the tool in the spindle, and the configured touch probe). Magazine, job sequence, and ATC controls belong in the mos-atc plugin when installed.",
+      "colToolNumber": "Tool number",
       "colDescription": "Description",
       "colRadius": "Radius",
       "colStatus": "Status",
-      "statusSpindle": "In spindle",
+      "colLife": "Life",
+      "statusInSpindle": "In spindle",
       "statusProbe": "Probe",
-      "statusBay": "Bay {b}",
-      "statusUnassigned": "Unassigned",
-      "noTools": "No tools defined in the object model yet."
+      "statusManual": "Manual",
+      "noTools": "No configured tools in the object model yet. Define tools in config.g / RRF tool table, or connect to the machine."
     },
     "spindleControl": {
       "caption": "Spindle Control",
@@ -86,33 +103,15 @@
         "measureY": "Measure Y",
         "results": "Results"
       }
-    },
-    "probing": {
-      "cycles": {
-        "title": "Probing Cycles",
-        "selectCycle": "Select a probing cycle",
-        "execute": "Execute Cycle",
-        "storeResultIn": "Store Result In"
-      },
-      "results": {
-        "title": "Probe Results Table",
-        "pushToWcs": "Push to WCS",
-        "averageResults": "Average Results",
-        "clearAll": "Clear All",
-        "clear": "Clear"
-      }
-    },
-    "messages": {
-      "uiReady": "NeXT UI is ready",
-      "loading": "Loading...",
-      "error": "Error"
     }
   },
   "messages": {
     "uiReady": "NeXT UI is ready",
-    "chooseSubsection": "Use the NeXT menu section to navigate to Status, Tool Library, Configuration, Stock Preparation, and Probing.",
-    "menuMoved": "NeXT features are now accessible via the NeXT menu. Use Status, Tool Library, Configuration, Stock Preparation, or Probing from the left-hand menu.",
+    "chooseSubsection": "Use Control in the side panel: NeXT for Status, Configuration, and Probing; Tool Library lists configured RRF tools. Install the mos-atc plugin for magazine / ATC UI.",
+    "menuMoved": "NeXT features are under Control: NeXT (dashboard) and Tool Library (separate side item).",
+    "toolLibraryInMenu": "Tool Library has its own entry under Control in the side panel (same level as NeXT).",
     "disconnectedShort": "Disconnected",
+    "notReadyShort": "NeXT not loaded (global nxtLoaded is not true — see Configuration → NeXT globals)",
     "loading": "Loading...",
     "error": "Error",
     "restartRequired": "Machine Restart Required",

@@ -37,15 +37,14 @@
 
 <script lang="ts">
 import Vue from 'vue'
+import { readFirmwareGlobal } from '../../utils/nxtToolChangerOm'
 
 /**
  * NeXT MessageBoxDialog Override
- * 
- * Replaces DWC's built-in MessageBoxDialog component to provide conditional rendering:
- * - When NeXT UI is ready: Render nothing (persistent display handled by ActionConfirmationWidget)
- * - When NeXT UI is not ready or for critical messages: Show standard modal dialog
- * 
- * This prevents DWC from showing blocking modals when NeXT's persistent dialog system is active.
+ *
+ * When NeXT firmware has booted (`nxtLoaded`), non-critical M291 traffic can stay off the
+ * blocking modal (persistent UI handles it). If NeXT globals are not loaded, or the message
+ * looks critical, show the standard modal.
  */
 export default Vue.extend({
   name: 'MessageBoxDialog',
@@ -65,25 +64,24 @@ export default Vue.extend({
       return !!(this.messageBox && this.messageBox.message)
     },
 
-    /**
-     * Check if NeXT UI is ready
-     */
-    nxtUiReady(): boolean {
-      return this.$store.state.machine.model.global?.nxtUiReady === true
+    /** NeXT macros/vars loaded and boot succeeded — safe to defer non-critical dialogs. */
+    nxtFirmwareReady(): boolean {
+      const g = this.$store.state.machine.model.global
+      const v = readFirmwareGlobal(g, 'nxtLoaded')
+      return v === true || v === 1
     },
 
     /**
      * Determine if we should show the modal dialog
      * Show modal when:
-     * - NeXT UI is not ready (fallback)
+     * - NeXT firmware is not in a loaded state (fallback)
      * - Message is marked as critical
      * - Message contains specific critical keywords
      */
     shouldShowModal(): boolean {
       if (!this.hasMessage) return false
       
-      // Always show modal if NeXT UI is not ready
-      if (!this.nxtUiReady) return true
+      if (!this.nxtFirmwareReady) return true
       
       // Check for critical message indicators
       const message = (this.messageBox.message || '').toLowerCase()

@@ -63,13 +63,16 @@
             <v-alert type="info" outlined class="mb-4">
               <v-icon left>mdi-information-outline</v-icon>
               {{ $t('plugins.next.messages.chooseSubsection') }}
+              <span class="text-caption d-block mt-2">
+                {{ $t('plugins.next.messages.toolLibraryInMenu') }}
+              </span>
             </v-alert>
 
             <!-- Tab Navigation for different sections -->
             <v-tabs v-model="activeTab" grow>
-              <v-tab>{{ $t('NeXT.panels.status') }}</v-tab>
-              <v-tab>{{ $t('NeXT.panels.configuration') }}</v-tab>
-              <v-tab>{{ $t('NeXT.panels.probing') }}</v-tab>
+              <v-tab>{{ $t('plugins.next.panels.status.caption') }}</v-tab>
+              <v-tab>{{ $t('plugins.next.panels.configuration.caption') }}</v-tab>
+              <v-tab>{{ $t('plugins.next.panels.probing.caption') }}</v-tab>
             </v-tabs>
 
             <v-tabs-items v-model="activeTab">
@@ -110,6 +113,7 @@
 
 <script lang="ts">
 import BaseComponent from './components/base/BaseComponent.vue'
+import { readFirmwareGlobal } from './utils/nxtToolChangerOm'
 
 /**
  * NeXT Main Dashboard Component
@@ -122,6 +126,7 @@ export default BaseComponent.extend({
   name: 'NeXT',
   data() {
     return {
+      activeTab: 0,
       restarting: false,
     }
   },
@@ -139,12 +144,11 @@ export default BaseComponent.extend({
      * Only check this if we're actually connected to a machine
      */
     restartRequired(): boolean {
-      // Don't show restart warning if disconnected
       if (!this.isConnected) {
         return false
       }
-      // Check if nxtLoaded global exists
-      return !('nxtLoaded' in this.globals)
+      const g = this.$store.state.machine.model.global
+      return readFirmwareGlobal(g, 'nxtLoaded') === undefined
     },
 
     /**
@@ -178,11 +182,16 @@ export default BaseComponent.extend({
       const t = (this as any).$t(key).toString()
       return t === key ? 'Probing' : t
     },
+
     pageTitle(): string {
       const path = this.$route?.path || ''
       if (path.startsWith('/NeXT/Configuration')) return this.configurationCaption
       if (path.startsWith('/NeXT/StockPreparation')) return this.stockPreparationCaption
       if (path.startsWith('/NeXT/Probing')) return this.probingCaption
+      if (path === '/NeXT' || path === '/NeXT/') {
+        if (this.activeTab === 1) return this.configurationCaption
+        if (this.activeTab === 2) return this.probingCaption
+      }
       return this.statusCaption
     }
   },

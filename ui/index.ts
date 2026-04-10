@@ -1,8 +1,11 @@
 /**
  * NeXT Plugin Entry Point (Root Level)
- * 
- * This file is required at the root of the plugin directory for DWC's
- * plugin system to discover and register the plugin.
+ *
+ * Required at the plugin root for DWC discovery.
+ *
+ * If the plugin fails to start with a minified error like `...[...].call`, try the minimal
+ * diagnostic export (uncomment the second line, comment the first):
+ *   export { default } from './src/index.minimal'
  */
-
 export { default } from './src/index'
+// export { default } from './src/index.minimal'
