@@ -113,6 +113,16 @@ To help us work out any issues, please run `M7600 D1` and paste the whole output
 
 ---
 
+## Installation
+
+To install the NeXT plugin on your physical machine:
+
+1. **Download** the `NeXT-vX.X.X.zip` package.
+2. In Duet Web Control, navigate to **Settings → Plugins**.
+3. Click **Install Plugin** and upload the ZIP. Start the plugin once installed.
+4. **Mandatory Firmware Step:** Open your `0:/sys/config.g` via the System Directory and add `M98 P"nxt.g"` to the end of the file. (If you are upgrading from `mos`, ensure you remove the old `M98 P"mos.g"` and replace it with `nxt.g`).
+5. Run `M999` to restart the board and load the new NeXT globals.
+
 ## DWC Plugin Development
 
 The NeXT UI is a **Vue 2.7 / Vuetify 2.x** plugin for [Duet Web Control](https://github.com/Duet3D/DuetWebControl) v3.6. Source lives in `ui/`.

@@ -6,9 +6,9 @@
   "license": "GPL-3.0-or-later",
   "homepage": "https://github.com/benagricola/NeXT",
   "tags": [],
-  "dwcVersion": "auto",
+  "dwcVersion": "3.6.1",
   "dwcDependencies": [],
-  "rrfVersion": "auto",
+  "rrfVersion": "3.6.1",
   "dwcWebpackChunk": "NeXT",
   "data": {
     "nxt": {
