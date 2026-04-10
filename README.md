@@ -113,6 +113,67 @@ To help us work out any issues, please run `M7600 D1` and paste the whole output
 
 ---
 
+## DWC Plugin Development
+
+The NeXT UI is a **Vue 2.7 / Vuetify 2.x** plugin for [Duet Web Control](https://github.com/Duet3D/DuetWebControl) v3.6. Source lives in `ui/`.
+
+### Quick Start
+
+**Prerequisites:** A local clone of [DuetWebControl 3.6.x](https://github.com/Duet3D/DuetWebControl/tree/3.6-dev) with `npm install` completed.
+
+```powershell
+# 1. Create a directory junction (Windows) — folder name MUST match plugin.json "id"
+mklink /J "<DWC_ROOT>\src\plugins\NeXT" "<THIS_REPO>\ui"
+
+# On Linux/macOS use a symlink instead:
+# ln -s <THIS_REPO>/ui <DWC_ROOT>/src/plugins/NeXT
+
+# 2. Start the dev server from the DWC root
+cd <DWC_ROOT>
+npm run dev
+# → http://localhost:8080/
+```
+
+On first load: cancel the "Connect to Machine" dialog → **Settings → Plugins → Start "NeXT"** → it appears under **Control** in the sidebar.
+
+### What the Plugin Provides
+
+| Tab | Features |
+|-----|----------|
+| **Status** | Live axis positions (machine + work coords), NeXT system health (`nxtLoaded`), feature flags (touch probe, tool setter, coolant) |
+| **Configuration** | Full globals snapshot of every `nxt*` firmware variable with live values, board/kit detection, feature config |
+| **Probing** | 11 probing cycles (bore, boss, pocket, block, web, corner, rotation, vise corner, single surface) with parameter forms and result-to-WCS push |
+| **Tool Library** _(separate sidebar item)_ | Lists all RRF-configured tools with number, description, radius, status |
+
+### Key Gotcha: `tsconfig.json`
+
+Webpack resolves junctions/symlinks to their **real path**. When `ts-loader` walks up the NeXT repo tree looking for `tsconfig.json`, it won't find one (it's in the DWC root, not here). The included `ui/tsconfig.json` solves this — it mirrors the DWC TypeScript config and maps `@/*` imports back to the DWC source tree. **Don't delete it.**
+
+### Project Structure
+
+```
+ui/
+├── index.ts                  # Plugin entry point (re-exports src/index.ts)
+├── plugin.json               # DWC plugin manifest (id: "NeXT")
+├── tsconfig.json             # TS config for junction-based dev
+├── package.json              # Peer dependencies (three.js for 3D viewer)
+└── src/
+    ├── index.ts              # Route + i18n + plugin data registration
+    ├── NeXT.vue              # Main dashboard component (3 tabs)
+    ├── components/
+    │   ├── base/             # BaseComponent.vue — shared store access
+    │   ├── inputs/           # Input components (Phase 2.2)
+    │   ├── panels/           # Status, Config, Probing, Tool Mgmt panels
+    │   └── overrides/        # DWC component overrides (disabled by default)
+    ├── locales/en.json       # English translations
+    ├── utils/                # Object model helpers, gcode utils
+    └── workers/              # Web worker for toolpath parsing
+```
+
+For detailed development workflow, see [docs/UI_DEVELOPMENT.md](docs/UI_DEVELOPMENT.md).
+
+---
+
 ## Documentation
 
 - **[GCODE.md](GCODE.md)** - Complete reference for all NeXT G-codes and M-codes
