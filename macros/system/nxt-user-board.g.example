@@ -1,0 +1,12 @@
+; nxt-user-board.g — copy to 0:/sys/nxt-user-board.g
+; Loaded by nxt-board-bootstrap.g when nxt-board-bootstrap.requested exists.
+; Use ONE kit entry line (uncomment the kit that matches your wiring).
+
+; v1.5
+; M98 P"nxt/config/v1.5/ldo-kit-fly-cdyv3/entry.g"
+; M98 P"nxt/config/v1.5/ldo-kit-scylla-24v/entry.g"
+; M98 P"nxt/config/v1.5/ldo-kit-scylla-48v/entry.g"
+; v1.6 / v2.0 (NeXT baseline tree — customize on SD as needed)
+; M98 P"nxt/config/v1.6_v2/ldo-kit-fly-cdyv3/entry.g"
+; M98 P"nxt/config/v1.6_v2/ldo-kit-scylla-24v/entry.g"
+; M98 P"nxt/config/v1.6_v2/ldo-kit-scylla-48v/entry.g"

@@ -1,5 +1,6 @@
 ; nxt-boot.g
 ; Performs critical sanity checks before allowing NeXT to load.
+; CNC mode: meta conditions use { }, not ( ) — see macros/system/RRF_META.txt section 6.
 
 ; 1. Confirm RRF is in CNC mode.
 if { state.machineMode != "CNC" }
@@ -22,8 +23,7 @@ if { !exists(global.nxtProbeToolID) }
 
 ; --- All checks passed ---
 
-; Initialize probe results table with proper dimensions based on machine axes
-; Each result vector has: [axis positions..., rotation angle]
+; Initialize probe results table (each row: axis positions + rotation)
 var resultVectorSize = { #move.axes + 1 }
 while { iterations < #global.nxtProbeResults }
     set global.nxtProbeResults[iterations] = { vector(var.resultVectorSize, 0.0) }

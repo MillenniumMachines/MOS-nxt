@@ -96,7 +96,7 @@ if { var.axesAveraged == 0 }
     abort { "M6522: No common axes found to average between results " ^ param.P ^ " and " ^ param.Q }
 
 ; Store averaged result in first index
-set global.nxtProbeResults[param.P] = { var.averaged }
+set global.nxtProbeResults[param.P] = var.averaged
 
 echo "M6522: Averaged probe results " ^ param.P ^ " and " ^ param.Q ^ " -> stored in " ^ param.P
 echo "M6522: Total axes averaged: " ^ var.axesAveraged

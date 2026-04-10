@@ -4,6 +4,10 @@
 ; is loaded. It validates the tool change state and prepares for offset
 ; calculation based on the relative offsetting workflow.
 ;
+; ATC integration: Default path uses M291 for manual load. Automatic changer:
+; replace prompts with pick-from-pocket motion or M98 to extension macros
+; (docs/TOOLCHANGING.md). Preserve nxtToolChangeState (2 -> 3).
+;
 ; NO PARAMETERS - called automatically by RRF
 
 ; Validate that tfree.g completed properly
@@ -30,8 +34,10 @@ if { var.newTool < 0 }
 ; Prompt user to install the new tool
 if { var.newTool == global.nxtProbeToolID }
     var probeType = { global.nxtFeatureTouchProbe ? "Touch Probe" : "Datum Tool" }
+    ; ATC: replace with pick from pocket / spindle load sequence for probe
     M291 P{"Please install " ^ var.probeType ^ " (T" ^ var.newTool ^ ") and confirm when ready."} R{"Install " ^ var.probeType} S3
 else
+    ; ATC: replace with pick from pocket / spindle load sequence
     M291 P{"Please install Tool " ^ var.newTool ^ " and confirm when ready."} R"Install Tool" S3
 
 echo "tpre.g: Ready to load Tool " ^ var.newTool

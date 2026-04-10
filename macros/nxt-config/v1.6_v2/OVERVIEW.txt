@@ -1,0 +1,15 @@
+Milo v1.6 / v2.0 board kits (NeXT)
+==================================
+
+This tree is a full copy of the NeXT v1.5 kit layout; edit here for v1.6 / v2.0 without
+disturbing v1.5 users. entry.g chains live under 0:/sys/nxt/config/v1.6_v2/
+
+Bootstrap (before nxt-vars.g): opt-in only.
+
+1. Create empty file 0:/sys/nxt-board-bootstrap.requested on the SD card.
+2. Optionally create 0:/sys/nxt-board-bootstrap.skip to disable.
+3. For a manual kit choice, add 0:/sys/nxt-user-board.g with M98 P"nxt/config/v1.6_v2/.../entry.g"
+   (see macros/system/nxt-user-board.g.example).
+
+config.g: For a thin install, call M98 P"nxt.g" early and avoid duplicating M98 lines for
+drives/limits/spindle if bootstrap loads them.

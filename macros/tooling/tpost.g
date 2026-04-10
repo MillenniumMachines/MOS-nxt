@@ -4,6 +4,11 @@
 ; has been loaded. It implements the relative offset calculation workflow
 ; and handles special cases for the touch probe.
 ;
+; ATC integration: After physical load, measurement and G10 logic below stay
+; relevant; only the manual M291 jog/confirm steps may be replaced by fixed
+; positions from a changer pack (docs/TOOLCHANGING.md). Preserve
+; nxtToolChangeState (3 -> null) at the end.
+;
 ; NO PARAMETERS - called automatically by RRF
 
 ; Validate that tpre.g completed properly
@@ -39,6 +44,7 @@ if { state.currentTool == global.nxtProbeToolID && global.nxtFeatureTouchProbe }
     echo "tpost.g: Measuring touch probe against reference surface"
     
     ; User must manually position probe near reference surface
+    ; ATC: replace with known reference approach position if changer defines it
     M291 P"Please jog the touch probe close to the reference surface, then press OK to continue with automatic measurement." R"Position Touch Probe" S3
     
     ; Probe the reference surface (this should be implemented as a specific cycle)

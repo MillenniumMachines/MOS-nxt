@@ -17,7 +17,7 @@ var spindleID = { global.nxtSpindleID }
 
 var doWait = false
 
-while (iterations < #spindles) && !var.doWait
+while { iterations < #spindles && !var.doWait }
     ; Ignore unconfigured spindles
     if { spindles[iterations].state == "unconfigured" }
         continue

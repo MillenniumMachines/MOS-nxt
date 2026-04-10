@@ -2,7 +2,7 @@
 
 ; Save pre-pause state of all general purpose
 ; output pins.
-while { iterations < #state.gpOut }
+while { iterations < min(#state.gpOut, #global.nxtPinStates) }
     if { state.gpOut[iterations] != null }
         set global.nxtPinStates[iterations] = state.gpOut[iterations].pwm
 

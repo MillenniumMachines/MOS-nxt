@@ -4,6 +4,11 @@
 ; is freed (unloaded). It handles probe-on-removal logic for standard
 ; cutting tools and special handling for the touch probe.
 ;
+; ATC integration: Default path uses M291 for manual unload. An automatic
+; changer should replace those prompts with motion and/or M98 P"..." to a
+; vendor/extension macro pack (see docs/TOOLCHANGING.md). Keep the same
+; nxtToolChangeState sequence (1 -> 2) so tpre/tpost stay valid.
+;
 ; NO PARAMETERS - called automatically by RRF
 
 ; Skip if no tool is currently selected
@@ -25,6 +30,7 @@ G27 Z1
 if { state.currentTool == global.nxtProbeToolID }
     ; Handle probe tool removal
     var probeType = { global.nxtFeatureTouchProbe ? "Touch Probe" : "Datum Tool" }
+    ; ATC: replace with magazine unload / pocket deposit sequence for probe
     M291 P{"Please remove the " ^ var.probeType ^ " and confirm when safely stowed."} R{"Remove " ^ var.probeType} S3
     
     ; Clear any cached measurements for the probe tool
@@ -44,6 +50,7 @@ else
         echo "tfree.g: Tool " ^ state.currentTool ^ " measured at Z=" ^ global.nxtLastProbeResult
     else
         ; No toolsetter - just prompt for manual removal
+        ; ATC: replace with magazine unload / pocket deposit sequence
         M291 P{"Please remove Tool " ^ state.currentTool ^ " and confirm when complete."} R"Remove Tool" S3
 
 ; Set tool change state to indicate tfree.g completed

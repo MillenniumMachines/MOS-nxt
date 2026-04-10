@@ -1,0 +1,21 @@
+NeXT nxt/config — board kit fragments
+=====================================
+
+Machine configuration files under v1.5/ are derived from Millennium Machines
+RRF-Configs (Milo v1.5):
+
+  https://github.com/MillenniumMachines/RRF-Configs
+
+Sources:
+- milo-v1.5/common/general.g, movement.g, network-default.g
+- milo-v1.5/ldo-kit-fly-cdyv3/*.g
+- milo-v1.5/ldo-kit-scylla-v1.0-24v/*.g (full kit; 48 V tree copies 24 V except speed.g)
+- milo-v1.5/ldo-kit-scylla-v1.0-48v/speed.g
+
+Review upstream license before redistribution; refresh vendored files when kits change.
+
+v1.6_v2/
+--------
+A full copy of the NeXT v1.5 layout under v1.6_v2/ with M98 paths rewritten to
+nxt/config/v1.6_v2/ — edit there for Milo v1.6 / v2.0; provenance is still the same
+Millennium Machines milo-v1.5 upstream paths until v1.6 kits are published separately.
