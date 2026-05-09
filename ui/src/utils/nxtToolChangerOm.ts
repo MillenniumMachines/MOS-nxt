@@ -1,7 +1,7 @@
 /**
  * NeXT tool changer — object model helpers (firmware / optional ATC pack).
  *
- * Base NeXT (`nxt-vars.g`) does **not** define magazine/ATC globals. Those keys exist only
+ * Base NeXT does **not** define magazine/ATC globals. Those keys exist only
  * when an optional tool changer firmware pack is installed (same wire format as the legacy
  * mos-atc macro set). **Magazine / bay / job-sequence / M-code operator UI** belongs in the
  * **mos-atc** DWC plugin; this module stays in NeXT as the shared OM key map and helpers
@@ -23,6 +23,34 @@ export function readFirmwareGlobal(globalVal: unknown, key: string): unknown {
   }
   if (typeof globalVal === 'object') {
     return (globalVal as Record<string, unknown>)[key]
+  }
+  return undefined
+}
+
+/**
+ * One element from an RRF object-model "vector" (may be `Array`, `Map`, or plain object with indices).
+ */
+export function readOmVectorCell(row: unknown, index: number): unknown {
+  if (row == null) {
+    return undefined
+  }
+  if (row instanceof Map) {
+    const direct = row.get(index)
+    if (direct !== undefined) {
+      return direct
+    }
+    return row.get(String(index))
+  }
+  if (Array.isArray(row)) {
+    return index < row.length ? row[index] : undefined
+  }
+  if (typeof row === 'object') {
+    const o = row as Record<string | number, unknown>
+    const v = o[index]
+    if (v !== undefined) {
+      return v
+    }
+    return o[String(index)]
   }
   return undefined
 }
@@ -54,21 +82,181 @@ export const NxtToolChangerOmKeys = {
   legacyProbeToolIdKey: 'mosPTID'
 } as const
 
+/** `global.mosTT[toolIndex]` regardless of whether `mosTT` is an array, map, or object map. */
+export function readMosTTRow(globalVal: unknown, toolIndex: number): unknown | null {
+  const mosTT = readFirmwareGlobal(globalVal, NxtToolChangerOmKeys.legacyToolTableRadius)
+  if (mosTT == null) {
+    return null
+  }
+  if (mosTT instanceof Map) {
+    const row = mosTT.get(toolIndex) ?? mosTT.get(String(toolIndex))
+    return row !== undefined && row !== null ? row : null
+  }
+  if (Array.isArray(mosTT)) {
+    if (toolIndex < 0 || toolIndex >= mosTT.length) {
+      return null
+    }
+    const row = mosTT[toolIndex]
+    return row !== undefined && row !== null ? row : null
+  }
+  if (typeof mosTT === 'object') {
+    const o = mosTT as Record<string | number, unknown>
+    const row = o[toolIndex]
+    if (row !== undefined) {
+      return row
+    }
+    const rs = o[String(toolIndex)]
+    return rs !== undefined && rs !== null ? rs : null
+  }
+  return null
+}
+
 /**
  * Tool tip radius from optional legacy `mosTT[tool][0]` global when present.
  * RRF `tools[].radius` in the object model is preferred by callers when available.
  */
 export function readLegacyToolTableRadius(globalVal: unknown, toolIndex: number): number | null {
-  const mosTT = readFirmwareGlobal(globalVal, NxtToolChangerOmKeys.legacyToolTableRadius)
-  if (!mosTT || !Array.isArray(mosTT) || toolIndex < 0 || toolIndex >= mosTT.length) {
+  const row = readMosTTRow(globalVal, toolIndex)
+  if (row == null) {
     return null
   }
-  const row = mosTT[toolIndex]
-  if (row == null || !Array.isArray(row)) {
-    return null
-  }
-  const r = row[0]
+  const r = readOmVectorCell(row, 0)
   return typeof r === 'number' && Number.isFinite(r) ? r : null
+}
+
+/**
+ * Optional flute count / flute length from `mosTT[tool][2]` and `[3]` (firmware: -1 = unset).
+ */
+export function readMosTTFluteMeta(
+  globalVal: unknown,
+  toolIndex: number
+): { nxtFluteCount: number | null; nxtFluteLengthMm: number | null } {
+  const row = readMosTTRow(globalVal, toolIndex)
+  if (row == null) {
+    return { nxtFluteCount: null, nxtFluteLengthMm: null }
+  }
+  let nxtFluteCount: number | null = null
+  let nxtFluteLengthMm: number | null = null
+  const f = readOmVectorCell(row, 2)
+  if (typeof f === 'number' && Number.isFinite(f) && f >= 0) {
+    nxtFluteCount = Math.round(f)
+  }
+  const l = readOmVectorCell(row, 3)
+  if (typeof l === 'number' && Number.isFinite(l) && l >= 0) {
+    nxtFluteLengthMm = l
+  }
+  return { nxtFluteCount, nxtFluteLengthMm }
+}
+
+/**
+ * Parse `tools[n].mix` from the OM into a numeric list (array, lone number, or sparse object).
+ */
+function readNumericMixVector(raw: unknown): number[] | null {
+  if (typeof raw === 'number' && Number.isFinite(raw)) {
+    return [raw]
+  }
+  if (raw == null) {
+    return null
+  }
+  if (Array.isArray(raw)) {
+    const nums = raw.filter((x): x is number => typeof x === 'number' && Number.isFinite(x))
+    return nums.length > 0 ? nums : null
+  }
+  if (raw instanceof Map) {
+    const out: number[] = []
+    for (let i = 0; i < 16; i++) {
+      const v = raw.get(i) ?? raw.get(String(i))
+      if (typeof v === 'number' && Number.isFinite(v)) {
+        out.push(v)
+      } else {
+        break
+      }
+    }
+    return out.length > 0 ? out : null
+  }
+  if (typeof raw === 'object') {
+    const o = raw as Record<string | number, unknown>
+    const out: number[] = []
+    for (let i = 0; i < 16; i++) {
+      let v = o[i]
+      if (v === undefined) {
+        v = o[String(i)]
+      }
+      if (typeof v === 'number' && Number.isFinite(v)) {
+        out.push(v)
+      } else {
+        break
+      }
+    }
+    return out.length > 0 ? out : null
+  }
+  return null
+}
+
+/** Typical multi-extruder mix rows: non-negative, sum ≈ 1. */
+function mixLooksLikeExtruderRatios(nums: number[]): boolean {
+  if (nums.length < 2) {
+    return false
+  }
+  const sum = nums.reduce((a, b) => a + b, 0)
+  if (sum <= 0 || Math.abs(sum - 1) > 0.05) {
+    return false
+  }
+  return nums.every((x) => x >= 0 && x <= 1)
+}
+
+function integerFluteCandidate(n: number): number | null {
+  if (!Number.isFinite(n)) {
+    return null
+  }
+  const r = Math.round(n)
+  if (Math.abs(n - r) > 1e-6) {
+    return null
+  }
+  if (r < 1 || r > 64) {
+    return null
+  }
+  return r
+}
+
+/**
+ * Flute count from RRF **`tools[n].mix`** when **`mosTT`** does not define **`F`**.
+ * Skips tools that map **extruders** (avoids mistaking **mixing ratios** for flute count).
+ * Skips vectors that look like normalized **extruder mix ratios** (sum ≈ 1, values in [0, 1]).
+ * Uses the **first** mix entry when it is an integer in **1…64** (CNC repurpose of `mix`).
+ */
+export function readFluteCountFromToolMix(toolObj: unknown): number | null {
+  if (!toolObj || typeof toolObj !== 'object') {
+    return null
+  }
+  const t = toolObj as { extruders?: unknown; mix?: unknown }
+  if (Array.isArray(t.extruders) && t.extruders.length > 1) {
+    return null
+  }
+  const vec = readNumericMixVector(t.mix)
+  if (!vec || vec.length === 0) {
+    return null
+  }
+  if (mixLooksLikeExtruderRatios(vec)) {
+    return null
+  }
+  return integerFluteCandidate(vec[0])
+}
+
+/**
+ * **`M4000 F`** / display flute count: **`mosTT[n][2]`** when set (≥ 0), else **`tools[n].mix`**
+ * per {@link readFluteCountFromToolMix}.
+ */
+export function resolveToolFluteCount(
+  toolObj: unknown,
+  firmwareGlobals: unknown,
+  toolIndex: number
+): number | null {
+  const fromMos = readMosTTFluteMeta(firmwareGlobals, toolIndex).nxtFluteCount
+  if (fromMos != null) {
+    return fromMos
+  }
+  return readFluteCountFromToolMix(toolObj)
 }
 
 /** Normalize a firmware int vector (array or sparse object) to fixed length, -1 = empty. */
@@ -117,6 +305,40 @@ export function resolveToolRadiusMm(
     }
   }
   return readLegacyToolTableRadius(globalVal, toolIndex)
+}
+
+/**
+ * Shallow merge of a DWC `machine.model.tools[n]` entry with NeXT display fields.
+ *
+ * RepRapFirmware’s canonical `tools[]` object model does not include cutter radius/diameter
+ * (see upstream `Tool` / OM); `M4000` stores CAM radius in `global.mosTT`. Until/unless RRF
+ * adds native geometry on `tools[n]`, **`nxtRadiusMm` / `nxtDiameterMm`** are enriched from
+ * `resolveToolRadiusMm` (OM-first, then `mosTT`). **`nxtFluteLengthMm`** comes from **`mosTT[n][3]`**.
+ * **`nxtFluteCount`** uses `resolveToolFluteCount` (**`mosTT`** / **`M4000 F`** first, then OM **`mix`**
+ * when repurpose rules in `readFluteCountFromToolMix` match).
+ * **Always treat `tools[n]` from the machine model as the primary tool record**; use this helper only for display.
+ */
+export type NeXtAugmentedRrfTool = Record<string, unknown> & {
+  nxtRadiusMm: number | null
+  nxtDiameterMm: number | null
+  nxtFluteCount: number | null
+  nxtFluteLengthMm: number | null
+}
+
+export function augmentRrfToolForNeXtUi(
+  toolObj: unknown,
+  firmwareGlobals: unknown,
+  toolIndex: number
+): NeXtAugmentedRrfTool {
+  const base =
+    toolObj != null && typeof toolObj === 'object'
+      ? { ...(toolObj as Record<string, unknown>) }
+      : {}
+  const nxtRadiusMm = resolveToolRadiusMm(toolObj, firmwareGlobals, toolIndex)
+  const nxtDiameterMm = nxtRadiusMm != null && Number.isFinite(nxtRadiusMm) ? 2 * nxtRadiusMm : null
+  const nxtFluteCount = resolveToolFluteCount(toolObj, firmwareGlobals, toolIndex)
+  const { nxtFluteLengthMm } = readMosTTFluteMeta(firmwareGlobals, toolIndex)
+  return Object.assign(base, { nxtRadiusMm, nxtDiameterMm, nxtFluteCount, nxtFluteLengthMm })
 }
 
 export const NxtToolChangerExtensionM = {

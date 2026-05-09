@@ -110,12 +110,12 @@ This document outlines the custom G and M codes implemented in NeXT, detailing t
 ### M4000: DEFINE TOOL
 
 *   **Code:** `M4000`
-*   **Description:** Defines a tool by its index. This macro creates an RRF tool and links it to a managed spindle, storing additional tool information such as radius and deflection values for MillenniumOS's internal use.
+*   **Description:** Defines a tool by its index. NeXT implements this in **`macros/utilities/M4000.g`** (shipped to **`0:/sys/M4000.g`**). **`mosET`** / **`mosTT`** are allocated at boot by **`nxt-tooltable.g`** when not already provided by **`mos-vars.g`** (MOS migration). The macro creates an RRF tool and links it to the configured spindle, storing CAM radius and optional probe deflections in **`global.mosTT`** (same layout as MillenniumOS for compatibility with the DWC helpers).
 *   **Arguments:**
     *   `P<tool-number>`: The 0-indexed number of the tool to define.
     *   `R<radius>`: The radius of the tool in millimeters.
     *   `S<description>`: A descriptive name or label for the tool.
-    *   `I<spindle-id>`: (Optional) Overrides the default spindle ID (`global.mosSID`) to associate the tool with a specific spindle.
+    *   `I<spindle-id>`: (Optional) Overrides the default spindle ID (`global.nxtSpindleID`, or **0** when that is unset).
     *   `X<deflection-x>`: (Optional) The deflection distance of the tool in the X-axis, typically used for probing tools.
     *   `Y<deflection-y>`: (Optional) The deflection distance of the tool in the Y-axis, typically used for probing tools.
 *   **How it works:**
@@ -128,14 +128,14 @@ This document outlines the custom G and M codes implemented in NeXT, detailing t
 ### M4001: REMOVE TOOL
 
 *   **Code:** `M4001`
-*   **Description:** Removes a tool by its index, resetting its definition in RRF and clearing its associated data in MillenniumOS.
+*   **Description:** Removes a tool by its index. NeXT implements this in **`macros/utilities/M4001.g`**. It resets the tool definition in RRF and clears the corresponding **`mosTT`** entry.
 *   **Arguments:**
     *   `P<tool-number>`: The 0-indexed number of the tool to remove.
 *   **How it works:**
     *   Validates the `P` parameter, ensuring it's within `limits.tools`.
     *   Checks if the tool actually exists in the RRF tool array. If not, it exits.
     *   Resets the RRF tool definition using `M563` with `R-1` (unassigned spindle) and a default name "Unknown Tool".
-    *   Resets the corresponding entry in `global.mosTT` to `global.mosET` (empty tool) to clear MillenniumOS's internal tool details.
+    *   Resets the corresponding entry in `global.mosTT` to `global.mosET` (empty tool) to clear the extended tool table row.
 
 ### M4005: CHECK MILLENNIUMOS POST VERSION
 

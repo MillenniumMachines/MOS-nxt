@@ -83,9 +83,9 @@ Configure GPIO pins for coolant control:
 
 ### Save Configuration
 
-The **"Save Configuration"** button persists all current settings to `nxt-user-vars.g` for permanent storage.
+The **"Save Configuration"** button writes the full generated contents to **`/sys/nxt-user-vars.g`** (HTTP path for **`rr_upload`**, same on-board file as `0:/sys/nxt-user-vars.g`) in a single **`rr_upload`** POST with a raw body per the RRF HTTP API. That **replaces** the file each time, avoiding growth from line-by-line `echo` G-code.
 
-**Note:** Backend M-code implementation for file persistence is pending. Currently, settings are saved to the object model only.
+Runtime values are still updated immediately via `set global.*` when you change fields; use **Save Configuration** when you want those values persisted across reboots in `nxt-user-vars.g`.
 
 ### Reload Configuration
 
@@ -167,10 +167,12 @@ All configuration values are stored as RRF global variables:
 - Accessed via `global.variableName` in G-code
 
 ### File Persistence
-Configuration is saved to `macros/system/nxt-user-vars.g`:
-- Loads automatically on NeXT startup
+
+On the machine, configuration lives on the SD card as **`0:/sys/nxt-user-vars.g`**; the UI saves it via **`rr_upload?name=/sys/nxt-user-vars.g`** (full-file HTTP upload):
+
+- Loads automatically when NeXT starts (`M98 P"nxt-user-vars.g"` from `nxt.g`)
 - Survives machine restarts
-- Can be edited manually if needed
+- Can be edited manually on the SD card if needed
 
 ### Configuration Flow
 ```
@@ -182,7 +184,7 @@ G-code sent: set global.variableName = value
     ↓
 Object model updated
     ↓
-"Save Configuration" button → persist to nxt-user-vars.g
+"Save Configuration" button → `rr_upload` full replace of `/sys/nxt-user-vars.g`
 ```
 
 ## Best Practices

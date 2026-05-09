@@ -122,7 +122,8 @@ echo "Building NeXT release ${ZIP_NAME} for ${COMMIT_ID}..."
 # This also creates the sys directory
 mkdir -p "${TMP_DIR}/sd/sys/nxt"
 
-# Copy all macros to sys/ for system functionality (G/M-codes)
+# Copy all macros to sys/ for system functionality (G/M-codes).
+# macros/system/ is authoritative for nxt.g, nxt-user-tools*.g, etc.; optional tool reload lives under macros/daemon/.
 ${SYNC_CMD} macros/system/* macros/probing/* macros/tooling/* macros/spindle/* macros/coolant/* macros/utilities/* macros/canned/* "${TMP_DIR}/sd/sys/"
 
 # Copy all daemon scripts to sys/nxt

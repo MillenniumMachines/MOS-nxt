@@ -5,6 +5,27 @@
         <v-icon left class="mr-2">mdi-bookshelf</v-icon>
         <span>{{ $t('plugins.next.panels.toolManagement.caption') }}</span>
         <v-spacer />
+        <v-btn
+          v-if="isConnected && nxtReady"
+          class="mr-2"
+          small
+          outlined
+          color="primary"
+          :loading="persistingTools"
+          :disabled="uiFrozen || persistingTools"
+          @click="saveToolLibraryToBoard"
+        >
+          {{ $t('plugins.next.panels.toolManagement.saveToBoard') }}
+        </v-btn>
+        <v-btn
+          v-if="isConnected && nxtReady"
+          small
+          outlined
+          :disabled="uiFrozen || persistingTools"
+          @click="reloadToolLibraryFromSd"
+        >
+          {{ $t('plugins.next.panels.toolManagement.reloadFromSd') }}
+        </v-btn>
         <div v-if="!isConnected || !nxtReady" class="d-flex align-center">
           <v-icon small class="mr-2" color="warning">{{ !isConnected ? 'mdi-lan-disconnect' : 'mdi-alert-circle-outline' }}</v-icon>
           <span class="text-caption">{{
@@ -17,6 +38,9 @@
         <p class="body-2 grey--text text--darken-1 mb-3">
           {{ $t('plugins.next.panels.toolManagement.libraryIntro') }}
         </p>
+        <p class="body-2 grey--text text--darken-1 mb-3">
+          {{ $t('plugins.next.panels.toolManagement.persistenceHint') }}
+        </p>
         <v-simple-table dense class="nxt-tc-tool-lib-table">
           <template #default>
             <thead>
@@ -24,6 +48,8 @@
                 <th class="text-left">{{ $t('plugins.next.panels.toolManagement.colToolNumber') }}</th>
                 <th class="text-left">{{ $t('plugins.next.panels.toolManagement.colDescription') }}</th>
                 <th class="text-left">{{ $t('plugins.next.panels.toolManagement.colRadius') }}</th>
+                <th class="text-left">{{ $t('plugins.next.panels.toolManagement.colFlutes') }}</th>
+                <th class="text-left">{{ $t('plugins.next.panels.toolManagement.colFluteLength') }}</th>
                 <th class="text-left">{{ $t('plugins.next.panels.toolManagement.colStatus') }}</th>
                 <th class="text-left">{{ $t('plugins.next.panels.toolManagement.colLife') }}</th>
               </tr>
@@ -37,6 +63,8 @@
                 <td class="text-no-wrap">T{{ row.index }}</td>
                 <td>{{ row.description }}</td>
                 <td>{{ row.radiusLabel }}</td>
+                <td>{{ row.flutesLabel }}</td>
+                <td>{{ row.fluteLengthLabel }}</td>
                 <td>
                   <v-chip
                     v-if="row.statusKind === 'spindle'"
@@ -80,51 +108,33 @@ import store from '@/store'
 import {
   readFirmwareGlobal,
   NxtToolChangerOmKeys,
-  resolveToolRadiusMm
+  augmentRrfToolForNeXtUi
 } from '../../utils/nxtToolChangerOm'
+import {
+  isNeXtToolSlotConfiguredInLibrary,
+  isToolRecord,
+  buildNxtUserToolsGContent
+} from '../../utils/nxtUserToolsFile'
+import { uploadDwcFile, NXT_USER_TOOLS_DWC_PATH } from '../../utils/nxtFileUpload'
 
 function machineModel(): Record<string, any> {
   const m = store.state.machine?.model
   return m != null && typeof m === 'object' ? (m as Record<string, any>) : {}
 }
 
-/**
- * RRF may reserve indices with placeholder objects; list only tools that look configured,
- * plus the active spindle tool and configured probe index so they always appear.
- */
-function isToolConfiguredInSystem(tool: any): boolean {
-  if (tool == null || typeof tool !== 'object') {
-    return false
-  }
-  const name = tool.name
-  if (typeof name === 'string' && name.trim().length > 0) {
-    return true
-  }
-  if (Array.isArray(tool.spindles) && tool.spindles.length > 0) {
-    return true
-  }
-  if (typeof tool.spindle === 'number' && tool.spindle >= 0) {
-    return true
-  }
-  if (Array.isArray(tool.extruders) && tool.extruders.length > 0) {
-    return true
-  }
-  if (Array.isArray(tool.heaters) && tool.heaters.length > 0) {
-    return true
-  }
-  if (Array.isArray(tool.drives) && tool.drives.length > 0) {
-    return true
-  }
-  return false
-}
-
 export default BaseComponent.extend({
   name: 'NxtToolManagementPanel',
+
+  data() {
+    return {
+      persistingTools: false
+    }
+  },
 
   computed: {
     firmwareGlobals() {
       const g = machineModel().global
-      return g != null && typeof g === 'object' ? g : null
+      return g != null && typeof g === 'object' ? g : {}
     },
 
     rrfState() {
@@ -139,9 +149,9 @@ export default BaseComponent.extend({
 
     probeToolIndexForLibrary() {
       const g = this.firmwareGlobals
-      const nxt = readFirmwareGlobal(g, 'nxtTouchProbeID')
-      if (typeof nxt === 'number' && nxt >= 0) {
-        return nxt
+      const probeTool = readFirmwareGlobal(g, 'nxtProbeToolID')
+      if (typeof probeTool === 'number' && probeTool >= 0) {
+        return probeTool
       }
       const id = readFirmwareGlobal(g, NxtToolChangerOmKeys.legacyProbeToolIdKey)
       return typeof id === 'number' && id >= 0 ? id : -1
@@ -162,14 +172,19 @@ export default BaseComponent.extend({
         }
         const inSpindle = i === ct
         const isProbeSlot = probeIdx >= 0 && i === probeIdx
-        if (!inSpindle && !isProbeSlot && !isToolConfiguredInSystem(t)) {
+        if (!inSpindle && !isProbeSlot && !isNeXtToolSlotConfiguredInLibrary(t)) {
           continue
         }
         const isProbe = isProbeSlot || this.probeNameMatch(t)
-        const radius = resolveToolRadiusMm(t, this.firmwareGlobals, i)
-        const radiusLabel = radius != null ? String(radius) : '—'
+        const augmented = augmentRrfToolForNeXtUi(t, this.firmwareGlobals, i)
+        const radiusLabel =
+          augmented.nxtRadiusMm != null ? String(augmented.nxtRadiusMm) : '—'
+        const flutesLabel =
+          augmented.nxtFluteCount != null ? String(augmented.nxtFluteCount) : '—'
+        const fluteLengthLabel =
+          augmented.nxtFluteLengthMm != null ? String(augmented.nxtFluteLengthMm) : '—'
         const description =
-          t != null && typeof t.name === 'string' && t.name.length > 0 ? t.name : '—'
+          typeof augmented.name === 'string' && augmented.name.length > 0 ? augmented.name : '—'
         let statusKind = 'manual'
         if (inSpindle) {
           statusKind = 'spindle'
@@ -180,18 +195,30 @@ export default BaseComponent.extend({
           index: i,
           description,
           radiusLabel,
+          flutesLabel,
+          fluteLengthLabel,
           inSpindle,
           statusKind
         })
       }
-      if (ct >= 0 && ct < tools.length && !rows.some((r) => r.index === ct)) {
+      if (
+        ct >= 0 &&
+        ct < tools.length &&
+        !rows.some((r) => r.index === ct) &&
+        isToolRecord(tools[ct])
+      ) {
         const t = tools[ct]
-        const radius = t != null ? resolveToolRadiusMm(t, this.firmwareGlobals, ct) : null
+        const augmented = augmentRrfToolForNeXtUi(t, this.firmwareGlobals, ct)
         rows.push({
           index: ct,
           description:
-            t != null && typeof t.name === 'string' && t.name.length > 0 ? t.name : '—',
-          radiusLabel: radius != null ? String(radius) : '—',
+            typeof augmented.name === 'string' && augmented.name.length > 0 ? augmented.name : '—',
+          radiusLabel:
+            augmented.nxtRadiusMm != null ? String(augmented.nxtRadiusMm) : '—',
+          flutesLabel:
+            augmented.nxtFluteCount != null ? String(augmented.nxtFluteCount) : '—',
+          fluteLengthLabel:
+            augmented.nxtFluteLengthMm != null ? String(augmented.nxtFluteLengthMm) : '—',
           inSpindle: true,
           statusKind: 'spindle'
         })
@@ -207,6 +234,73 @@ export default BaseComponent.extend({
         return false
       }
       return String(toolObj.name).toLowerCase().includes('touch probe')
+    },
+
+    async saveToolLibraryToBoard() {
+      if (!this.isConnected || !this.nxtReady) {
+        return
+      }
+      this.persistingTools = true
+      try {
+        const m = machineModel()
+        const tools = Array.isArray(m.tools) ? m.tools : []
+        const axes =
+          m.move != null &&
+          typeof m.move === 'object' &&
+          Array.isArray((m.move as { axes?: unknown }).axes)
+            ? (m.move as { axes: Array<{ letter: string }> }).axes
+            : []
+        const body = buildNxtUserToolsGContent({
+          generatedAt: new Date().toISOString(),
+          tools,
+          firmwareGlobals: m.global,
+          axes,
+          probeToolIndex: this.probeToolIndexForLibrary,
+          currentToolIndex: this.currentToolIndex
+        })
+        await uploadDwcFile(NXT_USER_TOOLS_DWC_PATH, body)
+        await this.$store.dispatch('machine/showMessage', {
+          type: 'success',
+          message: this.$t('plugins.next.panels.toolManagement.saveToBoardSuccess', {
+            path: NXT_USER_TOOLS_DWC_PATH
+          })
+        })
+      } catch (e) {
+        const msg =
+          e && typeof e.message === 'string'
+            ? e.message
+            : this.$t('plugins.next.panels.toolManagement.saveToBoardFailed')
+        console.error('NeXT: saveToolLibraryToBoard', e)
+        await this.$store.dispatch('machine/showMessage', {
+          type: 'error',
+          message: msg
+        })
+      } finally {
+        this.persistingTools = false
+      }
+    },
+
+    async reloadToolLibraryFromSd() {
+      if (!this.isConnected || !this.nxtReady) {
+        return
+      }
+      try {
+        await this.sendCode('M98 P"nxt-user-tools.g"')
+        await this.$store.dispatch('machine/showMessage', {
+          type: 'success',
+          message: this.$t('plugins.next.panels.toolManagement.reloadFromSdSuccess')
+        })
+      } catch (e) {
+        const msg =
+          e && typeof e.message === 'string'
+            ? e.message
+            : this.$t('plugins.next.panels.toolManagement.reloadFromSdFailed')
+        console.error('NeXT: reloadToolLibraryFromSd', e)
+        await this.$store.dispatch('machine/showMessage', {
+          type: 'error',
+          message: msg
+        })
+      }
     }
   }
 })

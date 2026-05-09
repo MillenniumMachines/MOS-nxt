@@ -25,6 +25,8 @@ global nxtProbeTipRadius = 0.0    ; Radius of the probe tip for compensation (mm
 global nxtProbeDeflection = 0.0   ; Probe deflection compensation value (mm)
 global nxtToolSetterPos = null     ; Toolsetter position vector [X, Y, Z]
 global nxtToolChangeState = null   ; Tracks the current tool change state (1=tfree, 2=tfree done, 3=tpre done, 4=tpost, null=complete)
+global nxtUserToolsFilePresent = false     ; set at boot by nxt.g: nxt-user-tools.g exists on SD
+global nxtUserToolsDaemonReload = false      ; if true, daemon reloads library when 0:/sys/nxt-user-tools.reload.requested exists (see TOOLCHANGING.md)
 
 ; --- Coolant Control ---
 global nxtCoolantAirID = null ; Coolant Air Output Pin ID
@@ -52,5 +54,7 @@ global nxtBoardBootstrapMode = "off" ; "off" | "auto" (UI preference; bootstrap 
 
 ; --- Optional magazine / ATC extension (not allocated here) ---
 ; Bay maps, job sequence vectors, and related globals are defined only when a tool changer
-; macro pack is installed on the machine. NeXT base install does not create atc* or mosTT.
+; macro pack is installed on the machine. Base NeXT does not create atc*. globals mosET and
+; mosTT are allocated by nxt-tooltable.g (invoked from nxt.g) when not already present from
+; mos-vars.g, and maintained by M4000/M4001 for post-driven tool definitions.
 ; See docs/TOOLCHANGING.md and ui/src/utils/nxtToolChangerOm.ts (OM key map).

@@ -2,6 +2,7 @@
 ; Same as 24 V kit except speed.g from upstream ldo-kit-scylla-v1.0-48v.
 ; See nxt/config/ATTRIBUTION.txt — customize under nxt/config/v1.6_v2/
 
+M117 "NeXT cfg v1.6 Scylla 48V"
 M98 P"nxt/config/v1.6_v2/ldo-kit-scylla-48v/general.g"
 if { fileexists("0:/sys/estop.g") }
     M98 P"estop.g"

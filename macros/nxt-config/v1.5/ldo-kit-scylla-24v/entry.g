@@ -2,6 +2,7 @@
 ; Vendored from Millennium Machines RRF-Configs (milo-v1.5/ldo-kit-scylla-v1.0-24v + milo-v1.5/common network-default.g).
 ; See nxt/config/ATTRIBUTION.txt
 
+M117 "NeXT cfg v1.5 Scylla 24V"
 M98 P"nxt/config/v1.5/ldo-kit-scylla-24v/general.g"
 if { fileexists("0:/sys/estop.g") }
     M98 P"estop.g"

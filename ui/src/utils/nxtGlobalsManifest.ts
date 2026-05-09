@@ -38,7 +38,9 @@ export const NXT_GLOBAL_MANIFEST: NxtGlobalManifestEntry[] = [
   { key: 'nxtPlatformProfile', description: 'Machine platform (v1.5 / v1.6_v2 / atlas); selects nxt/config path for kit M98' },
   { key: 'nxtBoardKitKey', description: 'Selected LDO kit (fly_cdyv3 / scylla_24 / scylla_48)' },
   { key: 'nxtScyllaMotorVoltage', description: 'Scylla motor supply hint (24 or 48)' },
-  { key: 'nxtBoardBootstrapMode', description: 'Board bootstrap preference (off|auto); SD sentinel enables load' }
+  { key: 'nxtBoardBootstrapMode', description: 'Board bootstrap preference (off|auto); SD sentinel enables load' },
+  { key: 'nxtUserToolsFilePresent', description: 'True if 0:/sys/nxt-user-tools.g existed at last nxt.g boot load' },
+  { key: 'nxtUserToolsDaemonReload', description: 'If true, daemon reloads nxt-user-tools.g when reload sentinel exists' }
 ]
 
 /** Human-readable value from RRF object model global (may be Map or plain object). */

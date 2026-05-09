@@ -2,6 +2,7 @@
 ; Upstream: Millennium Machines RRF-Configs (milo-v1.5/ldo-kit-fly-cdyv3 + common).
 ; See nxt/config/ATTRIBUTION.txt — customize paths only under nxt/config/v1.6_v2/
 
+M117 "NeXT cfg v1.6 Fly CDYv3"
 M98 P"nxt/config/v1.6_v2/milo-common/general.g"
 if { fileexists("0:/sys/estop.g") }
     M98 P"estop.g"

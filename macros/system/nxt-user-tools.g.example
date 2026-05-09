@@ -1,0 +1,18 @@
+; Example: NeXT persisted tool library (copy to 0:/sys/nxt-user-tools.g to use)
+; Loaded automatically by nxt.g after nxt-user-vars.g when the file exists (see global.nxtUserToolsFilePresent).
+; Optional: with global.nxtUserToolsDaemonReload = true, touch 0:/sys/nxt-user-tools.reload.requested to reload from daemon.
+; Runtime: M4000/M4001 also run M98 P"nxt-user-tools-sync.g" to refresh this file (optional: nxtAutoPersistTools).
+;
+; The nxtUserToolsLoadDepth wrapper must wrap all M4000 lines (see DWC "Save to board" output).
+;
+; if { !exists(global.nxtUserToolsLoadDepth) }
+;     global nxtUserToolsLoadDepth = 0
+; set global.nxtUserToolsLoadDepth = { global.nxtUserToolsLoadDepth + 1 }
+;
+; M4000 P0 R3 S"6mm flat endmill" F4 L20   ; optional F/L (flute count, flute length mm)
+; G10 L1 P0 X0 Y0 Z-25.4
+;
+; M4000 P1 R1.5 S"3mm flat"
+; G10 L1 P1 X0 Y0 Z-20
+;
+; set global.nxtUserToolsLoadDepth = { global.nxtUserToolsLoadDepth - 1 }

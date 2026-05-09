@@ -2,6 +2,7 @@
 ; Vendored from Millennium Machines RRF-Configs (milo-v1.5/ldo-kit-fly-cdyv3 + milo-v1.5/common).
 ; See nxt/config/ATTRIBUTION.txt
 
+M117 "NeXT cfg v1.5 Fly CDYv3"
 M98 P"nxt/config/v1.5/milo-common/general.g"
 if { fileexists("0:/sys/estop.g") }
     M98 P"estop.g"

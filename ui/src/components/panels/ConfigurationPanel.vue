@@ -739,6 +739,11 @@ import {
   type NxtPlatformId,
   type NxtBoardKitKey
 } from '../../utils/nxtBoardManifest'
+import {
+  NXT_USER_VARS_DWC_PATH,
+  NXT_USER_PINMAP_DWC_PATH,
+  uploadDwcFile
+} from '../../utils/nxtFileUpload'
 
 /**
  * NeXT Configuration Panel
@@ -1034,24 +1039,19 @@ export default BaseComponent.extend({
     async savePinmapStub() {
       this.pinmapSaving = true
       try {
-        const filePath = '/sys/nxt-user-pinmap.g'
         const lines = [
-          '; nxt-user-pinmap.g — stub generated from NeXT Configuration UI',
+          '; nxt-user-pinmap.g - stub generated from NeXT Configuration UI',
           '; Add M950 or other pin overrides below; load after nxt.g if needed.',
           '; ' + new Date().toISOString(),
           ''
         ]
-        const firstLine = lines[0].replace(/"/g, '""')
-        await this.sendCode(`echo >"${filePath}" "${firstLine}"`)
-        for (let i = 1; i < lines.length; i++) {
-          const escapedLine = lines[i].replace(/"/g, '""')
-          await this.sendCode(`echo >>"${filePath}" "${escapedLine}"`)
-        }
+        await uploadDwcFile(NXT_USER_PINMAP_DWC_PATH, lines.join('\n'))
         const msg = (this as any).$t('plugins.next.panels.configuration.boardPinmapSaved')
         this.showStatus(typeof msg === 'string' ? msg : 'Saved', 'success')
-      } catch (e) {
+      } catch (e: any) {
         console.error('NeXT: savePinmapStub', e)
-        this.showStatus('Failed to write pinmap file', 'error')
+        const msg = e && typeof e.message === 'string' ? e.message : 'Failed to write pinmap file'
+        this.showStatus(msg, 'error')
       } finally {
         this.pinmapSaving = false
       }
@@ -1132,13 +1132,12 @@ export default BaseComponent.extend({
     },
 
     /**
-     * Save configuration to /sys/nxt-user-vars.g
+     * Save configuration to /sys/nxt-user-vars.g (full file replace via DWC rr_upload)
      */
     async saveConfiguration() {
       this.saving = true
       try {
         const g = this.globals
-        const filePath = '/sys/nxt-user-vars.g'
 
         // Build configuration file content
         const lines = [
@@ -1195,21 +1194,16 @@ export default BaseComponent.extend({
           }"`
         ]
 
-        // Write file using echo
-        // First line uses > to create/truncate file
-        const firstLine = lines[0].replace(/"/g, '""')
-        await this.sendCode(`echo >"${filePath}" "${firstLine}"`)
+        await uploadDwcFile(NXT_USER_VARS_DWC_PATH, lines.join('\n'))
 
-        // Remaining lines use >> to append
-        for (let i = 1; i < lines.length; i++) {
-          const escapedLine = lines[i].replace(/"/g, '""')
-          await this.sendCode(`echo >>"${filePath}" "${escapedLine}"`)
-        }
-
-        this.showStatus('Configuration saved to /sys/nxt-user-vars.g', 'success')
-      } catch (error) {
+        this.showStatus(`Configuration saved to ${NXT_USER_VARS_DWC_PATH}`, 'success')
+      } catch (error: any) {
         console.error('NeXT: Failed to save configuration', error)
-        this.showStatus('Failed to save configuration', 'error')
+        const msg =
+          error && typeof error.message === 'string'
+            ? error.message
+            : 'Failed to save configuration'
+        this.showStatus(msg, 'error')
       } finally {
         this.saving = false
       }

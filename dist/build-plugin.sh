@@ -246,8 +246,8 @@ EOF
 echo "Building NeXT plugin (${OUT_ZIP}) using DWC at ${DWC_REPO_PATH}..."
 echo "Build basis: ${BUILD_BASIS}"
 
-# Stage sd/sys* the same way as dist/release.sh. DWC's build-plugin archives a top-level
-# sd/ tree into the plugin zip (see DuetWebControl scripts/build-plugin.js).
+# Stage sd/sys*: same layout as release.sh — macros/system/ → sd/sys/; macros/daemon/
+# (nxt-daemon.g, nxt-user-tools-reload-daemon.g, …) → sd/sys/nxt/.
 mkdir -p "${TMP_DIR}/sd/sys/nxt"
 SYNC_CMD=(rsync -a --exclude=README.md --exclude='*.gitkeep')
 for _macro_dir in system probing tooling spindle coolant utilities canned; do
