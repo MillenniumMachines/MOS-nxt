@@ -790,13 +790,14 @@ import BaseComponent from '../base/BaseComponent.vue'
 import { snapshotNxtGlobals } from '../../utils/nxtGlobalsManifest'
 import {
   NXT_PLATFORM_OPTIONS,
-  boardProfileSelectItems,
+  boardProfileSelectItems as getBundledBoardProfileSelectItems,
   nxtBoardPackRelPath,
   bundledBoardMeta,
   migrateLegacyBoardKitKey,
   gpOutItemsForBoard,
   NXT_SCYLLA_MOTOR_VOLTAGE_ITEMS,
-  type NxtPlatformId
+  type NxtPlatformId,
+  type GpOutItem
 } from '../../utils/nxtBoardManifest'
 import {
   NXT_USER_VARS_DWC_PATH,
@@ -848,6 +849,8 @@ export default BaseComponent.extend({
       pinmapSaving: false,
 
       NXT_SCYLLA_MOTOR_VOLTAGE_ITEMS
+    }
+  },
 
   computed: {
     formatToolSetterPos(): string {
@@ -1020,9 +1023,9 @@ export default BaseComponent.extend({
       return v === 24 || v === 48 ? v : undefined
     },
 
-    boardProfileSelectItems() {
+    boardProfileSelectItems(): Array<{ value: string; title: string }> {
       const p = this.globals.nxtPlatformProfile
-      return boardProfileSelectItems(p as NxtPlatformId | null | undefined)
+      return getBundledBoardProfileSelectItems(p as NxtPlatformId | null | undefined)
     },
 
     boardNeedsMotorVoltage(): boolean {
@@ -1094,7 +1097,7 @@ export default BaseComponent.extend({
       )
     },
 
-    boardKitGpOutputs() {
+    boardKitGpOutputs(): GpOutItem[] {
       const lim = this.$store.state.machine.model.limits as { gpOutPorts?: number } | undefined
       const n = lim?.gpOutPorts
       const maxPorts = typeof n === 'number' && n > 0 ? n : 8
