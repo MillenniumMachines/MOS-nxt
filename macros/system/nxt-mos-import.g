@@ -56,40 +56,40 @@ echo >>{var.UV} {"; Written by nxt-mos-import.g (Millennium OS migration) - MOS 
 echo >>{var.UV} {"; Re-run: M98 P""nxt-mos-import.g"""}
 echo >>{var.UV} {""}
 echo >>{var.UV} {"; Feature Flags"}
-echo >>{var.UV} {"global nxtFeatureTouchProbe = " ^ (global.nxtFeatureTouchProbe ? "true" : "false")}
-echo >>{var.UV} {"global nxtFeatureToolSetter = " ^ (global.nxtFeatureToolSetter ? "true" : "false")}
-echo >>{var.UV} {"global nxtFeatureCoolantControl = " ^ (global.nxtFeatureCoolantControl ? "true" : "false")}
+echo >>{var.UV} {"set global.nxtFeatureTouchProbe = " ^ (global.nxtFeatureTouchProbe ? "true" : "false")}
+echo >>{var.UV} {"set global.nxtFeatureToolSetter = " ^ (global.nxtFeatureToolSetter ? "true" : "false")}
+echo >>{var.UV} {"set global.nxtFeatureCoolantControl = " ^ (global.nxtFeatureCoolantControl ? "true" : "false")}
 echo >>{var.UV} {""}
 echo >>{var.UV} {"; Probe tool index (datum / touch probe tool table slot)"}
-echo >>{var.UV} {"global nxtProbeToolID = " ^ (global.nxtProbeToolID == null ? "null" : global.nxtProbeToolID)}
-echo >>{var.UV} {"global nxtDeltaMachine = " ^ (global.nxtDeltaMachine == null ? "null" : global.nxtDeltaMachine)}
+echo >>{var.UV} {"set global.nxtProbeToolID = " ^ (global.nxtProbeToolID == null ? "null" : global.nxtProbeToolID)}
+echo >>{var.UV} {"set global.nxtDeltaMachine = " ^ (global.nxtDeltaMachine == null ? "null" : global.nxtDeltaMachine)}
 echo >>{var.UV} {""}
 echo >>{var.UV} {"; Spindle Configuration"}
-echo >>{var.UV} {"global nxtSpindleID = " ^ (global.nxtSpindleID == null ? "null" : global.nxtSpindleID)}
-echo >>{var.UV} {"global nxtSpindleAccelSec = " ^ (global.nxtSpindleAccelSec == null ? "null" : global.nxtSpindleAccelSec)}
-echo >>{var.UV} {"global nxtSpindleDecelSec = " ^ (global.nxtSpindleDecelSec == null ? "null" : global.nxtSpindleDecelSec)}
+echo >>{var.UV} {"set global.nxtSpindleID = " ^ (global.nxtSpindleID == null ? "null" : global.nxtSpindleID)}
+echo >>{var.UV} {"set global.nxtSpindleAccelSec = " ^ (global.nxtSpindleAccelSec == null ? "null" : global.nxtSpindleAccelSec)}
+echo >>{var.UV} {"set global.nxtSpindleDecelSec = " ^ (global.nxtSpindleDecelSec == null ? "null" : global.nxtSpindleDecelSec)}
 echo >>{var.UV} {""}
 echo >>{var.UV} {"; Touch Probe Configuration"}
-echo >>{var.UV} {"global nxtTouchProbeID = " ^ (global.nxtTouchProbeID == null ? "null" : global.nxtTouchProbeID)}
-echo >>{var.UV} {"global nxtProbeTipRadius = " ^ (global.nxtProbeTipRadius == null ? "null" : global.nxtProbeTipRadius)}
-echo >>{var.UV} {"global nxtProbeDeflection = " ^ (global.nxtProbeDeflection == null ? "null" : global.nxtProbeDeflection)}
+echo >>{var.UV} {"set global.nxtTouchProbeID = " ^ (global.nxtTouchProbeID == null ? "null" : global.nxtTouchProbeID)}
+echo >>{var.UV} {"set global.nxtProbeTipRadius = " ^ (global.nxtProbeTipRadius == null ? "null" : global.nxtProbeTipRadius)}
+echo >>{var.UV} {"set global.nxtProbeDeflection = " ^ (global.nxtProbeDeflection == null ? "null" : global.nxtProbeDeflection)}
 echo >>{var.UV} {""}
 echo >>{var.UV} {"; Tool Setter Configuration"}
-echo >>{var.UV} {"global nxtToolSetterID = " ^ (global.nxtToolSetterID == null ? "null" : global.nxtToolSetterID)}
+echo >>{var.UV} {"set global.nxtToolSetterID = " ^ (global.nxtToolSetterID == null ? "null" : global.nxtToolSetterID)}
 if { global.nxtToolSetterPos == null }
-    echo >>{var.UV} {"global nxtToolSetterPos = null"}
+    echo >>{var.UV} {"set global.nxtToolSetterPos = null"}
 elif { #global.nxtToolSetterPos >= 3 }
-    echo >>{var.UV} {"global nxtToolSetterPos = {" ^ global.nxtToolSetterPos[0] ^ ", " ^ global.nxtToolSetterPos[1] ^ ", " ^ global.nxtToolSetterPos[2] ^ "}"}
+    echo >>{var.UV} {"set global.nxtToolSetterPos = {" ^ global.nxtToolSetterPos[0] ^ ", " ^ global.nxtToolSetterPos[1] ^ ", " ^ global.nxtToolSetterPos[2] ^ "}"}
 elif { #global.nxtToolSetterPos == 2 }
-    echo >>{var.UV} {"global nxtToolSetterPos = {" ^ global.nxtToolSetterPos[0] ^ ", " ^ global.nxtToolSetterPos[1] ^ "}"}
+    echo >>{var.UV} {"set global.nxtToolSetterPos = {" ^ global.nxtToolSetterPos[0] ^ ", " ^ global.nxtToolSetterPos[1] ^ "}"}
 else
-    echo >>{var.UV} {"global nxtToolSetterPos = {" ^ global.nxtToolSetterPos[0] ^ "}"}
+    echo >>{var.UV} {"set global.nxtToolSetterPos = {" ^ global.nxtToolSetterPos[0] ^ "}"}
 
 echo >>{var.UV} {""}
 echo >>{var.UV} {"; Coolant Configuration"}
-echo >>{var.UV} {"global nxtCoolantAirID = " ^ (global.nxtCoolantAirID == null ? "null" : global.nxtCoolantAirID)}
-echo >>{var.UV} {"global nxtCoolantMistID = " ^ (global.nxtCoolantMistID == null ? "null" : global.nxtCoolantMistID)}
-echo >>{var.UV} {"global nxtCoolantFloodID = " ^ (global.nxtCoolantFloodID == null ? "null" : global.nxtCoolantFloodID)}
+echo >>{var.UV} {"set global.nxtCoolantAirID = " ^ (global.nxtCoolantAirID == null ? "null" : global.nxtCoolantAirID)}
+echo >>{var.UV} {"set global.nxtCoolantMistID = " ^ (global.nxtCoolantMistID == null ? "null" : global.nxtCoolantMistID)}
+echo >>{var.UV} {"set global.nxtCoolantFloodID = " ^ (global.nxtCoolantFloodID == null ? "null" : global.nxtCoolantFloodID)}
 echo >>{var.UV} {""}
 echo >>{var.UV} {"; gpOut snapshot (caps min(limits.gpOutPorts,32) in nxt-vars.g)"}
 var pline = {"global nxtPinStates = {"}
