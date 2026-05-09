@@ -89,6 +89,7 @@ catalog usage, and baseline automation patterns for external plugin repos.
 - `nxt.g` calls the generated init dispatcher once boot checks pass.
 - `nxt-daemon.g` runs every daemon cycle and calls init dispatcher first, daemon dispatcher second.
 - system event macros (`pause.g`, `resume.g`, `stop.g`, `cancel.g`) call corresponding generated event dispatchers when present.
+- The built-in NeXT plugin `plugins/next/next-init.g` echoes board-related globals (`nxtPlatformProfile`, `nxtBoardPackEntry`, `nxtScyllaMotorVoltage`) for diagnostics after `nxt.g` has run; it does not load hardware board packs (that is `macros/system/nxt-board-pack-loader.g`). See [NXT_BOARD_CONFIG.md](NXT_BOARD_CONFIG.md).
 
 ## Load Semantics
 

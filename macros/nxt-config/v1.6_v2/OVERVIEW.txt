@@ -1,15 +1,17 @@
-Milo v1.6 / v2.0 board kits (NeXT)
-==================================
+Milo v1.6 / v2.0 board packs (NeXT)
+===================================
 
-This tree is a full copy of the NeXT v1.5 kit layout; edit here for v1.6 / v2.0 without
-disturbing v1.5 users. entry.g chains live under 0:/sys/nxt/config/v1.6_v2/
+This tree mirrors the NeXT v1.5 board layout; edit under nxt/config/v1.6_v2/ for
+Milo v1.6 / v2.0 without disturbing v1.5 users.
 
-Bootstrap (before nxt-vars.g): opt-in only.
+Automatic pack load (opt-in) runs from nxt.g after nxt-vars.g and nxt-user-vars.g
+via macros/system/nxt-board-pack-loader.g — see docs/NXT_BOARD_CONFIG.md.
 
 1. Create empty file 0:/sys/nxt-board-bootstrap.requested on the SD card.
 2. Optionally create 0:/sys/nxt-board-bootstrap.skip to disable.
-3. For a manual kit choice, add 0:/sys/nxt-user-board.g with M98 P"nxt/config/v1.6_v2/.../entry.g"
+3. Set global nxtPlatformProfile = "v1.6_v2" and (for Scylla) global nxtScyllaMotorVoltage = 24 or 48 in nxt-user-vars.g.
+4. For a fully manual chain, add 0:/sys/nxt-user-board.g with M98 P"nxt/config/v1.6_v2/boards/.../entry.g"
    (see macros/system/nxt-user-board.g.example).
 
 config.g: For a thin install, call M98 P"nxt.g" early and avoid duplicating M98 lines for
-drives/limits/spindle if bootstrap loads them.
+drives/limits/spindle if the board pack loader runs them.

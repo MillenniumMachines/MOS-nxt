@@ -1,8 +1,9 @@
 ; M6520.g: SET WCS OFFSET FROM PROBE RESULT
 ;
 ; Sets a Work Coordinate System (WCS) offset using coordinates from the probe results table.
+; Optional XY workplace rotation uses RRF G68 (coordinate rotation in the XY plane) after G10 L2.
 ;
-; USAGE: M6520 P<resultIndex> W<wcsNumber> [X] [Y] [Z] [A]
+; USAGE: M6520 P<resultIndex> W<wcsNumber> [X] [Y] [Z] [A] [Q<mode>] [T<maxSkew>]
 ;
 ; Parameters:
 ;   P: Probe results table index (0-9) to read from - REQUIRED
@@ -11,6 +12,14 @@
 ;   Y: If present, set Y offset from result
 ;   Z: If present, set Z offset from result
 ;   A: If present, set A offset from result
+;   Q: Rotation policy when nxtProbeResults[P][#move.axes] holds skew (deg):
+;      0 or omitted — prompt (M291) to apply or skip rotation
+;      1 — apply G68 without prompt (automation)
+;      2 — translation only, never apply G68
+;   T: Optional override for max |skew| allowed (deg); default global.nxtProbeMaxSkewDeg
+;
+; Rotation (G68) is only applied when both X and Y are updated together.
+; Requires RRF with G68 (CNC / coordinate rotation). Use firmware 3.6.1+ for correct G68 sign.
 ;
 ; At least one axis flag (X, Y, Z, or A) must be specified.
 
@@ -43,6 +52,14 @@ var resultVector = { global.nxtProbeResults[param.P] }
 ; Validate result vector size
 if { #var.resultVector < #move.axes }
     abort { "M6520: Invalid probe result at index " ^ param.P }
+
+var skewLimit = { exists(param.T) ? param.T : global.nxtProbeMaxSkewDeg }
+var qMode = { exists(param.Q) ? param.Q : 0 }
+
+var thetaDeg = { #var.resultVector > #move.axes ? var.resultVector[#move.axes] : 0 }
+
+if { abs(var.thetaDeg) > var.skewLimit }
+    abort { "M6520: Probe rotation " ^ var.thetaDeg ^ " deg exceeds limit " ^ var.skewLimit ^ " — square the part or increase T / nxtProbeMaxSkewDeg" }
 
 ; Get current machine position to preserve unspecified axes
 M5000
@@ -105,3 +122,25 @@ if { var.offsetZ != null }
     echo "M6520:   Z origin = " ^ var.offsetZ
 if { var.offsetA != null }
     echo "M6520:   A origin = " ^ var.offsetA
+
+; --- Optional G68 rotation (XY), about WCS origin after G10 ---
+
+var applyG68 = false
+
+if { exists(param.X) && exists(param.Y) && abs(var.thetaDeg) >= 0.0005 }
+    if { var.qMode == 2 }
+        echo "M6520: Skipping G68 (Q2 translation only)"
+    elif { var.qMode == 1 }
+        set var.applyG68 = true
+    else
+        M291 P{"Probe skew: " ^ var.thetaDeg ^ " deg. Apply G68 to G" ^ (53 + var.wcsNumber) ^ "?"} R"NeXT: Rotation" S4 K{"Apply", "Skip"} F1
+        if { input == 0 }
+            set var.applyG68 = true
+
+if { var.applyG68 }
+    ; XY plane, cancel any prior G68, select target WCS, then rotate about WCS origin (3.6.1+ sign)
+    G17
+    G69
+    G{53 + var.wcsNumber}
+    G68 X0 Y0 R{var.thetaDeg}
+    echo "M6520: G68 rotation applied R" ^ var.thetaDeg ^ " deg about current WCS origin"

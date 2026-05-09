@@ -2,41 +2,51 @@
   <v-card>
     <v-card-title class="d-flex align-center">
       <v-icon left>mdi-crosshairs-gps</v-icon>
-      Probing Cycles
+      {{ $t('plugins.next.panels.probingCycles.title') }}
     </v-card-title>
 
     <v-card-text>
       <v-alert v-if="!touchProbeEnabled" type="warning" dense outlined class="mb-4">
         <v-icon small left>mdi-alert</v-icon>
-        Touch probe feature must be enabled to use probing cycles.
+        {{ $t('plugins.next.panels.probingCycles.touchProbeWarning') }}
       </v-alert>
 
       <v-alert v-else-if="!touchProbeSelected" type="info" dense outlined class="mb-4">
         <v-icon small left>mdi-information</v-icon>
-        Touch probe (T{{ probeToolId }}) must be selected to run probing cycles.
+        {{ $t('plugins.next.panels.probingCycles.selectProbeTool', [probeToolId]) }}
       </v-alert>
 
       <v-row dense class="mb-3">
         <v-col cols="12" sm="6">
           <v-select
-            v-model="selectedResultIndex"
-            :items="resultIndexOptions"
-            label="Store Result In"
+            v-model="targetWcs"
+            :items="wcsOptions"
+            :label="$t('plugins.next.panels.probingCycles.targetWcs')"
+            :hint="$t('plugins.next.panels.probingCycles.wcsHint')"
             outlined
             dense
-            hide-details
-            :hint="`Result will be stored in probe results table at index ${selectedResultIndex}`"
+            persistent-hint
           >
             <template v-slot:prepend-inner>
-              <v-icon small>mdi-table-row</v-icon>
+              <v-icon small>mdi-axis-arrow</v-icon>
             </template>
           </v-select>
         </v-col>
         <v-col cols="12" sm="6">
           <v-select
+            v-model="rotationPolicy"
+            :items="rotationPolicyOptions"
+            :label="$t('plugins.next.panels.probingCycles.rotationPolicy')"
+            outlined
+            dense
+            hide-details
+          />
+        </v-col>
+        <v-col cols="12">
+          <v-select
             v-model="selectedCycle"
             :items="probingCycles"
-            label="Probing Cycle"
+            :label="$t('plugins.next.panels.probing.caption')"
             outlined
             dense
             hide-details
@@ -117,10 +127,20 @@
                   :rules="[v => !!v || 'Required', v => v > 0 || 'Must be positive']"
                 />
               </v-col>
-              <v-col cols="12" sm="6" md="4" v-if="cycleConfig.params.includes('Z')">
+              <v-col cols="12" sm="6" md="4" v-if="cycleConfig.params.includes('SURF')">
+                <v-select
+                  v-model="params.axis"
+                  :items="surfaceAxisOptions"
+                  label="Probe axis"
+                  outlined
+                  dense
+                  :rules="[v => v != null || 'Required']"
+                />
+              </v-col>
+              <v-col cols="12" sm="6" md="4" v-if="cycleConfig.params.includes('SURF')">
                 <v-text-field
-                  v-model.number="params.zTarget"
-                  label="Z Target (Z)"
+                  v-model.number="params.surfaceTarget"
+                  label="Target (machine)"
                   suffix="mm"
                   type="number"
                   outlined
@@ -138,6 +158,16 @@
                   :rules="[v => v != null || 'Required']"
                 />
               </v-col>
+              <v-col cols="12" sm="6" md="4" v-if="cycleConfig.params.includes('DIR')">
+                <v-select
+                  v-model="params.direction"
+                  :items="directionOptions"
+                  label="Approach side (D)"
+                  outlined
+                  dense
+                  :rules="[v => v != null || 'Required']"
+                />
+              </v-col>
 
               <!-- Optional Parameters -->
               <v-col cols="12">
@@ -146,7 +176,7 @@
                     <v-expansion-panel-header class="px-0">
                       <span class="text-caption">
                         <v-icon small left>mdi-tune</v-icon>
-                        Optional Parameters
+                        {{ $t('plugins.next.panels.probingCycles.optionalParams') }}
                       </span>
                     </v-expansion-panel-header>
                     <v-expansion-panel-content>
@@ -217,14 +247,14 @@
             :loading="executing"
           >
             <v-icon left>mdi-play</v-icon>
-            Execute {{ cycleConfig.gcode }}
+            {{ $t('plugins.next.panels.probingCycles.execute', [cycleConfig.gcode]) }}
           </v-btn>
         </v-card-text>
       </v-card>
 
       <v-alert v-else type="info" outlined class="mt-3">
         <v-icon left>mdi-arrow-up</v-icon>
-        Select a probing cycle to configure and execute
+        {{ $t('plugins.next.panels.probingCycles.selectCycle') }}
       </v-alert>
     </v-card-text>
   </v-card>
@@ -248,7 +278,9 @@ interface CycleParams {
   depth: number | null
   spacing: number | null
   zTarget: number | null
+  surfaceTarget: number | null
   axis: number | null
+  direction: number | null
   overtravel: number | null
   clearance: number | null
   feedRate: number | null
@@ -257,8 +289,11 @@ interface CycleParams {
 
 export default BaseComponent.extend({
   data() {
+    const wcsGcode = ['G54', 'G55', 'G56', 'G57', 'G58', 'G59', 'G59.1', 'G59.2', 'G59.3']
     return {
-      selectedResultIndex: 0,
+      targetWcs: 1,
+      rotationPolicy: 0 as number,
+      wcsGcodeLabels: wcsGcode,
       selectedCycle: null as string | null,
       formValid: false,
       executing: false,
@@ -269,7 +304,9 @@ export default BaseComponent.extend({
         depth: null,
         spacing: null,
         zTarget: null,
+        surfaceTarget: null,
         axis: null,
+        direction: null,
         overtravel: null,
         clearance: null,
         feedRate: null,
@@ -322,54 +359,63 @@ export default BaseComponent.extend({
           name: 'Web (X/Y)',
           description: 'Probes a web (block) in either X or Y to find the center point on that axis.',
           icon: 'mdi-arrow-left-right',
-          params: ['N', 'D', 'L']
+          params: ['N', 'W', 'L']
         },
         G6505: {
           gcode: 'G6505',
           name: 'Pocket (X/Y)',
           description: 'Probes a pocket in either X or Y to find the center point on that axis.',
           icon: 'mdi-arrow-expand-horizontal',
-          params: ['N', 'D', 'L']
+          params: ['N', 'W', 'L']
         },
         G6506: {
           gcode: 'G6506',
           name: 'Rotation Probe',
           description: 'Probes 2 points along a surface in X or Y to find the rotation angle.',
           icon: 'mdi-angle-acute',
-          params: ['N', 'D', 'S']
+          params: ['N', 'DIR', 'S', 'L']
         },
         G6508: {
           gcode: 'G6508',
           name: 'Outside Corner',
           description: 'Probes an assumed-90-degree outside corner to find the intersection point.',
           icon: 'mdi-arrow-top-left',
-          params: ['N', 'L']
+          params: ['L']
         },
         G6509: {
           gcode: 'G6509',
           name: 'Inside Corner',
           description: 'Probes an assumed-90-degree inside corner to find the intersection point.',
           icon: 'mdi-arrow-bottom-right',
-          params: ['N', 'D', 'L']
+          params: ['L']
         },
         G6510: {
           gcode: 'G6510',
           name: 'Single Surface',
           description: 'Probes one surface in X, Y, or Z to find the surface location.',
           icon: 'mdi-arrow-right',
-          params: ['Z']
+          params: ['SURF']
         },
         G6520: {
           gcode: 'G6520',
           name: 'Vise Corner',
           description: 'Z probe for vise top, then outside corner probe for X/Y position (3 probes total).',
           icon: 'mdi-desk',
-          params: ['N']
+          params: ['L']
         }
       } as Record<string, CycleConfig>,
       axisOptions: [
         { text: 'X Axis (0)', value: 0 },
         { text: 'Y Axis (1)', value: 1 }
+      ],
+      surfaceAxisOptions: [
+        { text: 'X', value: 0 },
+        { text: 'Y', value: 1 },
+        { text: 'Z', value: 2 }
+      ],
+      directionOptions: [
+        { text: 'Negative / first side (0)', value: 0 },
+        { text: 'Positive / second side (1)', value: 1 }
       ]
     }
   },
@@ -383,13 +429,19 @@ export default BaseComponent.extend({
     touchProbeSelected(): boolean {
       return this.$store.state.machine.model?.state?.currentTool === this.probeToolId
     },
-    resultIndexOptions(): any[] {
-      const options = []
-      const maxResults = this.globals.nxtProbeResults?.length || 10
-      for (let i = 0; i < maxResults; i++) {
-        options.push({ text: `Result ${i}`, value: i })
-      }
-      return options
+    wcsOptions(): { text: string; value: number }[] {
+      const labels = this.wcsGcodeLabels as string[]
+      return labels.map((g, i) => ({
+        text: `WCS ${i + 1} (${g})`,
+        value: i + 1
+      }))
+    },
+    rotationPolicyOptions(): { text: string; value: number }[] {
+      return [
+        { text: this.$t('plugins.next.panels.probingCycles.rotPrompt').toString(), value: 0 },
+        { text: this.$t('plugins.next.panels.probingCycles.rotApply').toString(), value: 1 },
+        { text: this.$t('plugins.next.panels.probingCycles.rotNever').toString(), value: 2 }
+      ]
     },
     cycleConfig(): CycleConfig | null {
       if (!this.selectedCycle) return null
@@ -413,7 +465,9 @@ export default BaseComponent.extend({
         depth: null,
         spacing: null,
         zTarget: null,
+        surfaceTarget: null,
         axis: null,
+        direction: null,
         overtravel: null,
         clearance: null,
         feedRate: null,
@@ -446,18 +500,28 @@ export default BaseComponent.extend({
     buildGcode(): string {
       if (!this.selectedCycle) return ''
 
-      let gcode = `${this.selectedCycle} P${this.selectedResultIndex}`
+      let gcode = `${this.selectedCycle} U${this.targetWcs}`
+      gcode += ` Q${this.rotationPolicy}`
 
-      // Add required parameters based on cycle
-      if (this.params.diameter != null) gcode += ` D${this.params.diameter}`
+      if (this.selectedCycle === 'G6510') {
+        if (this.params.axis === 0 && this.params.surfaceTarget != null) gcode += ` X${this.params.surfaceTarget}`
+        else if (this.params.axis === 1 && this.params.surfaceTarget != null) gcode += ` Y${this.params.surfaceTarget}`
+        else if (this.params.axis === 2 && this.params.surfaceTarget != null) gcode += ` Z${this.params.surfaceTarget}`
+      } else if (this.params.axis != null) {
+        gcode += ` N${this.params.axis}`
+      }
+
+      if (this.selectedCycle === 'G6506') {
+        if (this.params.direction != null) gcode += ` D${this.params.direction}`
+      } else if (this.params.diameter != null) {
+        gcode += ` D${this.params.diameter}`
+      }
+
       if (this.params.width != null) gcode += ` W${this.params.width}`
       if (this.params.height != null) gcode += ` H${this.params.height}`
       if (this.params.depth != null) gcode += ` L${this.params.depth}`
       if (this.params.spacing != null) gcode += ` S${this.params.spacing}`
-      if (this.params.zTarget != null) gcode += ` Z${this.params.zTarget}`
-      if (this.params.axis != null) gcode += ` N${this.params.axis}`
 
-      // Add optional parameters if specified
       if (this.params.overtravel != null) gcode += ` O${this.params.overtravel}`
       if (this.params.clearance != null) gcode += ` C${this.params.clearance}`
       if (this.params.feedRate != null) gcode += ` F${this.params.feedRate}`

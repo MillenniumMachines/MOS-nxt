@@ -2,20 +2,20 @@
 ;
 ; Probes all 4 edges of a rectangular pocket to find the center point.
 ; Uses single-axis probing for each edge and calculates the geometric center.
+; With hit capture (H on G6512), estimates in-plane skew vs machine X and stores angle in
+; nxtProbeResults[row][#move.axes] for M6520 / G68. Row index is P, or U-1 when U is given.
 ;
-; USAGE: G6502 P<index> W<width> H<height> L<depth> [F<speed>] [R<retries>] [C<clearance>] [O<overtravel>]
+; USAGE: G6502 P<index>|U<wcs> W<width> H<height> L<depth> [F<speed>] [R<retries>] [C<clearance>] [O<overtravel>] [T<maxSkewDeg>] [Q<6520mode>]
 ;
 ; Parameters:
-;   P: Result table index (0-based) where results will be stored - REQUIRED
+;   P: Result table index (0-based) — legacy measure-only if U omitted - REQUIRED unless U given
+;   U: Target workplace number 1..9 (G54..G59.3); storage index = U-1; run M6520 at end
 ;   W: Pocket width in X direction - REQUIRED
 ;   H: Pocket height in Y direction - REQUIRED
 ;   L: Depth to move down into pocket before probing - REQUIRED
-;   F: Optional speed override in mm/min
-;   R: Number of retries for averaging per probe point
-;   C: Clearance distance from pocket edges (default: 5mm)
-;   O: Overtravel distance beyond expected surfaces (default: 2mm)
-;
-; The pocket center coordinates are logged to nxtProbeResults table.
+;   F,R,C,O: As before
+;   T: Optional max |skew| in deg (default global.nxtProbeMaxSkewDeg)
+;   Q: Optional M6520 rotation policy when U is used (0=prompt 1=apply 2=never)
 
 ; Make sure this file is not executed by the secondary motion system
 if { !inputs[state.thisInput].active }
@@ -32,24 +32,31 @@ if { global.nxtTouchProbeID == null }
 if { state.currentTool != global.nxtProbeToolID }
     abort { "G6502: Touch probe (T" ^ global.nxtProbeToolID ^ ") must be selected" }
 
-; Validate required parameters
-if { !exists(param.P) || param.P == null || param.P < 0 }
-    abort { "G6502: Result index parameter P is required and must be >= 0" }
+var pSlot = null
+if { exists(param.U) && param.U != null }
+    if { param.U < 1 || param.U > 9 }
+        abort { "G6502: U (target WCS) must be 1-9" }
+    set var.pSlot = { param.U - 1 }
+elif { exists(param.P) && param.P != null }
+    set var.pSlot = { param.P }
+else
+    abort { "G6502: P (result index) or U (target workplace 1-9) is required" }
 
-if { param.P >= #global.nxtProbeResults }
-    abort { "G6502: Result index P=" ^ param.P ^ " exceeds table size (" ^ #global.nxtProbeResults ^ ")" }
+if { var.pSlot < 0 || var.pSlot >= #global.nxtProbeResults }
+    abort { "G6502: Result slot out of range" }
 
 if { !exists(param.W) || !exists(param.H) || !exists(param.L) }
     abort { "G6502: Width (W), Height (H), and Depth (L) parameters are required" }
 
 ; Set parameters
 var feedRate = { exists(param.F) ? param.F : null }
-var retries = { exists(param.R) ? param.R : null }
+var retries = { exists(param.R) ? param.R : global.nxtProbeInnerSampleCount }
 var pocketWidth = { param.W }
 var pocketHeight = { param.H }
 var probeDepth = { param.L }
 var clearance = { exists(param.C) ? param.C : 5.0 }
 var overtravel = { exists(param.O) ? param.O : 2.0 }
+var skewLimit = { exists(param.T) ? param.T : global.nxtProbeMaxSkewDeg }
 
 echo "G6502: Starting rectangle pocket probe cycle"
 
@@ -72,8 +79,7 @@ echo "G6502: Probing rectangular pocket " ^ var.pocketWidth ^ "x" ^ var.pocketHe
 ; Probe +X edge (right side of pocket)
 echo "G6502: Probing +X edge"
 var xPlusTarget = { var.centerX + var.xProbeDistance }
-G6512 X{var.xPlusTarget} Y{var.centerY} Z{var.probeZ} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries}
-var xPlusEdge = { global.nxtLastProbeResult }
+G6512 X{var.xPlusTarget} Y{var.centerY} Z{var.probeZ} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H0
 
 ; Move back to center for next probe
 G6550 X{var.centerX}
@@ -81,8 +87,7 @@ G6550 X{var.centerX}
 ; Probe -X edge (left side of pocket)
 echo "G6502: Probing -X edge"
 var xMinusTarget = { var.centerX - var.xProbeDistance }
-G6512 X{var.xMinusTarget} Y{var.centerY} Z{var.probeZ} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries}
-var xMinusEdge = { global.nxtLastProbeResult }
+G6512 X{var.xMinusTarget} Y{var.centerY} Z{var.probeZ} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H1
 
 ; Move back to center for next probe
 G6550 X{var.centerX}
@@ -90,8 +95,7 @@ G6550 X{var.centerX}
 ; Probe +Y edge (front of pocket)
 echo "G6502: Probing +Y edge"
 var yPlusTarget = { var.centerY + var.yProbeDistance }
-G6512 X{var.centerX} Y{var.yPlusTarget} Z{var.probeZ} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries}
-var yPlusEdge = { global.nxtLastProbeResult }
+G6512 X{var.centerX} Y{var.yPlusTarget} Z{var.probeZ} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H2
 
 ; Move back to center for next probe
 G6550 Y{var.centerY}
@@ -99,25 +103,52 @@ G6550 Y{var.centerY}
 ; Probe -Y edge (back of pocket)
 echo "G6502: Probing -Y edge"
 var yMinusTarget = { var.centerY - var.yProbeDistance }
-G6512 X{var.centerX} Y{var.yMinusTarget} Z{var.probeZ} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries}
-var yMinusEdge = { global.nxtLastProbeResult }
+G6512 X{var.centerX} Y{var.yMinusTarget} Z{var.probeZ} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H3
 
-; Calculate pocket center from the 4 probe points
-var calculatedCenterX = { (var.xPlusEdge + var.xMinusEdge) / 2 }
-var calculatedCenterY = { (var.yPlusEdge + var.yMinusEdge) / 2 }
+; Chord vectors from opposing pocket walls; skew θ = angle of X chord vs machine X.
+; Center = mean of (midpoint of X pair) and (midpoint of Y pair) — see G6500 header.
+var xPx = { global.nxtProbeHitXY[0] }
+var xPy = { global.nxtProbeHitXY[1] }
+var xMx = { global.nxtProbeHitXY[2] }
+var xMy = { global.nxtProbeHitXY[3] }
+var yPx = { global.nxtProbeHitXY[4] }
+var yPy = { global.nxtProbeHitXY[5] }
+var yMx = { global.nxtProbeHitXY[6] }
+var yMy = { global.nxtProbeHitXY[7] }
 
-; Calculate actual pocket dimensions
-var actualWidth = { var.xPlusEdge - var.xMinusEdge }
-var actualHeight = { var.yPlusEdge - var.yMinusEdge }
+var vx = { var.xPx - var.xMx }
+var vy = { var.xPy - var.xMy }
+var wx = { var.yPx - var.yMx }
+var wy = { var.yPy - var.yMy }
+
+var thetaRad = { atan2(var.vy, var.vx) }
+var thetaDeg = { var.thetaRad * 180 / pi }
+
+if { abs(var.thetaDeg) > var.skewLimit }
+    abort { "G6502: |skew| " ^ var.thetaDeg ^ " deg exceeds limit " ^ var.skewLimit }
+
+var m1x = { (var.xPx + var.xMx) / 2 }
+var m1y = { (var.xPy + var.xMy) / 2 }
+var m2x = { (var.yPx + var.yMx) / 2 }
+var m2y = { (var.yPy + var.yMy) / 2 }
+var calculatedCenterX = { (var.m1x + var.m2x) / 2 }
+var calculatedCenterY = { (var.m1y + var.m2y) / 2 }
+
+var xPlusEdge = { var.calculatedCenterX + var.vx / 2 }
+var xMinusEdge = { var.calculatedCenterX - var.vx / 2 }
+var yPlusEdge = { var.calculatedCenterY + var.wy / 2 }
+var yMinusEdge = { var.calculatedCenterY - var.wy / 2 }
+
+var actualWidth = { abs(var.vx) }
+var actualHeight = { abs(var.wy) }
 
 ; Log results to probe results table
-; Initialize the result vector if needed
-if { #global.nxtProbeResults[param.P] < 3 }
-    set global.nxtProbeResults[param.P] = { vector(#move.axes + 1, 0.0) }
+if { #global.nxtProbeResults[var.pSlot] < 3 }
+    set global.nxtProbeResults[var.pSlot] = { vector(#move.axes + 1, 0.0) }
 
-; Store the calculated center coordinates
-set global.nxtProbeResults[param.P][0] = { var.calculatedCenterX }
-set global.nxtProbeResults[param.P][1] = { var.calculatedCenterY }
+set global.nxtProbeResults[var.pSlot][0] = { var.calculatedCenterX }
+set global.nxtProbeResults[var.pSlot][1] = { var.calculatedCenterY }
+set global.nxtProbeResults[var.pSlot][#move.axes] = { var.thetaDeg }
 
 ; Move to calculated center
 G6550 X{var.calculatedCenterX} Y{var.calculatedCenterY}
@@ -127,5 +158,12 @@ G6550 Z{var.startZ}
 
 echo "G6502: Rectangle pocket probe completed"
 echo "G6502: Pocket center at X=" ^ var.calculatedCenterX ^ " Y=" ^ var.calculatedCenterY
+echo "G6502: Approx skew vs machine X: " ^ var.thetaDeg ^ " deg"
 echo "G6502: Measured dimensions: " ^ var.actualWidth ^ "x" ^ var.actualHeight ^ "mm"
-echo "G6502: Result logged to table index " ^ param.P
+echo "G6502: Result logged to table index " ^ var.pSlot
+
+if { exists(param.U) && param.U != null }
+    if { exists(param.Q) && param.Q != null }
+        M98 P"M6520.g" P{var.pSlot} W{param.U} X Y T{var.skewLimit} Q{param.Q}
+    else
+        M98 P"M6520.g" P{var.pSlot} W{param.U} X Y T{var.skewLimit}

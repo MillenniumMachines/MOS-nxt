@@ -10,6 +10,8 @@ This document summarizes the custom architecture, development environment, and d
 | Layer | Location | Purpose |
 | :--- | :--- | :--- |
 | **RRF Macros** | `sys/*.g` | G-code macros for initialization, probing, and status |
+
+**RRF evaluation reference:** [RepRapFirmware **3.6.2**](docs/RRF_REFERENCE.md) — use this tag when judging macro/G-code/OM correctness ([`docs/RRF_REFERENCE.md`](docs/RRF_REFERENCE.md)).
 | **DWC Plugin** | `dwc-plugin/` | Vue 2 / Vuetify UI panel for Duet Web Control |
 | **Plugin SD** | `sd/plugins/mos-fourth-axis/` | Bootstrap script (`init.g`) + daemon hook |
 | **Build Scripts** | `scripts/` | Shell scripts for plugin ZIP packaging |

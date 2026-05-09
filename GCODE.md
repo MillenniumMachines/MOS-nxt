@@ -15,17 +15,19 @@ This document provides reference documentation for custom G-codes and M-codes im
 
 ### G6500: Bore Probe
 
-Probes a circular bore by probing in 4 directions (±X, ±Y) to find the center.
+Uses **three** inward touches (+X, −X, +Y) on the bore wall; the circle center is the **circumcenter** of the three contacts (minimum geometry for a circle in 2D). Skew is still derived from the ±X chord vs machine **X**.
 
-**Usage:** `G6500 P<index> D<diameter> L<depth> [F<speed>] [R<retries>] [O<overtravel>]`
+**Usage:** `G6500 P|U D<diameter> L<depth> [F<speed>] [R<retries>] [O<overtravel>] [T] [Q]`
 
 **Parameters:**
-- `P`: Result table index (0-9) where results will be stored - **REQUIRED**
+- `P` or `U`: Result row **`P`** (0–9) **or** target workplace **`U`** (1–9) — **REQUIRED** (one of)
 - `D`: Bore diameter for move planning (mm) - **REQUIRED**
 - `L`: Depth to move down into bore before probing (mm) - **REQUIRED**
 - `F`: Optional speed override (mm/min)
-- `R`: Number of retries for averaging per probe point
+- `R`: Inner sample count per **`G6512`** touch (default: `global.nxtProbeInnerSampleCount`)
 - `O`: Overtravel distance beyond expected surface (default: 2mm)
+- `T`: Max |skew| in degrees (default: `global.nxtProbeMaxSkewDeg`)
+- `Q`: **`M6520`** rotation policy when **`U`** is used
 
 **Results:** Stores X and Y center coordinates in the probe results table.
 
@@ -33,18 +35,19 @@ Probes a circular bore by probing in 4 directions (±X, ±Y) to find the center.
 
 ### G6501: Boss Probe
 
-Probes a circular boss from outside in 4 directions (±X, ±Y) to find the center.
+Probes a circular boss from the outside with **three** OD touches (+X, −X, +Y at the X midpoint), then the same **circumcenter** fit as **`G6500`**.
 
-**Usage:** `G6501 P<index> D<diameter> L<depth> [F<speed>] [R<retries>] [C<clearance>] [O<overtravel>]`
+**Usage:** `G6501 P|U D<diameter> L<depth> [F<speed>] [R<retries>] [C<clearance>] [O<overtravel>] [T] [Q]`
 
 **Parameters:**
-- `P`: Result table index (0-9) where results will be stored - **REQUIRED**
+- `P` or `U`: Result row **`P`** (0–9) **or** target workplace **`U`** (1–9) — **REQUIRED** (one of)
 - `D`: Boss diameter for move planning (mm) - **REQUIRED**
 - `L`: Depth to move down before probing (mm) - **REQUIRED**
 - `F`: Optional speed override (mm/min)
-- `R`: Number of retries for averaging per probe point
+- `R`: Inner sample count per **`G6512`** touch (default: `global.nxtProbeInnerSampleCount`)
 - `C`: Clearance distance from boss edge for starting position (default: 5mm)
 - `O`: Overtravel distance beyond expected surface (default: 2mm)
+- `T`, `Q`: Same as **`G6500`**
 
 **Results:** Stores X and Y center coordinates in the probe results table.
 
@@ -203,15 +206,18 @@ Probes one surface in X, Y, or Z to find the surface location.
 
 ### G6512: Single-Axis Probing (Core)
 
-Low-level single-axis probe move with compensation and averaging. This is the core probing engine used by all probing cycles.
+Low-level single-axis probe move with compensation and averaging. Used by all probing cycles.
 
-**Usage:** `G6512 [X<pos>|Y<pos>|Z<pos>|A<pos>] I<probeID> [F<speed>] [R<retries>]`
+**Repeatability:** Defaults are **`macros/system/nxt-vars.g`** (`nxtProbeInnerSampleCount`, **`nxtProbeMaxSampleSpreadMm`**, **`nxtProbeSampleOuterRetries`**). When **`nxtProbeMaxSampleSpreadMm` > 0**, each **`G6512`** takes **`R`** inner samples (default = **`nxtProbeInnerSampleCount`**). If peak-to-peak spread exceeds the limit, the macro **`echo`s** and repeats the whole sample block up to **`1 + nxtProbeSampleOuterRetries`** attempts (**`1`** outer retry is the stock default). Set **`nxtProbeMaxSampleSpreadMm`** to **0** to disable.
+
+**Usage:** `G6512 [X<pos>|Y<pos>|Z<pos>|A<pos>] I<probeID> [F<speed>] [R<retries>] [H<hit>]`
 
 **Parameters:**
 - `X|Y|Z|A`: Exactly ONE axis parameter must be provided - **REQUIRED**
 - `I`: Probe ID (e.g., touch probe or tool setter) - **REQUIRED**
 - `F`: Optional speed override (mm/min)
-- `R`: Number of retries for averaging (default: probe.maxProbeCount + 1)
+- `R`: Inner sample count for averaging (default: `global.nxtProbeInnerSampleCount`)
+- `H`: Optional hit index 0..3 for `(X,Y)` into `global.nxtProbeHitXY`
 
 **Results:** Stores compensated result in `global.nxtLastProbeResult`.
 
@@ -278,30 +284,34 @@ Validates that target coordinates are within machine limits.
 
 ### M6520: Set WCS Offset from Probe Result
 
-Sets a Work Coordinate System (WCS) origin using coordinates from the probe results table. The probe result coordinates (in machine coordinates) are used directly as the WCS origin.
+Sets a Work Coordinate System (WCS) origin using coordinates from the probe results table (machine coordinates), then optionally applies **G68** XY coordinate rotation when **both** `X` and `Y` are updated and the result vector has a rotation value in `nxtProbeResults[P][#move.axes]`.
 
-**Usage:** `M6520 P<resultIndex> W<wcsNumber> [X] [Y] [Z] [A]`
+**Usage:** `M6520 P<resultIndex> W<wcsNumber> [X] [Y] [Z] [A] [Q<mode>] [T<maxSkewDeg>]`
 
 **Parameters:**
-- `P`: Probe results table index (0-9) to read from - **REQUIRED**
-- `W`: WCS number (1-9 for G54-G59.3) - **REQUIRED**
-- `X|Y|Z|A`: Axis flags - at least one required
+- `P`: Probe results table index (0-9) — **required**
+- `W`: WCS number (1-9 for `G10 L2 P` / G54⋯) — **required**
+- `X|Y|Z|A`: Axis flags — at least one required
+- `Q`: Rotation policy: **0** (default) = `M291` prompt to apply or skip **G68**; **1** = apply **G68** without prompt; **2** = translation only (no **G68**)
+- `T`: Optional cap on `|θ|` in degrees (default `global.nxtProbeMaxSkewDeg`); abort **M6520** if exceeded
 
-**How it works:**
-- Reads the probe result from the specified index
-- For each flagged axis, sets the WCS origin to the probe result coordinate
-- Uses `G10 L2` internally to set the WCS origin
+**Rotation:** Uses RRF **G68 X0 Y0 R** after **G10 L2** and selecting the target workplace. **G68** rotation direction was corrected in **RRF 3.6.1**; NeXT development/review targets **RRF 3.6.2** as the reference build ([`docs/RRF_REFERENCE.md`](docs/RRF_REFERENCE.md)). See `docs/DETAILS.md` (NeXT native probing section).
+
+**Probe cycles:** With **`U`** on **G650x**/`G6510`, the macro stores results at row **`U−1`** and calls **`M6520`** via **`M98`** at the end so the operator does not run **M6520** separately.
 
 **Example:**
 ```gcode
-; Probe bore center and set as G54 origin
-G6500 P0 D25.4 L10    ; Probe bore, result stored at index 0
-M6520 P0 W1 X Y       ; Set G54 origin to bore center
+; Auto chain (recommended from UI): bore + apply G54 + optional G68
+G6500 U1 D25.4 L10 Q0
 
-; Probe Z surface and add to same WCS
-G6510 P0 Z-20         ; Probe Z, adds to result 0
-M6520 P0 W1 X Y Z     ; Update G54 with X, Y, and Z
+; Manual legacy: measure only into P3, then apply to G55
+G6500 P3 D25.4 L10
+M6520 P3 W2 X Y Q0
 ```
+
+**How it works:**
+- Reads the probe result from `P`, issues **G10 L2 P{W}** for flagged non-zero axes
+- If **X** and **Y** are flagged and `|θ|` is non-trivial and within **T**, applies **Q** (prompt / force / skip) then **G69**/**G68** as needed
 
 ---
 

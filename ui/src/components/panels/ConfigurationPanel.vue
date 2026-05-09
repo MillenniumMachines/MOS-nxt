@@ -28,7 +28,7 @@
               <strong>{{ $t('plugins.next.panels.configuration.boardSection') }}</strong>
               <v-spacer />
               <v-icon
-                v-if="boardKitMismatch"
+                v-if="boardProfileMismatch || scyllaVoltageMissing"
                 small
                 color="warning"
                 class="mr-2"
@@ -78,20 +78,36 @@
             <v-row>
               <v-col cols="12" md="6">
                 <v-select
-                  :value="globals.nxtBoardKitKey"
-                  :items="boardKitSelectItems"
+                  :value="globals.nxtBoardShortNameOverride != null ? String(globals.nxtBoardShortNameOverride) : undefined"
+                  :items="boardProfileSelectItems"
                   item-text="title"
                   item-value="value"
-                  :label="$t('plugins.next.panels.configuration.boardKit')"
-                  :disabled="uiFrozen || boardKitSelectItems.length === 0"
+                  :label="$t('plugins.next.panels.configuration.boardProfile')"
                   clearable
+                  :placeholder="primaryBoardShortName && primaryBoardShortName !== '—' ? `Auto (${primaryBoardShortName})` : 'Auto (object model)'"
+                  :disabled="uiFrozen || boardProfileSelectItems.length === 0"
                   hide-details
-                  @change="onBoardKitKeyChange"
+                  @change="onBoardProfileShortNameChange"
                 />
-                <p v-if="boardKitSelectItems.length === 0" class="text-caption grey--text mt-1">
+                <p v-if="boardProfileSelectItems.length === 0" class="text-caption grey--text mt-1">
                   {{ $t('plugins.next.panels.configuration.boardNoKitsPlatform') }}
                 </p>
               </v-col>
+              <v-col cols="12" md="6">
+                <v-select
+                  v-if="boardNeedsMotorVoltage"
+                  :value="scyllaMotorVoltageUiValue"
+                  :items="NXT_SCYLLA_MOTOR_VOLTAGE_ITEMS"
+                  item-text="title"
+                  item-value="value"
+                  :label="$t('plugins.next.panels.configuration.boardMotorVoltage')"
+                  :disabled="uiFrozen"
+                  hide-details
+                  @change="onScyllaMotorVoltageChange"
+                />
+              </v-col>
+            </v-row>
+            <v-row>
               <v-col cols="12" md="6">
                 <v-select
                   :value="boardBootstrapModeUi"
@@ -105,8 +121,11 @@
                 />
               </v-col>
             </v-row>
-            <v-alert v-if="boardKitMismatch" type="warning" dense outlined class="mt-3">
+            <v-alert v-if="boardProfileMismatch" type="warning" dense outlined class="mt-3">
               {{ $t('plugins.next.panels.configuration.boardMismatch') }}
+            </v-alert>
+            <v-alert v-if="scyllaVoltageMissing" type="warning" dense outlined class="mt-3">
+              {{ $t('plugins.next.panels.configuration.boardVoltageMissing') }}
             </v-alert>
             <v-textarea
               :value="kitEntryPathForUi"
@@ -361,6 +380,46 @@
                     </v-tooltip>
                   </template>
                 </v-text-field>
+              </v-col>
+            </v-row>
+            <v-row>
+              <v-col cols="12" md="4">
+                <v-text-field
+                  v-model.number="globals.nxtProbeInnerSampleCount"
+                  label="Inner samples (nxt-vars.g)"
+                  type="number"
+                  min="1"
+                  step="1"
+                  :disabled="uiFrozen"
+                  @blur="updateVariable('nxtProbeInnerSampleCount', globals.nxtProbeInnerSampleCount)"
+                  hint="Default from macros/system/nxt-vars.g; saved here as global override"
+                  persistent-hint
+                />
+              </v-col>
+              <v-col cols="12" md="4">
+                <v-text-field
+                  v-model.number="globals.nxtProbeMaxSampleSpreadMm"
+                  label="Max sample spread (mm)"
+                  type="number"
+                  step="0.001"
+                  :disabled="uiFrozen"
+                  @blur="updateVariable('nxtProbeMaxSampleSpreadMm', globals.nxtProbeMaxSampleSpreadMm)"
+                  hint="0 = disabled. Source of truth: nxt-vars.g"
+                  persistent-hint
+                />
+              </v-col>
+              <v-col cols="12" md="4">
+                <v-text-field
+                  v-model.number="globals.nxtProbeSampleOuterRetries"
+                  label="Outer retries after bad spread"
+                  type="number"
+                  min="0"
+                  step="1"
+                  :disabled="uiFrozen"
+                  @blur="updateVariable('nxtProbeSampleOuterRetries', globals.nxtProbeSampleOuterRetries)"
+                  hint="Extra full sample blocks; 1 = one retry. See nxt-vars.g"
+                  persistent-hint
+                />
               </v-col>
             </v-row>
 
@@ -731,13 +790,13 @@ import BaseComponent from '../base/BaseComponent.vue'
 import { snapshotNxtGlobals } from '../../utils/nxtGlobalsManifest'
 import {
   NXT_PLATFORM_OPTIONS,
-  NXT_LDO_KIT_OPTIONS,
-  nxtKitEntryPath,
-  suggestKitKeyFromBoardShortName,
-  gpOutItemsForKit,
-  applyKitKeyToGlobals,
-  type NxtPlatformId,
-  type NxtBoardKitKey
+  boardProfileSelectItems,
+  nxtBoardPackRelPath,
+  bundledBoardMeta,
+  migrateLegacyBoardKitKey,
+  gpOutItemsForBoard,
+  NXT_SCYLLA_MOTOR_VOLTAGE_ITEMS,
+  type NxtPlatformId
 } from '../../utils/nxtBoardManifest'
 import {
   NXT_USER_VARS_DWC_PATH,
@@ -786,9 +845,9 @@ export default BaseComponent.extend({
         z: 0
       },
 
-      pinmapSaving: false
-    }
-  },
+      pinmapSaving: false,
+
+      NXT_SCYLLA_MOTOR_VOLTAGE_ITEMS
 
   computed: {
     formatToolSetterPos(): string {
@@ -925,29 +984,71 @@ export default BaseComponent.extend({
       return b?.shortName != null && String(b.shortName).length > 0 ? String(b.shortName) : '—'
     },
 
-    omSuggestedKitKey(): NxtBoardKitKey | null {
-      return suggestKitKeyFromBoardShortName(this.machineBoardsList[0]?.shortName)
+    resolvedBoardShortNameForPack(): string | null {
+      const g = this.globals as Record<string, unknown>
+      const o = g.nxtBoardShortNameOverride
+      if (o != null && String(o).trim().length > 0) {
+        return String(o).trim()
+      }
+      const legacy = migrateLegacyBoardKitKey(g.nxtBoardKitKey as any)
+      if (legacy) {
+        return legacy.shortName
+      }
+      const om = this.machineBoardsList[0]?.shortName
+      return om != null && String(om).length > 0 ? String(om) : null
     },
 
-    boardKitMismatch(): boolean {
-      const sel = this.globals.nxtBoardKitKey as NxtBoardKitKey | null | undefined
-      const om = this.omSuggestedKitKey
-      if (om == null || sel == null) {
+    resolvedMotorVoltageForPack(): number | null {
+      const g = this.globals as Record<string, unknown>
+      const v = g.nxtScyllaMotorVoltage
+      if (v === 24 || v === 48) {
+        return v as number
+      }
+      const legacy = migrateLegacyBoardKitKey(g.nxtBoardKitKey as any)
+      if (
+        legacy &&
+        legacy.shortName === 'scylla1_0_h723' &&
+        legacy.motorVoltage != null
+      ) {
+        return legacy.motorVoltage
+      }
+      return null
+    },
+
+    scyllaMotorVoltageUiValue(): number | undefined {
+      const v = this.resolvedMotorVoltageForPack
+      return v === 24 || v === 48 ? v : undefined
+    },
+
+    boardProfileSelectItems() {
+      const p = this.globals.nxtPlatformProfile
+      return boardProfileSelectItems(p as NxtPlatformId | null | undefined)
+    },
+
+    boardNeedsMotorVoltage(): boolean {
+      const sn = this.resolvedBoardShortNameForPack
+      return bundledBoardMeta(sn)?.variant === 'motor-24v-48v'
+    },
+
+    scyllaVoltageMissing(): boolean {
+      if (!this.boardNeedsMotorVoltage) {
         return false
       }
-      return om !== sel
+      const v = this.resolvedMotorVoltageForPack
+      return v !== 24 && v !== 48
+    },
+
+    boardProfileMismatch(): boolean {
+      const om = this.primaryBoardShortName
+      const sel = this.globals.nxtBoardShortNameOverride
+      if (om === '—' || om.length === 0 || sel == null || String(sel).length === 0) {
+        return false
+      }
+      return String(sel).trim() !== om
     },
 
     nxtPlatformSelectItems() {
       return NXT_PLATFORM_OPTIONS
-    },
-
-    boardKitSelectItems() {
-      const p = this.globals.nxtPlatformProfile
-      if (p === 'v1.5' || p === 'v1.6_v2') {
-        return NXT_LDO_KIT_OPTIONS
-      }
-      return []
     },
 
     boardBootstrapModeUi(): string {
@@ -963,22 +1064,33 @@ export default BaseComponent.extend({
     },
 
     kitEntryPathForUi(): string {
-      const k = this.globals.nxtBoardKitKey as NxtBoardKitKey | null | undefined
-      if (k == null) {
+      const platRaw = this.globals.nxtPlatformProfile as NxtPlatformId | null | undefined
+      const plat = platRaw === 'v1.6_v2' ? 'v1.6_v2' : platRaw === 'v1.5' ? 'v1.5' : null
+      if (!plat) {
         return ''
       }
-      const platRaw = this.globals.nxtPlatformProfile as NxtPlatformId | null | undefined
-      const plat = platRaw === 'v1.6_v2' ? 'v1.6_v2' : 'v1.5'
-      return `M98 P"${nxtKitEntryPath(plat, k)}"`
+      const sn = this.resolvedBoardShortNameForPack
+      if (!sn) {
+        return ''
+      }
+      let volt: number | null = null
+      if (bundledBoardMeta(sn)?.variant === 'motor-24v-48v') {
+        volt = this.resolvedMotorVoltageForPack
+      }
+      const rel = nxtBoardPackRelPath(plat, sn, volt)
+      if (!rel) {
+        return ''
+      }
+      return `M98 P"${rel}"`
     },
 
     boardConfigGHint(): string {
       const kitLine = this.kitEntryPathForUi
       return (
-        '; NeXT: call early in config.g. If using board bootstrap, create 0:/sys/nxt-board-bootstrap.requested.\n' +
-        '; Avoid duplicating drives/limits/spindle M98 if the kit entry already loads them.\n' +
+        '; NeXT: call early in config.g. If using board pack auto-load, create 0:/sys/nxt-board-bootstrap.requested.\n' +
+        '; Pack loads after nxt-user-vars.g (motor voltage must be set for Scylla). Avoid duplicating drives/limits if the pack loads them.\n' +
         'M98 P"nxt.g"\n\n' +
-        (kitLine ? `; Or load one kit entry only:\n${kitLine}\n` : '')
+        (kitLine ? `; Or load one pack entry only:\n${kitLine}\n` : '')
       )
     },
 
@@ -986,7 +1098,7 @@ export default BaseComponent.extend({
       const lim = this.$store.state.machine.model.limits as { gpOutPorts?: number } | undefined
       const n = lim?.gpOutPorts
       const maxPorts = typeof n === 'number' && n > 0 ? n : 8
-      return gpOutItemsForKit(this.globals.nxtBoardKitKey as NxtBoardKitKey | null, maxPorts)
+      return gpOutItemsForBoard(this.resolvedBoardShortNameForPack, maxPorts)
     },
 
     nxtGlobalsSnapshotRows() {
@@ -1003,15 +1115,19 @@ export default BaseComponent.extend({
       await this.updateVariable('nxtPlatformProfile', value)
     },
 
-    async onBoardKitKeyChange(value: NxtBoardKitKey | null) {
-      if (value == null || value === ('' as any)) {
-        await this.updateVariable('nxtBoardKitKey', null)
+    async onBoardProfileShortNameChange(value: string | null) {
+      const v = value != null && String(value).trim().length > 0 ? String(value).trim() : null
+      await this.updateVariable('nxtBoardShortNameOverride', v)
+      await this.updateVariable('nxtBoardKitKey', null)
+      if (v !== 'scylla1_0_h723') {
         await this.updateVariable('nxtScyllaMotorVoltage', null)
-        return
       }
-      const u = applyKitKeyToGlobals(value)
-      await this.updateVariable('nxtBoardKitKey', u.nxtBoardKitKey)
-      await this.updateVariable('nxtScyllaMotorVoltage', u.nxtScyllaMotorVoltage)
+    },
+
+    async onScyllaMotorVoltageChange(value: number | null) {
+      const v = value === 24 || value === 48 ? value : null
+      await this.updateVariable('nxtScyllaMotorVoltage', v)
+      await this.updateVariable('nxtBoardKitKey', null)
     },
 
     async onBoardBootstrapModeChange(value: string) {
@@ -1163,6 +1279,9 @@ export default BaseComponent.extend({
           `global nxtTouchProbeID = ${g.nxtTouchProbeID !== null && g.nxtTouchProbeID !== undefined ? g.nxtTouchProbeID : 'null'}`,
           `global nxtProbeTipRadius = ${g.nxtProbeTipRadius !== null && g.nxtProbeTipRadius !== undefined ? g.nxtProbeTipRadius : 'null'}`,
           `global nxtProbeDeflection = ${g.nxtProbeDeflection !== null && g.nxtProbeDeflection !== undefined ? g.nxtProbeDeflection : 'null'}`,
+          `global nxtProbeInnerSampleCount = ${g.nxtProbeInnerSampleCount !== null && g.nxtProbeInnerSampleCount !== undefined ? g.nxtProbeInnerSampleCount : 3}`,
+          `global nxtProbeMaxSampleSpreadMm = ${g.nxtProbeMaxSampleSpreadMm !== null && g.nxtProbeMaxSampleSpreadMm !== undefined ? g.nxtProbeMaxSampleSpreadMm : 0.015}`,
+          `global nxtProbeSampleOuterRetries = ${g.nxtProbeSampleOuterRetries !== null && g.nxtProbeSampleOuterRetries !== undefined ? g.nxtProbeSampleOuterRetries : 1}`,
           '',
           '; Tool Setter Configuration',
           `global nxtToolSetterID = ${g.nxtToolSetterID !== null && g.nxtToolSetterID !== undefined ? g.nxtToolSetterID : 'null'}`,
@@ -1179,11 +1298,12 @@ export default BaseComponent.extend({
               ? '"' + String(g.nxtPlatformProfile).replace(/"/g, '') + '"'
               : 'null'
           }`,
-          `global nxtBoardKitKey = ${
-            g.nxtBoardKitKey != null && g.nxtBoardKitKey !== ''
-              ? '"' + String(g.nxtBoardKitKey).replace(/"/g, '') + '"'
+          `global nxtBoardShortNameOverride = ${
+            g.nxtBoardShortNameOverride != null && g.nxtBoardShortNameOverride !== ''
+              ? '"' + String(g.nxtBoardShortNameOverride).replace(/"/g, '') + '"'
               : 'null'
           }`,
+          `global nxtBoardKitKey = null`,
           `global nxtScyllaMotorVoltage = ${
             g.nxtScyllaMotorVoltage !== null && g.nxtScyllaMotorVoltage !== undefined
               ? g.nxtScyllaMotorVoltage

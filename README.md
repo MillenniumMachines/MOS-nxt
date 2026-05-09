@@ -47,6 +47,8 @@ The information contained here is for advanced users who want to understand furt
 ### Notes
 
 - You _must_ be using RRF `v3.6.0-rc.3` or above. NeXT uses many 'meta gcode' features that do not exist in earlier versions.
+
+**Reference firmware for development:** When reviewing or extending NeXT macros and docs, treat **[RepRapFirmware 3.6.2](docs/RRF_REFERENCE.md)** as the evaluation baseline (G-code dictionary, object model, and bugfix level). See [`docs/RRF_REFERENCE.md`](docs/RRF_REFERENCE.md).
 - NeXT includes its own `daemon.g` file to implement repetitive tasks, such as VSSC. If you want to implement your own repetitive tasks, you should create a `user-daemon.g` file in the `/sys` directory, which NeXT will run during its' own daemon loop. Disabling the NeXT daemon tasks will also disable any `user-daemon.g` tasks. Do not use any long-running loops inside `user-daemon.g` as this will interfere with NeXT's own daemon behaviour.
 
 ### RRF Config
@@ -151,7 +153,7 @@ On first load: cancel the "Connect to Machine" dialog → **Settings → Plugins
 | Tab | Features |
 |-----|----------|
 | **Status** | Live axis positions (machine + work coords), NeXT system health (`nxtLoaded`), feature flags (touch probe, tool setter, coolant) |
-| **Configuration** | Full globals snapshot of every `nxt*` firmware variable with live values, board/kit detection, feature config |
+| **Configuration** | Globals snapshot, board pack / platform selection (`docs/NXT_BOARD_CONFIG.md`), feature config |
 | **Probing** | 11 probing cycles (bore, boss, pocket, block, web, corner, rotation, vise corner, single surface) with parameter forms and result-to-WCS push |
 | **Tool Library** _(separate sidebar item)_ | Lists all RRF-configured tools with number, description, radius, status |
 

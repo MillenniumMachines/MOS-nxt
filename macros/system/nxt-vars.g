@@ -23,6 +23,20 @@ global nxtToolCache = { vector(min(limits.tools, 50), null) } ; Per-tool cache (
 global nxtLastProbeResult = null   ; Stores the result of the last probing operation
 global nxtProbeTipRadius = 0.0    ; Radius of the probe tip for compensation (mm)
 global nxtProbeDeflection = 0.0   ; Probe deflection compensation value (mm)
+global nxtProbeHitXY = { vector(8, 0.0) } ; Last contacts as X,Y pairs (G6512 H0..H3), machine mm — bore/boss use H0..H2
+global nxtProbeMaxSkewDeg = 5.0   ; Abort rectangle/bore skew solve if |theta| exceeds this (deg)
+
+; --- Probe repeatability (G6512; all canned cycles use G6512) ---
+; Tune these only here. Macros read globals — do not duplicate numbers in cycle files.
+;   nxtProbeInnerSampleCount — inner averaging sample count; parent cycles pass R=this when their R arg omitted (G6512 still applies spread/outer retry from below).
+;   nxtProbeMaxSampleSpreadMm — peak-to-peak spread (mm) of those inner samples along the probe axis;
+;                               if spread exceeds this, the whole sample block is repeated. Set 0 to disable.
+;   nxtProbeSampleOuterRetries — how many *additional* full sample blocks to run after a failed spread
+;                                (total attempts = 1 + this). 1 = one retry after the first attempt.
+global nxtProbeInnerSampleCount = 3
+global nxtProbeMaxSampleSpreadMm = 0.015
+global nxtProbeSampleOuterRetries = 1
+
 global nxtToolSetterPos = null     ; Toolsetter position vector [X, Y, Z]
 global nxtToolChangeState = null   ; Tracks the current tool change state (1=tfree, 2=tfree done, 3=tpre done, 4=tpost, null=complete)
 global nxtUserToolsFilePresent = false     ; set at boot by nxt.g: nxt-user-tools.g exists on SD
@@ -46,11 +60,13 @@ global nxtCannedCycle = null
 global nxtCannedRetractMode = 98   ; G98 initial plane / G99 R plane — set by G98.g / G99.g
 global nxtCannedZi = 0              ; scratch: Z axis index (set by nxt-canned-zindex.g)
 
-; --- Board / platform selection (UI + bootstrap helpers) ---
+; --- Board / platform selection (UI + pack loader) ---
 global nxtPlatformProfile = null   ; "v1.5" | "v1.6_v2" | "atlas" | null
-global nxtBoardKitKey = null       ; "fly_cdyv3" | "scylla_24" | "scylla_48" | null
-global nxtScyllaMotorVoltage = null ; 24 | 48 | null (hint when kit is Scylla)
-global nxtBoardBootstrapMode = "off" ; "off" | "auto" (UI preference; bootstrap uses SD sentinel files today)
+global nxtBoardKitKey = null       ; legacy UI key; optional — prefer shortName + nxtScyllaMotorVoltage
+global nxtBoardShortNameOverride = null ; RRF boards[0].shortName override for pack resolution, or null
+global nxtScyllaMotorVoltage = null ; 24 | 48 | null (required for Scylla when using auto pack load)
+global nxtBoardPackEntry = null    ; last resolved entry path (telemetry), e.g. nxt/config/v1.5/boards/.../entry.g
+global nxtBoardBootstrapMode = "off" ; "off" | "auto" (UI preference; pack loader uses SD sentinel files)
 
 ; --- Optional magazine / ATC extension (not allocated here) ---
 ; Bay maps, job sequence vectors, and related globals are defined only when a tool changer

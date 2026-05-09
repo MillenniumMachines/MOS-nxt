@@ -14,11 +14,6 @@ else
 
 M117 "NeXT boot"
 
-; Optional: load board kit fragments (spindle.g, limits.g, …) before NeXT globals.
-; Requires 0:/sys/nxt-board-bootstrap.requested — see nxt-board-bootstrap.g
-M117 "NeXT board-bootstrap"
-M98 P"nxt-board-bootstrap.g"
-
 ; Load default variables if not already loaded
 if { !exists(global.nxtVarsLoaded) }
     M117 "NeXT nxt-vars.g"
@@ -52,6 +47,11 @@ else
     M117 "NeXT ERROR no nxt-user-vars"
     echo "ERROR: nxt-user-vars.g not found. NeXT requires configuration."
     M99
+
+; Optional: load board pack (drives, limits, spindle, …). After user vars so Scylla motor voltage applies.
+; Requires 0:/sys/nxt-board-bootstrap.requested — see nxt-board-pack-loader.g
+M117 "NeXT board-pack"
+M98 P"nxt-board-pack-loader.g"
 
 ; Persisted tool library (M4000 + G10 L1) — optional; written by DWC Tool Library or by hand.
 ; When absent, tools are still defined from CAM / console M4000; DWC can save a library later.

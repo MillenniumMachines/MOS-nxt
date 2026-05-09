@@ -1,161 +1,143 @@
 ; G6501.g: BOSS PROBE (CIRCULAR BOSS)
 ;
-; Probes a circular boss by probing from outside in 4 directions (±X, ±Y) to find the center.
-; This implements single-axis probing principles - each probe move is along one axis only.
+; Outer approach then inward probes: +X and −X (H0,H1), then +Y at midX (H2) — three points on
+; the OD define the circle center via circumcenter (same model as G6500 bore).
 ;
-; USAGE: G6501 P<index> D<diameter> L<depth> [F<speed>] [R<retries>] [C<clearance>] [O<overtravel>]
-;
-; Parameters:
-;   P: Result table index (0-based) where results will be stored - REQUIRED
-;   D: Boss diameter for move planning - REQUIRED
-;   L: Depth to move down before probing - REQUIRED
-;   F: Optional speed override in mm/min
-;   R: Number of retries for averaging per probe point
-;   C: Clearance distance from boss edge for starting position (default: 5mm)
-;   O: Overtravel distance beyond expected surface for probe moves (default: 2mm)
-;
-; The boss center coordinates are logged to nxtProbeResults table.
+; USAGE: G6501 P|U D<diameter> L<depth> [F] [R] [C] [O] [T] [Q]
 
-; Make sure this file is not executed by the secondary motion system
 if { !inputs[state.thisInput].active }
     M99
 
-; Validate that touch probe feature is enabled and configured
 if { !global.nxtFeatureTouchProbe }
     abort { "G6501: Touch probe feature not enabled" }
 
 if { global.nxtTouchProbeID == null }
     abort { "G6501: Touch probe ID not configured" }
 
-; Ensure we're using the touch probe
 if { state.currentTool != global.nxtProbeToolID }
     abort { "G6501: Touch probe (T" ^ global.nxtProbeToolID ^ ") must be selected" }
 
-; Validate required parameters
-if { !exists(param.P) || param.P == null || param.P < 0 }
-    abort { "G6501: Result index parameter P is required and must be >= 0" }
+var pSlot = null
+if { exists(param.U) && param.U != null }
+    if { param.U < 1 || param.U > 9 }
+        abort { "G6501: U must be 1-9" }
+    set var.pSlot = { param.U - 1 }
+elif { exists(param.P) && param.P != null }
+    set var.pSlot = { param.P }
+else
+    abort { "G6501: P or U is required" }
 
-if { param.P >= #global.nxtProbeResults }
-    abort { "G6501: Result index P=" ^ param.P ^ " exceeds table size (" ^ #global.nxtProbeResults ^ ")" }
+if { var.pSlot < 0 || var.pSlot >= #global.nxtProbeResults }
+    abort { "G6501: Result slot out of range" }
 
-if { !exists(param.D) || param.D == null || param.D <= 0 }
-    abort { "G6501: Diameter parameter D is required and must be positive" }
+if { !exists(param.D) || param.D <= 0 }
+    abort { "G6501: Diameter D required" }
 
-if { !exists(param.L) || param.L == null || param.L <= 0 }
-    abort { "G6501: Depth parameter L is required and must be positive" }
+if { !exists(param.L) || param.L <= 0 }
+    abort { "G6501: Depth L required" }
 
-; Set defaults for optional parameters
 var feedRate = { exists(param.F) ? param.F : null }
-var retries = { exists(param.R) ? param.R : null }
+var retries = { exists(param.R) ? param.R : global.nxtProbeInnerSampleCount }
 var bossDiameter = { param.D }
 var clearance = { exists(param.C) ? param.C : 5.0 }
 var overtravel = { exists(param.O) ? param.O : 2.0 }
 var probeDepth = { param.L }
+var skewLimit = { exists(param.T) ? param.T : global.nxtProbeMaxSkewDeg }
 
-echo "G6501: Starting boss probe cycle"
+echo "G6501: Starting boss probe cycle (3-point circle)"
 
-; Get current position (should be approximately at boss center)
 M5000
 var centerX = { global.nxtAbsPos[0] }
 var centerY = { global.nxtAbsPos[1] }
 var startZ = { global.nxtAbsPos[2] }
 
-; Calculate approach distances (half diameter plus clearance)
-var approachDistance = { var.bossDiameter / 2 + var.clearance }
-var probeTarget = { var.bossDiameter / 2 + var.overtravel } ; Probe beyond expected edge
+var halfD = { var.bossDiameter / 2 }
 
-echo "G6501: Probing boss with diameter ~" ^ var.bossDiameter ^ "mm"
+echo "G6501: Boss diameter ~" ^ var.bossDiameter ^ "mm"
 
-; Probe from +X direction (approach from right side)
-echo "G6501: Probing from +X direction"
-var xPlusStart = { var.centerX + var.approachDistance }
-var xPlusTarget = { var.centerX + var.probeTarget }
-
-; Move to approach position and down to probe depth
+echo "G6501: Probing from +X"
+var xPlusStart = { var.centerX + var.halfD + var.clearance }
+var xPlusTarget = { var.centerX + var.halfD - var.overtravel }
 G6550 X{var.xPlusStart} Y{var.centerY}
 var probeZ = { var.startZ - var.probeDepth }
 G6550 Z{var.probeZ}
-
-; Execute probe move toward boss center
-G6512 X{xPlusTarget} Y{var.centerY} Z{var.probeZ} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries}
-var xPlusSurface = { global.nxtLastProbeResult }
-
-; Return to start height before moving to next position
+G6512 X{var.xPlusTarget} Y{var.centerY} Z{var.probeZ} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H0
 G6550 Z{var.startZ}
 
-; Probe from -X direction (approach from left side)
-echo "G6501: Probing from -X direction"
-var xMinusStart = { var.centerX - var.approachDistance }
-var xMinusTarget = { var.centerX - var.probeTarget }
-
-; Move to approach position and down to probe depth
+echo "G6501: Probing from -X"
+var xMinusStart = { var.centerX - var.halfD - var.clearance }
+var xMinusTarget = { var.centerX - var.halfD + var.overtravel }
 G6550 X{var.xMinusStart} Y{var.centerY}
 G6550 Z{var.probeZ}
-
-; Execute probe move toward boss center
-G6512 X{var.xMinusTarget} Y{var.centerY} Z{var.probeZ} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries}
-var xMinusSurface = { global.nxtLastProbeResult }
-
-; Return to start height before moving to next position
+G6512 X{var.xMinusTarget} Y{var.centerY} Z{var.probeZ} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H1
 G6550 Z{var.startZ}
 
-; Probe from +Y direction (approach from front)
-echo "G6501: Probing from +Y direction"
-var yPlusStart = { var.centerY + var.approachDistance }
-var yPlusTarget = { var.centerY + var.probeTarget }
+var midX = { (global.nxtProbeHitXY[0] + global.nxtProbeHitXY[2]) / 2 }
 
-; Move to approach position and down to probe depth
-G6550 X{var.centerX} Y{var.yPlusStart}
+echo "G6501: Probing from +Y"
+var yPlusStart = { var.centerY + var.halfD + var.clearance }
+var yPlusTarget = { var.centerY + var.halfD - var.overtravel }
+G6550 X{var.midX} Y{var.yPlusStart}
 G6550 Z{var.probeZ}
-
-; Execute probe move toward boss center
-G6512 X{var.centerX} Y{var.yPlusTarget} Z{var.probeZ} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries}
-var yPlusSurface = { global.nxtLastProbeResult }
-
-; Return to start height before moving to next position
+G6512 X{var.midX} Y{var.yPlusTarget} Z{var.probeZ} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H2
 G6550 Z{var.startZ}
 
-; Probe from -Y direction (approach from back)
-echo "G6501: Probing from -Y direction"
-var yMinusStart = { var.centerY - var.approachDistance }
-var yMinusTarget = { var.centerY - var.probeTarget }
+var xPx = { global.nxtProbeHitXY[0] }
+var xPy = { global.nxtProbeHitXY[1] }
+var xMx = { global.nxtProbeHitXY[2] }
+var xMy = { global.nxtProbeHitXY[3] }
+var yPx = { global.nxtProbeHitXY[4] }
+var yPy = { global.nxtProbeHitXY[5] }
 
-; Move to approach position and down to probe depth
-G6550 X{var.centerX} Y{var.yMinusStart}
-G6550 Z{var.probeZ}
+var x1 = var.xPx
+var y1 = var.xPy
+var x2 = var.xMx
+var y2 = var.xMy
+var x3 = var.yPx
+var y3 = var.yPy
 
-; Execute probe move toward boss center
-G6512 X{var.centerX} Y{var.yMinusTarget} Z{var.probeZ} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries}
-var yMinusSurface = { global.nxtLastProbeResult }
+var ax = { var.x2 - var.x1 }
+var ay = { var.y2 - var.y1 }
+var bx = { var.x3 - var.x2 }
+var by = { var.y3 - var.y2 }
+var d = { 2 * (var.ax * var.by - var.ay * var.bx) }
 
-; Return to start height
-G6550 Z{var.startZ}
+if { abs(var.d) < 1e-7 }
+    abort { "G6501: Degenerate boss fit (collinear hits) — check D/O/centering" }
 
-; Calculate boss center from the 4 probe points
-var calculatedCenterX = { (var.xPlusSurface + var.xMinusSurface) / 2 }
-var calculatedCenterY = { (var.yPlusSurface + var.yMinusSurface) / 2 }
+var ma = { var.ax * var.ax + var.ay * var.ay }
+var mb = { var.bx * var.bx + var.by * var.by }
+var calculatedCenterX = { var.x1 + (var.by * var.ma - var.ay * var.mb) / var.d }
+var calculatedCenterY = { var.y1 + (var.ax * var.mb - var.bx * var.ma) / var.d }
 
-; Calculate actual boss diameter
-var actualDiameterX = { var.xPlusSurface - var.xMinusSurface }
-var actualDiameterY = { var.yPlusSurface - var.yMinusSurface }
-var avgDiameter = { (var.actualDiameterX + var.actualDiameterY) / 2 }
+var vx = { var.xPx - var.xMx }
+var vy = { var.xPy - var.xMy }
+var thetaDeg = { atan2(var.vy, var.vx) * 180 / pi }
 
-; Log results to probe results table
-; Initialize the result vector if needed
-if { #global.nxtProbeResults[param.P] < 3 }
-    set global.nxtProbeResults[param.P] = { vector(#move.axes + 1, 0.0) }
+if { abs(var.thetaDeg) > var.skewLimit }
+    abort { "G6501: |skew| " ^ var.thetaDeg ^ " exceeds limit " ^ var.skewLimit }
 
-; Store the calculated center coordinates
-set global.nxtProbeResults[param.P][0] = { var.calculatedCenterX }
-set global.nxtProbeResults[param.P][1] = { var.calculatedCenterY }
+var r0 = { sqrt((var.calculatedCenterX - var.xPx)^2 + (var.calculatedCenterY - var.xPy)^2) }
+var r1 = { sqrt((var.calculatedCenterX - var.xMx)^2 + (var.calculatedCenterY - var.xMy)^2) }
+var r2 = { sqrt((var.calculatedCenterX - var.yPx)^2 + (var.calculatedCenterY - var.yPy)^2) }
+var avgDiameter = { (2 * var.r0 + 2 * var.r1 + 2 * var.r2) / 3 }
 
-; Move to calculated center
+if { #global.nxtProbeResults[var.pSlot] < 3 }
+    set global.nxtProbeResults[var.pSlot] = { vector(#move.axes + 1, 0.0) }
+
+set global.nxtProbeResults[var.pSlot][0] = { var.calculatedCenterX }
+set global.nxtProbeResults[var.pSlot][1] = { var.calculatedCenterY }
+set global.nxtProbeResults[var.pSlot][#move.axes] = { var.thetaDeg }
+
 G6550 X{var.calculatedCenterX} Y{var.calculatedCenterY}
-
-; Return to safe height
 G27 Z1
 
-echo "G6501: Boss probe completed"
-echo "G6501: Boss center at X=" ^ var.calculatedCenterX ^ " Y=" ^ var.calculatedCenterY
-echo "G6501: Measured diameter: X=" ^ var.actualDiameterX ^ " Y=" ^ var.actualDiameterY ^ " (avg=" ^ var.avgDiameter ^ ")"
-echo "G6501: Result logged to table index " ^ param.P
+echo "G6501: Boss center X=" ^ var.calculatedCenterX ^ " Y=" ^ var.calculatedCenterY
+echo "G6501: Mean diameter ~" ^ var.avgDiameter
+echo "G6501: Result index " ^ var.pSlot
+
+if { exists(param.U) && param.U != null }
+    if { exists(param.Q) && param.Q != null }
+        M98 P"M6520.g" P{var.pSlot} W{param.U} X Y T{var.skewLimit} Q{param.Q}
+    else
+        M98 P"M6520.g" P{var.pSlot} W{param.U} X Y T{var.skewLimit}

@@ -3,6 +3,8 @@
 ## Project Overview
 NeXT (Next-Gen Extended Tooling) is a complete rewrite of the legacy MillenniumOS that extends RepRapFirmware (RRF) v3.6+ with meta G-code macros for CNC operations. This is designed specifically for CNC machines, not 3D printers.
 
+**RRF reference for code review:** Target **RepRapFirmware 3.6.2** when evaluating macro behavior, G/M-codes, and object-model usage (see [`docs/RRF_REFERENCE.md`](../docs/RRF_REFERENCE.md)).
+
 ### Core Architecture
 - **Macros** (`macros/`): G-code files with logic organized by function:
   - `macros/system/`: Core initialization (`nxt-boot.g`), globals (`nxt-vars.g`), daemon tasks
@@ -75,7 +77,8 @@ NeXT (Next-Gen Extended Tooling) is a complete rewrite of the legacy MillenniumO
 ## Integration & Compatibility
 
 ### RRF Integration
-- **Version Requirement**: RRF v3.6+ for meta G-code features
+- **Version requirement (machines)**: RRF v3.6+ for meta G-code features (see README for stated minimum)
+- **Reference version (development / review)**: **RRF 3.6.2** — [`docs/RRF_REFERENCE.md`](../docs/RRF_REFERENCE.md)
 - **Axis Support**: Assumes 3-4 axes, ignores extras in commands
 - **Position Queries**: Use `M5000` macro, not `lastStopPosition`
 - **Daemon Integration**: Uses `daemon.g` for repetitive tasks (VSSC, etc.)

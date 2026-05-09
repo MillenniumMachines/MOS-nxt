@@ -1,7 +1,10 @@
 ; M6522.g: AVERAGE PROBE RESULTS
 ;
-; Averages two probe results and stores the result in the first index.
-; Only averages axes that have non-zero values in BOTH results.
+; Merges two nxtProbeResults rows into P. Linear axes: average only when both non-zero;
+; otherwise keep the lone non-zero (so a missing axis does not get zeroed).
+;
+; Rotation slot (last element): angles are cyclic — if both θ non-zero, use vector mean
+; (atan2 of average(sin), average(cos)) instead of (θ1+θ2)/2 to handle wrap near ±180°.
 ;
 ; USAGE: M6522 P<index1> Q<index2>
 ;
@@ -83,12 +86,16 @@ if { #move.axes > 3 }
     else
         set var.averaged[3] = { var.result1[3] != 0 ? var.result1[3] : var.result2[3] }
 
-; Rotation angle (last element)
+; Rotation angle (circular mean in degrees when both non-zero)
 if { #var.result1 > #move.axes && #var.result2 > #move.axes }
     if { var.result1[#move.axes] != 0 && var.result2[#move.axes] != 0 }
-        set var.averaged[#move.axes] = { (var.result1[#move.axes] + var.result2[#move.axes]) / 2 }
+        var r1 = { var.result1[#move.axes] * pi / 180 }
+        var r2 = { var.result2[#move.axes] * pi / 180 }
+        var mx = { (cos(r1) + cos(r2)) / 2 }
+        var my = { (sin(r1) + sin(r2)) / 2 }
+        set var.averaged[#move.axes] = { atan2(var.my, var.mx) * 180 / pi }
         set var.axesAveraged = { var.axesAveraged + 1 }
-        echo "M6522: Averaged rotation: " ^ var.result1[#move.axes] ^ " + " ^ var.result2[#move.axes] ^ " = " ^ var.averaged[#move.axes]
+        echo "M6522: Averaged rotation (circular mean): " ^ var.averaged[#move.axes]
     else
         set var.averaged[#move.axes] = { var.result1[#move.axes] != 0 ? var.result1[#move.axes] : var.result2[#move.axes] }
 

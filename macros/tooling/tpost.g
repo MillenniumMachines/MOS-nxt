@@ -49,7 +49,7 @@ if { state.currentTool == global.nxtProbeToolID && global.nxtFeatureTouchProbe }
     
     ; Probe the reference surface (this should be implemented as a specific cycle)
     ; For now, we'll use a simple Z probe - this may need enhancement
-    G6512 Z{move.axes[2].min + 50} I{global.nxtTouchProbeID}
+    G6512 Z{move.axes[2].min + 50} I{global.nxtTouchProbeID} R{global.nxtProbeInnerSampleCount}
     
     ; Calculate the touch probe's "virtual" toolsetter position
     ; This allows it to be used in relative offset calculations

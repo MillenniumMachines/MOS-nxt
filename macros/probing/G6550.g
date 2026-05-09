@@ -1,5 +1,9 @@
 ; G6550.g: PROTECTED MOVE
 ;
+; Execution: build full target in machine coords → unless pure +Z retract, run G38.3 with
+; probe K so an unexpected trip aborts the move before impact → verify each commanded axis
+; reached target within tolerance (else crash or obstruction).
+;
 ; Performs a protected move with probe-aware safety checks.
 ; If a touch probe is triggered unexpectedly during movement, 
 ; the move is aborted immediately for safety.

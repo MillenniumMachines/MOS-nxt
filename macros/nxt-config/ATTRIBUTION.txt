@@ -14,8 +14,10 @@ Sources:
 
 Review upstream license before redistribution; refresh vendored files when kits change.
 
-v1.6_v2/
---------
-A full copy of the NeXT v1.5 layout under v1.6_v2/ with M98 paths rewritten to
-nxt/config/v1.6_v2/ — edit there for Milo v1.6 / v2.0; provenance is still the same
-Millennium Machines milo-v1.5 upstream paths until v1.6 kits are published separately.
+NeXT on-SD layout (per platform v1.5 / v1.6_v2):
+  boards/cdy3_f4/entry.g  (RRF boards[0].shortName cdy3_f4)
+  boards/scylla1_0_h723/motor-24v/entry.g
+  boards/scylla1_0_h723/motor-48v/entry.g
+  milo-common/  (shared fragments)
+
+See docs/NXT_BOARD_CONFIG.md for loader order and adding boards.

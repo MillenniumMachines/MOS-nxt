@@ -1,76 +1,84 @@
 ; G6510.g: SINGLE SURFACE PROBE
 ;
-; Probes a single surface and logs the result to the probe results table.
-; This cycle performs a single-axis probe move and records the compensated result.
+; One G6512 against exactly one axis word (X, Y, or Z); target coordinate is the destination on
+; that axis, others stay at current. Writes only the probed axis into nxtProbeResults[row];
+; θ slot unchanged unless zero-filled on first use — M6520 with X/Y/Z singly does not apply G68.
+; U chains M6520 with the matching axis letter(s) for WCS update.
 ;
-; USAGE: G6510 P<index> [X<pos>|Y<pos>|Z<pos>] [F<speed>] [R<retries>]
-;
-; Parameters:
-;   P:     Result table index (0-based) where results will be stored - REQUIRED
-;   X|Y|Z: Exactly ONE axis parameter must be provided, specifying the target coordinate
-;   F:     Optional speed override in mm/min
-;   R:     Number of retries for averaging (default: probe.maxProbeCount + 1)
-;
-; The result is logged to nxtProbeResults table, not applied to any WCS.
+; USAGE: G6510 P|U [X|Y|Z] [F] [R] [Q]
 
-; Make sure this file is not executed by the secondary motion system
 if { !inputs[state.thisInput].active }
     M99
 
-; Validate that touch probe feature is enabled and configured
 if { !global.nxtFeatureTouchProbe }
     abort { "G6510: Touch probe feature not enabled" }
 
 if { global.nxtTouchProbeID == null }
     abort { "G6510: Touch probe ID not configured" }
 
-; Validate result index parameter
-if { !exists(param.P) || param.P == null || param.P < 0 }
-    abort { "G6510: Result index parameter P is required and must be >= 0" }
+var pSlot = null
+if { exists(param.U) && param.U != null }
+    if { param.U < 1 || param.U > 9 }
+        abort { "G6510: U must be 1-9" }
+    set var.pSlot = { param.U - 1 }
+elif { exists(param.P) && param.P != null }
+    set var.pSlot = { param.P }
+else
+    abort { "G6510: P or U required" }
 
-if { param.P >= #global.nxtProbeResults }
-    abort { "G6510: Result index P=" ^ param.P ^ " exceeds table size (" ^ #global.nxtProbeResults ^ ")" }
+if { var.pSlot < 0 || var.pSlot >= #global.nxtProbeResults }
+    abort { "G6510: Result slot out of range" }
 
-; Validate exactly one axis parameter is provided
 var axisParams = { param.X, param.Y, param.Z }
 var probeAxis = -1
 var targetCoord = 0
 
-; Set probeAxis and ensure exactly one axis parameter is provided
 while { iterations < #var.axisParams }
     if { var.axisParams[iterations] != null }
         if { var.probeAxis != -1 }
-            abort { "G6510: Exactly one of X, Y, or Z must be specified" }
+            abort { "G6510: Exactly one of X, Y, or Z" }
         set var.probeAxis = { iterations }
         set var.targetCoord = { var.axisParams[iterations] }
 
 if { var.probeAxis == -1 }
-    abort { "G6510: One of X, Y, or Z must be specified" }
+    abort { "G6510: One axis required" }
 
-; Ensure we're using the touch probe
 if { state.currentTool != global.nxtProbeToolID }
     abort { "G6510: Touch probe (T" ^ global.nxtProbeToolID ^ ") must be selected" }
 
-echo "G6510: Starting single surface probe on " ^ move.axes[var.probeAxis].letter ^ " axis"
+echo "G6510: Single surface " ^ move.axes[var.probeAxis].letter
 
-; Get current position to build target coordinates
 M5000
 var targetCoords = { global.nxtAbsPos }
 set var.targetCoords[var.probeAxis] = { var.targetCoord }
 
-; Execute the single-axis probe with all coordinates specified
-G6512 X{var.targetCoords[0]} Y{var.targetCoords[1]} Z{var.targetCoords[2]} I{global.nxtTouchProbeID} F{param.F} R{param.R}
+var probeFeed = { exists(param.F) ? param.F : null }
+var probeRetries = { exists(param.R) ? param.R : global.nxtProbeInnerSampleCount }
 
-; Log result to probe results table
-; Initialize the result vector if needed
-if { #global.nxtProbeResults[param.P] < 3 }
-    set global.nxtProbeResults[param.P] = { vector(#move.axes + 1, 0.0) }
+G6512 X{var.targetCoords[0]} Y{var.targetCoords[1]} Z{var.targetCoords[2]} I{global.nxtTouchProbeID} F{var.probeFeed} R{var.probeRetries}
 
-; Store the result
-set global.nxtProbeResults[param.P][var.probeAxis] = { global.nxtLastProbeResult }
+if { #global.nxtProbeResults[var.pSlot] < 3 }
+    set global.nxtProbeResults[var.pSlot] = { vector(#move.axes + 1, 0.0) }
 
-; Return to safe height
+set global.nxtProbeResults[var.pSlot][var.probeAxis] = { global.nxtLastProbeResult }
+
 G27 Z1
 
-echo "G6510: Single surface probe completed"
-echo "G6510: Result logged to table index " ^ param.P ^ ", " ^ move.axes[var.probeAxis].letter ^ "=" ^ global.nxtLastProbeResult
+echo "G6510: Index " ^ var.pSlot ^ " " ^ move.axes[var.probeAxis].letter ^ "=" ^ global.nxtLastProbeResult
+
+if { exists(param.U) && param.U != null }
+    if { var.probeAxis == 0 }
+        if { exists(param.Q) && param.Q != null }
+            M98 P"M6520.g" P{var.pSlot} W{param.U} X Q{param.Q}
+        else
+            M98 P"M6520.g" P{var.pSlot} W{param.U} X
+    elif { var.probeAxis == 1 }
+        if { exists(param.Q) && param.Q != null }
+            M98 P"M6520.g" P{var.pSlot} W{param.U} Y Q{param.Q}
+        else
+            M98 P"M6520.g" P{var.pSlot} W{param.U} Y
+    else
+        if { exists(param.Q) && param.Q != null }
+            M98 P"M6520.g" P{var.pSlot} W{param.U} Z Q{param.Q}
+        else
+            M98 P"M6520.g" P{var.pSlot} W{param.U} Z

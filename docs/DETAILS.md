@@ -4,6 +4,22 @@ This document outlines the custom G and M codes implemented in NeXT, detailing t
 
 ---
 
+## NeXT native probing: workplace `U`, skew, and `M6520`
+
+NeXT **`G650x`** cycle macros accept **`U1`–`U9`** to select the target workplace (same numbering as **`M6520 W`** / `G10 L2 P`: **1 = G54**, …, **9** last standard offset). The probe result is stored at row **`P = U − 1`** in **`global.nxtProbeResults`**. With **`U`** set, the cycle ends by calling **`M6520.g`** with **`P`**, **`W=U`**, and the appropriate axis flags (`X` `Y`, etc.), so the operator does not run **`M6520`** as a separate step.
+
+**Legacy:** omit **`U`** and pass **`P`** only to store results without applying a WCS.
+
+**Skew:** **`G6500`**, **`G6501`**, **`G6502`**, **`G6503`**, and **`G6506`** populate **`nxtProbeResults[row][#move.axes]`** with an estimate of in-plane rotation (degrees vs machine X). If **`|θ|`** exceeds **`global.nxtProbeMaxSkewDeg`** (default **5°**, overridable per cycle with **`T`** on supported macros), the cycle **`abort`s**.
+
+**`M6520`:** After **`G10 L2`** translation, optional **`G68 X0 Y0 R…`** applies coordinate rotation in the XY plane (**RepRapFirmware** **`G68`**). **G68** sign was fixed in **RRF 3.6.1**; the project’s **reference** firmware for evaluation is **3.6.2** ([`docs/RRF_REFERENCE.md`](RRF_REFERENCE.md)). **`Q`** on **`M6520`** (and forwarded from **`G650x`** when present): **0** (default) = **`M291`** prompt to apply or skip rotation; **1** = apply **`G68`** without prompt; **2** = translation only (no **`G68`**).
+
+**`M6522`:** When both results have a rotation slot, the rotation component is averaged with a **circular mean** of angles.
+
+**`G6512 H0`–`H3`:** Optional hit index records averaged **(X,Y)** contact position (machine mm) into **`global.nxtProbeHitXY`**.
+
+---
+
 ## MillenniumOS Core System Macros
 
 ### mos.g (MillenniumOS Entrypoint)
