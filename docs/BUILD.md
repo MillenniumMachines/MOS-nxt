@@ -1,5 +1,7 @@
 # Legacy MillenniumOS Build Process (Historical Reference)
 
+> **NeXT (current):** Build the DWC plugin with `./dist/build-plugin.sh <path-to-DuetWebControl>` from the repository root; full SD releases use `dist/release.sh`. **Release workflow** (manifest alignment, successful build, manual plugin load in DWC before tags): see [`.cursor/rules/release-plugin-verify.mdc`](../.cursor/rules/release-plugin-verify.mdc) and [`.github/copilot-instructions.md`](../.github/copilot-instructions.md) (Build & Release Process).
+
 This document outlines the build and release process for the legacy version of MillenniumOS. This is for reference purposes only, as the NeXT rewrite will use an updated process.
 
 ---

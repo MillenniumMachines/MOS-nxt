@@ -1,7 +1,7 @@
 # NeXT UI Plugin Development Guide
 
 ## Overview
-This guide explains how to develop the NeXT UI plugin within the DuetWebControl workspace. The NeXT UI is a Vue 2.7 plugin that integrates with DuetWebControl v3.6.1 to provide CNC-specific functionality for RepRapFirmware.
+This guide explains how to develop the NeXT UI plugin within the DuetWebControl workspace. The NeXT UI is a Vue 2.7 plugin that integrates with Duet Web Control **v3.6.2** (see `ui/plugin.json` `dwcVersion`) to provide CNC-specific functionality for RepRapFirmware.
 
 > [!WARNING]
 > **NEVER** edit files within the `DuetWebControl` directory as the NeXT plugin is symlinked into it already. All source code changes should be within the `NeXT/ui` directory structure.

@@ -1,0 +1,25 @@
+---
+description: NeXT DWC plugin releases — build gate, manual plugin load, version/manifest alignment
+alwaysApply: true
+---
+
+# NeXT plugin releases and versioning
+
+## Manifest alignment
+
+- **`ui/plugin.json`:** Keep `rrfVersion` and `dwcVersion` together as the **declared** RRF/DWC compatibility target for the packaged plugin.
+- **When bumping those fields:** Update baseline references in [`docs/RRF_REFERENCE.md`](docs/RRF_REFERENCE.md), [`README.md`](README.md), [`ui/src/index.ts`](ui/src/index.ts), and [`docs/UI_DEVELOPMENT.md`](docs/UI_DEVELOPMENT.md). [`docs/FEATURES.md`](docs/FEATURES.md) back-compat line tracks `plugin.json` versions.
+
+## Gate before release commits or version tags
+
+1. Run `./dist/build-plugin.sh <path-to-DuetWebControl>` from the **NeXT repo root**; confirm **exit code 0**. Use a DWC tree that matches `dwcVersion`.
+2. **Manual verification:** Do not commit or tag a release until the user has **explicitly confirmed** the plugin **loads and works** in DWC on the target line (install ZIP, start plugin, smoke-test). Treat CI success as necessary but **not sufficient**.
+
+## Tagging conventions (this repo)
+
+- **Betas:** Increment **`vMAJOR.MINOR.PATCH-beta.N`** (e.g. next after `v0.6.0-beta.3` is `beta.4`). Use **`git tag -a`** with a short message.
+- **Stable:** Avoid **`git tag -f`** on an existing stable tag unless the user explicitly asks; prefer a new semver tag.
+
+## CI
+
+- [`.github/workflows/release.yml`](.github/workflows/release.yml) builds from a fixed DWC ref; local `build-plugin.sh` + user sign-off remain the norm before tagging.

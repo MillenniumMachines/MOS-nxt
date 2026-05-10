@@ -68,11 +68,15 @@ NeXT (Next-Gen Extended Tooling) is a complete rewrite of the legacy MillenniumO
 - **Safety First**: Always test with soft materials first
 - **Operator Confirmation**: Required for any machine movement
 
-### Build & Release Process
-- **Development**: No build step required for development
-- **Release**: Automated via GitHub Actions on tag push
-- **Local Testing**: Use `dist/release.sh` to create test packages
-- **UI Compilation**: Requires DuetWebControl repository for plugin building
+### Build & Release Process (NeXT DWC plugin)
+- **Authoritative guidance:** `.cursor/rules/release-plugin-verify.mdc` (always-on for Cursor agents).
+- **Plugin manifest:** `ui/plugin.json` — `rrfVersion` and `dwcVersion` must stay aligned with the supported stack; bump together and sync short mentions in README, `ui/src/index.ts`, `docs/UI_DEVELOPMENT.md`, and `docs/RRF_REFERENCE.md` as needed.
+- **Before any release commit or version tag:**
+  1. From NeXT repo root: `./dist/build-plugin.sh <path-to-DuetWebControl>` — **must exit 0** (DWC tree matching `dwcVersion`, e.g. 3.6.2).
+  2. **User must explicitly confirm** manual verification: plugin ZIP installs, NeXT loads in DWC, smoke-test OK. Do not tag on build success alone.
+- **Betas:** Incremental annotated tags `vMAJOR.MINOR.PATCH-beta.N`; do not force-move stable tags without explicit user request.
+- **CI:** Push of `v*` tags triggers [`.github/workflows/release.yml`](.github/workflows/release.yml); local build + manual load confirmation still required before tagging.
+- **Full SD / release zip:** `dist/release.sh` (see script docs); plugin-only zip: `dist/build-plugin.sh`
 
 ## Integration & Compatibility
 
