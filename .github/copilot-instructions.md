@@ -75,7 +75,7 @@ NeXT (Next-Gen Extended Tooling) is a complete rewrite of the legacy MillenniumO
   1. From NeXT repo root: `./dist/build-plugin.sh <path-to-DuetWebControl>` — **must exit 0** (DWC tree matching `dwcVersion`, e.g. 3.6.2).
   2. **User must explicitly confirm** manual verification: plugin ZIP installs, NeXT loads in DWC, smoke-test OK. Do not tag on build success alone.
 - **Betas:** Incremental annotated tags `vMAJOR.MINOR.PATCH-beta.N`; do not force-move stable tags without explicit user request.
-- **CI:** Push of `v*` tags triggers [`.github/workflows/release.yml`](.github/workflows/release.yml); local build + manual load confirmation still required before tagging.
+- **CI:** Push of `v*` tags triggers [`.github/workflows/release.yml`](.github/workflows/release.yml), which checks out **NeXT only** and fetches DWC via read-only tarball ([`dist/ci-fetch-dwc.sh`](../dist/ci-fetch-dwc.sh), pin [`ci/dwc-build-ref`](../ci/dwc-build-ref)) — no `actions/checkout` or push to external repos. Local build + manual load confirmation still required before tagging.
 - **Full SD / release zip:** `dist/release.sh` (see script docs); plugin-only zip: `dist/build-plugin.sh`
 
 ## Integration & Compatibility

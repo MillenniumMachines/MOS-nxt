@@ -22,4 +22,5 @@ alwaysApply: true
 
 ## CI
 
-- [`.github/workflows/release.yml`](.github/workflows/release.yml) builds from a fixed DWC ref; local `build-plugin.sh` + user sign-off remain the norm before tagging.
+- [`.github/workflows/release.yml`](.github/workflows/release.yml) checks out **this repo only**; DWC is fetched as a **read-only GitHub archive** via [`dist/ci-fetch-dwc.sh`](dist/ci-fetch-dwc.sh) (pin: [`ci/dwc-build-ref`](ci/dwc-build-ref)). CI does **not** `actions/checkout` or push to Duet3D/DuetWebControl or any other external repository.
+- Local `build-plugin.sh` + user sign-off remain the norm before tagging.

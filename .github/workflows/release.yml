@@ -17,28 +17,25 @@ jobs:
     name: Build NeXT
     runs-on: ubuntu-latest
     permissions:
-      contents: 'write'
-      id-token: 'write'
+      contents: write
+      id-token: write
     steps:
-      - name: Checkout code
+      - name: Checkout NeXT only
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Checkout Duet Web Control
-        uses: actions/checkout@v4
-        with:
-          repository: Duet3D/DuetWebControl
-          ref: v3.7-dev
-          path: dwc-build
+      - name: Fetch DWC build sources (read-only tarball)
+        run: |
+          chmod +x dist/ci-fetch-dwc.sh
+          dist/ci-fetch-dwc.sh
 
       - name: Build release asset
         run: |
           command -v rsync >/dev/null 2>&1 || {
-            apt update && apt install -y rsync;
+            apt-get update && apt-get install -y rsync;
           }
-          dist/release.sh next-release-${{ github.ref_name }} ${{ github.workspace }}/dwc-build
-
+          dist/release.sh "next-release-${{ github.ref_name }}" "${{ github.workspace }}/dwc-build"
 
       - name: Create Release
         id: create_release
