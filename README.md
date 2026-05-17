@@ -15,7 +15,7 @@ We build _on top of_ RepRapFirmware, providing operators of the Millennium Machi
 - Canned probing cycles usable directly from gcode or via Duet Web Control as named macros.
 - Fallbacks to guided manual probing when touch probe and / or toolsetter is not available.
 - Safety checks at every step to instill confidence in novice machinists.
-- Variable Spindle Speed Control.
+- Variable Spindle Speed Control (planned; not yet in v0.6 betas).
 - Compatible with Millennium Machines Milo GCode Dialect.
 
 ## Usage
@@ -49,7 +49,7 @@ The information contained here is for advanced users who want to understand furt
 - You _must_ be using RRF `v3.6.0-rc.3` or above. NeXT uses many 'meta gcode' features that do not exist in earlier versions.
 
 **Reference firmware for development:** When reviewing or extending NeXT macros and docs, treat **[RepRapFirmware 3.6.2](docs/RRF_REFERENCE.md)** as the evaluation baseline (G-code dictionary, object model, and bugfix level). See [`docs/RRF_REFERENCE.md`](docs/RRF_REFERENCE.md).
-- NeXT includes its own `daemon.g` file to implement repetitive tasks, such as VSSC. If you want to implement your own repetitive tasks, you should create a `user-daemon.g` file in the `/sys` directory, which NeXT will run during its' own daemon loop. Disabling the NeXT daemon tasks will also disable any `user-daemon.g` tasks. Do not use any long-running loops inside `user-daemon.g` as this will interfere with NeXT's own daemon behaviour.
+- NeXT includes its own `daemon.g` file for repetitive tasks (VSSC is planned but not yet implemented). If you want to implement your own repetitive tasks, create a `user-daemon.g` file in the `/sys` directory, which NeXT will run during its daemon loop. Do not use long-running loops inside `user-daemon.g` as this will interfere with NeXT's daemon behaviour.
 
 ### RRF Config
 
