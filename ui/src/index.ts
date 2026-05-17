@@ -4,7 +4,7 @@
  * This file registers the NeXT plugin routes, localization, and plugin data
  * for the DuetWebControl plugin integration.
  *
- * Compatibility: NeXT UI is developed against **Duet Web Control 3.6.2** (Vue 2.7 toolchain), matching `plugin.json` `dwcVersion`.
+ * Compatibility: `plugin.json` uses `auto-major` for `dwcVersion` / `rrfVersion` (resolved to the DWC tree major.minor at plugin build). Rebuild when moving to a new line (e.g. 3.7). Dev reference: **3.6.2** — `docs/RRF_REFERENCE.md`.
  * Building or running the plugin inside a much older or newer DWC tree can cause opaque
  * webpack/runtime errors at plugin start (e.g. `undefined is not an object (evaluating '…​.call')`)
  * if chunk loading or the plugin host API does not match.

@@ -1250,69 +1250,102 @@ export default BaseComponent.extend({
       }
     },
 
+    formatPersistedBool(value: unknown): string {
+      return value === true || value === 1 ? 'true' : 'false'
+    },
+
+    formatPersistedVector(value: unknown): string {
+      if (value == null) {
+        return 'null'
+      }
+      if (Array.isArray(value)) {
+        return `{${value.join(', ')}}`
+      }
+      if (value instanceof Map) {
+        const parts: unknown[] = []
+        for (let i = 0; i < 16; i++) {
+          if (!value.has(i) && !value.has(String(i))) {
+            break
+          }
+          parts.push(value.get(i) ?? value.get(String(i)))
+        }
+        return parts.length ? `{${parts.join(', ')}}` : 'null'
+      }
+      if (typeof value === 'object') {
+        const o = value as Record<string, unknown>
+        const keys = Object.keys(o)
+          .filter((k) => /^\d+$/.test(k))
+          .sort((a, b) => Number(a) - Number(b))
+        if (keys.length) {
+          return `{${keys.map((k) => o[k]).join(', ')}}`
+        }
+      }
+      return 'null'
+    },
+
     /**
-     * Save configuration to /sys/nxt-user-vars.g (full file replace via DWC rr_upload)
+     * Save configuration to /sys/nxt-user-vars.g (full file replace via DWC upload)
      */
     async saveConfiguration() {
       this.saving = true
       try {
         const g = this.globals
 
-        // Build configuration file content
+        // Use set global.* only — nxt.g reloads this file without M999 (see nxt.g comments).
         const lines = [
           '; NeXT User Configuration',
           '; Auto-generated - Do not edit manually',
           '; Last updated: ' + new Date().toISOString(),
           '',
           '; Feature Flags',
-          `global nxtFeatureTouchProbe = ${g.nxtFeatureTouchProbe || false}`,
-          `global nxtFeatureToolSetter = ${g.nxtFeatureToolSetter || false}`,
-          `global nxtFeatureCoolantControl = ${g.nxtFeatureCoolantControl || false}`,
+          `set global.nxtFeatureTouchProbe = ${this.formatPersistedBool(g.nxtFeatureTouchProbe)}`,
+          `set global.nxtFeatureToolSetter = ${this.formatPersistedBool(g.nxtFeatureToolSetter)}`,
+          `set global.nxtFeatureCoolantControl = ${this.formatPersistedBool(g.nxtFeatureCoolantControl)}`,
           '',
           '; Probe tool index and static datum (touch probe / toolsetter calibration)',
-          `global nxtProbeToolID = ${g.nxtProbeToolID !== null && g.nxtProbeToolID !== undefined ? g.nxtProbeToolID : 'null'}`,
-          `global nxtDeltaMachine = ${g.nxtDeltaMachine !== null && g.nxtDeltaMachine !== undefined ? g.nxtDeltaMachine : 'null'}`,
+          `set global.nxtProbeToolID = ${g.nxtProbeToolID !== null && g.nxtProbeToolID !== undefined ? g.nxtProbeToolID : 'null'}`,
+          `set global.nxtDeltaMachine = ${g.nxtDeltaMachine !== null && g.nxtDeltaMachine !== undefined ? g.nxtDeltaMachine : 'null'}`,
           '',
           '; Spindle Configuration',
-          `global nxtSpindleID = ${g.nxtSpindleID !== null && g.nxtSpindleID !== undefined ? g.nxtSpindleID : 'null'}`,
-          `global nxtSpindleAccelSec = ${g.nxtSpindleAccelSec !== null && g.nxtSpindleAccelSec !== undefined ? g.nxtSpindleAccelSec : 'null'}`,
-          `global nxtSpindleDecelSec = ${g.nxtSpindleDecelSec !== null && g.nxtSpindleDecelSec !== undefined ? g.nxtSpindleDecelSec : 'null'}`,
+          `set global.nxtSpindleID = ${g.nxtSpindleID !== null && g.nxtSpindleID !== undefined ? g.nxtSpindleID : 'null'}`,
+          `set global.nxtSpindleAccelSec = ${g.nxtSpindleAccelSec !== null && g.nxtSpindleAccelSec !== undefined ? g.nxtSpindleAccelSec : 'null'}`,
+          `set global.nxtSpindleDecelSec = ${g.nxtSpindleDecelSec !== null && g.nxtSpindleDecelSec !== undefined ? g.nxtSpindleDecelSec : 'null'}`,
           '',
           '; Touch Probe Configuration',
-          `global nxtTouchProbeID = ${g.nxtTouchProbeID !== null && g.nxtTouchProbeID !== undefined ? g.nxtTouchProbeID : 'null'}`,
-          `global nxtProbeTipRadius = ${g.nxtProbeTipRadius !== null && g.nxtProbeTipRadius !== undefined ? g.nxtProbeTipRadius : 'null'}`,
-          `global nxtProbeDeflection = ${g.nxtProbeDeflection !== null && g.nxtProbeDeflection !== undefined ? g.nxtProbeDeflection : 'null'}`,
-          `global nxtProbeInnerSampleCount = ${g.nxtProbeInnerSampleCount !== null && g.nxtProbeInnerSampleCount !== undefined ? g.nxtProbeInnerSampleCount : 3}`,
-          `global nxtProbeMaxSampleSpreadMm = ${g.nxtProbeMaxSampleSpreadMm !== null && g.nxtProbeMaxSampleSpreadMm !== undefined ? g.nxtProbeMaxSampleSpreadMm : 0.015}`,
-          `global nxtProbeSampleOuterRetries = ${g.nxtProbeSampleOuterRetries !== null && g.nxtProbeSampleOuterRetries !== undefined ? g.nxtProbeSampleOuterRetries : 1}`,
+          `set global.nxtTouchProbeID = ${g.nxtTouchProbeID !== null && g.nxtTouchProbeID !== undefined ? g.nxtTouchProbeID : 'null'}`,
+          `set global.nxtProbeTipRadius = ${g.nxtProbeTipRadius !== null && g.nxtProbeTipRadius !== undefined ? g.nxtProbeTipRadius : 'null'}`,
+          `set global.nxtProbeDeflection = ${g.nxtProbeDeflection !== null && g.nxtProbeDeflection !== undefined ? g.nxtProbeDeflection : 'null'}`,
+          `set global.nxtProbeInnerSampleCount = ${g.nxtProbeInnerSampleCount !== null && g.nxtProbeInnerSampleCount !== undefined ? g.nxtProbeInnerSampleCount : 3}`,
+          `set global.nxtProbeMaxSampleSpreadMm = ${g.nxtProbeMaxSampleSpreadMm !== null && g.nxtProbeMaxSampleSpreadMm !== undefined ? g.nxtProbeMaxSampleSpreadMm : 0.015}`,
+          `set global.nxtProbeSampleOuterRetries = ${g.nxtProbeSampleOuterRetries !== null && g.nxtProbeSampleOuterRetries !== undefined ? g.nxtProbeSampleOuterRetries : 1}`,
           '',
           '; Tool Setter Configuration',
-          `global nxtToolSetterID = ${g.nxtToolSetterID !== null && g.nxtToolSetterID !== undefined ? g.nxtToolSetterID : 'null'}`,
-          `global nxtToolSetterPos = ${g.nxtToolSetterPos && Array.isArray(g.nxtToolSetterPos) ? `{${g.nxtToolSetterPos.join(', ')}}` : 'null'}`,
+          `set global.nxtToolSetterID = ${g.nxtToolSetterID !== null && g.nxtToolSetterID !== undefined ? g.nxtToolSetterID : 'null'}`,
+          `set global.nxtToolSetterPos = ${this.formatPersistedVector(g.nxtToolSetterPos)}`,
           '',
           '; Coolant Configuration',
-          `global nxtCoolantAirID = ${g.nxtCoolantAirID !== null && g.nxtCoolantAirID !== undefined ? g.nxtCoolantAirID : 'null'}`,
-          `global nxtCoolantMistID = ${g.nxtCoolantMistID !== null && g.nxtCoolantMistID !== undefined ? g.nxtCoolantMistID : 'null'}`,
-          `global nxtCoolantFloodID = ${g.nxtCoolantFloodID !== null && g.nxtCoolantFloodID !== undefined ? g.nxtCoolantFloodID : 'null'}`,
+          `set global.nxtCoolantAirID = ${g.nxtCoolantAirID !== null && g.nxtCoolantAirID !== undefined ? g.nxtCoolantAirID : 'null'}`,
+          `set global.nxtCoolantMistID = ${g.nxtCoolantMistID !== null && g.nxtCoolantMistID !== undefined ? g.nxtCoolantMistID : 'null'}`,
+          `set global.nxtCoolantFloodID = ${g.nxtCoolantFloodID !== null && g.nxtCoolantFloodID !== undefined ? g.nxtCoolantFloodID : 'null'}`,
           '',
           '; Board / platform (Configuration panel)',
-          `global nxtPlatformProfile = ${
+          `set global.nxtPlatformProfile = ${
             g.nxtPlatformProfile != null && g.nxtPlatformProfile !== ''
               ? '"' + String(g.nxtPlatformProfile).replace(/"/g, '') + '"'
               : 'null'
           }`,
-          `global nxtBoardShortNameOverride = ${
+          `set global.nxtBoardShortNameOverride = ${
             g.nxtBoardShortNameOverride != null && g.nxtBoardShortNameOverride !== ''
               ? '"' + String(g.nxtBoardShortNameOverride).replace(/"/g, '') + '"'
               : 'null'
           }`,
-          `global nxtBoardKitKey = null`,
-          `global nxtScyllaMotorVoltage = ${
+          'set global.nxtBoardKitKey = null',
+          `set global.nxtScyllaMotorVoltage = ${
             g.nxtScyllaMotorVoltage !== null && g.nxtScyllaMotorVoltage !== undefined
               ? g.nxtScyllaMotorVoltage
               : 'null'
           }`,
-          `global nxtBoardBootstrapMode = "${
+          `set global.nxtBoardBootstrapMode = "${
             g.nxtBoardBootstrapMode === 'auto' ? 'auto' : 'off'
           }"`
         ]

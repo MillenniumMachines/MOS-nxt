@@ -1,58 +1,83 @@
 ; nxt-mos-import.g
-; Millennium OS -> NeXT: map mos* globals into nxt* and write nxt-user-vars.g.
-; Intended load order (see nxt.g): mos-vars.g -> mos-user-vars.g -> this file -> nxt-user-vars.g
-; Manual: M98 P"nxt-mos-import.g" (loads MOS files here if not already in memory)
-; Sentinel: 0:/sys/nxt-mos-import.requested (removed after successful import when present)
+; One-shot migration: read legacy MillenniumOS configuration from SD, copy into NeXT globals,
+; write 0:/sys/nxt-user-vars.g. Does not depend on mosVarsLoaded or whether MOS is still "active".
+;
+; Typical SD sources (run in order when present):
+;   mos-vars.g       — MOS defaults
+;   mos-user-vars.g  — operator / wizard values
+;   nxt-user-vars.g  — merged before mapping if it already exists (e.g. nxtDeltaMachine)
+;
+; Manual: M98 P"nxt-mos-import.g"
+; Boot: nxt.g runs this when mos*.g and/or mos* globals are present (see nxt.g); optional
+;       0:/sys/nxt-mos-import.requested forces a re-import (removed after success).
 ; CNC meta: use { } for conditions — see macros/system/RRF_META.txt.
+;
+; Each mos* -> nxt* copy uses exists(global.mos*) so a partial MOS install does not abort.
 
 var nxtMosSentinel = { fileexists("0:/sys/nxt-mos-import.requested") }
-var mosUserLoaded = false
+var hasMosSource = { var.nxtMosSentinel || fileexists("0:/sys/mos-vars.g") || fileexists("0:/sys/mos-user-vars.g") || fileexists("0:/sys/mos.g") || exists(global.mosSID) || exists(global.mosFeatTouchProbe) || exists(global.mosPTID) || exists(global.mosLdd) }
 
-if { !fileexists("0:/sys/mos-vars.g") }
+if { !var.hasMosSource }
+    echo "NeXT MOS import: no MillenniumOS files or mos* globals found — nothing to migrate"
     M99
 
-if { !exists(global.mosVarsLoaded) }
+if { fileexists("0:/sys/mos-vars.g") }
     M98 P"mos-vars.g"
 
-if { exists(global.mosVarsLoaded) && fileexists("0:/sys/mos-user-vars.g") }
+if { fileexists("0:/sys/mos-user-vars.g") }
     M98 P"mos-user-vars.g"
-    set var.mosUserLoaded = true
 
-; Merge existing NeXT user file (e.g. nxtDeltaMachine) before applying MOS map
 if { fileexists("0:/sys/nxt-user-vars.g") }
     M98 P"nxt-user-vars.g"
 
-set global.nxtFeatureTouchProbe = { global.mosFeatTouchProbe }
-set global.nxtFeatureToolSetter = { global.mosFeatToolSetter }
-set global.nxtFeatureCoolantControl = { global.mosFeatCoolantControl }
-set global.nxtProbeToolID = { global.mosPTID }
-set global.nxtTouchProbeID = { global.mosTPID }
-set global.nxtToolSetterID = { global.mosTSID }
-set global.nxtProbeTipRadius = { global.mosTPR }
-set global.nxtProbeDeflection = { global.mosTPD }
-set global.nxtToolSetterPos = { global.mosTSP }
-set global.nxtSpindleID = { global.mosSID }
-set global.nxtSpindleAccelSec = { global.mosSAS }
-set global.nxtSpindleDecelSec = { global.mosSDS }
-set global.nxtCoolantAirID = { global.mosCAID }
-set global.nxtCoolantMistID = { global.mosCMID }
-set global.nxtCoolantFloodID = { global.mosCFID }
+if { exists(global.mosFeatTouchProbe) }
+    set global.nxtFeatureTouchProbe = { global.mosFeatTouchProbe }
+if { exists(global.mosFeatToolSetter) }
+    set global.nxtFeatureToolSetter = { global.mosFeatToolSetter }
+if { exists(global.mosFeatCoolantControl) }
+    set global.nxtFeatureCoolantControl = { global.mosFeatCoolantControl }
+if { exists(global.mosPTID) }
+    set global.nxtProbeToolID = { global.mosPTID }
+if { exists(global.mosTPID) }
+    set global.nxtTouchProbeID = { global.mosTPID }
+if { exists(global.mosTSID) }
+    set global.nxtToolSetterID = { global.mosTSID }
+if { exists(global.mosTPR) }
+    set global.nxtProbeTipRadius = { global.mosTPR }
+if { exists(global.mosTPD) }
+    set global.nxtProbeDeflection = { global.mosTPD }
+if { exists(global.mosTSP) }
+    set global.nxtToolSetterPos = { global.mosTSP }
+if { exists(global.mosSID) }
+    set global.nxtSpindleID = { global.mosSID }
+if { exists(global.mosSAS) }
+    set global.nxtSpindleAccelSec = { global.mosSAS }
+if { exists(global.mosSDS) }
+    set global.nxtSpindleDecelSec = { global.mosSDS }
+if { exists(global.mosCAID) }
+    set global.nxtCoolantAirID = { global.mosCAID }
+if { exists(global.mosCMID) }
+    set global.nxtCoolantMistID = { global.mosCMID }
+if { exists(global.mosCFID) }
+    set global.nxtCoolantFloodID = { global.mosCFID }
 
-var pinN = { min(#global.mosPS, #global.nxtPinStates) }
-while { iterations < var.pinN }
-    set global.nxtPinStates[iterations] = { global.mosPS[iterations] }
+if { exists(global.mosPS) && exists(global.nxtPinStates) }
+    var pinN = { min(#global.mosPS, #global.nxtPinStates) }
+    while { iterations < var.pinN }
+        set global.nxtPinStates[iterations] = { global.mosPS[iterations] }
 
-if { global.mosTCS == null }
-    set global.nxtToolChangeState = null
-elif { global.mosTCS >= 0 && global.mosTCS <= 4 }
-    set global.nxtToolChangeState = { global.mosTCS + 1 }
-else
-    set global.nxtToolChangeState = null
+if { exists(global.mosTCS) }
+    if { global.mosTCS == null }
+        set global.nxtToolChangeState = null
+    elif { global.mosTCS >= 0 && global.mosTCS <= 4 }
+        set global.nxtToolChangeState = { global.mosTCS + 1 }
+    else
+        set global.nxtToolChangeState = null
 
 var UV = "0:/sys/nxt-user-vars.g"
 
 echo >{var.UV} {"; NeXT User Configuration"}
-echo >>{var.UV} {"; Written by nxt-mos-import.g (Millennium OS migration) - MOS sys files are redundant once NeXT owns this file."}
+echo >>{var.UV} {"; Written by nxt-mos-import.g (Millennium OS migration)"}
 echo >>{var.UV} {"; Re-run: M98 P""nxt-mos-import.g"""}
 echo >>{var.UV} {""}
 echo >>{var.UV} {"; Feature Flags"}
@@ -92,13 +117,13 @@ echo >>{var.UV} {"set global.nxtCoolantMistID = " ^ (global.nxtCoolantMistID == 
 echo >>{var.UV} {"set global.nxtCoolantFloodID = " ^ (global.nxtCoolantFloodID == null ? "null" : global.nxtCoolantFloodID)}
 echo >>{var.UV} {""}
 echo >>{var.UV} {"; gpOut snapshot (caps min(limits.gpOutPorts,32) in nxt-vars.g)"}
-var pline = {"global nxtPinStates = {"}
+var pline = {"set global.nxtPinStates = {"}
 while { iterations < #global.nxtPinStates }
     set var.pline = { var.pline ^ (iterations > 0 ? ", " : "") ^ global.nxtPinStates[iterations] }
 set var.pline = { var.pline ^ "}" }
 echo >>{var.UV} {var.pline}
 
-echo "NeXT: MOS import - used mos-vars.g" ^ (var.mosUserLoaded ? " and mos-user-vars.g" : "") ^ "; merged into NeXT globals and saved " ^ var.UV ^ ". MOS var files are redundant going forward."
+echo "NeXT: MOS migration complete — saved " ^ var.UV
 
 if { var.nxtMosSentinel }
     M472 P{"0:/sys/nxt-mos-import.requested"}

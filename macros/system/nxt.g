@@ -20,14 +20,11 @@ if { !exists(global.nxtVarsLoaded) }
     M98 P"nxt-vars.g"
     global nxtVarsLoaded=true
 
-; Optional MOS migration: touch 0:/sys/nxt-mos-import.requested on SD for one-shot import.
-; Load order: mos-vars.g -> mos-user-vars.g -> nxt-mos-import.g -> nxt-user-vars.g (below).
-if { fileexists("0:/sys/nxt-mos-import.requested") }
+; Millennium OS migration: run when legacy MOS is present on SD and/or in globals.
+; Re-import anytime: touch 0:/sys/nxt-mos-import.requested
+; First-time only (default): MOS detected and nxt-user-vars.g not created yet
+if { fileexists("0:/sys/nxt-mos-import.requested") || (!fileexists("0:/sys/nxt-user-vars.g") && (fileexists("0:/sys/mos-vars.g") || fileexists("0:/sys/mos-user-vars.g") || fileexists("0:/sys/mos.g") || exists(global.mosSID) || exists(global.mosFeatTouchProbe) || exists(global.mosPTID) || exists(global.mosLdd))) }
     M117 "NeXT MOS import"
-    if { fileexists("0:/sys/mos-vars.g") && !exists(global.mosVarsLoaded) }
-        M98 P"mos-vars.g"
-    if { exists(global.mosVarsLoaded) && fileexists("0:/sys/mos-user-vars.g") }
-        M98 P"mos-user-vars.g"
     M98 P"nxt-mos-import.g"
 
 ; Post-processor tool table (mosTT / mosET) unless MOS vars already defined them

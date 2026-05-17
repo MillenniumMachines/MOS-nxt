@@ -184,6 +184,15 @@ if [[ -f "${WD}/ui/plugin.json" ]]; then
     # Extract SD file paths (macro files that go in sys/)
     SD_FILES=$(find "${TMP_DIR}/sd/sys" -type f -name "*.g" | sed "s|${TMP_DIR}/sd/||" | sort | jq -R . | jq -s .)
 
+    # Match dwc-plugins.json to the built plugin manifest (auto-major resolved at build-plugin time)
+    PLUGIN_MANIFEST="${WD}/dist/NeXT-${COMMIT_ID}.zip"
+    PLUGIN_DWC_VERSION="$(unzip -p "${PLUGIN_MANIFEST}" plugin.json | jq -r '.dwcVersion')"
+    PLUGIN_RRF_VERSION="$(unzip -p "${PLUGIN_MANIFEST}" plugin.json | jq -r '.rrfVersion')"
+    if [[ -z "${PLUGIN_DWC_VERSION}" || "${PLUGIN_DWC_VERSION}" == "null" || -z "${PLUGIN_RRF_VERSION}" || "${PLUGIN_RRF_VERSION}" == "null" ]]; then
+        echo "error: could not read resolved dwcVersion/rrfVersion from ${PLUGIN_MANIFEST}" >&2
+        exit 1
+    fi
+
     # Create the dwc-plugins.json file using jq to properly handle JSON
     jq -n \
       --arg id "NeXT" \
@@ -192,6 +201,8 @@ if [[ -f "${WD}/ui/plugin.json" ]]; then
       --arg version "${COMMIT_ID}" \
       --arg license "GPL-3.0-or-later" \
       --arg homepage "https://github.com/benagricola/NeXT" \
+      --arg dwcVersion "${PLUGIN_DWC_VERSION}" \
+      --arg rrfVersion "${PLUGIN_RRF_VERSION}" \
       --argjson dwcFiles "${DWC_FILES}" \
       --argjson sdFiles "${SD_FILES}" \
       '{
@@ -203,7 +214,7 @@ if [[ -f "${WD}/ui/plugin.json" ]]; then
           "license": $license,
           "homepage": $homepage,
           "tags": [],
-          "dwcVersion": "auto",
+          "dwcVersion": $dwcVersion,
           "dwcDependencies": [],
           "sbcRequired": false,
           "sbcDsfVersion": null,
@@ -217,7 +228,7 @@ if [[ -f "${WD}/ui/plugin.json" ]]; then
           "sbcPackageDependencies": [],
           "sbcPluginDependencies": [],
           "sbcPythonDependencies": [],
-          "rrfVersion": "auto",
+          "rrfVersion": $rrfVersion,
           "data": {},
           "dsfFiles": [],
           "dwcFiles": $dwcFiles,
