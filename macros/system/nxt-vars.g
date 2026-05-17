@@ -28,13 +28,12 @@ global nxtProbeMaxSkewDeg = 5.0   ; Abort rectangle/bore skew solve if |theta| e
 
 ; --- Probe repeatability (G6512; all canned cycles use G6512) ---
 ; Tune these only here. Macros read globals — do not duplicate numbers in cycle files.
-;   nxtProbeInnerSampleCount — inner averaging sample count; parent cycles pass R=this when their R arg omitted (G6512 still applies spread/outer retry from below).
-;   nxtProbeMaxSampleSpreadMm — peak-to-peak spread (mm) of those inner samples along the probe axis;
-;                               if spread exceeds this, the whole sample block is repeated. Set 0 to disable.
-;   nxtProbeSampleOuterRetries — how many *additional* full sample blocks to run after a failed spread
-;                                (total attempts = 1 + this). 1 = one retry after the first attempt.
+;   nxtProbeInnerSampleCount — inner sample count when tolerance disabled (limit = 0); ignored when limit > 0 (G6512 uses 3 touches).
+;   nxtProbeMaxSampleSpreadMm — max consecutive-pair deviation (mm) between the 3 touches; both pairs must pass. Set 0 to disable.
+;   nxtProbeSampleOuterRetries — how many *additional* full 3-touch blocks after a failed tolerance check
+;                                (total cycles = 1 + this). 1 = one retry after the first attempt.
 global nxtProbeInnerSampleCount = 3
-global nxtProbeMaxSampleSpreadMm = 0.015
+global nxtProbeMaxSampleSpreadMm = 0.0075
 global nxtProbeSampleOuterRetries = 1
 
 global nxtToolSetterPos = null     ; Toolsetter position vector [X, Y, Z]

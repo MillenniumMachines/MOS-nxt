@@ -208,7 +208,7 @@ Probes one surface in X, Y, or Z to find the surface location.
 
 Low-level single-axis probe move with compensation and averaging. Used by all probing cycles.
 
-**Repeatability:** Defaults are **`macros/system/nxt-vars.g`** (`nxtProbeInnerSampleCount`, **`nxtProbeMaxSampleSpreadMm`**, **`nxtProbeSampleOuterRetries`**). When **`nxtProbeMaxSampleSpreadMm` > 0**, each **`G6512`** takes **`R`** inner samples (default = **`nxtProbeInnerSampleCount`**). If peak-to-peak spread exceeds the limit, the macro **`echo`s** and repeats the whole sample block up to **`1 + nxtProbeSampleOuterRetries`** attempts (**`1`** outer retry is the stock default). Set **`nxtProbeMaxSampleSpreadMm`** to **0** to disable.
+**Repeatability:** Defaults are **`macros/system/nxt-vars.g`** (`nxtProbeInnerSampleCount`, **`nxtProbeMaxSampleSpreadMm`** default **0.0075** mm, **`nxtProbeSampleOuterRetries`**). When **`nxtProbeMaxSampleSpreadMm` > 0**, **`G6512`** runs **3** touches ( **`R`** is ignored), **`echo`s** each compensated value, and requires **both** consecutive pairs (1–2 and 2–3) to be within the limit. On failure it **`echo`s** the pair delta and over-limit amount, then repeats the whole 3-touch block up to **`1 + nxtProbeSampleOuterRetries`** cycles. On success it averages the three values into **`nxtLastProbeResult`**. Set **`nxtProbeMaxSampleSpreadMm`** to **0** to disable (honors **`R`** / **`nxtProbeInnerSampleCount`**, no pair checks).
 
 **Usage:** `G6512 [X<pos>|Y<pos>|Z<pos>|A<pos>] I<probeID> [F<speed>] [R<retries>] [H<hit>]`
 

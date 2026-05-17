@@ -24,7 +24,7 @@ export const NXT_GLOBAL_MANIFEST: NxtGlobalManifestEntry[] = [
   { key: 'nxtProbeTipRadius', description: 'Probe tip radius (mm)' },
   { key: 'nxtProbeDeflection', description: 'Probe deflection compensation (mm)' },
   { key: 'nxtProbeInnerSampleCount', description: 'G6512 inner samples when R omitted (macros/system/nxt-vars.g)' },
-  { key: 'nxtProbeMaxSampleSpreadMm', description: 'G6512 max inner spread (mm); 0 disables (nxt-vars.g)' },
+  { key: 'nxtProbeMaxSampleSpreadMm', description: 'G6512 max consecutive-pair deviation (mm); 0 disables (nxt-vars.g default 0.0075)' },
   { key: 'nxtProbeSampleOuterRetries', description: 'G6512 extra sample blocks after failed spread (nxt-vars.g)' },
   { key: 'nxtToolSetterPos', description: 'Toolsetter position [X,Y,Z]' },
   { key: 'nxtToolChangeState', description: 'Tool-change macro state' },

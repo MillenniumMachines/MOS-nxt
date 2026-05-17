@@ -392,26 +392,26 @@
                   step="1"
                   :disabled="uiFrozen"
                   @blur="updateVariable('nxtProbeInnerSampleCount', globals.nxtProbeInnerSampleCount)"
-                  hint="Default from macros/system/nxt-vars.g; saved here as global override"
+                  hint="Used when pair tolerance is 0; G6512 forces 3 touches when tolerance > 0"
                   persistent-hint
                 />
               </v-col>
               <v-col cols="12" md="4">
                 <v-text-field
                   v-model.number="globals.nxtProbeMaxSampleSpreadMm"
-                  label="Max sample spread (mm)"
+                  label="Max consecutive-pair deviation (mm)"
                   type="number"
-                  step="0.001"
+                  step="0.0001"
                   :disabled="uiFrozen"
                   @blur="updateVariable('nxtProbeMaxSampleSpreadMm', globals.nxtProbeMaxSampleSpreadMm)"
-                  hint="0 = disabled. Source of truth: nxt-vars.g"
+                  hint="0 = disabled. Default 0.0075 from nxt-vars.g; both pairs among 3 touches must pass"
                   persistent-hint
                 />
               </v-col>
               <v-col cols="12" md="4">
                 <v-text-field
                   v-model.number="globals.nxtProbeSampleOuterRetries"
-                  label="Outer retries after bad spread"
+                  label="Outer retries after failed pair tolerance"
                   type="number"
                   min="0"
                   step="1"
@@ -1316,7 +1316,7 @@ export default BaseComponent.extend({
           `set global.nxtProbeTipRadius = ${g.nxtProbeTipRadius !== null && g.nxtProbeTipRadius !== undefined ? g.nxtProbeTipRadius : 'null'}`,
           `set global.nxtProbeDeflection = ${g.nxtProbeDeflection !== null && g.nxtProbeDeflection !== undefined ? g.nxtProbeDeflection : 'null'}`,
           `set global.nxtProbeInnerSampleCount = ${g.nxtProbeInnerSampleCount !== null && g.nxtProbeInnerSampleCount !== undefined ? g.nxtProbeInnerSampleCount : 3}`,
-          `set global.nxtProbeMaxSampleSpreadMm = ${g.nxtProbeMaxSampleSpreadMm !== null && g.nxtProbeMaxSampleSpreadMm !== undefined ? g.nxtProbeMaxSampleSpreadMm : 0.015}`,
+          `set global.nxtProbeMaxSampleSpreadMm = ${g.nxtProbeMaxSampleSpreadMm !== null && g.nxtProbeMaxSampleSpreadMm !== undefined ? g.nxtProbeMaxSampleSpreadMm : 0.0075}`,
           `set global.nxtProbeSampleOuterRetries = ${g.nxtProbeSampleOuterRetries !== null && g.nxtProbeSampleOuterRetries !== undefined ? g.nxtProbeSampleOuterRetries : 1}`,
           '',
           '; Tool Setter Configuration',

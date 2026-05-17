@@ -23,7 +23,7 @@ G53 G0 X{global.nxtToolSetterPos[0]} Y{global.nxtToolSetterPos[1]}
 ; Move down to safe Z above toolsetter
 G53 G0 Z{global.nxtToolSetterPos[2] + 10}  ; 10mm above
 
-; Probe down to toolsetter (same repeatability as touch cycles: nxt-vars.g)
+; Probe down to toolsetter (G6512 strict 3-touch pair tolerance when nxtProbeMaxSampleSpreadMm > 0)
 G6512 Z{global.nxtToolSetterPos[2]} I{var.probeID} R{global.nxtProbeInnerSampleCount}
 
 ; The result is in nxtLastProbeResult
