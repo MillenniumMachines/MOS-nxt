@@ -2,6 +2,8 @@
 
 This document outlines the development roadmap for the complete rewrite of MillenniumOS, codenamed "NeXT" (Next-Gen Extended Tooling). The primary goal is to refactor the system for simplicity, accuracy, and maintainability, starting from a clean slate.
 
+**Development repository:** [MillenniumMachines/NeXT](https://github.com/MillenniumMachines/NeXT) — active line on branch `v0.6.0`, pre-releases tagged `v0.6.0-beta.N`.
+
 ---
 
 ## Project Naming and Conventions
@@ -36,9 +38,10 @@ The goal of this phase is to establish a clean and organized repository structur
         *   `macros/utilities/` (for parking, reloading, power control etc.)
 
 4.  **New Repository:** ✅
-    *   The new directory structure has been committed to the dedicated NeXT repository: `benagricola/NeXT`
-    *   This provides full control over development and refactoring without affecting existing MillenniumOS code.
-    *   All future development will target this repository's `main` branch.
+    *   The new directory structure lives in the NeXT repository ([MillenniumMachines/NeXT](https://github.com/MillenniumMachines/NeXT)).
+    *   This provides full control over development and refactoring without affecting legacy MillenniumOS macro sources in the old repo.
+    *   Stable releases will merge to `main`; the `v0.6.0` branch carries the current beta line.
+
 ---
 
 ## Phase 1: Core System & Essential Backend ✅
@@ -95,9 +98,9 @@ This phase bridges Phase 1 and Phase 2 by implementing UI-controlled result mana
 
 ---
 
-## Phase 2: Settings UI & Configuration (HIGH PRIORITY)
+## Phase 2: Settings UI & Configuration ✅
 
-**This phase has been elevated in priority** as it has become clear that the settings UI will be very important to get done earlier than the more complex functionality. The settings UI is critical for proper system configuration and operation.
+**COMPLETED** for configuration and probing workflow UI. Optional control panels remain in the backlog (see Outstanding Work).
 
 1.  **UI Scaffolding & Core Layout:** ✅
     *   Set up a new, clean Vue 2.7 plugin structure within the `ui/` directory.
@@ -112,10 +115,9 @@ This phase bridges Phase 1 and Phase 2 by implementing UI-controlled result mana
     *   Create a dedicated UI component to guide the user through measuring probe deflection automatically.
     *   Include manual deflection input capability for operators who have pre-calculated values.
 
-4.  **Essential Status & Control Panels:** ⚠️ Partial
-    *   Develop core UI panels for machine status, spindle control, and coolant control.
-    *   Implement basic WCS management interface.
-    *   **Note:** Machine status panel completed. Spindle/coolant control and WCS management to be implemented in Phase 3.
+4.  **Essential Status & Control Panels:** ✅ (core) / backlog (optional)
+    *   **Done:** `MachineStatusPanel.vue` (system and axis status); WCS selection and push-to-WCS via `ProbeResultsPanel.vue` and `ProbingCyclesPanel.vue`.
+    *   **Backlog:** Dedicated spindle and coolant **control** panels (macros `M3.9` / `M7`–`M9` exist; no separate UI panels yet). Status widget shows spindle state only.
 
 ---
 
@@ -144,7 +146,7 @@ This phase implements the advanced probing functionality and result management s
 
 ## Phase 4: Tool Change & Advanced Features
 
-This phase focuses on completing the tool change system and advanced features.
+This phase focuses on completing the tool change system and advanced features. **PARTIAL**
 
 1.  **Complete Tool Change Logic:** ✅ (baseline)
     *   Implemented in `macros/tooling/tfree.g`, `tpre.g`, `tpost.g` — manual install/remove via `M291`, probe-on-removal / toolsetter (`G37`), relative offsets and touch-probe path in `tpost.g`. Optional ATC magazine pack remains separate; see `docs/TOOLCHANGING.md`.
@@ -152,10 +154,11 @@ This phase focuses on completing the tool change system and advanced features.
 2.  **Drilling Canned Cycles:** ✅ (see `docs/CODE.md` §8.1)
     *   `G80`, `G81`, `G73`, `G83`, `G82`, `G85`, `G89`, `G98`, `G99` in `macros/canned/` (LinuxCNC-oriented, absolute coordinates).
 
-3.  **VSSC (Variable Spindle Speed Control):**
+3.  **VSSC (Variable Spindle Speed Control):** ⬜ Not started
     *   Re-implement VSSC as a self-contained feature that can be enabled via the new UI configuration.
+    *   Legacy MillenniumOS VSSC is **not** ported; `README.md` still mentions VSSC as a planned feature.
 
-4.  **Machine Calibration System:**
+4.  **Machine Calibration System:** ⬜ Design only
     *   Implement UI-based calibration wizard in Settings panel for guided step-by-step workflow.
     *   Create backend M-code macros for querying and updating calibration parameters (M9001-M9004).
     *   Implement automated steps-per-mm calibration using dual-dimension measurement method.
@@ -163,7 +166,7 @@ This phase focuses on completing the tool change system and advanced features.
     *   Implement automated probe deflection measurement procedure.
     *   Add calibration verification tests and accuracy reporting.
     *   Store calibration data and history in nxt-user-vars.g.
-    *   Full documentation provided in `docs/CALIBRATION.md`.
+    *   Design documentation: `docs/CALIBRATION.md` (macros not yet implemented).
 
 5.  **Stock Preparation UI (Issue #34):** ✅
     *   Panel: `ui/src/components/panels/StockPreparationPanel.vue` (facing toolpaths, worker-backed generation).
@@ -176,17 +179,51 @@ This phase focuses on completing the tool change system and advanced features.
 
 ---
 
+## v0.6.0 beta release track (in progress)
+
+Pre-releases on `v0.6.0` (`v0.6.0-beta.1` …). Themes shipped in recent betas:
+
+| Theme | Status |
+|-------|--------|
+| Strict consecutive-pair probe tolerance (`G6512`, 3 touches, default 0.0075 mm) | ✅ beta.5+ |
+| MOS → NeXT configuration migration (`nxt-mos-import.g`, auto-detect on boot) | ✅ |
+| `auto-major` DWC/RRF compatibility in built `plugin.json` | ✅ |
+| Configuration panel save to SD via DWC upload API | ✅ |
+| CI: NeXT-only checkout; DWC via read-only tarball (`ci/dwc-build-ref` → v3.6.2) | ✅ beta.6+ |
+
+Manual DWC install and smoke-test remain required before treating a beta as release-ready (see `.cursor/rules/release-plugin-verify.mdc`).
+
+---
+
+## Outstanding work (excluding end-to-end testing)
+
+| Priority | Item | Notes |
+|----------|------|--------|
+| High | **Public site manual** | [millenniummachines.github.io](https://github.com/MillenniumMachines/millenniummachines.github.io) `millennium-os/` chapters still describe legacy MOS (G8000 wizard, old repo links). Staging branch: `next-docs`. |
+| High | **Migration guide** | `nxt-mos-import.g` exists; user-facing `docs/MIGRATION.md` not written. |
+| Medium | **VSSC** | Not implemented under `nxt*`; see Phase 4. |
+| Medium | **Machine calibration** | `docs/CALIBRATION.md` only; M9001–M9004 macros missing. |
+| Medium | **`M4005` post version check** | Documented in `DETAILS.md`; macro not implemented (post-processors in `post-processors/`). |
+| Low | **Spindle/coolant control UI** | Optional panels beyond status widget. |
+| Low | **Spindle feedback** | Nice-to-have (`FEATURES.md`). |
+| Low | **Stock prep material calculator** | Future enhancement. |
+
+---
+
 ## Phase 5: Finalization & Release
 
 This phase focuses on testing, documentation, and preparing for a public release.
 
 1.  **Testing:**
     *   Conduct thorough end-to-end testing of all features, with a strong focus on the accuracy and reliability of the new probing and tool change systems.
+    *   Each `v0.6.0-beta.N` tag should be validated on hardware (plugin load, Configuration save, G37 / probing echoes) before promotion.
 
 2.  **Documentation:**
     *   Update all documentation (`README.md`, `DETAILS.md`, `UI.md`, etc.) to reflect the new architecture, features, and UI workflow.
-    *   Create a migration guide for existing users.
+    *   Create a migration guide for existing MillenniumOS users (`docs/MIGRATION.md`).
+    *   Rewrite [millennium-os manual](https://millenniummachines.github.io/docs/millennium-os/) on `next-docs` branch (install NeXT ZIP, Configuration panel, probing tolerance, MOS import).
+    *   Align README / FEATURES with implemented vs planned items (e.g. VSSC).
 
 3.  **Release Preparation:**
-    *   Utilize the existing build and release scripts to package the new version.
+    *   Utilize the existing build and release scripts to package the new version (`dist/build-plugin.sh`, `dist/release.sh`; CI on tag push).
     *   Prepare release notes detailing the changes, improvements, and breaking changes.

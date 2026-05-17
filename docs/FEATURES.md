@@ -6,9 +6,9 @@ This document distills the requirements for the NeXT rewrite, categorizing featu
 
 ## 1. Guiding Principles
 
-- [ ] **Simplicity & Accuracy:** The primary goal is to reduce complexity wherever possible. All implementation choices must prioritize accuracy, especially in probing and calculation-heavy operations.
-- [ ] **Numerical Stability:** Algorithms used for calculations (e.g., probe compensation, geometric calculations) must be chosen to minimize floating-point error accumulation.
-- [ ] **User Input and Warnings:** For actions requiring user confirmation or input, macros will use `M291` dialogs to ask for user input.
+- [x] **Simplicity & Accuracy:** The primary goal is to reduce complexity wherever possible. All implementation choices must prioritize accuracy, especially in probing and calculation-heavy operations.
+- [x] **Numerical Stability:** Algorithms used for calculations (e.g., probe compensation, geometric calculations) must be chosen to minimize floating-point error accumulation.
+- [x] **User Input and Warnings:** For actions requiring user confirmation or input, macros use `M291` dialogs and/or the Action Confirmation widget in DWC.
 ---
 
 ## 2. Critical Features
@@ -77,7 +77,7 @@ These features form the core of the new NeXT system and must be implemented for 
 These features add value but are not part of the initial core rewrite. They can be implemented in a later phase after the critical systems are stable.
 
 - [x] **Drilling Canned Cycles:** `G80`, `G81`, `G73`, `G83`, plus `G82`, `G85`, `G89`, and `G98`/`G99` retract mode (see `docs/CODE.md` §8.1). LinuxCNC-oriented; absolute XY/Z only in v1.
-- [ ] **Variable Spindle Speed Control (VSSC):** A valuable feature for improving surface finish, but its complexity is self-contained. It can be re-added as a modular component.
+- [ ] **Variable Spindle Speed Control (VSSC):** Planned for a later phase; not yet implemented in NeXT (legacy MillenniumOS VSSC is not ported). See `docs/ROADMAP.md`.
 - [ ] **Spindle Feedback:** Use sensor input to detect when the spindle has reached target speed or stopped.
 - [x] **Stock Preparation UI (Issue #34):** A dedicated UI panel for generating facing toolpaths to prepare raw stock. Features include:
   - [x] Multiple pattern types: rectilinear, zigzag, and spiral
@@ -94,8 +94,8 @@ These features add value but are not part of the initial core rewrite. They can 
 
 These features and concepts from the old implementation will be explicitly removed to align with the goal of simplicity and to reduce complexity and potential sources of error.
 
-- [ ] **Dialog-Driven Probing System:** The entire system of using `M291` dialogs to guide users through probing parameter selection will be removed in favor of the DWC UI.
-- [ ] **Manual Probing (Jogging Dialogs):** The system of using repeated dialogs to manually jog the machine closer to a surface is obsolete. This will be replaced by standard jogging and a "Set Origin" button in the UI.
-- [ ] **Multi-Axis Probing Moves:** The core probing logic will no longer support simultaneous movement in multiple axes during a single probe command. All probing will be strictly single-axis, so only a single target co-ordinate can be given to the underlying `G6512` macro.
-- [x] **G8000 Configuration Wizard:** The G-code based, serial configuration wizard will be entirely replaced by a more flexible and user-friendly UI-based settings panel.
-- [ ] **Backwards Compatibility:** No code will be retained for the purpose of supporting RRF or DWC **below** the versions declared in `ui/plugin.json` (`rrfVersion`, `dwcVersion`) or for compatibility with the previous MillenniumOS implementation.
+- [x] **Dialog-Driven Probing System:** Removed in favor of the DWC probing UI (`ProbingCyclesPanel`, `ProbeResultsPanel`).
+- [x] **Manual Probing (Jogging Dialogs):** Removed; operators use standard DWC jogging plus probe results / WCS push workflow.
+- [x] **Multi-Axis Probing Moves:** Removed; `G6512` is strictly single-axis per command.
+- [x] **G8000 Configuration Wizard:** Replaced by the Configuration panel in the NeXT DWC plugin.
+- [x] **Backwards Compatibility (legacy MOS runtime):** NeXT does not run legacy MOS macros; optional one-shot import via `nxt-mos-import.g` maps settings into `nxt-user-vars.g`. RRF/DWC floor is the resolved `plugin.json` major line (`auto-major` at build time).
