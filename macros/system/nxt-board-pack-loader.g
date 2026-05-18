@@ -1,13 +1,13 @@
 ; nxt-board-pack-loader.g
 ; Invoked from nxt.g after nxt-vars.g and nxt-user-vars.g when auto pack load is requested.
 ;
-; Opt-in:  create empty file 0:/sys/nxt-board-bootstrap.requested
+; Opt-in:  create empty file 0:/sys/nxt-board-bootstrap.requested (Configuration Save with bootstrap Auto)
 ; Opt-out: create 0:/sys/nxt-board-bootstrap.skip
 ; Override: 0:/sys/nxt-user-board.g runs instead of resolution below.
 ;
-; Requires global nxtPlatformProfile "v1.5" or "v1.6_v2" in nxt-user-vars.g for auto paths.
-; Board id: global nxtBoardShortNameOverride (optional) else boards[0].shortName (see OM / M409).
-; Scylla (scylla1_0_h723): set global nxtScyllaMotorVoltage = 24 or 48.
+; Requires global nxtPlatformProfile in nxt-user-vars.g (any platform under nxt/config/<id>/).
+; Board id: global nxtBoardShortNameOverride (optional) else boards[0].shortName.
+; Motor variants: global nxtBoardMotorVoltage = 24 or 48 when motor-24v / motor-48v packs exist.
 
 if { !fileexists("0:/sys/nxt-board-bootstrap.requested") }
     M99
@@ -27,14 +27,14 @@ if { fileexists("0:/sys/nxt-user-board.g") }
     echo "[NeXT] board pack: finished (nxt-user-board.g)"
     M99
 
-if { !exists(global.nxtPlatformProfile) || global.nxtPlatformProfile == null }
-    echo "[NeXT] board pack: set global nxtPlatformProfile to v1.5 or v1.6_v2 in nxt-user-vars.g"
+if { !exists(global.nxtPlatformProfile) || global.nxtPlatformProfile == null || global.nxtPlatformProfile == "" }
+    echo "[NeXT] board pack: set global nxtPlatformProfile in nxt-user-vars.g (NeXT Configuration)"
     M117 "NeXT board pack no platform"
     M99
 
-if { global.nxtPlatformProfile != "v1.5" && global.nxtPlatformProfile != "v1.6_v2" }
-    echo "[NeXT] board pack: nxtPlatformProfile not supported for bundled packs: " ^ global.nxtPlatformProfile ^ " (use nxt-user-board.g)"
-    M117 "NeXT board pack bad platform"
+if { !fileexists("0:/sys/nxt/config/" ^ global.nxtPlatformProfile ^ "/OVERVIEW.txt") }
+    echo "[NeXT] board pack: platform not on SD: nxt/config/" ^ global.nxtPlatformProfile ^ " — reinstall NeXT plugin"
+    M117 "NeXT board pack no platform SD"
     M99
 
 var brd = ""
@@ -47,61 +47,5 @@ else
     M117 "NeXT board pack no board id"
     M99
 
-if { global.nxtPlatformProfile == "v1.6_v2" }
-    if { var.brd == "cdy3_f4" }
-        set global.nxtBoardPackEntry = "nxt/config/v1.6_v2/boards/cdy3_f4/entry.g"
-        M117 "NeXT board pack v1.6 cdy3_f4"
-        M98 P"nxt/config/v1.6_v2/boards/cdy3_f4/entry.g"
-        echo "[NeXT] board pack: loaded " ^ global.nxtBoardPackEntry
-        M99
-    if { var.brd == "scylla1_0_h723" }
-        if { !exists(global.nxtScyllaMotorVoltage) || global.nxtScyllaMotorVoltage == null }
-            echo "[NeXT] board pack: Scylla requires global nxtScyllaMotorVoltage = 24 or 48 in nxt-user-vars.g (NeXT Configuration UI or hand edit)"
-            M117 "NeXT Scylla motor V missing"
-            M99
-        if { global.nxtScyllaMotorVoltage == 48 }
-            set global.nxtBoardPackEntry = "nxt/config/v1.6_v2/boards/scylla1_0_h723/motor-48v/entry.g"
-            M117 "NeXT board pack v1.6 Scylla 48V"
-            M98 P"nxt/config/v1.6_v2/boards/scylla1_0_h723/motor-48v/entry.g"
-            echo "[NeXT] board pack: loaded " ^ global.nxtBoardPackEntry
-            M99
-        if { global.nxtScyllaMotorVoltage == 24 }
-            set global.nxtBoardPackEntry = "nxt/config/v1.6_v2/boards/scylla1_0_h723/motor-24v/entry.g"
-            M117 "NeXT board pack v1.6 Scylla 24V"
-            M98 P"nxt/config/v1.6_v2/boards/scylla1_0_h723/motor-24v/entry.g"
-            echo "[NeXT] board pack: loaded " ^ global.nxtBoardPackEntry
-            M99
-        echo "[NeXT] board pack: nxtScyllaMotorVoltage must be 24 or 48, got: " ^ global.nxtScyllaMotorVoltage
-        M117 "NeXT Scylla motor V bad"
-        M99
-
-if { global.nxtPlatformProfile == "v1.5" }
-    if { var.brd == "cdy3_f4" }
-        set global.nxtBoardPackEntry = "nxt/config/v1.5/boards/cdy3_f4/entry.g"
-        M117 "NeXT board pack v1.5 cdy3_f4"
-        M98 P"nxt/config/v1.5/boards/cdy3_f4/entry.g"
-        echo "[NeXT] board pack: loaded " ^ global.nxtBoardPackEntry
-        M99
-    if { var.brd == "scylla1_0_h723" }
-        if { !exists(global.nxtScyllaMotorVoltage) || global.nxtScyllaMotorVoltage == null }
-            echo "[NeXT] board pack: Scylla requires global nxtScyllaMotorVoltage = 24 or 48 in nxt-user-vars.g (NeXT Configuration UI or hand edit)"
-            M117 "NeXT Scylla motor V missing"
-            M99
-        if { global.nxtScyllaMotorVoltage == 48 }
-            set global.nxtBoardPackEntry = "nxt/config/v1.5/boards/scylla1_0_h723/motor-48v/entry.g"
-            M117 "NeXT board pack v1.5 Scylla 48V"
-            M98 P"nxt/config/v1.5/boards/scylla1_0_h723/motor-48v/entry.g"
-            echo "[NeXT] board pack: loaded " ^ global.nxtBoardPackEntry
-            M99
-        if { global.nxtScyllaMotorVoltage == 24 }
-            set global.nxtBoardPackEntry = "nxt/config/v1.5/boards/scylla1_0_h723/motor-24v/entry.g"
-            M117 "NeXT board pack v1.5 Scylla 24V"
-            M98 P"nxt/config/v1.5/boards/scylla1_0_h723/motor-24v/entry.g"
-            echo "[NeXT] board pack: loaded " ^ global.nxtBoardPackEntry
-            M99
-        echo "[NeXT] board pack: nxtScyllaMotorVoltage must be 24 or 48, got: " ^ global.nxtScyllaMotorVoltage
-        M117 "NeXT Scylla motor V bad"
-        M99
-
-echo "[NeXT] board pack: unknown board id '" ^ var.brd ^ "' — add 0:/sys/nxt-user-board.g or set global.nxtBoardShortNameOverride"
-M117 "NeXT board pack UNKNOWN"
+M98 P"nxt-board-pack-resolve.g"
+M99

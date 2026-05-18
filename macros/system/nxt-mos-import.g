@@ -116,6 +116,15 @@ echo >>{var.UV} {"set global.nxtCoolantAirID = " ^ (global.nxtCoolantAirID == nu
 echo >>{var.UV} {"set global.nxtCoolantMistID = " ^ (global.nxtCoolantMistID == null ? "null" : global.nxtCoolantMistID)}
 echo >>{var.UV} {"set global.nxtCoolantFloodID = " ^ (global.nxtCoolantFloodID == null ? "null" : global.nxtCoolantFloodID)}
 echo >>{var.UV} {""}
+echo >>{var.UV} {"; Board / platform (Configuration panel)"}
+echo >>{var.UV} {"set global.nxtPlatformProfile = " ^ (global.nxtPlatformProfile == null ? "null" : "\"" ^ global.nxtPlatformProfile ^ "\"")}
+echo >>{var.UV} {"set global.nxtBoardShortNameOverride = " ^ (global.nxtBoardShortNameOverride == null ? "null" : "\"" ^ global.nxtBoardShortNameOverride ^ "\"")}
+echo >>{var.UV} {"set global.nxtBoardKitKey = " ^ (global.nxtBoardKitKey == null ? "null" : "\"" ^ global.nxtBoardKitKey ^ "\"")}
+echo >>{var.UV} {"set global.nxtBoardMotorVoltage = " ^ (global.nxtBoardMotorVoltage == null ? (global.nxtScyllaMotorVoltage == null ? "null" : global.nxtScyllaMotorVoltage) : global.nxtBoardMotorVoltage)}
+echo >>{var.UV} {"set global.nxtBoardBootstrapMode = \"" ^ (global.nxtBoardBootstrapMode == "auto" ? "auto" : "off") ^ "\""}
+echo >>{var.UV} {"set global.nxtBoardPackExpectedEntry = " ^ (global.nxtBoardPackExpectedEntry == null ? "null" : "\"" ^ global.nxtBoardPackExpectedEntry ^ "\"")}
+echo >>{var.UV} {"set global.nxtBoardSysDeployPlatform = " ^ (global.nxtBoardSysDeployPlatform == null ? "null" : "\"" ^ global.nxtBoardSysDeployPlatform ^ "\"")}
+echo >>{var.UV} {""}
 echo >>{var.UV} {"; gpOut snapshot (caps min(limits.gpOutPorts,32) in nxt-vars.g)"}
 var pline = {"set global.nxtPinStates = {"}
 while { iterations < #global.nxtPinStates }

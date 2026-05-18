@@ -61,7 +61,7 @@ These features form the core of the new NeXT system and must be implemented for 
 - [x] **Persistent UI Screen:** A new primary screen/view in DWC dedicated to NeXT, containing always-visible widgets for core status and actions.
     - [x] **Status Widget:** A persistent widget displaying: selected tool name, tool offset, machine state, selected WCS, and spindle state (direction, RPM).
     - [x] **Action Confirmation Widget:** A persistent widget that replaces blocking `M291` dialogs. It will pause the job queue and display a confirmation request (e.g., "Start Spindle?") that the operator must interact with to resume the job.
-- [x] **UI-Based Configuration:** A new settings panel within the UI plugin will completely replace the `G8000` configuration wizard, allowing for non-serial, direct editing of all settings.
+- [x] **UI-Based Configuration:** A new settings panel within the UI plugin will completely replace the `G8000` configuration wizard, allowing for non-serial, direct editing of all settings. Includes directory-driven platform/board selection and **Apply platform sys files** for homing macros ([NXT_BOARD_HOMING.md](NXT_BOARD_HOMING.md)).
 - [x] **UI-Driven Probing:** All probing cycles will be initiated and configured through the DWC UI.
 
 #### **Machine Control**

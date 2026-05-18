@@ -62,16 +62,24 @@
       "boardProfile": "Board profile (shortName)",
       "boardMotorVoltage": "Motor supply (Scylla)",
       "boardBootstrapMode": "Pack load preference",
-      "boardBootstrapHint": "To auto-load board pack fragments after nxt-user-vars.g, create empty 0:/sys/nxt-board-bootstrap.requested on the SD card. For Scylla, set motor voltage (24 or 48) in this panel or nxt-user-vars.g. Use nxt-board-bootstrap.skip to disable. Override with 0:/sys/nxt-user-board.g (see nxt-user-board.g.example on SD).",
+      "boardBootstrapHint": "Bootstrap Auto: Save Configuration creates 0:/sys/nxt-board-bootstrap.requested so the pack loads after nxt-user-vars.g at boot. Bootstrap Off: Save removes that file. Use nxt-board-bootstrap.skip to hard-disable. Override with 0:/sys/nxt-user-board.g (see nxt-user-board.g.example).",
       "boardMismatch": "Board profile override does not match the primary board shortName from the object model. Clear the override to follow the machine, or verify wiring.",
-      "boardVoltageMissing": "Scylla requires motor supply 24 V or 48 V for pack resolution. Choose a value below or set global nxtScyllaMotorVoltage in nxt-user-vars.g.",
+      "boardVoltageMissing": "This board pack requires motor supply 24 V or 48 V. Choose a value below or set global nxtBoardMotorVoltage in nxt-user-vars.g.",
+      "boardCheckSd": "Check SD board packs",
       "boardKitEntry": "Pack entry path",
       "boardCopySnippet": "Copy config.g hint",
       "boardSnippetCopied": "Copied to clipboard",
       "boardNoKitsPlatform": "No vendored kits for this platform yet.",
       "boardSavePinmap": "Write stub nxt-user-pinmap.g",
       "boardPinmapSaved": "Wrote stub /sys/nxt-user-pinmap.g",
-      "boardPinmapHint": "Optional file for M950 overrides; edit on SD or extend in a future UI release."
+      "boardPinmapHint": "Optional file for M950 overrides; edit on SD or extend in a future UI release.",
+      "boardLoadOrderHint": "Load order: nxt.g → nxt-user-vars.g → optional nxt-board-bootstrap.requested (pack entry.g + common/ fragments) → optional nxt-user-overrides.g. Homing macros (homeall.g, homex.g, homey.g, homez.g) are deployed separately to 0:/sys/ — see docs/NXT_BOARD_HOMING.md.",
+      "boardPlatformTree": "Platform bundle on SD (nxt/config/)",
+      "boardHomingDocHint": "Homing axis requirements per platform: docs/NXT_BOARD_HOMING.md",
+      "boardApplySysFiles": "Apply platform sys files",
+      "boardDeployConfirm": "Overwrite on SD: {files} for platform {platform}?",
+      "boardDeployOnPlatformChange": "Apply homing/sys files for platform {platform} now? Will overwrite: {files}",
+      "boardDeploySuccess": "Deployed {count} file(s) to 0:/sys/"
     },
     "stockPreparation": {
       "caption": "Stock Preparation"

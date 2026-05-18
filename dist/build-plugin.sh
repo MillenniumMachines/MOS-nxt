@@ -273,6 +273,9 @@ if [[ -f "${TMP_DIR}/sd/sys/nxt.g" ]]; then
   sed "s/%%NXT_VERSION%%/${BUILD_VERSION}/g" "${TMP_DIR}/sd/sys/nxt.g" > "${_tmp_nxt}" && mv "${_tmp_nxt}" "${TMP_DIR}/sd/sys/nxt.g"
 fi
 
+echo "Generating nxt-config manifest..."
+node "${ROOT}/dist/generate-nxt-config-manifest.mjs" "${ROOT}"
+
 cp -a "${ROOT}/ui/." "${TMP_DIR}/"
 
 # Replace version placeholder (portable; avoids sed -i differences)

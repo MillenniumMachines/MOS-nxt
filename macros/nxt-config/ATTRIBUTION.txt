@@ -18,6 +18,6 @@ NeXT on-SD layout (per platform v1.5 / v1.6_v2):
   boards/cdy3_f4/entry.g  (RRF boards[0].shortName cdy3_f4)
   boards/scylla1_0_h723/motor-24v/entry.g
   boards/scylla1_0_h723/motor-48v/entry.g
-  milo-common/  (shared fragments)
+  common/  (shared fragments + homing macros for sys deploy)
 
 See docs/NXT_BOARD_CONFIG.md for loader order and adding boards.

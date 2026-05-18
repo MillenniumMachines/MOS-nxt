@@ -4,7 +4,7 @@
       <v-icon left>mdi-cog</v-icon>
       {{ $t('plugins.next.panels.configuration.caption') }}
       <v-spacer />
-      <div v-if="!isConnected || !nxtReady" class="d-flex align-center">
+      <div v-if="!isConnected || !configurationUiAllowed" class="d-flex align-center">
         <v-icon small class="mr-2" color="warning">{{ !isConnected ? 'mdi-lan-disconnect' : 'mdi-alert-circle-outline' }}</v-icon>
         <span class="text-caption">{{
           !isConnected ? $t('plugins.next.messages.disconnectedShort') : $t('plugins.next.messages.notReadyShort')
@@ -39,6 +39,9 @@
             <v-alert type="info" dense outlined class="mb-3">
               <span class="text-caption">{{ $t('plugins.next.panels.configuration.boardBootstrapHint') }}</span>
             </v-alert>
+            <v-alert type="info" dense outlined class="mb-3">
+              <span class="text-caption">{{ $t('plugins.next.panels.configuration.boardLoadOrderHint') }}</span>
+            </v-alert>
             <p class="text-caption grey--text mb-2">{{ $t('plugins.next.panels.configuration.boardDetected') }}</p>
             <v-chip
               v-for="(b, i) in machineBoardsList"
@@ -63,7 +66,7 @@
               </v-col>
               <v-col cols="12" md="6">
                 <v-select
-                  :value="globals.nxtPlatformProfile"
+                  :value="configDraft.nxtPlatformProfile"
                   :items="nxtPlatformSelectItems"
                   item-text="title"
                   item-value="value"
@@ -78,7 +81,7 @@
             <v-row>
               <v-col cols="12" md="6">
                 <v-select
-                  :value="globals.nxtBoardShortNameOverride != null ? String(globals.nxtBoardShortNameOverride) : undefined"
+                  :value="configDraft.nxtBoardShortNameOverride != null ? String(configDraft.nxtBoardShortNameOverride) : undefined"
                   :items="boardProfileSelectItems"
                   item-text="title"
                   item-value="value"
@@ -103,7 +106,7 @@
                   :label="$t('plugins.next.panels.configuration.boardMotorVoltage')"
                   :disabled="uiFrozen"
                   hide-details
-                  @change="onScyllaMotorVoltageChange"
+                  @change="onBoardMotorVoltageChange"
                 />
               </v-col>
             </v-row>
@@ -127,6 +130,36 @@
             <v-alert v-if="scyllaVoltageMissing" type="warning" dense outlined class="mt-3">
               {{ $t('plugins.next.panels.configuration.boardVoltageMissing') }}
             </v-alert>
+            <v-alert
+              v-for="(msg, i) in boardBootstrapWarnings"
+              :key="'boot-warn-' + i"
+              type="warning"
+              dense
+              outlined
+              class="mt-3"
+            >
+              {{ msg }}
+            </v-alert>
+            <v-alert
+              v-for="(msg, i) in boardPackWarnings"
+              :key="'pack-warn-' + i"
+              type="warning"
+              dense
+              outlined
+              class="mt-3"
+            >
+              {{ msg }}
+            </v-alert>
+            <v-alert
+              v-for="(msg, i) in sdConfigWarnings"
+              :key="'sd-warn-' + i"
+              type="warning"
+              dense
+              outlined
+              class="mt-3"
+            >
+              {{ msg }}
+            </v-alert>
             <v-textarea
               :value="kitEntryPathForUi"
               :label="$t('plugins.next.panels.configuration.boardKitEntry')"
@@ -137,7 +170,43 @@
               class="mt-3"
               hide-details
             />
+            <div
+              v-if="selectedPlatformStructure.sysDeployFiles.length || selectedPlatformStructure.boardEntryPaths.length"
+              class="mt-3"
+            >
+              <p class="text-caption font-weight-medium mb-1">{{ $t('plugins.next.panels.configuration.boardPlatformTree') }}</p>
+              <ul class="text-caption grey--text text--darken-1 pl-4 mb-2">
+                <li v-for="f in selectedPlatformStructure.sysDeployFiles" :key="'sd-' + f">
+                  0:/sys/{{ f }}
+                </li>
+                <li v-for="p in selectedPlatformStructure.boardEntryPaths" :key="'ent-' + p">
+                  {{ p }}
+                </li>
+              </ul>
+              <p class="text-caption grey--text mb-2">{{ $t('plugins.next.panels.configuration.boardHomingDocHint') }}</p>
+            </div>
             <div class="d-flex flex-wrap mt-2" style="gap: 8px">
+              <v-btn
+                small
+                outlined
+                :disabled="!isConnected"
+                :loading="boardStateChecking"
+                @click="runBoardStateChecks"
+              >
+                <v-icon small left>mdi-folder-search</v-icon>
+                {{ $t('plugins.next.panels.configuration.boardCheckSd') }}
+              </v-btn>
+              <v-btn
+                small
+                outlined
+                color="primary"
+                :disabled="!isConnected || uiFrozen || !canDeployPlatformSysFiles"
+                :loading="sysDeploying"
+                @click="applyPlatformSysFiles"
+              >
+                <v-icon small left>mdi-file-upload</v-icon>
+                {{ $t('plugins.next.panels.configuration.boardApplySysFiles') }}
+              </v-btn>
               <v-btn small outlined color="primary" :disabled="!isConnected" @click="copyBoardConfigHint">
                 <v-icon small left>mdi-content-copy</v-icon>
                 {{ $t('plugins.next.panels.configuration.boardCopySnippet') }}
@@ -168,13 +237,13 @@
             <v-row>
               <v-col cols="12">
                 <v-select
-                  :value="globals.nxtSpindleID"
+                  :value="configDraft.nxtSpindleID"
                   :items="availableSpindles"
                   item-text="name"
                   item-value="id"
                   label="Spindle"
                   :disabled="uiFrozen"
-                  @input="updateVariable('nxtSpindleID', $event)"
+                  @input="onConfigDraftSelect('nxtSpindleID', $event)"
                   hint="Select configured spindle"
                   persistent-hint
                   clearable
@@ -196,7 +265,7 @@
                           @mouseleave="stopSpindleTest"
                           @touchstart="startSpindleTest"
                           @touchend="stopSpindleTest"
-                          :disabled="uiFrozen || globals.nxtSpindleID === null"
+                          :disabled="uiFrozen || configDraft.nxtSpindleID === null"
                           :color="spindleTesting ? 'primary' : ''"
                           v-on="on"
                         >
@@ -212,12 +281,12 @@
             <v-row>
               <v-col cols="12" md="6">
                 <v-text-field
-                  :value="globals.nxtSpindleAccelSec"
+                  :value="configDraft.nxtSpindleAccelSec"
                   label="Acceleration Time (s)"
                   type="number"
                   step="0.1"
                   :disabled="uiFrozen"
-                  @input="updateVariable('nxtSpindleAccelSec', $event)"
+                  @input="onConfigDraftNumber('nxtSpindleAccelSec', $event)"
                   hint="Time for spindle to reach speed"
                   persistent-hint
                 >
@@ -232,7 +301,7 @@
                           @mouseleave="stopAccelerationMeasurement"
                           @touchstart="startAccelerationMeasurement"
                           @touchend="stopAccelerationMeasurement"
-                          :disabled="uiFrozen || globals.nxtSpindleID === null"
+                          :disabled="uiFrozen || configDraft.nxtSpindleID === null"
                           :color="measuringAccel ? 'primary' : ''"
                           v-on="on"
                         >
@@ -248,12 +317,12 @@
               </v-col>
               <v-col cols="12" md="6">
                 <v-text-field
-                  :value="globals.nxtSpindleDecelSec"
+                  :value="configDraft.nxtSpindleDecelSec"
                   label="Deceleration Time (s)"
                   type="number"
                   step="0.1"
                   :disabled="uiFrozen"
-                  @input="updateVariable('nxtSpindleDecelSec', $event)"
+                  @input="onConfigDraftNumber('nxtSpindleDecelSec', $event)"
                   hint="Time for spindle to stop"
                   persistent-hint
                 >
@@ -268,7 +337,7 @@
                           @mouseleave="stopDecelerationMeasurement"
                           @touchstart="startDecelerationMeasurement"
                           @touchend="stopDecelerationMeasurement"
-                          :disabled="uiFrozen || globals.nxtSpindleID === null || globals.nxtSpindleAccelSec === null || globals.nxtSpindleAccelSec === undefined"
+                          :disabled="uiFrozen || configDraft.nxtSpindleID === null || configDraft.nxtSpindleAccelSec === null || configDraft.nxtSpindleAccelSec === undefined"
                           :color="measuringDecel ? 'primary' : ''"
                           v-on="on"
                         >
@@ -305,16 +374,16 @@
             <v-row>
               <v-col cols="12">
                 <v-select
-                  v-model="globals.nxtTouchProbeID"
+                  :value="configDraft.nxtTouchProbeID"
                   :items="availableProbes"
                   item-text="name"
                   item-value="id"
                   label="Touch Probe Sensor *"
                   :disabled="uiFrozen"
-                  @change="updateVariable('nxtTouchProbeID', globals.nxtTouchProbeID)"
+                  @input="onConfigDraftSelect('nxtTouchProbeID', $event)"
                   hint="Required - Select configured probe"
                   persistent-hint
-                  :error="globals.nxtTouchProbeID === null"
+                  :error="configDraft.nxtTouchProbeID === null"
                   clearable
                 >
                   <template v-slot:item="{ item }">
@@ -325,7 +394,7 @@
                   </template>
                   <template v-slot:append-outer>
                     <v-chip
-                      v-if="globals.nxtTouchProbeID !== null"
+                      v-if="configDraft.nxtTouchProbeID !== null"
                       small
                       :color="touchProbeTriggered ? 'success' : 'grey'"
                       @click="testTouchProbe"
@@ -340,28 +409,28 @@
             <v-row>
               <v-col cols="12" md="6">
                 <v-text-field
-                  v-model.number="globals.nxtProbeTipRadius"
+                  :value="configDraft.nxtProbeTipRadius"
                   label="Probe Tip Radius (mm) *"
                   type="number"
                   step="0.001"
                   :disabled="uiFrozen"
-                  @blur="updateVariable('nxtProbeTipRadius', globals.nxtProbeTipRadius)"
+                  @input="onConfigDraftNumber('nxtProbeTipRadius', $event)"
                   hint="Required - For horizontal compensation"
                   persistent-hint
-                  :error="globals.nxtProbeTipRadius === null || globals.nxtProbeTipRadius === 0"
+                  :error="configDraft.nxtProbeTipRadius === null || configDraft.nxtProbeTipRadius === 0"
                 />
               </v-col>
               <v-col cols="12" md="6">
                 <v-text-field
-                  v-model.number="globals.nxtProbeDeflection"
+                  :value="configDraft.nxtProbeDeflection"
                   label="Probe Deflection (mm) *"
                   type="number"
                   step="0.001"
                   :disabled="uiFrozen"
-                  @blur="updateVariable('nxtProbeDeflection', globals.nxtProbeDeflection)"
+                  @input="onConfigDraftNumber('nxtProbeDeflection', $event)"
                   hint="Required - Measured deflection value (0 if not measured)"
                   persistent-hint
-                  :error="globals.nxtProbeDeflection === null"
+                  :error="configDraft.nxtProbeDeflection === null"
                 >
                   <template v-slot:append-outer>
                     <v-tooltip top>
@@ -382,53 +451,20 @@
                 </v-text-field>
               </v-col>
             </v-row>
-            <v-row>
-              <v-col cols="12" md="4">
-                <v-text-field
-                  v-model.number="globals.nxtProbeInnerSampleCount"
-                  label="Inner samples (nxt-vars.g)"
-                  type="number"
-                  min="1"
-                  step="1"
-                  :disabled="uiFrozen"
-                  @blur="updateVariable('nxtProbeInnerSampleCount', globals.nxtProbeInnerSampleCount)"
-                  hint="Used when pair tolerance is 0; G6512 forces 3 touches when tolerance > 0"
-                  persistent-hint
-                />
-              </v-col>
-              <v-col cols="12" md="4">
-                <v-text-field
-                  v-model.number="globals.nxtProbeMaxSampleSpreadMm"
-                  label="Max consecutive-pair deviation (mm)"
-                  type="number"
-                  step="0.0001"
-                  :disabled="uiFrozen"
-                  @blur="updateVariable('nxtProbeMaxSampleSpreadMm', globals.nxtProbeMaxSampleSpreadMm)"
-                  hint="0 = disabled. Default 0.0075 from nxt-vars.g; both pairs among 3 touches must pass"
-                  persistent-hint
-                />
-              </v-col>
-              <v-col cols="12" md="4">
-                <v-text-field
-                  v-model.number="globals.nxtProbeSampleOuterRetries"
-                  label="Outer retries after failed pair tolerance"
-                  type="number"
-                  min="0"
-                  step="1"
-                  :disabled="uiFrozen"
-                  @blur="updateVariable('nxtProbeSampleOuterRetries', globals.nxtProbeSampleOuterRetries)"
-                  hint="Extra full sample blocks; 1 = one retry. See nxt-vars.g"
-                  persistent-hint
-                />
-              </v-col>
-            </v-row>
+            <v-alert type="info" dense outlined class="mb-2">
+              <span class="text-caption">
+                Probe repeatability (G6512 sample count, pair tolerance, retries) uses defaults from
+                <code>nxt-vars.g</code>. Copy <code>nxt-user-overrides.g.example</code> to
+                <code>0:/sys/nxt-user-overrides.g</code> to override.
+              </span>
+            </v-alert>
 
             <!-- Feature Toggle -->
             <v-row class="mt-4">
               <v-col cols="12">
                 <v-divider class="mb-4" />
                 <v-switch
-                  :input-value="globals.nxtFeatureTouchProbe"
+                  :input-value="configDraft.nxtFeatureTouchProbe"
                   label="Enable Touch Probe Feature"
                   :disabled="uiFrozen || !touchProbeRequirementsMet"
                   @change="updateFeature('nxtFeatureTouchProbe', $event)"
@@ -466,16 +502,16 @@
             <v-row>
               <v-col cols="12">
                 <v-select
-                  v-model="globals.nxtToolSetterID"
+                  :value="configDraft.nxtToolSetterID"
                   :items="availableProbes"
                   item-text="name"
                   item-value="id"
                   label="Tool Setter Sensor *"
                   :disabled="uiFrozen"
-                  @change="updateVariable('nxtToolSetterID', globals.nxtToolSetterID)"
+                  @input="onConfigDraftSelect('nxtToolSetterID', $event)"
                   hint="Required - Select configured probe"
                   persistent-hint
-                  :error="globals.nxtToolSetterID === null"
+                  :error="configDraft.nxtToolSetterID === null"
                   clearable
                 >
                   <template v-slot:item="{ item }">
@@ -486,7 +522,7 @@
                   </template>
                   <template v-slot:append-outer>
                     <v-chip
-                      v-if="globals.nxtToolSetterID !== null"
+                      v-if="configDraft.nxtToolSetterID !== null"
                       small
                       :color="toolSetterTriggered ? 'success' : 'grey'"
                       @click="testToolSetter"
@@ -506,7 +542,7 @@
                   readonly
                   hint="Required - Position in machine coordinates"
                   persistent-hint
-                  :error="!globals.nxtToolSetterPos || !Array.isArray(globals.nxtToolSetterPos) || globals.nxtToolSetterPos.length !== 3"
+                  :error="!configDraft.nxtToolSetterPos || !Array.isArray(configDraft.nxtToolSetterPos) || configDraft.nxtToolSetterPos.length !== 3"
                 >
                   <template v-slot:append>
                     <v-tooltip top>
@@ -541,7 +577,7 @@
               <v-col cols="12">
                 <v-divider class="mb-4" />
                 <v-switch
-                  :input-value="globals.nxtFeatureToolSetter"
+                  :input-value="configDraft.nxtFeatureToolSetter"
                   label="Enable Tool Setter Feature"
                   :disabled="uiFrozen || !toolSetterRequirementsMet"
                   @change="updateFeature('nxtFeatureToolSetter', $event)"
@@ -579,13 +615,13 @@
             <v-row>
               <v-col cols="12" md="4">
                 <v-select
-                  v-model="globals.nxtCoolantAirID"
+                  :value="configDraft.nxtCoolantAirID"
                   :items="boardKitGpOutputs"
                   item-text="name"
                   item-value="id"
                   label="Air Blast Output"
                   :disabled="uiFrozen"
-                  @change="updateVariable('nxtCoolantAirID', globals.nxtCoolantAirID)"
+                  @input="onConfigDraftSelect('nxtCoolantAirID', $event)"
                   hint="Select GP Output port"
                   persistent-hint
                   clearable
@@ -599,13 +635,13 @@
               </v-col>
               <v-col cols="12" md="4">
                 <v-select
-                  v-model="globals.nxtCoolantMistID"
+                  :value="configDraft.nxtCoolantMistID"
                   :items="boardKitGpOutputs"
                   item-text="name"
                   item-value="id"
                   label="Mist Coolant Output"
                   :disabled="uiFrozen"
-                  @change="updateVariable('nxtCoolantMistID', globals.nxtCoolantMistID)"
+                  @input="onConfigDraftSelect('nxtCoolantMistID', $event)"
                   hint="Select GP Output port"
                   persistent-hint
                   clearable
@@ -619,13 +655,13 @@
               </v-col>
               <v-col cols="12" md="4">
                 <v-select
-                  v-model="globals.nxtCoolantFloodID"
+                  :value="configDraft.nxtCoolantFloodID"
                   :items="boardKitGpOutputs"
                   item-text="name"
                   item-value="id"
                   label="Flood Coolant Output"
                   :disabled="uiFrozen"
-                  @change="updateVariable('nxtCoolantFloodID', globals.nxtCoolantFloodID)"
+                  @input="onConfigDraftSelect('nxtCoolantFloodID', $event)"
                   hint="Select GP Output port"
                   persistent-hint
                   clearable
@@ -644,7 +680,7 @@
               <v-col cols="12">
                 <v-divider class="mb-4" />
                 <v-switch
-                  :input-value="globals.nxtFeatureCoolantControl"
+                  :input-value="configDraft.nxtFeatureCoolantControl"
                   label="Enable Coolant Control Feature"
                   :disabled="uiFrozen || !coolantControlRequirementsMet"
                   @change="updateFeature('nxtFeatureCoolantControl', $event)"
@@ -713,7 +749,7 @@
           <v-btn
             color="success"
             @click="saveConfiguration"
-            :disabled="uiFrozen || !nxtReady"
+            :disabled="uiFrozen || !configurationUiAllowed"
             :loading="saving"
           >
             <v-icon left>mdi-content-save</v-icon>
@@ -723,7 +759,7 @@
             color="secondary"
             class="ml-2"
             @click="loadConfiguration"
-            :disabled="uiFrozen"
+            :disabled="uiFrozen || !configurationUiAllowed"
             :loading="loading"
           >
             <v-icon left>mdi-refresh</v-icon>
@@ -795,15 +831,31 @@ import {
   bundledBoardMeta,
   migrateLegacyBoardKitKey,
   gpOutItemsForBoard,
+  platformStructureSummary,
   NXT_SCYLLA_MOTOR_VOLTAGE_ITEMS,
   type NxtPlatformId,
   type GpOutItem
 } from '../../utils/nxtBoardManifest'
+import { deployPlatformSysFiles } from '../../utils/nxtBoardSysDeploy'
+import { nxtPlatformFromManifest } from '../../utils/nxtConfigManifestData'
 import {
   NXT_USER_VARS_DWC_PATH,
   NXT_USER_PINMAP_DWC_PATH,
   uploadDwcFile
 } from '../../utils/nxtFileUpload'
+import { syncBoardBootstrapSentinels } from '../../utils/nxtBoardBootstrapSync'
+import { scanNxtConfigOnSd, formatSdScanWarnings } from '../../utils/nxtConfigSdScan'
+import { reconcileBoardState } from '../../utils/nxtBoardStateReconcile'
+import {
+  buildInitialConfigDraft,
+  buildNxtUserVarsGcode,
+  emptyConfigDraft,
+  nxtConfigPendingInOm,
+  nxtUserVarsPresentInOm,
+  snapshotConfigFromOm,
+  type NxtUserConfigDraft
+} from '../../utils/nxtUserVarsPersistence'
+import { readFirmwareGlobal } from '../../utils/nxtToolChangerOm'
 
 /**
  * NeXT Configuration Panel
@@ -847,27 +899,49 @@ export default BaseComponent.extend({
       },
 
       pinmapSaving: false,
+      sysDeploying: false,
+      boardStateChecking: false,
+      boardBootstrapWarnings: [] as string[],
+      boardPackWarnings: [] as string[],
+      sdConfigWarnings: [] as string[],
+
+      configDraft: emptyConfigDraft() as NxtUserConfigDraft,
 
       NXT_SCYLLA_MOTOR_VOLTAGE_ITEMS
     }
   },
 
   computed: {
+    configurationUiAllowed(): boolean {
+      if (!this.isConnected) {
+        return false
+      }
+      const globalVal = this.$store.state.machine.model.global
+      return (
+        this.nxtBackendReady ||
+        nxtConfigPendingInOm(globalVal) ||
+        nxtUserVarsPresentInOm(globalVal) ||
+        readFirmwareGlobal(globalVal, 'nxtVarsLoaded') === true ||
+        readFirmwareGlobal(globalVal, 'nxtVarsLoaded') === 1
+      )
+    },
+
     formatToolSetterPos(): string {
-      if (!this.globals.nxtToolSetterPos || !Array.isArray(this.globals.nxtToolSetterPos)) {
+      const pos = this.configDraft.nxtToolSetterPos
+      if (!pos || !Array.isArray(pos) || pos.length < 3) {
         return 'Not configured'
       }
-      return `[${this.globals.nxtToolSetterPos.map((v: number) => v.toFixed(3)).join(', ')}]`
+      return `[${pos.map((v: number) => Number(v).toFixed(3)).join(', ')}]`
     },
 
     /**
      * Get minimum RPM for the selected spindle
      */
     selectedSpindleMinRpm(): number {
-      if (this.globals.nxtSpindleID === null) return 1000
+      if (this.configDraft.nxtSpindleID === null) return 1000
 
       const spindles = this.$store.state.machine.model.spindles || []
-      const spindle = spindles[this.globals.nxtSpindleID]
+      const spindle = spindles[this.configDraft.nxtSpindleID]
 
       if (spindle && spindle.min !== undefined) {
         return spindle.min
@@ -881,10 +955,10 @@ export default BaseComponent.extend({
      * Get maximum RPM for the selected spindle
      */
     selectedSpindleMaxRpm(): number {
-      if (this.globals.nxtSpindleID === null) return 10000
+      if (this.configDraft.nxtSpindleID === null) return 10000
 
       const spindles = this.$store.state.machine.model.spindles || []
-      const spindle = spindles[this.globals.nxtSpindleID]
+      const spindle = spindles[this.configDraft.nxtSpindleID]
 
       if (spindle && spindle.max !== undefined) {
         return spindle.max
@@ -898,11 +972,11 @@ export default BaseComponent.extend({
      * Check if touch probe requirements are met
      */
     touchProbeRequirementsMet(): boolean {
-      const g = this.globals
+      const d = this.configDraft
       return (
-        g.nxtTouchProbeID !== null &&
-        g.nxtProbeTipRadius !== null && g.nxtProbeTipRadius !== 0 &&
-        g.nxtProbeDeflection !== null
+        d.nxtTouchProbeID !== null &&
+        d.nxtProbeTipRadius !== null && d.nxtProbeTipRadius !== 0 &&
+        d.nxtProbeDeflection !== null
       )
     },
 
@@ -914,9 +988,9 @@ export default BaseComponent.extend({
         return 'All requirements met - feature can be enabled'
       }
       const missing = []
-      if (this.globals.nxtTouchProbeID === null) missing.push('Probe Sensor')
-      if (this.globals.nxtProbeTipRadius === null || this.globals.nxtProbeTipRadius === 0) missing.push('Tip Radius')
-      if (this.globals.nxtProbeDeflection === null) missing.push('Deflection')
+      if (this.configDraft.nxtTouchProbeID === null) missing.push('Probe Sensor')
+      if (this.configDraft.nxtProbeTipRadius === null || this.configDraft.nxtProbeTipRadius === 0) missing.push('Tip Radius')
+      if (this.configDraft.nxtProbeDeflection === null) missing.push('Deflection')
       return `Required: ${missing.join(', ')}`
     },
 
@@ -924,12 +998,12 @@ export default BaseComponent.extend({
      * Check if tool setter requirements are met
      */
     toolSetterRequirementsMet(): boolean {
-      const g = this.globals
+      const pos = this.configDraft.nxtToolSetterPos
       return (
-        g.nxtToolSetterID !== null &&
-        g.nxtToolSetterPos !== null &&
-        Array.isArray(g.nxtToolSetterPos) &&
-        g.nxtToolSetterPos.length === 3
+        this.configDraft.nxtToolSetterID !== null &&
+        pos !== null &&
+        Array.isArray(pos) &&
+        pos.length === 3
       )
     },
 
@@ -941,8 +1015,9 @@ export default BaseComponent.extend({
         return 'All requirements met - feature can be enabled'
       }
       const missing = []
-      if (this.globals.nxtToolSetterID === null) missing.push('Tool Setter Sensor')
-      if (!this.globals.nxtToolSetterPos || !Array.isArray(this.globals.nxtToolSetterPos) || this.globals.nxtToolSetterPos.length !== 3) {
+      if (this.configDraft.nxtToolSetterID === null) missing.push('Tool Setter Sensor')
+      const pos = this.configDraft.nxtToolSetterPos
+      if (!pos || !Array.isArray(pos) || pos.length !== 3) {
         missing.push('Position')
       }
       return `Required: ${missing.join(', ')}`
@@ -952,12 +1027,11 @@ export default BaseComponent.extend({
      * Check if coolant control requirements are met
      */
     coolantControlRequirementsMet(): boolean {
-      const g = this.globals
-      // At least one coolant output must be configured
+      const d = this.configDraft
       return (
-        g.nxtCoolantAirID !== null ||
-        g.nxtCoolantMistID !== null ||
-        g.nxtCoolantFloodID !== null
+        d.nxtCoolantAirID !== null ||
+        d.nxtCoolantMistID !== null ||
+        d.nxtCoolantFloodID !== null
       )
     },
 
@@ -988,7 +1062,7 @@ export default BaseComponent.extend({
     },
 
     resolvedBoardShortNameForPack(): string | null {
-      const g = this.globals as Record<string, unknown>
+      const g = this.configDraft as Record<string, unknown>
       const o = g.nxtBoardShortNameOverride
       if (o != null && String(o).trim().length > 0) {
         return String(o).trim()
@@ -1002,12 +1076,11 @@ export default BaseComponent.extend({
     },
 
     resolvedMotorVoltageForPack(): number | null {
-      const g = this.globals as Record<string, unknown>
-      const v = g.nxtScyllaMotorVoltage
+      const v = this.configDraft.nxtBoardMotorVoltage
       if (v === 24 || v === 48) {
-        return v as number
+        return v
       }
-      const legacy = migrateLegacyBoardKitKey(g.nxtBoardKitKey as any)
+      const legacy = migrateLegacyBoardKitKey(this.configDraft.nxtBoardKitKey as any)
       if (
         legacy &&
         legacy.shortName === 'scylla1_0_h723' &&
@@ -1024,7 +1097,7 @@ export default BaseComponent.extend({
     },
 
     boardProfileSelectItems(): Array<{ value: string; title: string }> {
-      const p = this.globals.nxtPlatformProfile
+      const p = this.configDraft.nxtPlatformProfile
       return getBundledBoardProfileSelectItems(p as NxtPlatformId | null | undefined)
     },
 
@@ -1043,7 +1116,7 @@ export default BaseComponent.extend({
 
     boardProfileMismatch(): boolean {
       const om = this.primaryBoardShortName
-      const sel = this.globals.nxtBoardShortNameOverride
+      const sel = this.configDraft.nxtBoardShortNameOverride
       if (om === '—' || om.length === 0 || sel == null || String(sel).length === 0) {
         return false
       }
@@ -1054,22 +1127,33 @@ export default BaseComponent.extend({
       return NXT_PLATFORM_OPTIONS
     },
 
+    selectedPlatformStructure(): { sysDeployFiles: string[]; boardEntryPaths: string[] } {
+      return platformStructureSummary(this.configDraft.nxtPlatformProfile)
+    },
+
+    canDeployPlatformSysFiles(): boolean {
+      const id = this.configDraft.nxtPlatformProfile
+      if (id == null || id === '') {
+        return false
+      }
+      const p = nxtPlatformFromManifest(id)
+      return Boolean(p?.hasCommonDeploy && p.sysDeployFiles.length > 0)
+    },
+
     boardBootstrapModeUi(): string {
-      const m = this.globals.nxtBoardBootstrapMode
-      return m === 'auto' ? 'auto' : 'off'
+      return this.configDraft.nxtBoardBootstrapMode === 'auto' ? 'auto' : 'off'
     },
 
     boardBootstrapModeItems() {
       return [
-        { value: 'off', title: 'Off (SD sentinel only)' },
-        { value: 'auto', title: 'Auto (documented — use sentinel + nxt-user-board.g)' }
+        { value: 'off', title: 'Off (no pack load at boot)' },
+        { value: 'auto', title: 'Auto (Save creates nxt-board-bootstrap.requested)' }
       ]
     },
 
     kitEntryPathForUi(): string {
-      const platRaw = this.globals.nxtPlatformProfile as NxtPlatformId | null | undefined
-      const plat = platRaw === 'v1.6_v2' ? 'v1.6_v2' : platRaw === 'v1.5' ? 'v1.5' : null
-      if (!plat) {
+      const plat = this.configDraft.nxtPlatformProfile
+      if (!plat || !nxtPlatformFromManifest(plat)) {
         return ''
       }
       const sn = this.resolvedBoardShortNameForPack
@@ -1110,31 +1194,190 @@ export default BaseComponent.extend({
   },
 
   mounted() {
-    console.log('NeXT: Configuration panel mounted')
+    this.initializeConfigurationDraft()
+    if (this.isConnected) {
+      this.runBoardStateChecks()
+    }
   },
 
   methods: {
+    syncConfigDraftFromOm() {
+      this.configDraft = snapshotConfigFromOm(this.$store.state.machine.model.global)
+    },
+
+    initializeConfigurationDraft() {
+      const globalVal = this.$store.state.machine.model.global
+      if (nxtUserVarsPresentInOm(globalVal)) {
+        this.syncConfigDraftFromOm()
+      } else {
+        this.configDraft = buildInitialConfigDraft(globalVal, {
+          spindles: this.availableSpindles,
+          probes: this.availableProbes
+        })
+      }
+    },
+
+    async onConfigDraftSelect(key: keyof NxtUserConfigDraft, value: unknown) {
+      const v = value === undefined || value === '' ? null : value
+      ;(this.configDraft as Record<string, unknown>)[key] = v
+      await this.updateVariable(String(key), v)
+    },
+
+    async onConfigDraftNumber(key: keyof NxtUserConfigDraft, raw: string | number | null) {
+      let v: number | null =
+        raw === '' || raw === null || raw === undefined ? null : typeof raw === 'number' ? raw : Number(raw)
+      if (v !== null && !Number.isFinite(v)) {
+        return
+      }
+      ;(this.configDraft as Record<string, unknown>)[key] = v
+      await this.updateVariable(String(key), v)
+    },
+
+    async loadConfiguration() {
+      this.loading = true
+      try {
+        if (!this.configurationUiAllowed) {
+          return
+        }
+        const globalVal = this.$store.state.machine.model.global
+        if (nxtUserVarsPresentInOm(globalVal)) {
+          await this.sendCode('M98 P"nxt-user-vars.g"')
+          await this.$nextTick()
+          this.syncConfigDraftFromOm()
+          await this.runBoardStateChecks()
+          this.showStatus('Configuration reloaded from nxt-user-vars.g', 'success')
+        } else {
+          this.configDraft = buildInitialConfigDraft(globalVal, {
+            spindles: this.availableSpindles,
+            probes: this.availableProbes
+          })
+          await this.runBoardStateChecks()
+          this.showStatus(
+            'No nxt-user-vars.g — form filled from MOS globals or empty defaults. Save to create the file.',
+            'info'
+          )
+        }
+      } catch (e) {
+        console.error('NeXT: loadConfiguration', e)
+        this.showStatus('Failed to reload configuration', 'error')
+      } finally {
+        this.loading = false
+      }
+    },
+
+    prepareBoardPackFieldsForSave() {
+      const plat = this.configDraft.nxtPlatformProfile
+      const sn = this.resolvedBoardShortNameForPack
+      const volt = this.resolvedMotorVoltageForPack
+      this.configDraft.nxtBoardPackExpectedEntry = nxtBoardPackRelPath(plat, sn, volt)
+    },
+
+    async runBoardStateChecks() {
+      if (!this.isConnected) {
+        this.boardBootstrapWarnings = []
+        this.boardPackWarnings = []
+        this.sdConfigWarnings = []
+        return
+      }
+      this.boardStateChecking = true
+      try {
+        const globalVal = this.$store.state.machine.model.global
+        const reconcile = await reconcileBoardState(this.configDraft, globalVal)
+        this.boardBootstrapWarnings = reconcile.bootstrapWarnings
+        this.boardPackWarnings = reconcile.packEntryWarnings
+        const scan = await scanNxtConfigOnSd(
+          this.configDraft.nxtPlatformProfile,
+          this.resolvedBoardShortNameForPack,
+          this.resolvedMotorVoltageForPack
+        )
+        this.sdConfigWarnings = formatSdScanWarnings(scan)
+      } catch (e) {
+        console.error('NeXT: runBoardStateChecks', e)
+      } finally {
+        this.boardStateChecking = false
+      }
+    },
+
     async onPlatformProfileChange(value: NxtPlatformId | null) {
+      const previous = this.configDraft.nxtPlatformProfile
+      this.configDraft.nxtPlatformProfile = value
       await this.updateVariable('nxtPlatformProfile', value)
+      if (value != null && value !== '' && value !== previous) {
+        const plat = nxtPlatformFromManifest(value)
+        if (plat?.hasCommonDeploy && plat.sysDeployFiles.length > 0) {
+          const msg = (this as any).$t('plugins.next.panels.configuration.boardDeployOnPlatformChange', {
+            platform: value,
+            files: plat.sysDeployFiles.map((f) => `0:/sys/${f}`).join(', ')
+          })
+          if (typeof msg === 'string' && window.confirm(msg)) {
+            await this.runDeployPlatformSysFiles(value)
+          }
+        }
+      }
+    },
+
+    async applyPlatformSysFiles() {
+      const id = this.configDraft.nxtPlatformProfile
+      if (id == null || id === '') {
+        return
+      }
+      const plat = nxtPlatformFromManifest(id)
+      if (!plat?.hasCommonDeploy) {
+        return
+      }
+      const msg = (this as any).$t('plugins.next.panels.configuration.boardDeployConfirm', {
+        platform: id,
+        files: plat.sysDeployFiles.map((f) => `0:/sys/${f}`).join(', ')
+      })
+      if (typeof msg === 'string' && !window.confirm(msg)) {
+        return
+      }
+      await this.runDeployPlatformSysFiles(id)
+    },
+
+    async runDeployPlatformSysFiles(platformId: string) {
+      this.sysDeploying = true
+      try {
+        const written = await deployPlatformSysFiles(platformId)
+        this.configDraft.nxtBoardSysDeployPlatform = platformId
+        await this.updateVariable('nxtBoardSysDeployPlatform', platformId)
+        const msg = (this as any).$t('plugins.next.panels.configuration.boardDeploySuccess', {
+          count: written.length
+        })
+        this.showStatus(typeof msg === 'string' ? msg : `Deployed ${written.length} file(s) to 0:/sys/`, 'success')
+      } catch (e: any) {
+        console.error('NeXT: deployPlatformSysFiles', e)
+        const errMsg = e && typeof e.message === 'string' ? e.message : 'Deploy failed'
+        this.showStatus(errMsg, 'error')
+      } finally {
+        this.sysDeploying = false
+      }
     },
 
     async onBoardProfileShortNameChange(value: string | null) {
       const v = value != null && String(value).trim().length > 0 ? String(value).trim() : null
+      this.configDraft.nxtBoardShortNameOverride = v
+      this.configDraft.nxtBoardKitKey = null
       await this.updateVariable('nxtBoardShortNameOverride', v)
       await this.updateVariable('nxtBoardKitKey', null)
-      if (v !== 'scylla1_0_h723') {
-        await this.updateVariable('nxtScyllaMotorVoltage', null)
+      if (!bundledBoardMeta(v)?.variant || bundledBoardMeta(v)?.variant !== 'motor-24v-48v') {
+        this.configDraft.nxtBoardMotorVoltage = null
+        await this.updateVariable('nxtBoardMotorVoltage', null)
       }
     },
 
-    async onScyllaMotorVoltageChange(value: number | null) {
+    async onBoardMotorVoltageChange(value: number | null) {
       const v = value === 24 || value === 48 ? value : null
-      await this.updateVariable('nxtScyllaMotorVoltage', v)
+      this.configDraft.nxtBoardMotorVoltage = v
+      this.configDraft.nxtBoardKitKey = null
+      await this.updateVariable('nxtBoardMotorVoltage', v)
       await this.updateVariable('nxtBoardKitKey', null)
     },
 
     async onBoardBootstrapModeChange(value: string) {
-      await this.updateVariable('nxtBoardBootstrapMode', value === 'auto' ? 'auto' : 'off')
+      const mode = value === 'auto' ? 'auto' : 'off'
+      this.configDraft.nxtBoardBootstrapMode = mode
+      await this.updateVariable('nxtBoardBootstrapMode', mode)
     },
 
     copyBoardConfigHint() {
@@ -1223,6 +1466,7 @@ export default BaseComponent.extend({
         }
 
         await this.sendCode(`set global.${key} = ${value}`)
+        ;(this.configDraft as Record<string, unknown>)[key] = value
         this.showStatus(`${key} ${value ? 'enabled' : 'disabled'}`, 'success')
       } catch (error) {
         console.error('NeXT: Failed to update feature', key, error)
@@ -1250,109 +1494,25 @@ export default BaseComponent.extend({
       }
     },
 
-    formatPersistedBool(value: unknown): string {
-      return value === true || value === 1 ? 'true' : 'false'
-    },
-
-    formatPersistedVector(value: unknown): string {
-      if (value == null) {
-        return 'null'
-      }
-      if (Array.isArray(value)) {
-        return `{${value.join(', ')}}`
-      }
-      if (value instanceof Map) {
-        const parts: unknown[] = []
-        for (let i = 0; i < 16; i++) {
-          if (!value.has(i) && !value.has(String(i))) {
-            break
-          }
-          parts.push(value.get(i) ?? value.get(String(i)))
-        }
-        return parts.length ? `{${parts.join(', ')}}` : 'null'
-      }
-      if (typeof value === 'object') {
-        const o = value as Record<string, unknown>
-        const keys = Object.keys(o)
-          .filter((k) => /^\d+$/.test(k))
-          .sort((a, b) => Number(a) - Number(b))
-        if (keys.length) {
-          return `{${keys.map((k) => o[k]).join(', ')}}`
-        }
-      }
-      return 'null'
-    },
-
     /**
      * Save configuration to /sys/nxt-user-vars.g (full file replace via DWC upload)
      */
     async saveConfiguration() {
       this.saving = true
       try {
-        const g = this.globals
+        this.prepareBoardPackFieldsForSave()
+        const bootMode = this.configDraft.nxtBoardBootstrapMode === 'auto' ? 'auto' : 'off'
+        const content = buildNxtUserVarsGcode(this.configDraft)
+        await uploadDwcFile(NXT_USER_VARS_DWC_PATH, content)
+        if (this.isConnected) {
+          await syncBoardBootstrapSentinels(bootMode)
+          await this.runBoardStateChecks()
+        }
 
-        // Use set global.* only — nxt.g reloads this file without M999 (see nxt.g comments).
-        const lines = [
-          '; NeXT User Configuration',
-          '; Auto-generated - Do not edit manually',
-          '; Last updated: ' + new Date().toISOString(),
-          '',
-          '; Feature Flags',
-          `set global.nxtFeatureTouchProbe = ${this.formatPersistedBool(g.nxtFeatureTouchProbe)}`,
-          `set global.nxtFeatureToolSetter = ${this.formatPersistedBool(g.nxtFeatureToolSetter)}`,
-          `set global.nxtFeatureCoolantControl = ${this.formatPersistedBool(g.nxtFeatureCoolantControl)}`,
-          '',
-          '; Probe tool index and static datum (touch probe / toolsetter calibration)',
-          `set global.nxtProbeToolID = ${g.nxtProbeToolID !== null && g.nxtProbeToolID !== undefined ? g.nxtProbeToolID : 'null'}`,
-          `set global.nxtDeltaMachine = ${g.nxtDeltaMachine !== null && g.nxtDeltaMachine !== undefined ? g.nxtDeltaMachine : 'null'}`,
-          '',
-          '; Spindle Configuration',
-          `set global.nxtSpindleID = ${g.nxtSpindleID !== null && g.nxtSpindleID !== undefined ? g.nxtSpindleID : 'null'}`,
-          `set global.nxtSpindleAccelSec = ${g.nxtSpindleAccelSec !== null && g.nxtSpindleAccelSec !== undefined ? g.nxtSpindleAccelSec : 'null'}`,
-          `set global.nxtSpindleDecelSec = ${g.nxtSpindleDecelSec !== null && g.nxtSpindleDecelSec !== undefined ? g.nxtSpindleDecelSec : 'null'}`,
-          '',
-          '; Touch Probe Configuration',
-          `set global.nxtTouchProbeID = ${g.nxtTouchProbeID !== null && g.nxtTouchProbeID !== undefined ? g.nxtTouchProbeID : 'null'}`,
-          `set global.nxtProbeTipRadius = ${g.nxtProbeTipRadius !== null && g.nxtProbeTipRadius !== undefined ? g.nxtProbeTipRadius : 'null'}`,
-          `set global.nxtProbeDeflection = ${g.nxtProbeDeflection !== null && g.nxtProbeDeflection !== undefined ? g.nxtProbeDeflection : 'null'}`,
-          `set global.nxtProbeInnerSampleCount = ${g.nxtProbeInnerSampleCount !== null && g.nxtProbeInnerSampleCount !== undefined ? g.nxtProbeInnerSampleCount : 3}`,
-          `set global.nxtProbeMaxSampleSpreadMm = ${g.nxtProbeMaxSampleSpreadMm !== null && g.nxtProbeMaxSampleSpreadMm !== undefined ? g.nxtProbeMaxSampleSpreadMm : 0.0075}`,
-          `set global.nxtProbeSampleOuterRetries = ${g.nxtProbeSampleOuterRetries !== null && g.nxtProbeSampleOuterRetries !== undefined ? g.nxtProbeSampleOuterRetries : 1}`,
-          '',
-          '; Tool Setter Configuration',
-          `set global.nxtToolSetterID = ${g.nxtToolSetterID !== null && g.nxtToolSetterID !== undefined ? g.nxtToolSetterID : 'null'}`,
-          `set global.nxtToolSetterPos = ${this.formatPersistedVector(g.nxtToolSetterPos)}`,
-          '',
-          '; Coolant Configuration',
-          `set global.nxtCoolantAirID = ${g.nxtCoolantAirID !== null && g.nxtCoolantAirID !== undefined ? g.nxtCoolantAirID : 'null'}`,
-          `set global.nxtCoolantMistID = ${g.nxtCoolantMistID !== null && g.nxtCoolantMistID !== undefined ? g.nxtCoolantMistID : 'null'}`,
-          `set global.nxtCoolantFloodID = ${g.nxtCoolantFloodID !== null && g.nxtCoolantFloodID !== undefined ? g.nxtCoolantFloodID : 'null'}`,
-          '',
-          '; Board / platform (Configuration panel)',
-          `set global.nxtPlatformProfile = ${
-            g.nxtPlatformProfile != null && g.nxtPlatformProfile !== ''
-              ? '"' + String(g.nxtPlatformProfile).replace(/"/g, '') + '"'
-              : 'null'
-          }`,
-          `set global.nxtBoardShortNameOverride = ${
-            g.nxtBoardShortNameOverride != null && g.nxtBoardShortNameOverride !== ''
-              ? '"' + String(g.nxtBoardShortNameOverride).replace(/"/g, '') + '"'
-              : 'null'
-          }`,
-          'set global.nxtBoardKitKey = null',
-          `set global.nxtScyllaMotorVoltage = ${
-            g.nxtScyllaMotorVoltage !== null && g.nxtScyllaMotorVoltage !== undefined
-              ? g.nxtScyllaMotorVoltage
-              : 'null'
-          }`,
-          `set global.nxtBoardBootstrapMode = "${
-            g.nxtBoardBootstrapMode === 'auto' ? 'auto' : 'off'
-          }"`
-        ]
-
-        await uploadDwcFile(NXT_USER_VARS_DWC_PATH, lines.join('\n'))
-
-        this.showStatus(`Configuration saved to ${NXT_USER_VARS_DWC_PATH}`, 'success')
+        this.showStatus(
+          `Configuration saved to ${NXT_USER_VARS_DWC_PATH} and bootstrap files synced (${bootMode}). Reload or reboot to apply.`,
+          'success'
+        )
       } catch (error: any) {
         console.error('NeXT: Failed to save configuration', error)
         const msg =
@@ -1369,7 +1529,7 @@ export default BaseComponent.extend({
      * Start spindle test (on button press)
      */
     async startSpindleTest() {
-      if (this.globals.nxtSpindleID === null || this.spindleTesting) return
+      if (this.configDraft.nxtSpindleID === null || this.spindleTesting) return
 
       this.spindleTesting = true
 
@@ -1406,7 +1566,7 @@ export default BaseComponent.extend({
      * User holds button until spindle reaches full speed
      */
     async startAccelerationMeasurement() {
-      if (this.globals.nxtSpindleID === null || this.measuringAccel) return
+      if (this.configDraft.nxtSpindleID === null || this.measuringAccel) return
 
       this.measuringAccel = true
 
@@ -1440,6 +1600,7 @@ export default BaseComponent.extend({
 
         // Save measured time
         await this.updateVariable('nxtSpindleAccelSec', measuredTime)
+        this.configDraft.nxtSpindleAccelSec = measuredTime
 
         this.showStatus(`Acceleration time measured: ${measuredTime}s`, 'success')
       } catch (error) {
@@ -1453,13 +1614,13 @@ export default BaseComponent.extend({
      * Uses measured acceleration time to spin up, then user holds until stopped
      */
     async startDecelerationMeasurement() {
-      if (this.globals.nxtSpindleID === null || this.measuringDecel) return
+      if (this.configDraft.nxtSpindleID === null || this.measuringDecel) return
 
       this.measuringDecel = true
 
       try {
         const maxRpm = this.selectedSpindleMaxRpm
-        const accelTime = this.globals.nxtSpindleAccelSec || 0
+        const accelTime = this.configDraft.nxtSpindleAccelSec || 0
 
         // Start spindle
         this.showStatus(`Starting spindle at ${maxRpm} RPM. Waiting ${accelTime}s for spin-up...`, 'info')
@@ -1493,6 +1654,7 @@ export default BaseComponent.extend({
 
         // Save measured time
         await this.updateVariable('nxtSpindleDecelSec', measuredTime)
+        this.configDraft.nxtSpindleDecelSec = measuredTime
 
         this.showStatus(`Deceleration time measured: ${measuredTime}s`, 'success')
       } catch (error) {
@@ -1505,12 +1667,11 @@ export default BaseComponent.extend({
      * Test touch probe by checking if it's triggered
      */
     async testTouchProbe() {
-      if (this.globals.nxtTouchProbeID === null) return
+      if (this.configDraft.nxtTouchProbeID === null) return
 
       try {
-        // Check probe state from sensors
         const probes = this.$store.state.machine.model.sensors?.probes || []
-        const probe = probes[this.globals.nxtTouchProbeID]
+        const probe = probes[this.configDraft.nxtTouchProbeID]
 
         if (probe) {
           this.touchProbeTriggered = probe.triggered || false
@@ -1529,12 +1690,11 @@ export default BaseComponent.extend({
      * Test tool setter by checking if it's triggered
      */
     async testToolSetter() {
-      if (this.globals.nxtToolSetterID === null) return
+      if (this.configDraft.nxtToolSetterID === null) return
 
       try {
-        // Check probe state from sensors
         const probes = this.$store.state.machine.model.sensors?.probes || []
-        const probe = probes[this.globals.nxtToolSetterID]
+        const probe = probes[this.configDraft.nxtToolSetterID]
 
         if (probe) {
           this.toolSetterTriggered = probe.triggered || false
@@ -1571,7 +1731,7 @@ export default BaseComponent.extend({
         ]
 
         await this.sendCode(`set global.nxtToolSetterPos = {${pos.join(', ')}}`)
-        this.globals.nxtToolSetterPos = pos
+        this.configDraft.nxtToolSetterPos = pos
         this.showStatus('Tool setter position set to current position', 'success')
       } catch (error) {
         console.error('NeXT: Failed to set tool setter position', error)
@@ -1590,7 +1750,7 @@ export default BaseComponent.extend({
           this.toolSetterPosEdit.z
         ]
         await this.sendCode(`set global.nxtToolSetterPos = {${pos.join(', ')}}`)
-        this.globals.nxtToolSetterPos = pos
+        this.configDraft.nxtToolSetterPos = pos
         this.showToolSetterPosDialog = false
         this.showStatus('Tool setter position updated', 'success')
       } catch (error) {
@@ -1610,11 +1770,16 @@ export default BaseComponent.extend({
 
   watch: {
     showToolSetterPosDialog(val: boolean) {
-      if (val && this.globals.nxtToolSetterPos && Array.isArray(this.globals.nxtToolSetterPos)) {
-        // Initialize edit values from current position
-        this.toolSetterPosEdit.x = this.globals.nxtToolSetterPos[0] || 0
-        this.toolSetterPosEdit.y = this.globals.nxtToolSetterPos[1] || 0
-        this.toolSetterPosEdit.z = this.globals.nxtToolSetterPos[2] || 0
+      const pos = this.configDraft.nxtToolSetterPos
+      if (val && pos && Array.isArray(pos)) {
+        this.toolSetterPosEdit.x = pos[0] || 0
+        this.toolSetterPosEdit.y = pos[1] || 0
+        this.toolSetterPosEdit.z = pos[2] || 0
+      }
+    },
+    isConnected(connected: boolean) {
+      if (connected) {
+        this.runBoardStateChecks()
       }
     }
   }
