@@ -7,7 +7,7 @@ M569 P0 S1
 M569 P1 S1
 
 ; Physical drive 2 (Z) goes backwards using default driver timings
-M569 P2 S0
+M569 P2 S1
 
 ; Set non-standard sense resistors for the BTT 5160 drivers
 M569.9 P0.0 R0.05
@@ -28,7 +28,7 @@ M350 X32 Y32 Z32 I0
 ; Z axis is geared 2-1
 
 ; Set steps per mm.
-M92 X800 Y800 Z1600
+M92 X800 Y800 Z800
 
 ; Set motor currents (mA)
 M906 X3000 Y3000 Z3000

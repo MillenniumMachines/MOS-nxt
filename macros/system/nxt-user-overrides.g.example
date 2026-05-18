@@ -1,0 +1,8 @@
+; nxt-user-overrides.g — optional; copy to 0:/sys/nxt-user-overrides.g
+; Loaded from nxt.g after nxt-user-vars.g. Overrides probe-repeatability defaults from nxt-vars.g only.
+; Use set global.* lines (not global declarations). Reboot or M98 P"nxt-user-overrides.g" to apply.
+
+; Defaults in nxt-vars.g: inner=3, max spread=0.0075 mm, outer retries=1
+; set global.nxtProbeInnerSampleCount = 3
+; set global.nxtProbeMaxSampleSpreadMm = 0.0075
+; set global.nxtProbeSampleOuterRetries = 1

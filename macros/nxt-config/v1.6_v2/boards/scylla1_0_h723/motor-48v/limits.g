@@ -11,15 +11,14 @@ M208 X335 Y208 Z0 S0
 ; to be when the bottom left of the work area is under
 ; the spindle. X homes to the _right_ (towards the
 ; spindle) so endstop position is 0, Y homes towards
-; the operator (away from the spindle) so endstop
-; position is MAX.
+; Y0 (min) on v1.6 / v2.0 — see docs/NXT_BOARD_HOMING.md.
 ; Z homes upwards to zero.
 
 ; Endstop X=MIN: NC
 M574 X1 S1 P"PD_11"
 
-; Endstop Y=MAX: NC
-M574 Y2 S1 P"PD_14"
+; Endstop Y=MIN: NC
+M574 Y1 S1 P"PD_14"
 
 ; Endstop Z=MAX: NC
 M574 Z2 S1 P"PD_12"

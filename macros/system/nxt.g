@@ -37,13 +37,20 @@ if { !exists(global.mosTT) }
 ; not define new ones as it can be loaded 
 ; multiple times without restarting the system.
 if { fileexists("0:/sys/nxt-user-vars.g") }
+    set global.nxtUserVarsPresent = true
+    set global.nxtConfigPending = false
     M117 "NeXT nxt-user-vars.g"
     M98 P"nxt-user-vars.g"
 else
-    ; In the future, the UI will handle this. For now, we halt.
-    M117 "NeXT ERROR no nxt-user-vars"
-    echo "ERROR: nxt-user-vars.g not found. NeXT requires configuration."
-    M99
+    set global.nxtUserVarsPresent = false
+    set global.nxtConfigPending = true
+    M117 "NeXT config pending"
+    echo "NeXT: nxt-user-vars.g not found — open DWC Configuration, review settings, then Save to create the file."
+
+; Optional probe-repeatability overrides (defaults remain in nxt-vars.g)
+if { fileexists("0:/sys/nxt-user-overrides.g") }
+    M117 "NeXT nxt-user-overrides.g"
+    M98 P"nxt-user-overrides.g"
 
 ; Optional: load board pack (drives, limits, spindle, …). After user vars so Scylla motor voltage applies.
 ; Requires 0:/sys/nxt-board-bootstrap.requested — see nxt-board-pack-loader.g

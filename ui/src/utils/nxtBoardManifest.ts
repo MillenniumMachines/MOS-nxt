@@ -1,13 +1,14 @@
 /**
  * Board pack metadata for NeXT Configuration UI and nxt-board-pack-loader.g.
- * Bundled shortName values must match RRF boards[0].shortName (verify on hardware, M409).
+ * Platform and board lists are driven by ui/src/generated/nxtConfigManifest.json.
  */
+import { nxtConfigManifest, nxtPlatformFromManifest } from './nxtConfigManifestData'
 
-export type NxtPlatformId = 'v1.5' | 'v1.6_v2' | 'atlas'
+export type NxtPlatformId = string
 
 export type NxtBoardVariantKind = 'single' | 'motor-24v-48v'
 
-/** @deprecated Legacy UI key; use shortName + nxtScyllaMotorVoltage */
+/** @deprecated Legacy UI key; use shortName + nxtBoardMotorVoltage */
 export type NxtBoardKitKey = 'fly_cdyv3' | 'scylla_24' | 'scylla_48'
 
 export type NxtBundledBoardMeta = {
@@ -16,17 +17,51 @@ export type NxtBundledBoardMeta = {
   variant: NxtBoardVariantKind
 }
 
-export const NXT_PLATFORM_OPTIONS: Array<{ value: NxtPlatformId; title: string }> = [
-  { value: 'v1.5', title: 'Milo v1.5' },
-  { value: 'v1.6_v2', title: 'Milo v1.6 / v2.0 (baseline board tree)' },
-  { value: 'atlas', title: 'Atlas (bundled boards not yet shipped)' }
-]
+const BOARD_TITLE_OVERRIDE: Record<string, string> = {
+  cdy3_f4: 'Fly CDYv3',
+  scylla1_0_h723: 'Scylla v1.0'
+}
 
-/** Boards with vendored packs under nxt/config/{platform}/boards/ */
-export const NXT_BUNDLED_BOARDS: NxtBundledBoardMeta[] = [
-  { shortName: 'cdy3_f4', title: 'Fly CDYv3', variant: 'single' },
-  { shortName: 'scylla1_0_h723', title: 'Scylla v1.0', variant: 'motor-24v-48v' }
-]
+function platformDisplayTitle(id: string, overviewTitle: string): string {
+  if (id === 'v1.5') {
+    return 'Milo v1.5'
+  }
+  if (id === 'v1.6_v2') {
+    return 'Milo v1.6 / v2.0'
+  }
+  return overviewTitle.replace(/\s*\(NeXT\)\s*$/i, '').trim() || id
+}
+
+export const NXT_PLATFORM_OPTIONS: Array<{ value: NxtPlatformId; title: string }> =
+  nxtConfigManifest.platforms.map((p) => ({
+    value: p.id,
+    title: platformDisplayTitle(p.id, p.title)
+  }))
+
+function boardsForPlatform(platform: NxtPlatformId | null | undefined) {
+  return nxtPlatformFromManifest(platform)?.boards ?? []
+}
+
+/** Boards with vendored packs (union across platforms in manifest). */
+export const NXT_BUNDLED_BOARDS: NxtBundledBoardMeta[] = (() => {
+  const byShort = new Map<string, NxtBundledBoardMeta>()
+  for (const plat of nxtConfigManifest.platforms) {
+    for (const b of plat.boards) {
+      if (byShort.has(b.shortName)) {
+        continue
+      }
+      const hasMotorVariant = plat.boards.some(
+        (x) => x.shortName === b.shortName && x.variant != null
+      )
+      byShort.set(b.shortName, {
+        shortName: b.shortName,
+        title: BOARD_TITLE_OVERRIDE[b.shortName] ?? b.title.split(' (')[0],
+        variant: hasMotorVariant ? 'motor-24v-48v' : 'single'
+      })
+    }
+  }
+  return [...byShort.values()]
+})()
 
 export function bundledBoardMeta(shortName: string | null | undefined): NxtBundledBoardMeta | null {
   if (shortName == null || typeof shortName !== 'string') {
@@ -36,17 +71,21 @@ export function bundledBoardMeta(shortName: string | null | undefined): NxtBundl
   return NXT_BUNDLED_BOARDS.find((b) => b.shortName === s) ?? null
 }
 
-/** Select items for platform (v1.5 / v1.6_v2 only have packs today). */
 export function boardProfileSelectItems(
   platform: NxtPlatformId | null | undefined
 ): Array<{ value: string; title: string }> {
-  if (platform !== 'v1.5' && platform !== 'v1.6_v2') {
-    return []
+  const boards = boardsForPlatform(platform)
+  const seen = new Set<string>()
+  const items: Array<{ value: string; title: string }> = []
+  for (const b of boards) {
+    if (seen.has(b.shortName)) {
+      continue
+    }
+    seen.add(b.shortName)
+    const title = BOARD_TITLE_OVERRIDE[b.shortName] ?? b.title
+    items.push({ value: b.shortName, title: `${title} (${b.shortName})` })
   }
-  return NXT_BUNDLED_BOARDS.map((b) => ({
-    value: b.shortName,
-    title: `${b.title} (${b.shortName})`
-  }))
+  return items
 }
 
 export const NXT_SCYLLA_MOTOR_VOLTAGE_ITEMS: Array<{ value: number; title: string }> = [
@@ -56,11 +95,11 @@ export const NXT_SCYLLA_MOTOR_VOLTAGE_ITEMS: Array<{ value: number; title: strin
 
 /** Config folder under 0:/sys/nxt/config/ */
 export function nxtKitConfigBase(platform: NxtPlatformId | null | undefined): string | null {
-  if (platform === 'v1.6_v2') {
-    return 'nxt/config/v1.6_v2'
+  if (platform == null || platform === '') {
+    return null
   }
-  if (platform === 'v1.5') {
-    return 'nxt/config/v1.5'
+  if (nxtPlatformFromManifest(platform)) {
+    return `nxt/config/${platform}`
   }
   return null
 }
@@ -73,24 +112,21 @@ export function nxtBoardPackRelPath(
   boardShortName: string | null | undefined,
   motorVoltage: number | null | undefined
 ): string | null {
-  const base = nxtKitConfigBase(platform)
-  if (!base || boardShortName == null || boardShortName === '') {
+  const plat = nxtPlatformFromManifest(platform)
+  if (!plat || boardShortName == null || boardShortName === '') {
     return null
   }
   const sn = String(boardShortName).trim()
-  if (sn === 'cdy3_f4') {
-    return `${base}/boards/cdy3_f4/entry.g`
+  if (motorVoltage === 48) {
+    const b = plat.boards.find((x) => x.shortName === sn && x.variant === '48v')
+    return b?.entryPath ?? null
   }
-  if (sn === 'scylla1_0_h723') {
-    if (motorVoltage === 48) {
-      return `${base}/boards/scylla1_0_h723/motor-48v/entry.g`
-    }
-    if (motorVoltage === 24) {
-      return `${base}/boards/scylla1_0_h723/motor-24v/entry.g`
-    }
-    return null
+  if (motorVoltage === 24) {
+    const b = plat.boards.find((x) => x.shortName === sn && x.variant === '24v')
+    return b?.entryPath ?? null
   }
-  return null
+  const b = plat.boards.find((x) => x.shortName === sn && x.variant == null)
+  return b?.entryPath ?? null
 }
 
 /** @deprecated Use nxtBoardPackRelPath */
@@ -182,12 +218,26 @@ export function suggestKitKeyFromBoardShortName(shortName: string | null | undef
 /** @deprecated */
 export function applyKitKeyToGlobals(
   kit: NxtBoardKitKey
-): { nxtBoardKitKey: NxtBoardKitKey; nxtScyllaMotorVoltage: number | null } {
+): { nxtBoardKitKey: NxtBoardKitKey; nxtBoardMotorVoltage: number | null } {
   if (kit === 'scylla_48') {
-    return { nxtBoardKitKey: kit, nxtScyllaMotorVoltage: 48 }
+    return { nxtBoardKitKey: kit, nxtBoardMotorVoltage: 48 }
   }
   if (kit === 'scylla_24') {
-    return { nxtBoardKitKey: kit, nxtScyllaMotorVoltage: 24 }
+    return { nxtBoardKitKey: kit, nxtBoardMotorVoltage: 24 }
   }
-  return { nxtBoardKitKey: kit, nxtScyllaMotorVoltage: null }
+  return { nxtBoardKitKey: kit, nxtBoardMotorVoltage: null }
+}
+
+export function platformStructureSummary(platformId: NxtPlatformId | null | undefined): {
+  sysDeployFiles: string[]
+  boardEntryPaths: string[]
+} {
+  const p = nxtPlatformFromManifest(platformId)
+  if (!p) {
+    return { sysDeployFiles: [], boardEntryPaths: [] }
+  }
+  return {
+    sysDeployFiles: [...p.sysDeployFiles],
+    boardEntryPaths: p.boards.map((b) => b.entryPath)
+  }
 }

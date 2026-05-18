@@ -15,7 +15,7 @@ M98 P"nxt/config/v1.5/boards/scylla1_0_h723/motor-48v/spindle.g"
 if { fileexists("0:/sys/network.g") }
     M98 P"network.g"
 else
-    M98 P"nxt/config/v1.5/milo-common/network-default.g"
+    M98 P"nxt/config/v1.5/common/network-default.g"
 if { fileexists("0:/sys/toolsetter.g") }
     M98 P"toolsetter.g"
 else

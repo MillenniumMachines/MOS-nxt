@@ -64,7 +64,29 @@ Configure your tool setter (for automatic tool length measurement):
 - Enter X, Y, and Z coordinates separately
 - Position is stored in machine coordinates (not work coordinates)
 
-### 5. Coolant Control Configuration
+### 5. Board & platform
+
+Select the machine platform and board pack that match your hardware. Platforms are listed from the build-time manifest (`macros/nxt-config/`).
+
+| Control | Description |
+|---------|-------------|
+| **Platform** | e.g. `v1.5` or `v1.6_v2` — sets `global.nxtPlatformProfile` |
+| **Board profile** | Override `global.nxtBoardShortNameOverride` or leave Auto (first board in object model) |
+| **Scylla motor voltage** | Required for Scylla packs: `24` or `48` V variant |
+| **Bootstrap mode** | **Auto** — Save creates `0:/sys/nxt-board-bootstrap.requested`. **Off** — Save removes it. |
+| **Apply platform sys files** | Uploads `homeall.g`, `homex.g`, `homey.g`, `homez.g` from `nxt/config/<platform>/common/` to `0:/sys/` |
+| **Check SD board packs** | Compares bundled manifest to `0:/sys/nxt/config/` (stale plugin warning) |
+| **Save Configuration** | Writes `nxt-user-vars.g` including `nxtBoardPackExpectedEntry` and syncs bootstrap sentinels |
+
+When you change platform, the UI may prompt to deploy homing files for that platform immediately. Homing direction requirements differ between v1.5 and v1.6_v2 — see [NXT_BOARD_HOMING.md](NXT_BOARD_HOMING.md).
+
+**Reload** re-runs `M98 P"nxt-user-vars.g"` and shows warnings if bootstrap files or pack paths do not match saved intent (`nxtBoardPackExpectedEntry` vs `nxtBoardPackEntry`).
+
+The **Platform bundle on SD** list shows deployable sys files and board `entry.g` paths for the selected platform.
+
+Pack loading vs homing deploy: [NXT_BOARD_CONFIG.md](NXT_BOARD_CONFIG.md).
+
+### 6. Coolant Control Configuration
 
 Configure GPIO pins for coolant control:
 
@@ -89,10 +111,14 @@ Runtime values are still updated immediately via `set global.*` when you change 
 
 ### Reload Configuration
 
-The **"Reload"** button refreshes all fields with the current values from the object model. Use this to:
-- Discard unsaved changes
-- Refresh after external changes to configuration
-- Verify current settings
+The **"Reload"** button:
+
+- If **`nxt-user-vars.g` exists** on SD (`global.nxtUserVarsPresent`): runs **`M98 P"nxt-user-vars.g"`**, then syncs the form from the object model.
+- If the file is **missing** (first install): **no error** — the form is rebuilt from live NeXT globals, MillenniumOS `mos*` globals (when present), and singleton auto-picks (e.g. one spindle → ID 0). Use **Save Configuration** to create `nxt-user-vars.g`.
+
+Use Reload to apply hand-edits on the SD card, discard unsaved form changes, or refresh after external `set global.*` changes.
+
+**Note:** Field edits apply to the object model on every change (`set global.*`). You do **not** need to tab out of a field before **Save** — Save writes the current form (`configDraft`), not stale values from blur-only sync.
 
 ## Probe Deflection Measurement Wizard
 
@@ -170,9 +196,11 @@ All configuration values are stored as RRF global variables:
 
 On the machine, configuration lives on the SD card as **`0:/sys/nxt-user-vars.g`**; the UI saves it via **`rr_upload?name=/sys/nxt-user-vars.g`** (full-file HTTP upload):
 
-- Loads automatically when NeXT starts (`M98 P"nxt-user-vars.g"` from `nxt.g`)
+- Loads automatically when NeXT starts (`M98 P"nxt-user-vars.g"` from `nxt.g`) when the file exists
+- If the file is missing at boot, NeXT still loads (`global.nxtConfigPending = true`) so this panel is available — review settings and **Save** to create the file
 - Survives machine restarts
 - Can be edited manually on the SD card if needed
+- **Probe repeatability** (G6512 sample count, pair tolerance, retries) is **not** in `nxt-user-vars.g` — defaults live in **`nxt-vars.g`**; copy **`nxt-user-overrides.g.example`** to **`0:/sys/nxt-user-overrides.g`** to override
 
 ### Configuration Flow
 ```
@@ -259,6 +287,8 @@ To restore configuration:
 
 ## Related Documentation
 
+- [Board configuration & pack layout](NXT_BOARD_CONFIG.md)
+- [Homing requirements (v1.5 vs v1.6_v2)](NXT_BOARD_HOMING.md)
 - [UI Implementation Details](UI_IMPLEMENTATION.md)
 - [Features Overview](FEATURES.md)
 - [Development Roadmap](ROADMAP.md)

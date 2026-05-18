@@ -15,6 +15,8 @@ global nxtTouchProbeID = 0             ; The ID of the touch probe sensor
 global nxtToolSetterID = 1             ; The ID of the tool setter sensor
 global nxtError = null               ; Stores the last error message
 global nxtLoaded = false              ; Tracks if NeXT has loaded successfully
+global nxtUserVarsPresent = false     ; true after nxt-user-vars.g is loaded from SD (set in nxt.g)
+global nxtConfigPending = false       ; true when nxt-user-vars.g missing — use DWC Configuration + Save
 
 ; --- Tooling & Probing ---
 global nxtDeltaMachine = null      ; The static Z distance between the toolsetter and reference surface
@@ -27,7 +29,8 @@ global nxtProbeHitXY = { vector(8, 0.0) } ; Last contacts as X,Y pairs (G6512 H0
 global nxtProbeMaxSkewDeg = 5.0   ; Abort rectangle/bore skew solve if |theta| exceeds this (deg)
 
 ; --- Probe repeatability (G6512; all canned cycles use G6512) ---
-; Tune these only here. Macros read globals — do not duplicate numbers in cycle files.
+; Defaults below. To override, copy macros/system/nxt-user-overrides.g.example to 0:/sys/nxt-user-overrides.g
+; (loaded from nxt.g after nxt-user-vars.g). Not edited by the DWC Configuration panel.
 ;   nxtProbeInnerSampleCount — inner sample count when tolerance disabled (limit = 0); ignored when limit > 0 (G6512 uses 3 touches).
 ;   nxtProbeMaxSampleSpreadMm — max consecutive-pair deviation (mm) between the 3 touches; both pairs must pass. Set 0 to disable.
 ;   nxtProbeSampleOuterRetries — how many *additional* full 3-touch blocks after a failed tolerance check
@@ -60,12 +63,15 @@ global nxtCannedRetractMode = 98   ; G98 initial plane / G99 R plane — set by 
 global nxtCannedZi = 0              ; scratch: Z axis index (set by nxt-canned-zindex.g)
 
 ; --- Board / platform selection (UI + pack loader) ---
-global nxtPlatformProfile = null   ; "v1.5" | "v1.6_v2" | "atlas" | null
-global nxtBoardKitKey = null       ; legacy UI key; optional — prefer shortName + nxtScyllaMotorVoltage
+global nxtPlatformProfile = null   ; platform id = nxt/config/<id>/ directory name
+global nxtBoardKitKey = null       ; legacy UI key; optional — prefer shortName + nxtBoardMotorVoltage
 global nxtBoardShortNameOverride = null ; RRF boards[0].shortName override for pack resolution, or null
-global nxtScyllaMotorVoltage = null ; 24 | 48 | null (required for Scylla when using auto pack load)
-global nxtBoardPackEntry = null    ; last resolved entry path (telemetry), e.g. nxt/config/v1.5/boards/.../entry.g
-global nxtBoardBootstrapMode = "off" ; "off" | "auto" (UI preference; pack loader uses SD sentinel files)
+global nxtBoardMotorVoltage = null ; 24 | 48 | null (motor-24v / motor-48v board packs)
+global nxtScyllaMotorVoltage = null ; deprecated — use nxtBoardMotorVoltage
+global nxtBoardPackEntry = null    ; last resolved entry path at boot (telemetry)
+global nxtBoardPackExpectedEntry = null ; saved expected entry path (Configuration Save)
+global nxtBoardSysDeployPlatform = null ; platform whose home*.g were last deployed to 0:/sys/
+global nxtBoardBootstrapMode = "off" ; "off" | "auto" (Save syncs nxt-board-bootstrap.requested)
 
 ; --- Optional magazine / ATC extension (not allocated here) ---
 ; Bay maps, job sequence vectors, and related globals are defined only when a tool changer

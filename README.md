@@ -124,6 +124,7 @@ To install the NeXT plugin on your physical machine:
 3. Click **Install Plugin** and upload the ZIP. Start the plugin once installed.
 4. **Mandatory Firmware Step:** Open your `0:/sys/config.g` via the System Directory and add `M98 P"nxt.g"` to the end of the file. (If you are upgrading from `mos`, ensure you remove the old `M98 P"mos.g"` and replace it with `nxt.g`).
 5. Run `M999` to restart the board and load the new NeXT globals.
+6. In **Configuration**, select your **platform** (`v1.5` or `v1.6_v2`), then **Apply platform sys files** so `0:/sys/home*.g` match that platform ([homing requirements](docs/NXT_BOARD_HOMING.md)).
 
 ## DWC Plugin Development
 
