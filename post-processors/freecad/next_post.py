@@ -374,6 +374,10 @@ class Section(StrEnum):
 class PostProcessor:
     name      = "FreeCAD Post-Processor"
     vendor    = "Unknown"
+    version   = FreeCAD.Version()
+    revision = FreeCAD.ConfigGet("BuildRevision")
+    if isinstance(revision, str):
+        revision = re.sub(r'[()]', '', revision)    
 
 
     def __init__(self, name=None, vendor=None, args={}):
@@ -398,7 +402,7 @@ class PostProcessor:
 
         # Switch to PRE section
         with self.Section(Section.PRE):
-            self.comment('Exported by FreeCAD')
+            self.comment(f'Exported by FreeCAD v{self.version[0]}.{self.version[1]}.{self.version[2]}.{self.revision}')
             self.comment('Post Processor: {} by {}'.format(self.name, self.vendor))
             self.comment('Output Time: {}'.format(datetime.now(timezone.utc)))
             self.brk()
@@ -826,14 +830,21 @@ class NeXTPostProcessor(PostProcessor):
         # rounded, bullnose and ballnose.
         cr = 0
 
+        # adjust for FreeCad renaming of tool shape field after v1.2
+        # note, capitalization has also changed for tool shape types
+        if hasattr(tc.Tool, "ShapeType"):
+            tool_shape = tc.Tool.ShapeType
+        else:
+            tool_shape = tc.Tool.ShapeName
+        
         # A bull nose bit has a flat radius. The corner radius
         # is the difference between the radius and the flat radius.
-        if tc.Tool.ShapeName == "bullnose":
+        if tool_shape.lower() == "bullnose":
             cr = radius - float(tc.Tool.FlatRadius.getValueAs(UNITS.LENGTH))
 
         # A ball nose bit is rounded all the way to the centre of
         # the bit. The corner radius is the radius of the bit.
-        elif tc.Tool.ShapeName == "ballnose":
+        elif tool_shape.lower() == "ballnose":
             cr = radius
 
         tl = float(tc.Tool.Length.getValueAs(UNITS.LENGTH))
