@@ -62,11 +62,13 @@ Build runs `node --check` on the chunk before finishing.
 
 **How install maps paths (PollConnector):**
 
-| ZIP entry | Uploaded to | `plugin.dwcFiles` | Browser URL |
-|-----------|-------------|-------------------|-------------|
-| `dwc/NeXT/js/NeXT.abc.js` | `<www>/NeXT/js/NeXT.abc.js` | `NeXT/js/NeXT.abc.js` | `/NeXT/js/NeXT.abc.js` |
+| ZIP entry (correct) | On SBC after DSF install | `plugin.dwcFiles` | Browser URL |
+|-------------------|--------------------------|-------------------|-------------|
+| `dwc/js/NeXT.abc.js` | `0:/www/NeXT/js/NeXT.abc.js` | `NeXT/js/NeXT.abc.js` | `/NeXT/js/NeXT.abc.js` |
 
-Older ZIPs used flat `dwc/js/` → `js/NeXT.abc.js` at the www root. On an **SBC**, DSF often installs under `0:/www/NeXT/` instead, so the browser still requests `js/…` and gets **404**. Rebuild with current `build-plugin.sh` or run `node dist/repack-plugin-dwc-subdir.mjs dist/NeXT-*.zip`.
+**Wrong layout (404 at `/NeXT/js/…`):** `dwc/NeXT/js/NeXT.abc.js` in the ZIP → DSF puts files at `0:/www/NeXT/NeXT/js/…` while the browser requests `/NeXT/js/…`. Fix: `node dist/fix-plugin-dwc-zip-layout.cjs dist/NeXT-*.zip` or rebuild.
+
+**Install timeout:** The ZIP also uploads many `sd/sys/` macros. On slow links the install can time out before `dwc/` lands on `www` → same 404. Retry install; in DWC **Files → System** confirm `www/NeXT/js/NeXT.<hash>.js` exists.
 
 `plugin.json` in the ZIP is **not** uploaded — only `dwc/*` and `sd/*`.
 

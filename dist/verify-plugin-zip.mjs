@@ -22,17 +22,19 @@ function main() {
     .split(/\r?\n/)
     .filter(Boolean)
 
-  const dwcJs = listing.filter((n) => /^dwc\/NeXT\/js\/NeXT\.[a-f0-9]+\.js$/.test(n))
-  const dwcCss = listing.filter((n) => /^dwc\/NeXT\/css\/NeXT\.[a-f0-9]+\.css$/.test(n))
-  const legacyFlat = listing.filter((n) => /^dwc\/js\/NeXT\.[a-f0-9]+\.js$/.test(n))
+  const dwcJs = listing.filter((n) => /^dwc\/js\/NeXT\.[a-f0-9]+\.js$/.test(n))
+  const dwcCss = listing.filter((n) => /^dwc\/css\/NeXT\.[a-f0-9]+\.css$/.test(n))
+  const badNested = listing.filter((n) => /^dwc\/NeXT\/(js|css)\/NeXT\.[a-f0-9]+\.(js|css)$/.test(n))
   const dwcExtra = listing.filter(
     (n) =>
       /^dwc\//.test(n) &&
-      !/^dwc\/NeXT\/js\/NeXT\.[a-f0-9]+\.js$/.test(n) &&
-      !/^dwc\/NeXT\/css\/NeXT\.[a-f0-9]+\.css$/.test(n)
+      !/^dwc\/js\/NeXT\.[a-f0-9]+\.js$/.test(n) &&
+      !/^dwc\/css\/NeXT\.[a-f0-9]+\.css$/.test(n)
   )
-  if (legacyFlat.length > 0) {
-    console.warn('\nWARN: flat dwc/js/ layout (old ZIP) — SBC installs often 404; rebuild with current build-plugin.sh')
+  if (badNested.length > 0) {
+    console.error('\nFAIL: dwc/NeXT/js nested layout — DSF installs to www/NeXT/NeXT/js (404 at /NeXT/js/)')
+    console.error('  Run: node dist/fix-plugin-dwc-zip-layout.cjs', zipPath)
+    ok = false
   }
 
   let pluginJson = null
@@ -53,7 +55,7 @@ function main() {
 
   if (dwcJs.length !== 1) {
     console.error(
-      `\nFAIL: expected exactly one dwc/NeXT/js/NeXT.<hash>.js, got: ${dwcJs.join(', ') || '(none)'}`
+      `\nFAIL: expected exactly one dwc/js/NeXT.<hash>.js, got: ${dwcJs.join(', ') || '(none)'}`
     )
     ok = false
   } else {
@@ -62,7 +64,7 @@ function main() {
 
   if (dwcCss.length !== 1) {
     console.error(
-      `\nFAIL: expected exactly one dwc/NeXT/css/NeXT.<hash>.css, got: ${dwcCss.join(', ') || '(none)'}`
+      `\nFAIL: expected exactly one dwc/css/NeXT.<hash>.css, got: ${dwcCss.join(', ') || '(none)'}`
     )
     ok = false
   } else {
@@ -77,16 +79,22 @@ function main() {
   const jsRel = dwcJs[0]?.replace(/^dwc\//, '')
   const cssRel = dwcCss[0]?.replace(/^dwc\//, '')
 
-  console.log('\n=== After install on printer (PollConnector) ===\n')
-  console.log('plugin.dwcFiles should include at least:')
-  console.log(`  ${jsRel}`)
-  console.log(`  ${cssRel}`)
-  console.log('\nFiles on DWC www root (same paths):')
-  console.log(`  ${jsRel}`)
-  console.log(`  ${cssRel}`)
-  console.log('\nBrowser should request (relative to DWC URL):')
-  console.log(`  GET ${jsRel}`)
-  console.log(`  GET ${cssRel}`)
+  const httpJs = jsRel ? `NeXT/${jsRel}` : 'NeXT/js/NeXT.<hash>.js'
+  const httpCss = cssRel ? `NeXT/${cssRel}` : 'NeXT/css/NeXT.<hash>.css'
+
+  console.log('\n=== After install on SBC (DSF → 0:/www/NeXT/) ===\n')
+  console.log('ZIP entries (flat dwc/):')
+  console.log(`  ${dwcJs[0] || '(missing js)'}`)
+  console.log(`  ${dwcCss[0] || '(missing css)'}`)
+  console.log('On SD / www (via virtual 0:/www/):')
+  console.log(`  0:/www/${httpJs}`)
+  console.log(`  0:/www/${httpCss}`)
+  console.log('plugin.dwcFiles + browser URL:')
+  console.log(`  ${httpJs}`)
+  console.log(`  ${httpCss}`)
+  console.log('\nBrowser should request:')
+  console.log(`  GET /${httpJs}`)
+  console.log(`  GET /${httpCss}`)
   console.log('\nObject model persistence:')
   console.log('  0:/sys/dwc-plugins.json  →  plugins.NeXT.dwcFiles[]')
 

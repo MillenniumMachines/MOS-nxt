@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 /**
- * Trace NeXT plugin install → browser URL (404 investigation).
+ * Trace NeXT plugin install → browser URL (404 / timeout investigation).
  *
- * PollConnector maps ZIP dwc/js/NeXT.<hash>.js → <directories.web>/js/NeXT.<hash>.js
- * and records plugin.dwcFiles as "js/NeXT.<hash>.js" (no "dwc/" prefix).
+ * DSF (SBC): contents of dwc/ install under 0:/www/NeXT/
+ *   ZIP dwc/js/NeXT.<hash>.js  →  disk 0:/www/NeXT/js/NeXT.<hash>.js  →  GET /NeXT/js/NeXT.<hash>.js
+ *
+ * Wrong ZIP dwc/NeXT/js/...  →  disk 0:/www/NeXT/NeXT/js/...  →  GET /NeXT/js/... is 404
  *
  * Usage:
- *   node dist/trace-plugin-404.mjs <NeXT.zip> [0:/sys/dwc-plugins.json]
- *
- * With dwc-plugins.json (download from printer or paste path), compares hashes.
+ *   node dist/trace-plugin-404.mjs <NeXT.zip> [dwc-plugins.json]
  */
 import fs from 'node:fs'
 import { execSync } from 'node:child_process'
@@ -16,6 +16,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const PLUGIN_ID = 'NeXT'
 
 function readZipListing(zipPath) {
   return execSync(`unzip -Z1 "${zipPath}"`, { encoding: 'utf8' })
@@ -23,9 +24,12 @@ function readZipListing(zipPath) {
     .filter(Boolean)
 }
 
-function dwcRelFromZipEntry(entry) {
-  if (!entry.startsWith('dwc/')) return null
-  return entry.substring(4)
+function zipToHttpPath(zipEntry) {
+  const rel = zipEntry.substring(4)
+  if (/^NeXT\//.test(rel)) {
+    return null
+  }
+  return `${PLUGIN_ID}/${rel}`
 }
 
 function loadPluginsJson(filePath) {
@@ -33,8 +37,7 @@ function loadPluginsJson(filePath) {
   const data = JSON.parse(raw)
   if (data?.NeXT) return data.NeXT
   if (data?.plugins?.NeXT) return data.plugins.NeXT
-  const first = Object.values(data).find((v) => v && typeof v === 'object' && v.id === 'NeXT')
-  return first ?? null
+  return Object.values(data).find((v) => v && typeof v === 'object' && v.id === 'NeXT') ?? null
 }
 
 function hashFromJsPath(p) {
@@ -52,68 +55,47 @@ function main() {
   }
 
   const listing = readZipListing(zipPath)
-  const dwcEntries = listing.filter((n) => n.startsWith('dwc/'))
-  const jsEntries = dwcEntries.filter((n) => /^dwc\/NeXT\/js\/NeXT\.[a-f0-9]+\.js$/.test(n))
-  const cssEntries = dwcEntries.filter((n) => /^dwc\/NeXT\/css\/NeXT\.[a-f0-9]+\.css$/.test(n))
-  const legacyJs = dwcEntries.filter((n) => /^dwc\/js\/NeXT\.[a-f0-9]+\.js$/.test(n))
-  const extraDwc = dwcEntries.filter(
-    (n) =>
-      !n.endsWith('/') &&
-      !/^dwc\/NeXT\/js\/NeXT\.[a-f0-9]+\.js$/.test(n) &&
-      !/^dwc\/NeXT\/css\/NeXT\.[a-f0-9]+\.css$/.test(n)
-  )
+  const flatJs = listing.filter((n) => /^dwc\/js\/NeXT\.[a-f0-9]+\.js$/.test(n))
+  const flatCss = listing.filter((n) => /^dwc\/css\/NeXT\.[a-f0-9]+\.css$/.test(n))
+  const badJs = listing.filter((n) => /^dwc\/NeXT\/js\/NeXT\.[a-f0-9]+\.js$/.test(n))
 
-  const zipJsRel = jsEntries[0] ? dwcRelFromZipEntry(jsEntries[0]) : null
-  const zipCssRel = cssEntries[0] ? dwcRelFromZipEntry(cssEntries[0]) : null
-  const zipJsHash = zipJsRel ? hashFromJsPath(zipJsRel) : null
+  const httpJs = flatJs[0] ? zipToHttpPath(flatJs[0]) : null
+  const httpCss = flatCss[0] ? zipToHttpPath(flatCss[0]) : null
+  const zipHash = httpJs ? hashFromJsPath(httpJs) : null
 
   console.log('\n=== NeXT plugin 404 trace ===\n')
   console.log(`ZIP: ${zipPath}`)
 
-  console.log('\n--- ZIP dwc/ layout (what DWC install uploads) ---\n')
-  if (legacyJs.length > 0) {
-    console.log('\n  WARN: flat dwc/js/ layout — on SBC, files often land at 0:/www/NeXT/js/ but dwcFiles may say js/ → 404')
-    console.log('        Rebuild or: node dist/repack-plugin-dwc-subdir.mjs <zip>')
-  }
-  if (jsEntries.length === 1) {
-    console.log(`  ZIP entry:     ${jsEntries[0]}`)
-    console.log(`  Upload target: <directories.web>/${zipJsRel}`)
-    console.log(`  dwcFiles[]:    ${zipJsRel}`)
-    console.log(`  Browser GET:   /<dwc-host>/${zipJsRel}`)
-  } else if (legacyJs.length === 1) {
-    const rel = legacyJs[0].replace(/^dwc\//, '')
-    console.log(`  ZIP entry (legacy): ${legacyJs[0]}`)
-    console.log(`  dwcFiles (legacy):  ${rel}`)
-    console.log(`  SBC likely needs:   NeXT/js/<same filename> — repack ZIP or reinstall after rebuild`)
-  } else {
-    console.log(`  FAIL: expected one dwc/NeXT/js/NeXT.<hash>.js, got ${jsEntries.length}`)
-  }
-  if (cssEntries.length === 1) {
-    console.log(`  CSS: ${cssEntries[0]} → ${zipCssRel}`)
-  }
-  if (extraDwc.length) {
-    console.log('\n  WARN: extra dwc/ entries (not uploaded by PollConnector unless in zip):')
-    extraDwc.forEach((n) => console.log(`    ${n}`))
-  }
-
-  console.log('\n--- Install path (PollConnector) ---\n')
-  console.log('  1. For each zip path starting with "dwc/", strip prefix → push to plugin.dwcFiles')
-  console.log('  2. upload(combinePath(directories.web, filename)) — typically SBC /opt/dsf/www/')
-  console.log('  3. Write 0:/sys/dwc-plugins.json with same dwcFiles[]')
-  console.log('  4. loadDwcPlugin → __webpack_require__.e("NeXT") → GET dwcFiles js path')
-  console.log('\n  plugin.json in the ZIP is NOT uploaded; only dwc/* and sd/* are.')
-
   let exitCode = 0
+
+  console.log('\n--- ZIP layout (DSF www mapping) ---\n')
+  if (badJs.length > 0) {
+    console.log('FAIL: nested dwc/NeXT/js/ in ZIP')
+    badJs.forEach((n) => console.log(`  ${n} → www/NeXT/NeXT/js/ (browser /NeXT/js/ 404)`))
+    console.log('Fix: node dist/fix-plugin-dwc-zip-layout.cjs', zipPath)
+    exitCode = 2
+  }
+  if (flatJs.length === 1) {
+    console.log(`OK ZIP:   ${flatJs[0]}`)
+    console.log(`On SBC:  0:/www/${httpJs}`)
+    console.log(`Browser: GET /${httpJs}`)
+  } else {
+    console.log(`FAIL: expected dwc/js/NeXT.<hash>.js, got ${flatJs.length}`)
+    exitCode = 2
+  }
+  if (flatCss.length === 1) {
+    console.log(`OK CSS:  ${flatCss[0]} → /${httpCss}`)
+  }
 
   if (pluginsPath) {
     if (!fs.existsSync(pluginsPath)) {
-      console.error(`\nerror: dwc-plugins not found: ${pluginsPath}`)
+      console.error(`\nerror: ${pluginsPath} not found`)
       process.exit(1)
     }
     const plugin = loadPluginsJson(pluginsPath)
-    console.log('\n--- Printer dwc-plugins.json vs this ZIP ---\n')
+    console.log('\n--- Printer dwc-plugins.json ---\n')
     if (!plugin) {
-      console.log('  No NeXT entry in file')
+      console.log('  No NeXT entry')
       exitCode = 2
     } else {
       const omFiles = plugin.dwcFiles ?? []
@@ -121,43 +103,30 @@ function main() {
       const omHash = omJs ? hashFromJsPath(omJs) : null
       console.log(`  dwcFiles: ${JSON.stringify(omFiles)}`)
       if (!omJs) {
-        console.log('\n  FAIL: no js/NeXT.*.js in dwcFiles → browser may request js/NeXT.undefined.js')
+        console.log('  FAIL: no js path in dwcFiles')
         exitCode = 2
-      } else if (omJs.startsWith('dwc/')) {
-        console.log('\n  FAIL: dwcFiles must be "js/NeXT.<hash>.js", not "dwc/js/..." (double path → 404)')
+      } else if (httpJs && omJs !== httpJs) {
+        console.log(`  FAIL: OM path "${omJs}" ≠ expected "${httpJs}"`)
         exitCode = 2
-      } else if (zipJsHash && omHash && zipJsHash !== omHash) {
-        console.log(`\n  FAIL: hash mismatch — manifest ${omHash}, this ZIP ${zipJsHash}`)
-        console.log('  → 404 unless you reinstall this ZIP or copy www files to match manifest')
-        exitCode = 2
-      } else if (zipJsRel && omJs && omJs !== zipJsRel) {
-        console.log(`\n  FAIL: path mismatch manifest "${omJs}" vs ZIP "${zipJsRel}"`)
+      } else if (zipHash && omHash && zipHash !== omHash) {
+        console.log(`  FAIL: hash mismatch ZIP ${zipHash} vs OM ${omHash} — reinstall ZIP`)
         exitCode = 2
       } else {
-        console.log('\n  OK: dwc-plugins.js paths match this ZIP')
-        console.log(`  Direct test: http://<printer>/${omJs}`)
+        console.log('  OK: dwcFiles matches flat dwc/ → /NeXT/js/ URL')
       }
     }
-  } else {
-    console.log('\n--- Optional: compare printer manifest ---\n')
-    console.log('  Download 0:/sys/dwc-plugins.json and re-run:')
-    console.log(`  node dist/trace-plugin-404.mjs "${zipPath}" dwc-plugins.json`)
   }
 
-  console.log('\n--- Common 404 causes (same .call symptom) ---\n')
-  console.log('  A) Plugin never installed via DWC → Settings → upload ZIP (files not on www)')
-  console.log('  B) SD full release only: dwc/ copied to 0:/dwc/ on SD — NOT the HTTP www root')
-  console.log('     (release.sh embeds dwc under sd/dwc/; use plugin ZIP install or copy to www)')
-  console.log('  C) Stale dwc-plugins.json / browser cache: old hash in manifest, new ZIP (or reverse)')
-  console.log('  D) dwcFiles empty or wrong → js/NeXT.undefined.js')
-  console.log('  E) Install interrupted — sd/ macros present but dwc/js missing on www')
+  console.log('\n--- Timeout during install ---\n')
+  console.log('  NeXT ZIP includes many sd/sys macros — install can take several minutes.')
+  console.log('  If upload times out, dwc www files may never land → 404 on /NeXT/js/*.js')
+  console.log('  Retry on stable network; confirm 0:/www/NeXT/js/NeXT.<hash>.js exists in Files → System.')
 
-  console.log('\n--- Browser checks ---\n')
-  if (zipJsRel) {
-    console.log(`  DevTools → Network → ${zipJsRel} must be 200 (not 404)`)
-    console.log(`  Open: http://<printer-host>/${zipJsRel}`)
-  }
-  console.log('  If 404: uninstall NeXT, re-upload ZIP, wait for install, hard refresh (Ctrl+Shift+R)\n')
+  console.log('\n--- Common causes ---\n')
+  console.log('  A) Wrong ZIP dwc/NeXT/js/ layout (double folder on www)')
+  console.log('  B) Install timed out before dwc/ uploaded')
+  console.log('  C) dwcFiles hash ≠ file on www (partial upgrade)')
+  console.log('  D) Only copied SD release — must install plugin ZIP via Settings → Plugins')
 
   process.exit(exitCode)
 }

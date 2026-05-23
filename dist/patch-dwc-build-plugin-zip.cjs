@@ -1,10 +1,8 @@
 #!/usr/bin/env node
 /**
- * Patch DWC build-plugin.js for NeXT plugin ZIP layout:
- * 1) Include split chunks (vendors~NeXT.*) and only .js/.css (not .map/.gz)
- * 2) Place dwc assets under dwc/<pluginId>/js|css/ so SBC install lands at
- *    0:/www/NeXT/js/... (DSF) and dwcFiles is NeXT/js/NeXT.<hash>.js — not flat js/
- *    which 404s when the server only exposes the plugin subdirectory.
+ * Patch DWC build-plugin.js for NeXT plugin ZIP:
+ * - Include split chunks (vendors~NeXT.*) and only .js/.css (not .map/.gz)
+ * - Keep official flat dwc/js + dwc/css layout (DSF installs dwc/* under 0:/www/NeXT/)
  *
  * Usage: node patch-dwc-build-plugin-zip.cjs <path-to-DWC>/scripts/build-plugin.js
  */
@@ -32,18 +30,17 @@ if (filterCount !== 2) {
 }
 s = s.split(filterNeedle).join(filterReplacement)
 
-const cssNeedle = 'archive.file(distDir + "/css/" + file, { name: "dwc/css/" + file });'
-const cssReplacement =
-  'archive.file(distDir + "/css/" + file, { name: "dwc/" + pluginManifest.id + "/css/" + file });'
-const jsNeedle = 'archive.file(distDir + "/js/" + file, { name: "dwc/js/" + file });'
-const jsReplacement =
-  'archive.file(distDir + "/js/" + file, { name: "dwc/" + pluginManifest.id + "/js/" + file });'
-
-if (!s.includes(cssNeedle) || !s.includes(jsNeedle)) {
-  console.error('patch-dwc-build-plugin-zip: dwc archive path needles missing (already patched or DWC changed?)')
-  process.exit(1)
+// Undo mistaken dwc/NeXT/js subdir patch if present from an older NeXT build
+const cssSub = 'archive.file(distDir + "/css/" + file, { name: "dwc/" + pluginManifest.id + "/css/" + file });'
+const cssFlat = 'archive.file(distDir + "/css/" + file, { name: "dwc/css/" + file });'
+const jsSub = 'archive.file(distDir + "/js/" + file, { name: "dwc/" + pluginManifest.id + "/js/" + file });'
+const jsFlat = 'archive.file(distDir + "/js/" + file, { name: "dwc/js/" + file });'
+if (s.includes(cssSub)) {
+  s = s.replace(cssSub, cssFlat)
 }
-s = s.replace(cssNeedle, cssReplacement).replace(jsNeedle, jsReplacement)
+if (s.includes(jsSub)) {
+  s = s.replace(jsSub, jsFlat)
+}
 
 fs.writeFileSync(path, s)
 console.log('patch-dwc-build-plugin-zip: updated', path)
