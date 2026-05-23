@@ -30,6 +30,9 @@ jobs:
           chmod +x dist/ci-fetch-dwc.sh
           dist/ci-fetch-dwc.sh
 
+      - name: Check RRF macro line lengths
+        run: node dist/check-gcode-line-length.mjs
+
       - name: Build release asset
         run: |
           command -v rsync >/dev/null 2>&1 || {

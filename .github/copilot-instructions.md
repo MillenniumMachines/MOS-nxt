@@ -56,6 +56,7 @@ NeXT (Next-Gen Extended Tooling) is a complete rewrite of the legacy MillenniumO
 - **System G/M-Codes**: Reference https://docs.duet3d.com/User_manual/Reference/Gcodes
 - **Meta G-Code**: Leverage RRF's extended language features (variables, conditionals, loops)
 - **Documentation**: https://docs.duet3d.com/User_manual/Reference/Gcode_meta_commands
+- **Line length (hard stop):** No `macros/**/*.g` line may exceed **200 characters** (non-comment lines). RRF reports `GCode command too long` and aborts startup — `nxt.g` never sets `global.nxtLoaded`. Split long `if`/`echo`/`abort`/`M291` into `var` steps. Run `node dist/check-gcode-line-length.mjs` before any plugin build or macro PR; fix all failures. See [`docs/RRF_LINE_LENGTH.md`](../docs/RRF_LINE_LENGTH.md). **Never** commit macro changes that fail this check.
 
 ### Coding Conventions
 **ALL coding conventions, style requirements, and technical standards are documented in `docs/CODE.md`. Read this file completely before making any code changes.**

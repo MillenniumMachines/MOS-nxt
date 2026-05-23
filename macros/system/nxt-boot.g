@@ -2,7 +2,10 @@
 ; Performs critical sanity checks before allowing NeXT to load.
 ; CNC mode: meta conditions use { }, not ( ) — see macros/system/RRF_META.txt section 6.
 
-; 1. Confirm RRF is in CNC mode.
+set global.nxtLoaded = false
+set global.nxtError = null
+
+; 1. Confirm RRF is in CNC mode (nxt.g runs M453 immediately before this file).
 if { state.machineMode != "CNC" }
     set global.nxtError = "Machine mode must be CNC (M453)"
     M99
@@ -29,7 +32,13 @@ if { !exists(global.nxtProbeToolID) || global.nxtProbeToolID == null }
     echo "[NeXT] boot: nxtProbeToolID unset — defaulting to last tool index " ^ global.nxtProbeToolID
 
 if { global.nxtFeatureTouchProbe && (!exists(global.nxtDeltaMachine) || global.nxtDeltaMachine == null) }
-    set global.nxtError = "Touch probe enabled but nxtDeltaMachine is not set — calibrate static datum (Configuration / legacy wizard)"
+    set global.nxtConfigPending = true
+    set global.nxtError = "Touch probe enabled but nxtDeltaMachine is not set — calibrate static datum in Configuration"
+    var resultVectorSize = { #move.axes + 1 }
+    while { iterations < #global.nxtProbeResults }
+        set global.nxtProbeResults[iterations] = { vector(var.resultVectorSize, 0.0) }
+    set global.nxtLoaded = true
+    echo "NeXT: configuration incomplete (touch probe datum missing) — use DWC Configuration panel"
     M99
 
 ; --- All checks passed ---

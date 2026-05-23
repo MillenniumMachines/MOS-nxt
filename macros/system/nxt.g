@@ -23,22 +23,13 @@ if { !exists(global.nxtVarsLoaded) }
 ; Millennium OS migration: run when legacy MOS is present on SD and/or in globals.
 ; Re-import anytime: touch 0:/sys/nxt-mos-import.requested
 ; First-time only (default): MOS detected and nxt-user-vars.g not created yet
-; (split — RRF rejects if { ... } lines longer than ~255 characters)
-var nxtDoMosImport = false
-if { fileexists("0:/sys/nxt-mos-import.requested") }
-    set var.nxtDoMosImport = true
-if { !var.nxtDoMosImport && !fileexists("0:/sys/nxt-user-vars.g") }
-    if { fileexists("0:/sys/mos-vars.g") || fileexists("0:/sys/mos-user-vars.g") || fileexists("0:/sys/mos.g") }
-        set var.nxtDoMosImport = true
-    if { !var.nxtDoMosImport && exists(global.mosSID) }
-        set var.nxtDoMosImport = true
-    if { !var.nxtDoMosImport && exists(global.mosFeatTouchProbe) }
-        set var.nxtDoMosImport = true
-    if { !var.nxtDoMosImport && exists(global.mosPTID) }
-        set var.nxtDoMosImport = true
-    if { !var.nxtDoMosImport && exists(global.mosLdd) }
-        set var.nxtDoMosImport = true
-if { var.nxtDoMosImport }
+; (split conditions — RRF rejects lines > ~200 chars; see docs/RRF_LINE_LENGTH.md)
+var nxtMosImportForced = { fileexists("0:/sys/nxt-mos-import.requested") }
+var nxtNeedsUserVars = { !fileexists("0:/sys/nxt-user-vars.g") }
+var nxtMosOnSd = { fileexists("0:/sys/mos-vars.g") || fileexists("0:/sys/mos-user-vars.g") || fileexists("0:/sys/mos.g") }
+var nxtMosInGlobals = { exists(global.mosSID) || exists(global.mosFeatTouchProbe) || exists(global.mosPTID) || exists(global.mosLdd) }
+var nxtRunMosImport = { var.nxtMosImportForced || (var.nxtNeedsUserVars && (var.nxtMosOnSd || var.nxtMosInGlobals)) }
+if { var.nxtRunMosImport }
     M117 "NeXT MOS import"
     M98 P"nxt-mos-import.g"
 
@@ -79,9 +70,12 @@ else
     M117 "NeXT no nxt-user-tools.g"
     echo "NeXT: nxt-user-tools.g not found — optional; define tools via M4000 or add this file to persist them"
 
-if {!exists(global.nxtLoaded)}
+if { !exists(global.nxtLoaded) }
     global nxtLoaded = false
-    
+
+; CNC mode before boot checks (board pack may also M453; safe to repeat)
+M453
+
 ; Run boot-time sanity checks
 M117 "NeXT nxt-boot.g"
 M98 P"nxt-boot.g"

@@ -41,6 +41,20 @@
                     </v-list-item-title>
                   </v-list-item-content>
                 </v-list-item>
+
+                <v-list-item>
+                  <v-list-item-content>
+                    <v-list-item-title>Probe tool loaded (T{{ probeToolIdText }})</v-list-item-title>
+                    <v-list-item-subtitle class="text-caption">
+                      Current tool must match <code>global.nxtProbeToolID</code> to run probing cycles
+                    </v-list-item-subtitle>
+                  </v-list-item-content>
+                  <v-list-item-action>
+                    <v-icon :color="touchProbeToolLoaded ? 'success' : 'warning'">
+                      {{ touchProbeToolLoaded ? 'mdi-check-circle' : 'mdi-close-circle-outline' }}
+                    </v-icon>
+                  </v-list-item-action>
+                </v-list-item>
               </v-list>
             </v-card-text>
           </v-card>
@@ -160,6 +174,25 @@ export default BaseComponent.extend({
       } catch {
         return String(e)
       }
+    },
+
+    probeToolId(): number | null {
+      const id = this.globals.nxtProbeToolID
+      if (typeof id === 'number' && Number.isFinite(id)) {
+        return id
+      }
+      return null
+    },
+
+    probeToolIdText(): string {
+      return this.probeToolId === null ? 'unset' : String(this.probeToolId)
+    },
+
+    touchProbeToolLoaded(): boolean {
+      if (!this.globals.nxtFeatureTouchProbe || this.probeToolId === null) {
+        return false
+      }
+      return this.currentTool === this.probeToolId
     }
   },
 

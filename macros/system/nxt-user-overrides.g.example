@@ -7,3 +7,11 @@
 ; set global.nxtProbeInnerSampleCount = 3
 ; set global.nxtProbeMaxSampleSpreadMm = 0.0075
 ; set global.nxtProbeSampleOuterRetries = 1
+;
+; Optional per-probe-type overrides used by tpost.g:
+; set global.nxtTouchProbeInnerSampleCount = 3
+; set global.nxtTouchProbeMaxSampleSpreadMm = 0.0075
+; set global.nxtTouchProbeSampleOuterRetries = 1
+; set global.nxtToolSetterInnerSampleCount = 3
+; set global.nxtToolSetterMaxSampleSpreadMm = 0.0075
+; set global.nxtToolSetterSampleOuterRetries = 1

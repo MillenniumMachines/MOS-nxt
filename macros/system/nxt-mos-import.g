@@ -14,9 +14,8 @@
 ;
 ; Each mos* -> nxt* copy uses exists(global.mos*) so a partial MOS install does not abort.
 
-var hasMosSource = false
-if { fileexists("0:/sys/nxt-mos-import.requested") }
-    set var.hasMosSource = true
+var nxtMosSentinel = { fileexists("0:/sys/nxt-mos-import.requested") }
+var hasMosSource = var.nxtMosSentinel
 if { fileexists("0:/sys/mos-vars.g") || fileexists("0:/sys/mos-user-vars.g") || fileexists("0:/sys/mos.g") }
     set var.hasMosSource = true
 if { exists(global.mosSID) }

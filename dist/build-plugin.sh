@@ -107,6 +107,9 @@ if [[ ! -f "${ROOT}/ui/plugin.json" ]]; then
   exit 1
 fi
 
+echo "Checking RRF macro line lengths (max 200)..."
+node "${ROOT}/dist/check-gcode-line-length.mjs" || exit 1
+
 TMP_DIR="$(mktemp -d -t next-plugin-build-XXXXX)"
 
 GIT_TAG="$(git -C "${ROOT}" describe --tags --exact-match 2>/dev/null || true)"

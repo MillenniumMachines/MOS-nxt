@@ -10,7 +10,25 @@ if { !inputs[state.thisInput].active }
     M99
 
 ; Create a parameter array to iterate over (can't iterate over params directly)
-var axisCoords = { param.X, param.Y, param.Z, param.A, param.B, param.C, param.U, param.V, param.W }
+var axisCoords = { null, null, null, null, null, null, null, null, null }
+if { exists(param.X) }
+    set var.axisCoords[0] = param.X
+if { exists(param.Y) }
+    set var.axisCoords[1] = param.Y
+if { exists(param.Z) }
+    set var.axisCoords[2] = param.Z
+if { exists(param.A) }
+    set var.axisCoords[3] = param.A
+if { exists(param.B) }
+    set var.axisCoords[4] = param.B
+if { exists(param.C) }
+    set var.axisCoords[5] = param.C
+if { exists(param.U) }
+    set var.axisCoords[6] = param.U
+if { exists(param.V) }
+    set var.axisCoords[7] = param.V
+if { exists(param.W) }
+    set var.axisCoords[8] = param.W
 
 ; Iterate over all axes to check any provided coordinate parameters
 while { iterations < #move.axes && iterations < #var.axisCoords }

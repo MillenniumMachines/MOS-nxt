@@ -1,0 +1,29 @@
+---
+description: Hard stop — RRF macro lines must not exceed 200 characters
+alwaysApply: true
+---
+
+# RRF macro line length (hard stop)
+
+RepRapFirmware fails boot/config with **`GCode command too long`** when a single macro line is too long. That prevents `nxt.g` from finishing and leaves **`global.nxtLoaded` false**.
+
+## Rules for every agent (mandatory)
+
+1. **Maximum 200 characters** per line in any `macros/**/*.g` file (full line, including indentation). Comment-only lines (`;`) are exempt.
+2. **Do not** write long compound `if { ... }` on one line. Split into `var` booleans, then a short `if { var.name }`.
+3. **Do not** write long `echo`, `abort`, or `M291 P{...}` on one line. Assign message parts to `var` first.
+4. **Before** claiming macro work is done, run: `node dist/check-gcode-line-length.mjs` — must exit 0.
+5. If the checker fails, **fix all reported lines** in the same task. Do not commit, build a plugin ZIP, or tag until it passes.
+6. Read [docs/RRF_LINE_LENGTH.md](../../docs/RRF_LINE_LENGTH.md) when editing boot path (`nxt.g`, `nxt-boot.g`, `config.g` callers) or migration/import macros.
+
+## Example pattern (required for complex conditions)
+
+```gcode
+var nxtCondA = { ... }
+var nxtCondB = { ... }
+var nxtDoThing = { var.nxtCondA || var.nxtCondB }
+if { var.nxtDoThing }
+    M98 P"other.g"
+```
+
+Never ship a one-line version of `nxtDoThing` if it would exceed 200 characters.

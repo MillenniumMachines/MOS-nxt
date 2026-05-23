@@ -5,11 +5,21 @@
 ; When nxtProbeMaxSampleSpreadMm > 0: strict consecutive-pair tolerance, 3 touches, R ignored.
 ; Per-invocation override: R = inner sample count when tolerance disabled (limit = 0).
 ;
-; USAGE: G6512 [X|Y|Z|A]<pos> I<probeID> [F] [R] [H]
+; USAGE: G6512 [X|Y|Z|A]<pos> I<probeID> [F] [R] [L] [O] [H]
+;   L = tolerance limit override in mm (default global.nxtProbeMaxSampleSpreadMm)
+;   O = extra full 3-touch retry cycles when tolerance is enabled
 
 ; --- Parameter Validation ---
 
-var axisParams = { param.X, param.Y, param.Z, param.A }
+var axisParams = { null, null, null, null }
+if { exists(param.X) }
+    set var.axisParams[0] = param.X
+if { exists(param.Y) }
+    set var.axisParams[1] = param.Y
+if { exists(param.Z) }
+    set var.axisParams[2] = param.Z
+if { exists(param.A) }
+    set var.axisParams[3] = param.A
 var probeAxisIndex = -1
 
 while { iterations < #var.axisParams }
@@ -24,27 +34,39 @@ if { var.probeAxisIndex == -1 }
 if { !exists(param.I) || param.I == null || param.I < 0 || sensors.probes[param.I].type < 5 || sensors.probes[param.I].type > 8 }
     abort { "G6512: Invalid probe ID I" }
 
-var toleranceEnabled = { global.nxtProbeMaxSampleSpreadMm > 0 }
+if { exists(param.L) && param.L < 0 }
+    abort { "G6512: Tolerance limit L must be >= 0" }
+if { exists(param.O) && param.O < 0 }
+    abort { "G6512: Outer retries O must be >= 0" }
+
+var toleranceLimitMm = { exists(param.L) ? param.L : global.nxtProbeMaxSampleSpreadMm }
+var outerRetries = { exists(param.O) ? floor(param.O) : global.nxtProbeSampleOuterRetries }
+var toleranceEnabled = { var.toleranceLimitMm > 0 }
 var retries = { exists(param.R) ? param.R : global.nxtProbeInnerSampleCount }
 if { var.toleranceEnabled }
     set var.retries = 3
-elseif { var.retries < 1 }
+elif { var.retries < 1 }
     set var.retries = 1
 
-var outerLimit = { var.toleranceEnabled ? global.nxtProbeSampleOuterRetries + 1 : 1 }
+var outerLimit = { var.toleranceEnabled ? var.outerRetries + 1 : 1 }
 
 G90 G21 G94
 
 M5000
 
 var targetVector = { global.nxtAbsPos }
+var hasA = { #var.targetVector > 3 }
 
 set var.targetVector[0] = { exists(param.X) ? param.X : var.targetVector[0] }
 set var.targetVector[1] = { exists(param.Y) ? param.Y : var.targetVector[1] }
 set var.targetVector[2] = { exists(param.Z) ? param.Z : var.targetVector[2] }
-set var.targetVector[3] = { exists(param.A) ? param.A : var.targetVector[3] }
+if { var.hasA }
+    set var.targetVector[3] = { exists(param.A) ? param.A : var.targetVector[3] }
 
-M6515 X{var.targetVector[0]} Y{var.targetVector[1]} Z{var.targetVector[2]} A{var.targetVector[3]}
+if { var.hasA }
+    M6515 X{var.targetVector[0]} Y{var.targetVector[1]} Z{var.targetVector[2]} A{var.targetVector[3]}
+else
+    M6515 X{var.targetVector[0]} Y{var.targetVector[1]} Z{var.targetVector[2]}
 
 var roughSpeed = { exists(param.F) ? param.F : sensors.probes[param.I].speeds[0] }
 var fineSpeed = { exists(param.F) ? param.F : sensors.probes[param.I].speeds[1] }
@@ -94,7 +116,10 @@ while { var.attempt < var.outerLimit && var.toleranceOk == false }
 
         var startPos = global.nxtAbsPos
 
-        G53 G38.2 K{param.I} F{var.speed} X{var.targetVector[0]} Y{var.targetVector[1]} Z{var.targetVector[2]} A{var.targetVector[3]}
+        if { var.hasA }
+            G53 G38.2 K{param.I} F{var.speed} X{var.targetVector[0]} Y{var.targetVector[1]} Z{var.targetVector[2]} A{var.targetVector[3]}
+        else
+            G53 G38.2 K{param.I} F{var.speed} X{var.targetVector[0]} Y{var.targetVector[1]} Z{var.targetVector[2]}
 
         if { result != 0 }
             abort { "G6512: Probe failed to trigger" }
@@ -102,37 +127,37 @@ while { var.attempt < var.outerLimit && var.toleranceOk == false }
         M5000
 
         var triggeredPos = global.nxtAbsPos[var.probeAxisIndex]
-        var direction = { var.targetVector[var.probeAxisIndex] > var.startPos ? 1 : -1 }
+        var direction = { var.targetVector[var.probeAxisIndex] > var.startPos[var.probeAxisIndex] ? 1 : -1 }
         var compensated = { var.triggeredPos * 1000 - var.probeDeflectionUm }
 
         if { var.probeAxisIndex != 2 }
             set var.compensated = { var.compensated + (var.probeTipRadiusUm * var.direction) }
 
         if { var.toleranceEnabled }
-            echo "G6512: attempt " ^ (var.innerIdx + 1) ^ "/3 axis " ^ move.axes[var.probeAxisIndex].letter ^ " = " ^ (var.compensated / 1000) ^ " mm"
+            echo "G6512: attempt " ^ { var.innerIdx + 1 } ^ "/3 axis " ^ move.axes[var.probeAxisIndex].letter ^ " = " ^ { var.compensated / 1000 } ^ " mm"
         else
-            echo "G6512: attempt " ^ (var.innerIdx + 1) ^ "/" ^ var.retries ^ " axis " ^ move.axes[var.probeAxisIndex].letter ^ " = " ^ (var.compensated / 1000) ^ " mm"
+            echo "G6512: attempt " ^ { var.innerIdx + 1 } ^ "/" ^ var.retries ^ " axis " ^ move.axes[var.probeAxisIndex].letter ^ " = " ^ { var.compensated / 1000 } ^ " mm"
 
         if { var.toleranceEnabled && var.innerIdx == 0 }
             set var.v1Um = var.compensated
-        elseif { var.toleranceEnabled && var.innerIdx == 1 }
+        elif { var.toleranceEnabled && var.innerIdx == 1 }
             set var.v2Um = var.compensated
             var pairDeltaMm = { abs(var.compensated - var.v1Um) / 1000 }
-            if { var.pairDeltaMm > global.nxtProbeMaxSampleSpreadMm }
+            if { var.pairDeltaMm > var.toleranceLimitMm }
                 set var.pairsOk = false
                 set var.lastPairDeltaMm = var.pairDeltaMm
-                set var.lastPairOverMm = { var.pairDeltaMm - global.nxtProbeMaxSampleSpreadMm }
+                set var.lastPairOverMm = { var.pairDeltaMm - var.toleranceLimitMm }
                 set var.lastFailedPairLabel = "1-2"
-                echo "G6512: pair 1-2 delta " ^ var.pairDeltaMm ^ " mm exceeds limit " ^ global.nxtProbeMaxSampleSpreadMm ^ " mm (over by " ^ var.lastPairOverMm ^ " mm)"
-        elseif { var.toleranceEnabled && var.innerIdx == 2 }
+                echo "G6512: pair 1-2 delta " ^ var.pairDeltaMm ^ " mm exceeds limit " ^ var.toleranceLimitMm ^ " mm (over by " ^ var.lastPairOverMm ^ " mm)"
+        elif { var.toleranceEnabled && var.innerIdx == 2 }
             set var.v3Um = var.compensated
             var pairDeltaMm = { abs(var.compensated - var.v2Um) / 1000 }
-            if { var.pairDeltaMm > global.nxtProbeMaxSampleSpreadMm }
+            if { var.pairDeltaMm > var.toleranceLimitMm }
                 set var.pairsOk = false
                 set var.lastPairDeltaMm = var.pairDeltaMm
-                set var.lastPairOverMm = { var.pairDeltaMm - global.nxtProbeMaxSampleSpreadMm }
+                set var.lastPairOverMm = { var.pairDeltaMm - var.toleranceLimitMm }
                 set var.lastFailedPairLabel = "2-3"
-                echo "G6512: pair 2-3 delta " ^ var.pairDeltaMm ^ " mm exceeds limit " ^ global.nxtProbeMaxSampleSpreadMm ^ " mm (over by " ^ var.lastPairOverMm ^ " mm)"
+                echo "G6512: pair 2-3 delta " ^ var.pairDeltaMm ^ " mm exceeds limit " ^ var.toleranceLimitMm ^ " mm (over by " ^ var.lastPairOverMm ^ " mm)"
 
         set var.sum = { var.sum + var.compensated }
         set var.count = { var.count + 1 }
@@ -150,16 +175,25 @@ while { var.attempt < var.outerLimit && var.toleranceOk == false }
         set var.speed = { var.fineSpeed }
 
         var backoffVector = { global.nxtAbsPos }
-        while { #var.backoffVector < 4 }
-            set var.backoffVector[#var.backoffVector] = 0
+        if { var.hasA }
+            while { #var.backoffVector < 4 }
+                set var.backoffVector[#var.backoffVector] = 0
         set var.backoffVector[var.probeAxisIndex] = var.backoffTarget
 
-        G53 G0 X{var.backoffVector[0]} Y{var.backoffVector[1]} Z{var.backoffVector[2]} A{var.backoffVector[3]}
+        if { var.hasA }
+            G53 G0 X{var.backoffVector[0]} Y{var.backoffVector[1]} Z{var.backoffVector[2]} A{var.backoffVector[3]}
+        else
+            G53 G0 X{var.backoffVector[0]} Y{var.backoffVector[1]} Z{var.backoffVector[2]}
 
         if { sensors.probes[param.I].recoveryTime > 0 }
             G4 P{ ceil(sensors.probes[param.I].recoveryTime * 1000) }
 
         set var.innerIdx = { var.innerIdx + 1 }
+
+    if { var.toleranceEnabled && var.count < 3 }
+        set var.pairsOk = false
+        set var.lastFailedPairLabel = "sample-count"
+        echo "G6512: Expected 3 tolerance touches, got " ^ var.count
 
     if { !var.toleranceEnabled || var.pairsOk }
         set var.toleranceOk = true
@@ -172,11 +206,14 @@ while { var.attempt < var.outerLimit && var.toleranceOk == false }
             set var.finalV1Mm = { var.v1Um / 1000 }
             set var.finalV2Mm = { var.v2Um / 1000 }
             set var.finalV3Mm = { var.v3Um / 1000 }
-    elseif { var.toleranceEnabled }
+    elif { var.toleranceEnabled }
         echo "G6512: Consecutive-pair tolerance failed — probe cycle retry " ^ var.attempt ^ " of " ^ var.outerLimit
 
 if { var.toleranceOk == false }
-    abort { "G6512: Repeatability failed: pair " ^ var.lastFailedPairLabel ^ " delta " ^ var.lastPairDeltaMm ^ " mm > " ^ global.nxtProbeMaxSampleSpreadMm ^ " mm (over by " ^ var.lastPairOverMm ^ " mm) after " ^ var.outerLimit ^ " cycle(s)" }
+    var nxtG6512Abort = { "G6512: Repeatability failed: pair " ^ var.lastFailedPairLabel }
+    set var.nxtG6512Abort = { var.nxtG6512Abort ^ " delta " ^ var.lastPairDeltaMm ^ " mm > " ^ var.toleranceLimitMm }
+    set var.nxtG6512Abort = { var.nxtG6512Abort ^ " mm (over by " ^ var.lastPairOverMm ^ " mm) after " ^ var.outerLimit ^ " cycle(s)" }
+    abort { var.nxtG6512Abort }
 
 set global.nxtLastProbeResult = { round(var.finalSumUm / var.finalCount) / 1000 }
 
@@ -186,4 +223,7 @@ if { exists(param.H) && param.H != null && var.finalHitN > 0 }
 
 echo "G6512: Compensated probe result for axis " ^ move.axes[var.probeAxisIndex].letter ^ ": " ^ global.nxtLastProbeResult
 if { var.toleranceEnabled }
-    echo "G6512: Tolerance ok — average " ^ global.nxtLastProbeResult ^ " mm (v1=" ^ var.finalV1Mm ^ " v2=" ^ var.finalV2Mm ^ " v3=" ^ var.finalV3Mm ^ ", limit " ^ global.nxtProbeMaxSampleSpreadMm ^ " mm per pair)"
+    var nxtG6512Ok = { "G6512: Tolerance ok — average " ^ global.nxtLastProbeResult ^ " mm" }
+    set var.nxtG6512Ok = { var.nxtG6512Ok ^ " (v1=" ^ var.finalV1Mm ^ " v2=" ^ var.finalV2Mm ^ " v3=" ^ var.finalV3Mm ^ ")" }
+    set var.nxtG6512Ok = { var.nxtG6512Ok ^ ", limit " ^ var.toleranceLimitMm ^ " mm per pair" }
+    echo { var.nxtG6512Ok }

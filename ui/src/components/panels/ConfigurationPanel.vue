@@ -400,15 +400,22 @@
                     </v-list-item-content>
                   </template>
                   <template v-slot:append-outer>
-                    <v-chip
-                      v-if="configDraft.nxtTouchProbeID !== null"
-                      small
-                      :color="touchProbeTriggered ? 'success' : 'grey'"
-                      @click="testTouchProbe"
-                    >
-                      <v-icon small left>{{ touchProbeTriggered ? 'mdi-check-circle' : 'mdi-circle-outline' }}</v-icon>
-                      {{ touchProbeTriggered ? 'Triggered' : 'Test' }}
-                    </v-chip>
+                    <v-tooltip top :disabled="configDraft.nxtTouchProbeID === null">
+                      <template v-slot:activator="{ on }">
+                        <v-chip
+                          v-if="configDraft.nxtTouchProbeID !== null"
+                          small
+                          :color="touchProbeLiveColor"
+                          :disabled="!isConnected"
+                          v-on="on"
+                          @click="onTouchProbeTestClick"
+                        >
+                          <v-icon small left>{{ touchProbeLiveIcon }}</v-icon>
+                          {{ touchProbeLiveLabel }}
+                        </v-chip>
+                      </template>
+                      <span>{{ touchProbeLiveTooltip }}</span>
+                    </v-tooltip>
                   </template>
                 </v-select>
               </v-col>
@@ -528,15 +535,22 @@
                     </v-list-item-content>
                   </template>
                   <template v-slot:append-outer>
-                    <v-chip
-                      v-if="configDraft.nxtToolSetterID !== null"
-                      small
-                      :color="toolSetterTriggered ? 'success' : 'grey'"
-                      @click="testToolSetter"
-                    >
-                      <v-icon small left>{{ toolSetterTriggered ? 'mdi-check-circle' : 'mdi-circle-outline' }}</v-icon>
-                      {{ toolSetterTriggered ? 'Triggered' : 'Test' }}
-                    </v-chip>
+                    <v-tooltip top :disabled="configDraft.nxtToolSetterID === null">
+                      <template v-slot:activator="{ on }">
+                        <v-chip
+                          v-if="configDraft.nxtToolSetterID !== null"
+                          small
+                          :color="toolSetterLiveColor"
+                          :disabled="!isConnected"
+                          v-on="on"
+                          @click="onToolSetterTestClick"
+                        >
+                          <v-icon small left>{{ toolSetterLiveIcon }}</v-icon>
+                          {{ toolSetterLiveLabel }}
+                        </v-chip>
+                      </template>
+                      <span>{{ toolSetterLiveTooltip }}</span>
+                    </v-tooltip>
                   </template>
                 </v-select>
               </v-col>
@@ -863,6 +877,11 @@ import {
   type NxtUserConfigDraft
 } from '../../utils/nxtUserVarsPersistence'
 import { readFirmwareGlobal } from '../../utils/nxtToolChangerOm'
+import {
+  getProbeByIndex,
+  isProbeTriggered,
+  probeReadingText
+} from '../../utils/nxtProbeOm'
 
 /**
  * NeXT Configuration Panel
@@ -890,10 +909,6 @@ export default BaseComponent.extend({
       decelStartTime: 0,
       accelDialog: false,
       decelDialog: false,
-
-      // Probe test states
-      touchProbeTriggered: false,
-      toolSetterTriggered: false,
 
       // Spindle test state
       spindleTesting: false,
@@ -999,6 +1014,123 @@ export default BaseComponent.extend({
       if (this.configDraft.nxtProbeTipRadius === null || this.configDraft.nxtProbeTipRadius === 0) missing.push('Tip Radius')
       if (this.configDraft.nxtProbeDeflection === null) missing.push('Deflection')
       return `Required: ${missing.join(', ')}`
+    },
+
+    /** Live OM probe row for the selected touch-probe sensor index. */
+    selectedTouchProbeOm() {
+      return getProbeByIndex(
+        this.$store.state.machine.model.sensors?.probes,
+        this.configDraft.nxtTouchProbeID
+      )
+    },
+
+    touchProbeLiveTriggered(): boolean {
+      return isProbeTriggered(this.selectedTouchProbeOm)
+    },
+
+    touchProbeLiveColor(): string {
+      if (!this.isConnected) {
+        return 'grey'
+      }
+      if (this.configDraft.nxtTouchProbeID === null) {
+        return 'grey'
+      }
+      if (!this.selectedTouchProbeOm) {
+        return 'warning'
+      }
+      return this.touchProbeLiveTriggered ? 'success' : 'grey darken-1'
+    },
+
+    touchProbeLiveIcon(): string {
+      if (!this.isConnected || !this.selectedTouchProbeOm) {
+        return 'mdi-lan-disconnect'
+      }
+      return this.touchProbeLiveTriggered ? 'mdi-check-circle' : 'mdi-circle-outline'
+    },
+
+    touchProbeLiveLabel(): string {
+      if (!this.isConnected) {
+        return 'Offline'
+      }
+      const id = this.configDraft.nxtTouchProbeID
+      if (id === null) {
+        return ''
+      }
+      if (!this.selectedTouchProbeOm) {
+        return `Probe ${id}: —`
+      }
+      const reading = probeReadingText(this.selectedTouchProbeOm)
+      return this.touchProbeLiveTriggered ? `Triggered (${reading})` : `Ready (${reading})`
+    },
+
+    touchProbeLiveTooltip(): string {
+      const id = this.configDraft.nxtTouchProbeID
+      if (id === null) {
+        return ''
+      }
+      const probe = this.selectedTouchProbeOm
+      if (!probe) {
+        return `Probe ${id} not found in object model`
+      }
+      return `Probe ${id}: reading ${probeReadingText(probe)}, threshold ${probe.threshold ?? '—'}`
+    },
+
+    selectedToolSetterOm() {
+      return getProbeByIndex(
+        this.$store.state.machine.model.sensors?.probes,
+        this.configDraft.nxtToolSetterID
+      )
+    },
+
+    toolSetterLiveTriggered(): boolean {
+      return isProbeTriggered(this.selectedToolSetterOm)
+    },
+
+    toolSetterLiveColor(): string {
+      if (!this.isConnected) {
+        return 'grey'
+      }
+      if (this.configDraft.nxtToolSetterID === null) {
+        return 'grey'
+      }
+      if (!this.selectedToolSetterOm) {
+        return 'warning'
+      }
+      return this.toolSetterLiveTriggered ? 'success' : 'grey darken-1'
+    },
+
+    toolSetterLiveIcon(): string {
+      if (!this.isConnected || !this.selectedToolSetterOm) {
+        return 'mdi-lan-disconnect'
+      }
+      return this.toolSetterLiveTriggered ? 'mdi-check-circle' : 'mdi-circle-outline'
+    },
+
+    toolSetterLiveLabel(): string {
+      if (!this.isConnected) {
+        return 'Offline'
+      }
+      const id = this.configDraft.nxtToolSetterID
+      if (id === null) {
+        return ''
+      }
+      if (!this.selectedToolSetterOm) {
+        return `Probe ${id}: —`
+      }
+      const reading = probeReadingText(this.selectedToolSetterOm)
+      return this.toolSetterLiveTriggered ? `Triggered (${reading})` : `Ready (${reading})`
+    },
+
+    toolSetterLiveTooltip(): string {
+      const id = this.configDraft.nxtToolSetterID
+      if (id === null) {
+        return ''
+      }
+      const probe = this.selectedToolSetterOm
+      if (!probe) {
+        return `Probe ${id} not found in object model`
+      }
+      return `Probe ${id}: reading ${probeReadingText(probe)}, threshold ${probe.threshold ?? '—'}`
     },
 
     /**
@@ -1670,50 +1802,36 @@ export default BaseComponent.extend({
       }
     },
 
-    /**
-     * Test touch probe by checking if it's triggered
-     */
-    async testTouchProbe() {
-      if (this.configDraft.nxtTouchProbeID === null) return
-
-      try {
-        const probes = this.$store.state.machine.model.sensors?.probes || []
-        const probe = probes[this.configDraft.nxtTouchProbeID]
-
-        if (probe) {
-          this.touchProbeTriggered = probe.triggered || false
-
-          // Reset after 15 seconds
-          setTimeout(() => {
-            this.touchProbeTriggered = false
-          }, 15000)
-        }
-      } catch (error) {
-        console.error('NeXT: Touch probe test failed', error)
+    onTouchProbeTestClick() {
+      const id = this.configDraft.nxtTouchProbeID
+      if (id === null) {
+        return
       }
+      const probe = this.selectedTouchProbeOm
+      if (!probe) {
+        this.showStatus(`Touch probe ${id}: not found in object model`, 'warning')
+        return
+      }
+      const reading = probeReadingText(probe)
+      const th = probe.threshold ?? '—'
+      const state = this.touchProbeLiveTriggered ? 'TRIGGERED' : 'ready'
+      this.showStatus(`Touch probe ${id}: ${state} (reading ${reading}, threshold ${th})`, this.touchProbeLiveTriggered ? 'success' : 'info')
     },
 
-    /**
-     * Test tool setter by checking if it's triggered
-     */
-    async testToolSetter() {
-      if (this.configDraft.nxtToolSetterID === null) return
-
-      try {
-        const probes = this.$store.state.machine.model.sensors?.probes || []
-        const probe = probes[this.configDraft.nxtToolSetterID]
-
-        if (probe) {
-          this.toolSetterTriggered = probe.triggered || false
-
-          // Reset after 15 seconds
-          setTimeout(() => {
-            this.toolSetterTriggered = false
-          }, 15000)
-        }
-      } catch (error) {
-        console.error('NeXT: Tool setter test failed', error)
+    onToolSetterTestClick() {
+      const id = this.configDraft.nxtToolSetterID
+      if (id === null) {
+        return
       }
+      const probe = this.selectedToolSetterOm
+      if (!probe) {
+        this.showStatus(`Tool setter ${id}: not found in object model`, 'warning')
+        return
+      }
+      const reading = probeReadingText(probe)
+      const th = probe.threshold ?? '—'
+      const state = this.toolSetterLiveTriggered ? 'TRIGGERED' : 'ready'
+      this.showStatus(`Tool setter ${id}: ${state} (reading ${reading}, threshold ${th})`, this.toolSetterLiveTriggered ? 'success' : 'info')
     },
 
     /**

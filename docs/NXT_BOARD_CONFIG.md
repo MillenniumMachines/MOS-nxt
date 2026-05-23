@@ -76,6 +76,42 @@ Each board may ship `pinmap.json` (`assigned` + `free`). The Configuration UI wi
 
 ## Adding hardware
 
+## Opt-in, opt-out, manual override
+
+- **Auto load (recommended):** Configuration → bootstrap **Auto** → **Save** (creates `nxt-board-bootstrap.requested`).
+- **Hard disable:** create `0:/sys/nxt-board-bootstrap.skip` (pack never loads while skip exists).
+- **Manual chain:** add `0:/sys/nxt-user-board.g`; the loader runs this file and returns. See `macros/system/nxt-user-board.g.example`.
+
+## Pack path convention (`nxt-board-pack-resolve.g`)
+
+The loader delegates to **`nxt-board-pack-resolve.g`**, which builds paths under `nxt/config/<platform>/boards/<shortName>/`:
+
+**M98 and local variables:** RepRapFirmware does **not** pass `var.*` from a parent macro into a child called with `M98`. The loader therefore copies the board id into `global.nxtBoardPackResolveBrd` before calling the resolver. Do not use `var.brd` inside the resolver unless you set it there from that global.
+
+| Case | Path |
+|------|------|
+| Single pack | `.../boards/<shortName>/entry.g` |
+| 24 V motor variant | `.../motor-24v/entry.g` when `nxtBoardMotorVoltage == 24` |
+| 48 V motor variant | `.../motor-48v/entry.g` when `nxtBoardMotorVoltage == 48` |
+
+Platform must exist on SD: `0:/sys/nxt/config/<platform>/OVERVIEW.txt`.
+
+If `nxtBoardPackExpectedEntry` is set and differs from the resolved path, the resolver logs a warning before `M98`.
+
+## DWC UI
+
+The Configuration panel:
+
+- Lists platforms from `nxtConfigManifest.json` (directory-driven).
+- Shows deployable `0:/sys/` files and board `entry.g` paths for the selected platform.
+- **Save Configuration** — persists globals + bootstrap sentinel sync.
+- **Check SD board packs** — compares manifest to on-SD tree.
+- **Apply platform sys files** — homing macros (see [NXT_BOARD_HOMING.md](NXT_BOARD_HOMING.md)).
+
+Path previews use `ui/src/utils/nxtBoardManifest.ts`, aligned with the firmware resolver.
+
+## Adding a new platform
+
 1. **New board:** `macros/nxt-config/board/<shortName>/` with `entry.g`, `pinmap.json`, fragments.
 2. **New machine:** `macros/nxt-config/machine/<id>/` with `entry.g`, homing macros, `sys-deploy-manifest.txt`.
 3. Run `node dist/generate-nxt-config-manifest.mjs`.

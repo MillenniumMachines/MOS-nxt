@@ -25,51 +25,69 @@ while { iterations < #move.axes }
         abort { "tpost.g: Axis " ^ move.axes[iterations].letter ^ " must be homed after tool change" }
 
 ; Set tool change state to indicate tpost.g started
-global nxtToolChangeState = 4
+set global.nxtToolChangeState = 4
 
 ; Stop and park spindle for safety
 G27 Z1
 
 ; Handle touch probe special case
 if { state.currentTool == global.nxtProbeToolID && global.nxtFeatureTouchProbe }
-    ; Touch probe must be measured against reference surface to establish
-    ; its length relative to the toolsetter for accurate offset calculations
-    
-    if { global.nxtDeltaMachine == null }
-        M291 P"Touch probe installed but nxtDeltaMachine not calibrated. Please run configuration wizard first." R"Configuration Required" S2
-        abort { "tpost.g: nxtDeltaMachine calibration required for touch probe" }
-    
-    ; Probe the reference surface with the touch probe
-    ; This establishes the probe's position relative to the static datum
-    echo "tpost.g: Measuring touch probe against reference surface"
-    
-    ; User must manually position probe near reference surface
-    ; ATC: replace with known reference approach position if changer defines it
-    M291 P"Please jog the touch probe close to the reference surface, then press OK to continue with automatic measurement." R"Position Touch Probe" S3
-    
-    ; Probe the reference surface (this should be implemented as a specific cycle)
-    ; For now, we'll use a simple Z probe - this may need enhancement
-    G6512 Z{move.axes[2].min + 50} I{global.nxtTouchProbeID} R{global.nxtProbeInnerSampleCount}
-    
-    ; Calculate the touch probe's "virtual" toolsetter position
-    ; This allows it to be used in relative offset calculations
-    var probeRefPos = { global.nxtLastProbeResult }
-    var probeVirtualToolsetterPos = { var.probeRefPos - global.nxtDeltaMachine }
-    
-    ; Cache this virtual measurement
-    set global.nxtToolCache[state.currentTool] = { var.probeVirtualToolsetterPos }
-    
-    ; Set tool offset to 0 for the touch probe (it defines the reference)
-    G10 L1 P{state.currentTool} Z0
-    
-    echo "tpost.g: Touch probe measured, virtual toolsetter position: " ^ var.probeVirtualToolsetterPos
+    ; If a toolsetter is enabled, touch probe must be measured against reference
+    ; surface to establish its virtual position for relative offset calculations.
+    if { global.nxtFeatureToolSetter && global.nxtToolSetterPos != null }
+        if { global.nxtDeltaMachine == null }
+            M291 P"Touch probe installed but nxtDeltaMachine not calibrated. Please run configuration wizard first." R"Configuration Required" S2
+            abort { "tpost.g: nxtDeltaMachine calibration required for touch probe" }
+        echo "tpost.g: Measuring touch probe against reference surface"
+        ; ATC: replace with known reference approach position if changer defines it
+        M291 P"Please jog the touch probe close to the reference surface, then press OK to continue with automatic measurement." R"Position Touch Probe" S3
+        var tpSamples = { exists(global.nxtTouchProbeInnerSampleCount) && global.nxtTouchProbeInnerSampleCount > 0 ? global.nxtTouchProbeInnerSampleCount : global.nxtProbeInnerSampleCount }
+        var tpTol = { exists(global.nxtTouchProbeMaxSampleSpreadMm) && global.nxtTouchProbeMaxSampleSpreadMm >= 0 ? global.nxtTouchProbeMaxSampleSpreadMm : global.nxtProbeMaxSampleSpreadMm }
+        var tpHasOuterRetries = { exists(global.nxtTouchProbeSampleOuterRetries) && global.nxtTouchProbeSampleOuterRetries >= 0 }
+        var tpOuterRetries = { var.tpHasOuterRetries ? floor(global.nxtTouchProbeSampleOuterRetries) : global.nxtProbeSampleOuterRetries }
+        G6512 Z{move.axes[2].min + 50} I{global.nxtTouchProbeID} R{var.tpSamples} L{var.tpTol} O{var.tpOuterRetries}
+        var probeRefPos = { global.nxtLastProbeResult }
+        var probeVirtualToolsetterPos = { var.probeRefPos - global.nxtDeltaMachine }
+        set global.nxtToolCache[state.currentTool] = { var.probeVirtualToolsetterPos }
+        G10 L1 P{state.currentTool} Z0
+        echo "tpost.g: Touch probe measured, virtual toolsetter position: " ^ var.probeVirtualToolsetterPos
+    else
+        ; No toolsetter: keep probe active without forcing reference probing.
+        set global.nxtToolCache[state.currentTool] = null
+        G10 L1 P{state.currentTool} Z0
+        echo "tpost.g: Touch probe loaded (toolsetter disabled, reference probing skipped)"
     
 elif { global.nxtFeatureToolSetter && global.nxtToolSetterPos != null }
     ; Standard tool with toolsetter available
     echo "tpost.g: Measuring new tool " ^ state.currentTool
-    
-    ; Measure the new tool
-    G37
+
+    if { global.nxtToolSetterID == null }
+        abort { "tpost.g: Toolsetter probe ID (nxtToolSetterID) is not configured" }
+    if { !exists(global.nxtToolSetterPos) || global.nxtToolSetterPos == null || #global.nxtToolSetterPos < 3 }
+        abort { "tpost.g: Toolsetter position (nxtToolSetterPos) must be a 3-value vector" }
+
+    var tsX = global.nxtToolSetterPos[0]
+    var tsY = global.nxtToolSetterPos[1]
+    var tsZ = global.nxtToolSetterPos[2]
+    var tsTravel = { exists(global.nxtToolSetterProbeTravelMm) && global.nxtToolSetterProbeTravelMm > 0 ? global.nxtToolSetterProbeTravelMm : 80.0 }
+    var tsProbeTargetZ = { var.tsZ - var.tsTravel }
+    var tsSamplesRaw = { exists(global.nxtToolSetterInnerSampleCount) && global.nxtToolSetterInnerSampleCount > 0 ? global.nxtToolSetterInnerSampleCount : global.nxtProbeInnerSampleCount }
+    var tsSamples = { var.tsSamplesRaw < 2 ? 2 : var.tsSamplesRaw }
+    var tsTol = { exists(global.nxtToolSetterMaxSampleSpreadMm) && global.nxtToolSetterMaxSampleSpreadMm >= 0 ? global.nxtToolSetterMaxSampleSpreadMm : global.nxtProbeMaxSampleSpreadMm }
+    var tsHasOuterRetries = { exists(global.nxtToolSetterSampleOuterRetries) && global.nxtToolSetterSampleOuterRetries >= 0 }
+    var tsOuterRetries = { var.tsHasOuterRetries ? floor(global.nxtToolSetterSampleOuterRetries) : global.nxtProbeSampleOuterRetries }
+    var tsRoughSpeed = { sensors.probes[global.nxtToolSetterID].speeds[0] }
+    var tsFineSpeed = { sensors.probes[global.nxtToolSetterID].speeds[1] }
+    if { var.tsFineSpeed == var.tsRoughSpeed }
+        set var.tsFineSpeed = { var.tsRoughSpeed / 5 }
+
+    ; Measure at configured toolsetter position using explicit two-stage probing:
+    ; 1) fast seek to find contact quickly, 2) slow pass for final measurement.
+    G53 G0 X{var.tsX} Y{var.tsY}
+    echo "tpost.g: Toolsetter fast seek"
+    G6512 Z{var.tsProbeTargetZ} I{global.nxtToolSetterID} F{var.tsRoughSpeed} R1 L0 O0
+    echo "tpost.g: Toolsetter slow confirm"
+    G6512 Z{var.tsProbeTargetZ} I{global.nxtToolSetterID} F{var.tsFineSpeed} R{var.tsSamples} L{var.tsTol} O{var.tsOuterRetries}
     var newToolMeasurement = { global.nxtLastProbeResult }
     
     ; Cache the measurement
@@ -112,6 +130,6 @@ else
     echo "tpost.g: Manual tool offset required - no automatic measurement available"
 
 ; Clear tool change state to indicate completion
-global nxtToolChangeState = null
+set global.nxtToolChangeState = null
 
 echo "tpost.g: Tool " ^ state.currentTool ^ " change process completed"

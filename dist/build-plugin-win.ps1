@@ -38,6 +38,10 @@ Write-Host "  Version   : $buildVersion"
 Write-Host "  Output    : dist\$outZip"
 Write-Host ""
 
+Write-Host "Checking RRF macro line lengths (max 200)..." -ForegroundColor Yellow
+node (Join-Path $Root "dist\check-gcode-line-length.mjs")
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
 # --- Cleanup ---
 Write-Host "[1/6] Cleaning previous build artifacts..." -ForegroundColor Yellow
 $pluginStaged = Join-Path $DwcRoot "src\plugins\NeXT"
