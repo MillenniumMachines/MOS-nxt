@@ -1,30 +1,46 @@
 #!/usr/bin/env node
 /**
- * DWC build-plugin.js only zips JS/CSS whose names start with `${pluginId}.`
- * Webpack may also emit split chunks (e.g. vendors~NeXT.<hash>.js, 12.NeXT.<hash>.js).
- * Those files must be in the plugin zip or __webpack_require__ hits undefined → minified ".call" errors.
+ * Patch DWC build-plugin.js for NeXT plugin ZIP:
+ * - Include split chunks (vendors~NeXT.*) and only .js/.css (not .map/.gz)
+ * - Keep official flat dwc/js + dwc/css layout (DSF installs dwc/* under 0:/www/NeXT/)
  *
  * Usage: node patch-dwc-build-plugin-zip.cjs <path-to-DWC>/scripts/build-plugin.js
  */
-"use strict";
+'use strict'
 
-const fs = require("fs");
-const path = process.argv[2];
+const fs = require('fs')
+const path = process.argv[2]
 if (!path || !fs.existsSync(path)) {
-  console.error("usage: node patch-dwc-build-plugin-zip.cjs <build-plugin.js>");
-  process.exit(1);
+  console.error('usage: node patch-dwc-build-plugin-zip.cjs <build-plugin.js>')
+  process.exit(1)
 }
 
-let s = fs.readFileSync(path, "utf8");
-const needle = "if (file.indexOf(pluginManifest.id + \".\") === 0) {";
-const replacement =
-  "if (file.indexOf(pluginManifest.id + \".\") === 0 || file.includes(\"~\" + pluginManifest.id) || file.indexOf(\".\" + pluginManifest.id + \".\") > 0) {";
+let s = fs.readFileSync(path, 'utf8')
 
-const matches = s.split(needle).length - 1;
-if (matches !== 2) {
-  console.error(`patch-dwc-build-plugin-zip: expected 2 zip-loop matches, found ${matches} (DWC script changed?)`);
-  process.exit(1);
+const filterNeedle = 'if (file.indexOf(pluginManifest.id + ".") === 0) {'
+const filterReplacement =
+  'if ((file.indexOf(pluginManifest.id + ".") === 0 || file.includes("~" + pluginManifest.id) || file.indexOf("." + pluginManifest.id + ".") > 0) && (/\\.js$/.test(file) || /\\.css$/.test(file))) {'
+
+const filterCount = s.split(filterNeedle).length - 1
+if (filterCount !== 2) {
+  console.error(
+    `patch-dwc-build-plugin-zip: expected 2 filter matches, found ${filterCount} (DWC script changed?)`
+  )
+  process.exit(1)
 }
-s = s.split(needle).join(replacement);
-fs.writeFileSync(path, s);
-console.log("patch-dwc-build-plugin-zip: updated", path);
+s = s.split(filterNeedle).join(filterReplacement)
+
+// Undo mistaken dwc/NeXT/js subdir patch if present from an older NeXT build
+const cssSub = 'archive.file(distDir + "/css/" + file, { name: "dwc/" + pluginManifest.id + "/css/" + file });'
+const cssFlat = 'archive.file(distDir + "/css/" + file, { name: "dwc/css/" + file });'
+const jsSub = 'archive.file(distDir + "/js/" + file, { name: "dwc/" + pluginManifest.id + "/js/" + file });'
+const jsFlat = 'archive.file(distDir + "/js/" + file, { name: "dwc/js/" + file });'
+if (s.includes(cssSub)) {
+  s = s.replace(cssSub, cssFlat)
+}
+if (s.includes(jsSub)) {
+  s = s.replace(jsSub, jsFlat)
+}
+
+fs.writeFileSync(path, s)
+console.log('patch-dwc-build-plugin-zip: updated', path)

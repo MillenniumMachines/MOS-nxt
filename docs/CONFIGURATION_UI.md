@@ -74,8 +74,8 @@ Select the machine platform and board pack that match your hardware. Platforms a
 | **Board profile** | Override `global.nxtBoardShortNameOverride` or leave Auto (first board in object model) |
 | **Scylla motor voltage** | Required for Scylla packs: `24` or `48` V variant |
 | **Bootstrap mode** | **Auto** — Save creates `0:/sys/nxt-board-bootstrap.requested`. **Off** — Save removes it. |
-| **Apply platform sys files** | Uploads `homeall.g`, `homex.g`, `homey.g`, `homez.g` from `nxt/config/<platform>/common/` to `0:/sys/` |
-| **Check SD board packs** | Compares bundled manifest to `0:/sys/nxt/config/` (stale plugin warning) |
+| **Apply platform sys files** | Uploads `homeall.g`, `homex.g`, `homey.g`, `homez.g` from `nxt-config/machine/<profile>/` to `0:/sys/` (deploy-only, not boot) |
+| **Check SD board packs** | Compares bundled manifest to `0:/sys/nxt-config/` (stale plugin warning) |
 | **Save Configuration** | Writes `nxt-user-vars.g` including `nxtBoardPackExpectedEntry` and syncs bootstrap sentinels |
 
 When you change platform, the UI may prompt to deploy homing files for that platform immediately. Homing direction requirements differ between v1.5 and v1.6_v2 — see [NXT_BOARD_HOMING.md](NXT_BOARD_HOMING.md).
@@ -200,7 +200,7 @@ On the machine, configuration lives on the SD card as **`0:/sys/nxt-user-vars.g`
 - If the file is missing at boot, NeXT still loads (`global.nxtConfigPending = true`) so this panel is available — review settings and **Save** to create the file
 - Survives machine restarts
 - Can be edited manually on the SD card if needed
-- **Probe repeatability** (G6512 sample count, pair tolerance, retries) is **not** in `nxt-user-vars.g` — defaults live in **`nxt-vars.g`**; copy **`nxt-user-overrides.g.example`** to **`0:/sys/nxt-user-overrides.g`** to override
+- **Probe repeatability** (G6512 sample count, pair tolerance, retries) is **not** in `nxt-user-vars.g` — defaults live in **`nxt-vars.g`**. The plugin ships **`0:/sys/nxt-user-overrides.g.example`** on SD; copy it to **`nxt-user-overrides.g`** to enable overrides. Only **`nxt-user-overrides.g`** is loaded (never the `.example` file), and only **last** in `nxt.g` after board pack and boot.
 
 ### Configuration Flow
 ```

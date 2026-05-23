@@ -1,0 +1,65 @@
+---
+description: NeXT UI / plugin load path checklist — SD, manifest, DWC zip, boot macros
+globs:
+  - ui/**
+  - dist/generate-nxt-config-manifest.mjs
+  - dist/build-plugin.sh
+  - dist/merge-sd-into-plugin-zip.cjs
+  - dist/setup-dwc-dev-symlink.sh
+  - dist/regenerate-dwc-plugin-imports.cjs
+  - macros/nxt-config/**
+  - macros/system/nxt-board*.g
+alwaysApply: false
+---
+
+# NeXT plugin loading paths (UI and config tree)
+
+When changing **board/machine layout**, **SD paths**, **manifest shape**, or **Configuration UI** paths, verify every layer below stays aligned. Canonical SD prefix is **`nxt-config`** (hyphen), not `nxt/config`.
+
+## Path map (must stay consistent)
+
+| Layer | Canonical pattern | Key files |
+|-------|-------------------|-----------|
+| SD on printer | `0:/sys/nxt-config/board/…`, `0:/sys/nxt-config/machine/<profile>/…` | `dist/build-plugin.sh` rsync → `sd/sys/nxt-config/` |
+| Boot macros | `M98 P"nxt-config/board/…"`, `M98 P"nxt-config/machine/…"` — **no `^` inside `M98 P"…"`** | `macros/nxt-config/**/entry.g`, `macros/system/nxt-board-pack-resolve.g`, `nxt-board-machine-pack.g` |
+| Build manifest | `nxt-config/board/…`, `nxt-config/machine/…/entry.g`, `machineEntryPath` on **both** `machines[]` and `platforms[]` | `dist/generate-nxt-config-manifest.mjs` → `ui/src/generated/nxtConfigManifest.json` |
+| UI helpers | Same relative paths; SD scan root `0:/sys/nxt-config` | `ui/src/utils/nxtBoardManifest.ts`, `nxtConfigSdScan.ts`, `nxtBoardSysDeploy.ts`, `nxtConfigManifestData.ts`, `ConfigurationPanel.vue`, `ui/src/locales/en.json` |
+| Legacy only | `nxt/config/<platform>/boards/…` fallback | `nxt-board-pack-resolve.g`, loader `OVERVIEW.txt` check — do not use for new UI/manifest paths |
+| DWC plugin ZIP | `dwc/js/NeXT.*.js`, `dwc/css/NeXT.*.css`, `plugin.json` `dwcWebpackChunk: "NeXT"` | `ui/plugin.json`; split chunks need `dist/patch-dwc-build-plugin-zip.cjs` |
+| DWC dev | Symlink `DuetWebControl/src/plugins/NeXT` → `NeXT/ui` | `./dist/setup-dwc-dev-symlink.sh`; after `build-plugin.sh` run `node dist/regenerate-dwc-plugin-imports.cjs` |
+
+## Checklist (run before considering UI path work done)
+
+1. **Regenerate manifest** (if `macros/nxt-config/` or generator changed):
+   `node dist/generate-nxt-config-manifest.mjs`
+2. **Grep for stale paths** (expect legacy hits only in resolve/loader shims):
+   `rg 'nxt/config' --glob '!*.md' macros ui dist`
+3. **Confirm generated JSON** includes `machineEntryPath` on each `platforms[]` entry (partial `platforms` breaks the DWC build → `can't access property "call"` at plugin start).
+4. **Rebuild plugin** when UI or manifest changed: `./dist/build-plugin.sh <DWC>` (exit 0); ZIP must list `dwc/js/NeXT.*.js`.
+5. **DWC dev:** symlink present; `imports.ts` must not list `NeXT` without `src/plugins/NeXT/` on disk.
+
+## Plugin load error: `can't access property "call", v[ee] is undefined`
+
+This is **webpack**, not RRF. See `dist/diagnose-plugin-chunk.mjs` for a full report.
+
+**Architecture:** NeXT `dwc/js/NeXT.*.js` is only ~73 modules; **~45 more** must come from the host `app.*.js` (store, routes, i18n, vue, vuetify). Shipped ZIPs require **exact** `dwcVersion` match (`auto` at build → e.g. `3.6.2`). Different patch or major line → missing modules → `.call` error. Run `./dist/verify-dwc-build-alignment.sh` before release builds.
+
+**URL resolution (critical on stock DWC):** Host `getChunkScriptFilename` uses `plugin.dwcFiles` when `window.pluginBeingLoaded` is set. Stock app has **no** `NeXT:"<hash>"` entry. If `dwcFiles` is empty or missing `js/NeXT.*.js`, webpack requests **`js/NeXT.undefined.js`** → same `.call` symptom.
+
+**Diagnose:** `node dist/diagnose-plugin-chunk.mjs dist/NeXT-*.zip /path/to/host/app.*.js` (save printer `app.*.js` from DevTools → Network).
+
+**Browser checks:** Network → `NeXT.*.js` must be **200**; `app.*.js` must contain `pluginBeingLoaded`. Console → object model / plugins file → `NeXT.dwcFiles` includes `js/NeXT.<hash>.js`.
+
+**Fix:** See [docs/PLUGIN_LOAD_TROUBLESHOOTING.md](docs/PLUGIN_LOAD_TROUBLESHOOTING.md). ZIP must use **flat** `dwc/js/` (not `dwc/NeXT/js/`). Run `node dist/trace-plugin-404.mjs dist/NeXT-*.zip [dwc-plugins.json]`.
+
+## UI change triggers (always re-check paths)
+
+- New/renamed machine profile or board pack directory
+- `sys-deploy-manifest.txt` or homing deploy paths
+- Configuration save fields (`nxtBoardPackExpectedEntry`, `nxtPlatformProfile`, pinmap paths)
+- New imports of manifest data or SD scan utilities
+- Moving or splitting Vue panels (keep **static** panel imports in `ui/src/index.ts` / `components/panels/index.ts` — avoid async `import()` in the plugin entry)
+
+## Release cross-check
+
+Before tags/releases, also follow [release-plugin-verify.mdc](release-plugin-verify.mdc) (macro line length, `build-plugin.sh`, manual DWC plugin load on target major line).

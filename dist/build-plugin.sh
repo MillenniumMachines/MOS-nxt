@@ -93,6 +93,9 @@ if [[ ! -d "${DWC_REPO_PATH}" ]]; then
   exit 1
 fi
 
+chmod +x "${ROOT}/dist/verify-dwc-build-alignment.sh"
+"${ROOT}/dist/verify-dwc-build-alignment.sh" "${DWC_REPO_PATH}"
+
 clean_next_plugin_artifacts "${DWC_REPO_PATH}"
 
 if [[ "${CLEAN_ONLY}" == true ]]; then
@@ -266,8 +269,8 @@ if [[ -d "${ROOT}/macros/plugins" ]]; then
   "${SYNC_CMD[@]}" "${ROOT}/macros/plugins/" "${TMP_DIR}/sd/sys/plugins/"
 fi
 if [[ -d "${ROOT}/macros/nxt-config" ]]; then
-  mkdir -p "${TMP_DIR}/sd/sys/nxt/config"
-  "${SYNC_CMD[@]}" "${ROOT}/macros/nxt-config/" "${TMP_DIR}/sd/sys/nxt/config/"
+  mkdir -p "${TMP_DIR}/sd/sys/nxt-config"
+  "${SYNC_CMD[@]}" "${ROOT}/macros/nxt-config/" "${TMP_DIR}/sd/sys/nxt-config/"
 fi
 
 if [[ -f "${TMP_DIR}/sd/sys/nxt.g" ]]; then
@@ -306,11 +309,37 @@ node "${ROOT}/dist/patch-dwc-build-plugin-zip.cjs" "${BUILD_PLUGIN_JS}"
   npm run build-plugin "${TMP_DIR}"
 )
 
+# build-plugin copies then deletes src/plugins/NeXT; restore imports.ts so dwc dev is not left broken
+node "${ROOT}/dist/regenerate-dwc-plugin-imports.cjs" "${DWC_REPO_PATH}"
+
+node "${ROOT}/dist/verify-plugin-zip.mjs" "${DWC_REPO_PATH}/dist/${OUT_ZIP}"
+
+PLUGIN_DWC_NEED="$(unzip -p "${DWC_REPO_PATH}/dist/${OUT_ZIP}" plugin.json | jq -r '.dwcVersion')"
+echo "Plugin ZIP requires host DWC version: ${PLUGIN_DWC_NEED} (exact match — see DWC Settings if load fails)"
+
+echo "Diagnosing plugin chunk host dependencies..."
+_app_js="$(ls "${DWC_REPO_PATH}"/dist/js/app.*.js 2>/dev/null | head -1)"
+if [[ -n "${_app_js}" ]] && ! node "${ROOT}/dist/diagnose-plugin-chunk.mjs" "${DWC_REPO_PATH}/dist/${OUT_ZIP}" "${_app_js}"; then
+  echo "warning: plugin chunk expects host modules missing from this DWC app.js — ZIP may fail on other DWC builds" >&2
+fi
+
 # DWC client only uploads zip members whose names start with "sd/" (see @duet3d/connectors
 # PollConnector.installPlugin). Re-pack sd/ from staging so M-code macros always land under 0:/sys/.
 DWC_REPO_PATH="${DWC_REPO_PATH}" node "${ROOT}/dist/merge-sd-into-plugin-zip.cjs" \
   "${DWC_REPO_PATH}/dist/${OUT_ZIP}" \
   "${TMP_DIR}"
+
+DWC_REPO_PATH="${DWC_REPO_PATH}" node "${ROOT}/dist/inject-plugin-dwcfiles.cjs" \
+  "${DWC_REPO_PATH}/dist/${OUT_ZIP}"
+
+_zip_js="$(unzip -Z1 "${DWC_REPO_PATH}/dist/${OUT_ZIP}" 'dwc/NeXT/js/NeXT*.js' | head -1)"
+if [[ -n "${_zip_js}" ]]; then
+  _tmp_js="$(mktemp --suffix=.js)"
+  unzip -p "${DWC_REPO_PATH}/dist/${OUT_ZIP}" "${_zip_js}" > "${_tmp_js}"
+  node --check "${_tmp_js}"
+  rm -f "${_tmp_js}"
+  echo "NeXT chunk syntax check: OK"
+fi
 
 mkdir -p "${OUT_DIR}"
 cp "${DWC_REPO_PATH}/dist/${OUT_ZIP}" "${OUT_DIR}/"

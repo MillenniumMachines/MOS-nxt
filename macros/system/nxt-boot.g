@@ -25,25 +25,20 @@ if { exists(global.nxtUserVarsPresent) && !global.nxtUserVarsPresent }
     echo "NeXT: configuration pending — complete setup in DWC Configuration panel and Save nxt-user-vars.g"
     M99
 
-; 4. User-vars on SD but incomplete — allow DWC Configuration (same as missing file)
-if { !exists(global.nxtDeltaMachine) || global.nxtDeltaMachine == null }
-    set global.nxtConfigPending = true
-    set global.nxtError = "Static datum (nxtDeltaMachine) is not defined — open Configuration and Save."
-    var resultVectorSize = { #move.axes + 1 }
-    while { iterations < #global.nxtProbeResults }
-        set global.nxtProbeResults[iterations] = { vector(var.resultVectorSize, 0.0) }
-    set global.nxtLoaded = true
-    echo "NeXT: configuration incomplete (nxtDeltaMachine) — use DWC Configuration panel"
-    M99
-
+; 4. Full configuration when user-vars file was loaded
+; nxt-user-vars.g from Configuration Save may persist null for fields not in the UI — restore defaults.
 if { !exists(global.nxtProbeToolID) || global.nxtProbeToolID == null }
+    set global.nxtProbeToolID = { limits.tools - 1 }
+    echo "[NeXT] boot: nxtProbeToolID unset — defaulting to last tool index " ^ global.nxtProbeToolID
+
+if { global.nxtFeatureTouchProbe && (!exists(global.nxtDeltaMachine) || global.nxtDeltaMachine == null) }
     set global.nxtConfigPending = true
-    set global.nxtError = "Probe Tool ID (nxtProbeToolID) is not defined — open Configuration and Save."
+    set global.nxtError = "Touch probe enabled but nxtDeltaMachine is not set — calibrate static datum in Configuration"
     var resultVectorSize = { #move.axes + 1 }
     while { iterations < #global.nxtProbeResults }
         set global.nxtProbeResults[iterations] = { vector(var.resultVectorSize, 0.0) }
     set global.nxtLoaded = true
-    echo "NeXT: configuration incomplete (nxtProbeToolID) — use DWC Configuration panel"
+    echo "NeXT: configuration incomplete (touch probe datum missing) — use DWC Configuration panel"
     M99
 
 ; --- All checks passed ---

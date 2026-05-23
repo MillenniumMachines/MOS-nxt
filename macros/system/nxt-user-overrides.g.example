@@ -1,5 +1,6 @@
-; nxt-user-overrides.g — optional; copy to 0:/sys/nxt-user-overrides.g
-; Loaded from nxt.g after nxt-user-vars.g. Overrides probe-repeatability defaults from nxt-vars.g only.
+; nxt-user-overrides.g.example — shipped on SD by the NeXT plugin (this file is NOT loaded).
+; To enable overrides: copy this file to 0:/sys/nxt-user-overrides.g (same folder).
+; nxt.g loads only nxt-user-overrides.g, last in the boot sequence (after board pack, boot, plugins).
 ; Use set global.* lines (not global declarations). Reboot or M98 P"nxt-user-overrides.g" to apply.
 
 ; Defaults in nxt-vars.g: inner=3, max spread=0.0075 mm, outer retries=1

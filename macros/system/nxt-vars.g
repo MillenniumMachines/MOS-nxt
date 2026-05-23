@@ -8,6 +8,7 @@
 global nxtFeatureTouchProbe = false
 global nxtFeatureToolSetter = false
 global nxtFeatureCoolantControl = false ; Coolant Control feature flag
+global nxtFeatureFourthAxis = false     ; Fourth axis (requires MosFourthAxis DWC plugin on SD)
 
 ; --- Core Settings ---
 global nxtProbeToolID = { limits.tools - 1 } ; Probe Tool ID, always the last tool
@@ -24,13 +25,16 @@ global nxtProbeResults = { vector(10, null) } ; Last 10 probe results (rows size
 global nxtToolCache = { vector(min(limits.tools, 50), null) } ; Per-tool cache (max 50 slots)
 global nxtLastProbeResult = null   ; Stores the result of the last probing operation
 global nxtProbeTipRadius = 0.0    ; Radius of the probe tip for compensation (mm)
-global nxtProbeDeflection = 0.0   ; Probe deflection compensation value (mm)
+global nxtProbeDeflection = {0.0, 0.0} ; {X,Y} touch-probe deflection (mm) — MOS mosTPD layout
+global nxtDatumToolRadius = null  ; Datum tool radius when touch probe feature is off (mm)
+global nxtProtectedMoveBackOff = null ; Protected move back-off distance (mm)
+global nxtTouchProbeRefPos = null ; Touch probe reference surface [X, Y, Z] machine coords
 global nxtProbeHitXY = { vector(8, 0.0) } ; Last contacts as X,Y pairs (G6512 H0..H3), machine mm — bore/boss use H0..H2
 global nxtProbeMaxSkewDeg = 5.0   ; Abort rectangle/bore skew solve if |theta| exceeds this (deg)
 
 ; --- Probe repeatability (G6512; all canned cycles use G6512) ---
-; Defaults below. To override, copy macros/system/nxt-user-overrides.g.example to 0:/sys/nxt-user-overrides.g
-; (loaded from nxt.g after nxt-user-vars.g). Not edited by the DWC Configuration panel.
+; Defaults below. Plugin installs 0:/sys/nxt-user-overrides.g.example on SD; copy to nxt-user-overrides.g
+; to enable (nxt.g loads only nxt-user-overrides.g, last in the boot sequence). Not in Configuration UI.
 ;   nxtProbeInnerSampleCount — inner sample count when tolerance disabled (limit = 0); ignored when limit > 0 (G6512 uses 3 touches).
 ;   nxtProbeMaxSampleSpreadMm — max consecutive-pair deviation (mm) between the 3 touches; both pairs must pass. Set 0 to disable.
 ;   nxtProbeSampleOuterRetries — how many *additional* full 3-touch blocks after a failed tolerance check
@@ -47,6 +51,7 @@ global nxtToolSetterSampleOuterRetries = 1 ; Toolsetter extra 3-touch retry cycl
 
 global nxtToolSetterPos = null     ; Toolsetter position vector [X, Y, Z]
 global nxtToolSetterProbeTravelMm = 80.0 ; Downward travel from toolsetter Z used for tool-length probing
+global nxtToolSetterRadius = null ; Toolsetter platen radius for large-tool multi-point G37 (mm)
 global nxtToolChangeState = null   ; Tracks the current tool change state (1=tfree, 2=tfree done, 3=tpre done, 4=tpost, null=complete)
 global nxtUserToolsFilePresent = false     ; set at boot by nxt.g: nxt-user-tools.g exists on SD
 global nxtUserToolsDaemonReload = false      ; if true, daemon reloads library when 0:/sys/nxt-user-tools.reload.requested exists (see TOOLCHANGING.md)
@@ -70,13 +75,14 @@ global nxtCannedRetractMode = 98   ; G98 initial plane / G99 R plane — set by 
 global nxtCannedZi = 0              ; scratch: Z axis index (set by nxt-canned-zindex.g)
 
 ; --- Board / platform selection (UI + pack loader) ---
-global nxtPlatformProfile = null   ; platform id = nxt/config/<id>/ directory name
+global nxtPlatformProfile = null   ; platform id = nxt-config/<id>/ directory name
 global nxtBoardKitKey = null       ; legacy UI key; optional — prefer shortName + nxtBoardMotorVoltage
 global nxtBoardShortNameOverride = null ; RRF boards[0].shortName override for pack resolution, or null
 global nxtBoardMotorVoltage = null ; 24 | 48 | null (motor-24v / motor-48v board packs)
 global nxtScyllaMotorVoltage = null ; deprecated — use nxtBoardMotorVoltage
 global nxtBoardPackEntry = null    ; last resolved entry path at boot (telemetry)
 global nxtBoardPackResolveBrd = null ; scratch: board shortName for nxt-board-pack-resolve.g (M98)
+global nxtBoardPackShortName = null ; board shortName during pack load (machine endstop-y.g)
 global nxtBoardPackExpectedEntry = null ; saved expected entry path (Configuration Save)
 global nxtBoardSysDeployPlatform = null ; platform whose home*.g were last deployed to 0:/sys/
 global nxtBoardBootstrapMode = "off" ; "off" | "auto" (Save syncs nxt-board-bootstrap.requested)

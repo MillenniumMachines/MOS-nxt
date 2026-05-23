@@ -1,77 +1,80 @@
-# NeXT board configuration (nxt/config)
+# NeXT board and machine configuration (nxt-config)
 
-NeXT ships vendored **board packs**: RepRapFirmware macro trees for machine platforms and controller boards. On the SD card they live under `0:/sys/nxt/config/` (synced from the repo’s `macros/nxt-config/` at build time).
+NeXT ships vendored **board packs** (controller pins, drives, fans) and **machine packs** (motion, limits, homing sources). On the SD card they live under `0:/sys/nxt-config/` (from `macros/nxt-config/` at build time).
 
 ## Directory layout
 
-Each **platform** is a top-level folder (directory name = `global.nxtPlatformProfile` value):
-
 ```
 nxt-config/
-  <platformId>/          e.g. v1.5, v1.6_v2
-    OVERVIEW.txt
-    common/              shared fragments + homing macros for sys deploy
-      general.g
-      movement.g
-      network-default.g
-      homeall.g, homex.g, homey.g, homez.g
+  board/
+    <shortName>/              RRF boards[].shortName (e.g. cdy3_f4, scylla1_0_h723)
+      entry.g                 Board load chain
+      pinmap.json             Named pins + free pins for UI assignment
+      endstops.g, drives.g, fans.g, spindle.g, …
+      motor-24v/ | motor-48v/ Optional supply variants
+
+  machine/
+    <machineId>/              global.nxtPlatformProfile (e.g. v1.5, v1.6_v2)
+      OVERVIEW.txt
+      entry.g                 Machine motion chain (no homing at boot)
+      movement.g, limits.g, general.g, network-default.g
+      homeall.g, homex.g, …   Deploy-only → 0:/sys/
       sys-deploy-manifest.txt
-    boards/
-      <shortName>/entry.g
-      <shortName>/motor-24v/entry.g   (optional)
 ```
 
-Platforms are discovered at **build time** into `ui/src/generated/nxtConfigManifest.json` (see `dist/generate-nxt-config-manifest.mjs`). The Configuration panel platform list and board entries come from that manifest.
+Build-time manifest: `dist/generate-nxt-config-manifest.mjs` → `ui/src/generated/nxtConfigManifest.json`.
 
-| Platform | `common/` homing | Board packs |
-|----------|------------------|-------------|
-| `v1.5` | Milo v1.5 baseline (Y → max) | `cdy3_f4`, `scylla1_0_h723` motor 24/48 V |
-| `v1.6_v2` | v1.6 / v2.0 (Y → Y0, Z reversed, Z800) | Same board tree as v1.5 |
-| `atlas` | (not shipped yet) | placeholder only |
+| Machine | Homing deploy | Boards (shared) |
+|---------|---------------|-----------------|
+| `v1.5` | Y → max, Z steps 1600 | `cdy3_f4`, `scylla1_0_h723` 24/48 V |
+| `v1.6_v2` | Y → min (Y0), Z steps 800 | same board tree |
 
-**Homing requirements (X/Y/Z per platform):** [NXT_BOARD_HOMING.md](NXT_BOARD_HOMING.md)
+**Homing:** [NXT_BOARD_HOMING.md](NXT_BOARD_HOMING.md)
 
 ## Two load paths
 
 | Path | What runs | When |
 |------|-----------|------|
-| **Pack loader** | `M98` board `entry.g` + `common/` fragments (drives, limits, spindle, …) | Boot when `0:/sys/nxt-board-bootstrap.requested` exists |
-| **Sys homing deploy** | Copies `common/home*.g` → `0:/sys/homeall.g`, etc. | Configuration UI **Apply platform sys files** |
+| **Board + machine boot** | `M98` board `entry.g`, then `machine/<id>/entry.g` | Boot when `nxt-board-bootstrap.requested` exists |
+| **Homing deploy** | Copies `machine/<id>/home*.g` → `0:/sys/homeall.g`, etc. | Configuration **Apply platform sys files** only |
 
-DWC **Home All** uses `0:/sys/homeall.g`, not the pack tree directly.
+Homing macros are **not** `M98`'d at boot.
 
-## Save / Reload contract (Configuration UI)
+## Boot order (firmware)
 
-**Save Configuration** writes board intent to `nxt-user-vars.g` and syncs SD sentinel files:
+1. `config.g` → `M98 P"nxt.g"`.
+2. `nxt.g` → `nxt-vars.g` → … → `nxt-user-vars.g` → **`nxt-board-pack-loader.g`** → `nxt-boot.g` → …
+3. Loader: `nxt-board-pack-resolve.g` → board entry → `machine/<nxtPlatformProfile>/entry.g` → optional `nxt-user-pinmap.g`.
+
+Resolver path: `nxt-config/board/<shortName>/[motor-24v|motor-48v/]entry.g`.  
+Legacy shim (one release): `nxt-config/<platform>/boards/...` if new path missing.
+
+## Globals
 
 | Global | Purpose |
 |--------|---------|
-| `nxtPlatformProfile` | Platform folder under `nxt/config/` |
-| `nxtBoardShortNameOverride` | Optional board id override |
-| `nxtBoardMotorVoltage` | `24` or `48` for `motor-24v` / `motor-48v` packs |
-| `nxtBoardBootstrapMode` | `"auto"` or `"off"` (intent) |
-| `nxtBoardPackExpectedEntry` | Computed pack path at Save (for drift checks) |
-| `nxtBoardSysDeployPlatform` | Platform whose `home*.g` were last deployed to `0:/sys/` |
-| `nxtBoardPackEntry` | Set at boot by loader (last path actually loaded) |
+| `nxtPlatformProfile` | Machine id → `nxt-config/machine/<id>/` |
+| `nxtBoardShortNameOverride` | Optional board shortName override |
+| `nxtBoardMotorVoltage` | `24` or `48` for motor variant dirs |
+| `nxtBoardPackShortName` | Set during pack load (machine `endstop-y.g`) |
+| `nxtBoardPackEntry` | Last board entry path loaded |
+| `nxtBoardPackExpectedEntry` | Saved board entry path (Configuration Save) |
 
-| Bootstrap mode | Save action on SD |
-|----------------|-------------------|
-| **Auto** | Creates `0:/sys/nxt-board-bootstrap.requested`; removes `.skip` if present |
-| **Off** | Deletes `nxt-board-bootstrap.requested` |
+## Pack path convention
 
-**Reload** runs `M98 P"nxt-user-vars.g"`, refreshes the form, checks bootstrap sentinels vs mode, compares `nxtBoardPackExpectedEntry` vs `nxtBoardPackEntry`, and scans `nxt/config/` against the bundled manifest.
+| Case | Board entry path |
+|------|------------------|
+| Single pack | `nxt-config/board/<shortName>/entry.g` |
+| 24 V | `.../motor-24v/entry.g` |
+| 48 V | `.../motor-48v/entry.g` |
 
-Legacy global `nxtScyllaMotorVoltage` is still read by the resolver if `nxtBoardMotorVoltage` is unset.
+Machine must exist on SD: `0:/sys/nxt-config/machine/<id>/OVERVIEW.txt`.
 
-## Load order (firmware)
+## Pin maps and free pins
 
-1. **`config.g`** should invoke `M98 P"nxt.g"` per NeXT install instructions.
-2. **`nxt.g`** loads `nxt-vars.g`, optional MOS import, `nxt-tooltable.g`, then **`nxt-user-vars.g`** (or config-pending mode if missing).
-3. Optional **`nxt-user-overrides.g`** (probe repeatability tuning).
-4. **`nxt-board-pack-loader.g`** when **opt-in** is present — convention resolver → board `entry.g`.
-5. **`nxt-boot.g`** and plugin init.
+Each board may ship `pinmap.json` (`assigned` + `free`). The Configuration UI will assign **free** pins to coolant/aux roles via `0:/sys/nxt-user-pinmap.g` (loaded after board + machine packs).
 
-Board packs load **after** `nxt-user-vars.g` so `nxtPlatformProfile`, `nxtBoardMotorVoltage`, and related globals are available.
+## Adding hardware
 
 ## Opt-in, opt-out, manual override
 
@@ -109,16 +112,13 @@ Path previews use `ui/src/utils/nxtBoardManifest.ts`, aligned with the firmware 
 
 ## Adding a new platform
 
-1. Create `macros/nxt-config/<platformId>/` with `OVERVIEW.txt`, `boards/**/entry.g`, optional `common/`.
-2. Add `common/sys-deploy-manifest.txt` if homing files should deploy to `0:/sys/`.
-3. Run `node dist/generate-nxt-config-manifest.mjs` (validates paths; writes `board-pack-index.txt`).
-4. Reinstall plugin ZIP so SD has the new tree.
-5. Document homing in [NXT_BOARD_HOMING.md](NXT_BOARD_HOMING.md).
-
-No firmware loader edit is required if paths follow the convention above.
+1. **New board:** `macros/nxt-config/board/<shortName>/` with `entry.g`, `pinmap.json`, fragments.
+2. **New machine:** `macros/nxt-config/machine/<id>/` with `entry.g`, homing macros, `sys-deploy-manifest.txt`.
+3. Run `node dist/generate-nxt-config-manifest.mjs`.
+4. Reinstall plugin ZIP.
 
 ## References
 
-- [plugin-spec.md](plugin-spec.md) — plugin dispatchers and `next-init.g`.
-- `macros/nxt-config/board-pack-index.txt` — build-time index of all pack entry paths.
-- `macros/nxt-config/ATTRIBUTION.txt` — upstream Millennium Machines paths.
+- [plugin-spec.md](plugin-spec.md)
+- `macros/nxt-config/board-pack-index.txt`
+- `macros/nxt-config/ATTRIBUTION.txt`

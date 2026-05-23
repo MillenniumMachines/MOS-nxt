@@ -1,17 +1,32 @@
 ; nxt-board-pack-resolve.g
-; Convention-based board pack path resolution (see docs/NXT_BOARD_CONFIG.md).
-; Expects global.nxtBoardPackResolveBrd = board shortName (set by nxt-board-pack-loader.g); global.nxtPlatformProfile set.
-; Sets var.entry and global.nxtBoardPackEntry, then M98's the entry.
+; Resolves board pack under nxt-config/board/<shortName>/ (see docs/NXT_BOARD_CONFIG.md).
+; Legacy fallback: nxt/config/<platform>/boards/<shortName>/ (pre-refactor SD layout).
+
+var brd = ""
+if { exists(global.nxtBoardShortNameOverride) && global.nxtBoardShortNameOverride != null && global.nxtBoardShortNameOverride != "" }
+    set var.brd = global.nxtBoardShortNameOverride
+elif { #boards >= 1 }
+    set var.brd = boards[0].shortName
+else
+    echo "[NeXT] board pack resolve: no boards[] and no nxtBoardShortNameOverride"
+    M117 "NeXT board pack no board id"
+    M99
+
+set global.nxtBoardPackShortName = var.brd
 
 var volt = null
 if { exists(global.nxtBoardMotorVoltage) && global.nxtBoardMotorVoltage != null }
     set var.volt = global.nxtBoardMotorVoltage
 elif { exists(global.nxtScyllaMotorVoltage) && global.nxtScyllaMotorVoltage != null }
-    echo "[NeXT] board pack: nxtScyllaMotorVoltage is deprecated — use nxtBoardMotorVoltage in nxt-user-vars.g"
+    echo "[NeXT] board pack: nxtScyllaMotorVoltage is deprecated — use nxtBoardMotorVoltage"
     set var.volt = global.nxtScyllaMotorVoltage
 
-var base = "nxt/config/" ^ global.nxtPlatformProfile ^ "/boards/" ^ global.nxtBoardPackResolveBrd
+var base = "nxt-config/board/" ^ var.brd
 var entry = ""
+var legacyBase = ""
+
+if { exists(global.nxtPlatformProfile) && global.nxtPlatformProfile != null && global.nxtPlatformProfile != "" }
+    set var.legacyBase = "nxt/config/" ^ global.nxtPlatformProfile ^ "/boards/" ^ var.brd
 
 if { var.volt == 48 && fileexists("0:/sys/" ^ var.base ^ "/motor-48v/entry.g") }
     set var.entry = var.base ^ "/motor-48v/entry.g"
@@ -20,16 +35,28 @@ elif { var.volt == 24 && fileexists("0:/sys/" ^ var.base ^ "/motor-24v/entry.g")
 elif { fileexists("0:/sys/" ^ var.base ^ "/entry.g") }
     set var.entry = var.base ^ "/entry.g"
 elif { fileexists("0:/sys/" ^ var.base ^ "/motor-24v/entry.g") || fileexists("0:/sys/" ^ var.base ^ "/motor-48v/entry.g") }
-    echo "[NeXT] board pack: motor variant pack requires global nxtBoardMotorVoltage = 24 or 48 in nxt-user-vars.g"
+    echo "[NeXT] board pack: motor variant requires nxtBoardMotorVoltage = 24 or 48"
     M117 "NeXT board motor V missing"
     M99
-else
-    echo "[NeXT] board pack: no entry.g under " ^ var.base ^ " — reinstall NeXT plugin or check platform/board"
+
+if { var.entry == "" && var.legacyBase != "" }
+    if { var.volt == 48 && fileexists("0:/sys/" ^ var.legacyBase ^ "/motor-48v/entry.g") }
+        set var.entry = var.legacyBase ^ "/motor-48v/entry.g"
+        echo "[NeXT] board pack: legacy path " ^ var.entry
+    elif { var.volt == 24 && fileexists("0:/sys/" ^ var.legacyBase ^ "/motor-24v/entry.g") }
+        set var.entry = var.legacyBase ^ "/motor-24v/entry.g"
+        echo "[NeXT] board pack: legacy path " ^ var.entry
+    elif { fileexists("0:/sys/" ^ var.legacyBase ^ "/entry.g") }
+        set var.entry = var.legacyBase ^ "/entry.g"
+        echo "[NeXT] board pack: legacy path " ^ var.entry
+
+if { var.entry == "" }
+    echo "[NeXT] board pack: no entry under " ^ var.base
     M117 "NeXT board pack not found"
     M99
 
 if { exists(global.nxtBoardPackExpectedEntry) && global.nxtBoardPackExpectedEntry != null && global.nxtBoardPackExpectedEntry != "" && var.entry != global.nxtBoardPackExpectedEntry }
-    echo "[NeXT] board pack: resolved " ^ var.entry ^ " but nxtBoardPackExpectedEntry is " ^ global.nxtBoardPackExpectedEntry
+    echo "[NeXT] board pack: resolved " ^ var.entry ^ " expected " ^ global.nxtBoardPackExpectedEntry
 
 set global.nxtBoardPackEntry = var.entry
 M117 "NeXT board pack load"
