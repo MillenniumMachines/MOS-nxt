@@ -66,6 +66,25 @@ export async function dwcFileExists(fullPath: string): Promise<boolean> {
 }
 
 /** List file names in a directory via DWC REST API. */
+/** Download a text file from the machine SD / www tree. */
+export async function downloadDwcTextFile(fullPath: string): Promise<string> {
+  const filename = resolveDwcUploadPath(fullPath)
+  const response = await store.dispatch('machine/download', {
+    filename,
+    type: 'text',
+    showProgress: false,
+    showSuccess: false,
+    showError: true
+  })
+  if (typeof response === 'string') {
+    return response
+  }
+  if (response instanceof ArrayBuffer) {
+    return new TextDecoder('utf-8').decode(response)
+  }
+  throw new Error(`Unexpected download response for ${filename}`)
+}
+
 export async function listDwcDirectory(dir: string): Promise<string[] | null> {
   const axios = (store as { $axios?: { get: (url: string, config?: object) => Promise<{ data: unknown }> } }).$axios
   if (!axios) {

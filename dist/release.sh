@@ -168,7 +168,7 @@ if [[ -f "${WD}/ui/plugin.json" ]]; then
         DWC_REPO_PATH="${DWC_REPO_PATH}" node "${WD}/dist/merge-sd-into-plugin-zip.cjs" \
             "${PWD}/dist/NeXT-${COMMIT_ID}.zip" \
             "${TMP_DIR}" || exit 1
-        DWC_REPO_PATH="${DWC_REPO_PATH}" node "${WD}/dist/inject-plugin-dwcfiles.mjs" \
+        DWC_REPO_PATH="${DWC_REPO_PATH}" node "${WD}/dist/inject-plugin-dwcfiles.cjs" \
             "${PWD}/dist/NeXT-${COMMIT_ID}.zip" || exit 1
         # Copy the built plugin to the main dist folder
         cp dist/NeXT-${COMMIT_ID}.zip "${WD}/dist/" || exit 1

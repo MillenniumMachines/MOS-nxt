@@ -36,6 +36,26 @@ If `undefined` or `[]` → **dwcFiles** problem.
 If URLs 404 → **404** problem.  
 If version error in console before `.call` → **version skew** (DWC also checks `plugin.dwcVersion`).
 
+## 0) Fix: `Uncaught SyntaxError: missing ] in index expression`
+
+**Usually means the browser received invalid JavaScript** (not a Vue bug). Common causes:
+
+| Cause | What you see |
+|--------|----------------|
+| **Truncated upload** | Network shows 200 but file size ≠ ZIP (was ~200 KB; check Content-Length) |
+| **Wrong URL still** | Response is HTML/JSON, not JS (open the script URL in a new tab) |
+| **Stale hash** | Page requests `NeXT.782c5978.js` but only `NeXT.884dc59d.js` exists |
+| **Old bloated ZIP** | Huge manifest embedded G-code with `{move.axes[0]…}` — rebuild after slim manifest |
+
+**Checks:**
+
+1. DevTools → Network → the `NeXT.*.js` request → **Response** tab must start with `"use strict";(self["webpackChunkduetwebcontrol"]`  
+2. Compare size to your ZIP: `unzip -l dist/NeXT-*.zip 'dwc/NeXT/js/*'`  
+3. Direct URL must match `dwcFiles` (subdir layout): `/NeXT/js/NeXT.<hash>.js`  
+4. Rebuild with current NeXT (`./dist/build-plugin.sh`) — manifest no longer embeds homing file bodies.
+
+Build runs `node --check` on the chunk before finishing.
+
 ## 1) Fix: 404 (file missing on www)
 
 **Cause:** The browser requests `js/NeXT.<hash>.js` from the **DWC web root** (`directories.web`, e.g. SBC `/opt/dsf/www/`), but the file is missing or the **hash in `dwc-plugins.json` does not match** the file on disk. Webpack then fails with the same `.call` error as version skew.

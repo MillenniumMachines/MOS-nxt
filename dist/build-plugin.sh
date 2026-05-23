@@ -326,8 +326,17 @@ DWC_REPO_PATH="${DWC_REPO_PATH}" node "${ROOT}/dist/merge-sd-into-plugin-zip.cjs
   "${DWC_REPO_PATH}/dist/${OUT_ZIP}" \
   "${TMP_DIR}"
 
-DWC_REPO_PATH="${DWC_REPO_PATH}" node "${ROOT}/dist/inject-plugin-dwcfiles.mjs" \
+DWC_REPO_PATH="${DWC_REPO_PATH}" node "${ROOT}/dist/inject-plugin-dwcfiles.cjs" \
   "${DWC_REPO_PATH}/dist/${OUT_ZIP}"
+
+_zip_js="$(unzip -Z1 "${DWC_REPO_PATH}/dist/${OUT_ZIP}" 'dwc/NeXT/js/NeXT*.js' | head -1)"
+if [[ -n "${_zip_js}" ]]; then
+  _tmp_js="$(mktemp --suffix=.js)"
+  unzip -p "${DWC_REPO_PATH}/dist/${OUT_ZIP}" "${_zip_js}" > "${_tmp_js}"
+  node --check "${_tmp_js}"
+  rm -f "${_tmp_js}"
+  echo "NeXT chunk syntax check: OK"
+fi
 
 mkdir -p "${OUT_DIR}"
 cp "${DWC_REPO_PATH}/dist/${OUT_ZIP}" "${OUT_DIR}/"

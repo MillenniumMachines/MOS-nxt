@@ -23,7 +23,8 @@ export type NxtConfigMachineEntry = {
   title: string
   hasCommonDeploy: boolean
   sysDeployFiles: string[]
-  sysDeployContents: Record<string, string>
+  /** @deprecated Not shipped in manifest — homing bodies are read from SD at deploy */
+  sysDeployContents?: Record<string, string>
   machineEntryPath: string | null
 }
 

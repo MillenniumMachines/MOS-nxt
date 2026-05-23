@@ -3,7 +3,7 @@
  * Write resolved dwcFiles into plugin.json inside the built ZIP (paths without dwc/ prefix).
  * Matches PollConnector / DSF: dwc/NeXT/js/file.js → dwcFiles "NeXT/js/file.js"
  *
- * Usage: DWC_REPO_PATH=<dwc> node dist/inject-plugin-dwcfiles.mjs <NeXT.zip>
+ * Usage: DWC_REPO_PATH=<dwc> node dist/inject-plugin-dwcfiles.cjs <NeXT.zip>
  */
 'use strict'
 
@@ -14,7 +14,7 @@ const dwcRoot = process.env.DWC_REPO_PATH || path.join(__dirname, '..', '..', 'D
 const zipPath = process.argv[2]
 
 if (!zipPath || !fs.existsSync(zipPath)) {
-  console.error('usage: DWC_REPO_PATH=<dwc> node dist/inject-plugin-dwcfiles.mjs <NeXT.zip>')
+  console.error('usage: DWC_REPO_PATH=<dwc> node dist/inject-plugin-dwcfiles.cjs <NeXT.zip>')
   process.exit(1)
 }
 

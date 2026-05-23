@@ -32,21 +32,23 @@ function readOverviewTitle(dir) {
 function readSysDeploy(machineDir) {
   const manifestPath = path.join(machineDir, 'sys-deploy-manifest.txt')
   if (!fs.existsSync(manifestPath)) {
-    return { files: [], contents: {} }
+    return { files: [] }
   }
   const files = fs
     .readFileSync(manifestPath, 'utf8')
     .split(/\r?\n/)
     .map((l) => l.trim())
     .filter((l) => l.length > 0 && !l.startsWith(';'))
-  const contents = {}
+  // Contents are read from SD at deploy time (0:/sys/nxt-config/machine/<id>/).
+  // Do not embed .g file bodies in nxtConfigManifest.json — they inflate the DWC
+  // plugin chunk and can provoke browser SyntaxError if the upload is truncated.
   for (const name of files) {
     const fp = path.join(machineDir, name)
-    if (fs.existsSync(fp)) {
-      contents[name] = fs.readFileSync(fp, 'utf8')
+    if (!fs.existsSync(fp)) {
+      console.warn(`warn: sys deploy file missing on disk: ${machineDir}/${name}`)
     }
   }
-  return { files, contents }
+  return { files }
 }
 
 function readPinmap(boardDir) {
@@ -119,7 +121,6 @@ function scanMachine(machineId) {
     title: overview ?? machineId,
     hasCommonDeploy: deploy.files.length > 0,
     sysDeployFiles: deploy.files,
-    sysDeployContents: deploy.contents,
     machineEntryPath: hasEntry ? `nxt-config/machine/${machineId}/entry.g` : null
   }
 }
