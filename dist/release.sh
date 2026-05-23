@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 WD="${PWD}"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+echo "Checking RRF macro line lengths (max 200)..."
+node "${ROOT}/dist/check-gcode-line-length.mjs" || exit 1
 TMP_DIR=$(mktemp -d -t next-release-XXXXX)
 ZIP_NAME="${1:-next-sd-release}.zip"
 ZIP_PATH="${WD}/dist/${ZIP_NAME}"

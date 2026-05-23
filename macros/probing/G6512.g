@@ -176,7 +176,10 @@ while { var.attempt < var.outerLimit && var.toleranceOk == false }
         echo "G6512: Consecutive-pair tolerance failed — probe cycle retry " ^ var.attempt ^ " of " ^ var.outerLimit
 
 if { var.toleranceOk == false }
-    abort { "G6512: Repeatability failed: pair " ^ var.lastFailedPairLabel ^ " delta " ^ var.lastPairDeltaMm ^ " mm > " ^ global.nxtProbeMaxSampleSpreadMm ^ " mm (over by " ^ var.lastPairOverMm ^ " mm) after " ^ var.outerLimit ^ " cycle(s)" }
+    var nxtG6512Abort = { "G6512: Repeatability failed: pair " ^ var.lastFailedPairLabel }
+    set var.nxtG6512Abort = { var.nxtG6512Abort ^ " delta " ^ var.lastPairDeltaMm ^ " mm > " ^ global.nxtProbeMaxSampleSpreadMm }
+    set var.nxtG6512Abort = { var.nxtG6512Abort ^ " mm (over by " ^ var.lastPairOverMm ^ " mm) after " ^ var.outerLimit ^ " cycle(s)" }
+    abort { var.nxtG6512Abort }
 
 set global.nxtLastProbeResult = { round(var.finalSumUm / var.finalCount) / 1000 }
 
@@ -186,4 +189,7 @@ if { exists(param.H) && param.H != null && var.finalHitN > 0 }
 
 echo "G6512: Compensated probe result for axis " ^ move.axes[var.probeAxisIndex].letter ^ ": " ^ global.nxtLastProbeResult
 if { var.toleranceEnabled }
-    echo "G6512: Tolerance ok — average " ^ global.nxtLastProbeResult ^ " mm (v1=" ^ var.finalV1Mm ^ " v2=" ^ var.finalV2Mm ^ " v3=" ^ var.finalV3Mm ^ ", limit " ^ global.nxtProbeMaxSampleSpreadMm ^ " mm per pair)"
+    var nxtG6512Ok = { "G6512: Tolerance ok — average " ^ global.nxtLastProbeResult ^ " mm" }
+    set var.nxtG6512Ok = { var.nxtG6512Ok ^ " (v1=" ^ var.finalV1Mm ^ " v2=" ^ var.finalV2Mm ^ " v3=" ^ var.finalV3Mm ^ ")" }
+    set var.nxtG6512Ok = { var.nxtG6512Ok ^ ", limit " ^ global.nxtProbeMaxSampleSpreadMm ^ " mm per pair" }
+    echo { var.nxtG6512Ok }

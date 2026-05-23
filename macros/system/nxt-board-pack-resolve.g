@@ -1,6 +1,6 @@
 ; nxt-board-pack-resolve.g
 ; Convention-based board pack path resolution (see docs/NXT_BOARD_CONFIG.md).
-; Expects var.brd = board shortName; global.nxtPlatformProfile set.
+; Expects global.nxtBoardPackResolveBrd = board shortName (set by nxt-board-pack-loader.g); global.nxtPlatformProfile set.
 ; Sets var.entry and global.nxtBoardPackEntry, then M98's the entry.
 
 var volt = null
@@ -10,7 +10,7 @@ elif { exists(global.nxtScyllaMotorVoltage) && global.nxtScyllaMotorVoltage != n
     echo "[NeXT] board pack: nxtScyllaMotorVoltage is deprecated — use nxtBoardMotorVoltage in nxt-user-vars.g"
     set var.volt = global.nxtScyllaMotorVoltage
 
-var base = "nxt/config/" ^ global.nxtPlatformProfile ^ "/boards/" ^ var.brd
+var base = "nxt/config/" ^ global.nxtPlatformProfile ^ "/boards/" ^ global.nxtBoardPackResolveBrd
 var entry = ""
 
 if { var.volt == 48 && fileexists("0:/sys/" ^ var.base ^ "/motor-48v/entry.g") }

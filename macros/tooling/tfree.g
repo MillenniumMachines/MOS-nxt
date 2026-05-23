@@ -21,7 +21,7 @@ while { iterations < #move.axes }
         abort { "tfree.g: Axis " ^ move.axes[iterations].letter ^ " must be homed before tool change" }
 
 ; Set tool change state to indicate tfree.g started
-global nxtToolChangeState = 1
+set global.nxtToolChangeState = 1
 
 ; Stop and park spindle for safety
 G27 Z1
@@ -54,6 +54,6 @@ else
         M291 P{"Please remove Tool " ^ state.currentTool ^ " and confirm when complete."} R"Remove Tool" S3
 
 ; Set tool change state to indicate tfree.g completed
-global nxtToolChangeState = 2
+set global.nxtToolChangeState = 2
 
 echo "tfree.g: Tool " ^ state.currentTool ^ " removal process completed"

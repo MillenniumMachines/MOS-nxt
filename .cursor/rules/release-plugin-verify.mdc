@@ -12,8 +12,9 @@ alwaysApply: true
 
 ## Gate before release commits or version tags
 
-1. Run `./dist/build-plugin.sh <path-to-DuetWebControl>` from the **NeXT repo root**; confirm **exit code 0**. Use a DWC tree on the major line you intend to ship (e.g. 3.6.2 for 3.6.x).
-2. **Manual verification:** Do not commit or tag a release until the user has **explicitly confirmed** the plugin **loads and works** in DWC on the target line (install ZIP, start plugin, smoke-test). Treat CI success as necessary but **not sufficient**.
+1. Run `node dist/check-gcode-line-length.mjs` from the **NeXT repo root**; confirm **exit code 0** (no macro line > 200 chars — avoids RRF `GCode command too long` on boot).
+2. Run `./dist/build-plugin.sh <path-to-DuetWebControl>` from the **NeXT repo root**; confirm **exit code 0**. Use a DWC tree on the major line you intend to ship (e.g. 3.6.2 for 3.6.x).
+3. **Manual verification:** Do not commit or tag a release until the user has **explicitly confirmed** the plugin **loads and works** in DWC on the target line (install ZIP, start plugin, smoke-test). Treat CI success as necessary but **not sufficient**.
 
 ## Tagging conventions (this repo)
 

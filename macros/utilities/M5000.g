@@ -17,4 +17,6 @@ var currentTool      = { state.currentTool }
 set global.nxtAbsPos = { vector(var.numAxes, null) }
 
 while { iterations < var.numAxes }
-    set global.nxtAbsPos[iterations] = { move.axes[iterations].workplaceOffsets[move.workplaceNumber] + (var.currentTool < 0 ? 0 : tools[var.currentTool].offsets[iterations]) + move.axes[iterations].userPosition }
+    var nxtWpOff = { move.axes[iterations].workplaceOffsets[move.workplaceNumber] }
+    var nxtToolOff = { var.currentTool < 0 ? 0 : tools[var.currentTool].offsets[iterations] }
+    set global.nxtAbsPos[iterations] = { var.nxtWpOff + var.nxtToolOff + move.axes[iterations].userPosition }

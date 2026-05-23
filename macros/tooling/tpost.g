@@ -25,7 +25,7 @@ while { iterations < #move.axes }
         abort { "tpost.g: Axis " ^ move.axes[iterations].letter ^ " must be homed after tool change" }
 
 ; Set tool change state to indicate tpost.g started
-global nxtToolChangeState = 4
+set global.nxtToolChangeState = 4
 
 ; Stop and park spindle for safety
 G27 Z1
@@ -112,6 +112,6 @@ else
     echo "tpost.g: Manual tool offset required - no automatic measurement available"
 
 ; Clear tool change state to indicate completion
-global nxtToolChangeState = null
+set global.nxtToolChangeState = null
 
 echo "tpost.g: Tool " ^ state.currentTool ^ " change process completed"

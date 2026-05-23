@@ -47,5 +47,7 @@ else
     M117 "NeXT board pack no board id"
     M99
 
+; Local var.* does not pass into child macros via M98 — use a global scratch (see RRF_META.txt).
+set global.nxtBoardPackResolveBrd = var.brd
 M98 P"nxt-board-pack-resolve.g"
 M99

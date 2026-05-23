@@ -69,6 +69,7 @@ global nxtBoardShortNameOverride = null ; RRF boards[0].shortName override for p
 global nxtBoardMotorVoltage = null ; 24 | 48 | null (motor-24v / motor-48v board packs)
 global nxtScyllaMotorVoltage = null ; deprecated — use nxtBoardMotorVoltage
 global nxtBoardPackEntry = null    ; last resolved entry path at boot (telemetry)
+global nxtBoardPackResolveBrd = null ; scratch: board shortName for nxt-board-pack-resolve.g (M98)
 global nxtBoardPackExpectedEntry = null ; saved expected entry path (Configuration Save)
 global nxtBoardSysDeployPlatform = null ; platform whose home*.g were last deployed to 0:/sys/
 global nxtBoardBootstrapMode = "off" ; "off" | "auto" (Save syncs nxt-board-bootstrap.requested)

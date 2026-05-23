@@ -15,7 +15,9 @@
 ; Each mos* -> nxt* copy uses exists(global.mos*) so a partial MOS install does not abort.
 
 var nxtMosSentinel = { fileexists("0:/sys/nxt-mos-import.requested") }
-var hasMosSource = { var.nxtMosSentinel || fileexists("0:/sys/mos-vars.g") || fileexists("0:/sys/mos-user-vars.g") || fileexists("0:/sys/mos.g") || exists(global.mosSID) || exists(global.mosFeatTouchProbe) || exists(global.mosPTID) || exists(global.mosLdd) }
+var nxtMosOnSd = { fileexists("0:/sys/mos-vars.g") || fileexists("0:/sys/mos-user-vars.g") || fileexists("0:/sys/mos.g") }
+var nxtMosInGlobals = { exists(global.mosSID) || exists(global.mosFeatTouchProbe) || exists(global.mosPTID) || exists(global.mosLdd) }
+var hasMosSource = { var.nxtMosSentinel || var.nxtMosOnSd || var.nxtMosInGlobals }
 
 if { !var.hasMosSource }
     echo "NeXT MOS import: no MillenniumOS files or mos* globals found — nothing to migrate"
@@ -120,7 +122,8 @@ echo >>{var.UV} {"; Board / platform (Configuration panel)"}
 echo >>{var.UV} {"set global.nxtPlatformProfile = " ^ (global.nxtPlatformProfile == null ? "null" : "\"" ^ global.nxtPlatformProfile ^ "\"")}
 echo >>{var.UV} {"set global.nxtBoardShortNameOverride = " ^ (global.nxtBoardShortNameOverride == null ? "null" : "\"" ^ global.nxtBoardShortNameOverride ^ "\"")}
 echo >>{var.UV} {"set global.nxtBoardKitKey = " ^ (global.nxtBoardKitKey == null ? "null" : "\"" ^ global.nxtBoardKitKey ^ "\"")}
-echo >>{var.UV} {"set global.nxtBoardMotorVoltage = " ^ (global.nxtBoardMotorVoltage == null ? (global.nxtScyllaMotorVoltage == null ? "null" : global.nxtScyllaMotorVoltage) : global.nxtBoardMotorVoltage)}
+var nxtMotorVOut = { global.nxtBoardMotorVoltage == null ? (global.nxtScyllaMotorVoltage == null ? "null" : global.nxtScyllaMotorVoltage) : global.nxtBoardMotorVoltage }
+echo >>{var.UV} {"set global.nxtBoardMotorVoltage = " ^ var.nxtMotorVOut}
 echo >>{var.UV} {"set global.nxtBoardBootstrapMode = \"" ^ (global.nxtBoardBootstrapMode == "auto" ? "auto" : "off") ^ "\""}
 echo >>{var.UV} {"set global.nxtBoardPackExpectedEntry = " ^ (global.nxtBoardPackExpectedEntry == null ? "null" : "\"" ^ global.nxtBoardPackExpectedEntry ^ "\"")}
 echo >>{var.UV} {"set global.nxtBoardSysDeployPlatform = " ^ (global.nxtBoardSysDeployPlatform == null ? "null" : "\"" ^ global.nxtBoardSysDeployPlatform ^ "\"")}

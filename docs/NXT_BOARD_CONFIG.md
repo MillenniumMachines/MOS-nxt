@@ -83,6 +83,8 @@ Board packs load **after** `nxt-user-vars.g` so `nxtPlatformProfile`, `nxtBoardM
 
 The loader delegates to **`nxt-board-pack-resolve.g`**, which builds paths under `nxt/config/<platform>/boards/<shortName>/`:
 
+**M98 and local variables:** RepRapFirmware does **not** pass `var.*` from a parent macro into a child called with `M98`. The loader therefore copies the board id into `global.nxtBoardPackResolveBrd` before calling the resolver. Do not use `var.brd` inside the resolver unless you set it there from that global.
+
 | Case | Path |
 |------|------|
 | Single pack | `.../boards/<shortName>/entry.g` |

@@ -2,7 +2,10 @@
 ; Performs critical sanity checks before allowing NeXT to load.
 ; CNC mode: meta conditions use { }, not ( ) — see macros/system/RRF_META.txt section 6.
 
-; 1. Confirm RRF is in CNC mode.
+set global.nxtLoaded = false
+set global.nxtError = null
+
+; 1. Confirm RRF is in CNC mode (nxt.g runs M453 immediately before this file).
 if { state.machineMode != "CNC" }
     set global.nxtError = "Machine mode must be CNC (M453)"
     M99
@@ -22,13 +25,25 @@ if { exists(global.nxtUserVarsPresent) && !global.nxtUserVarsPresent }
     echo "NeXT: configuration pending — complete setup in DWC Configuration panel and Save nxt-user-vars.g"
     M99
 
-; 4. Full configuration required when user-vars file was loaded
+; 4. User-vars on SD but incomplete — allow DWC Configuration (same as missing file)
 if { !exists(global.nxtDeltaMachine) || global.nxtDeltaMachine == null }
-    set global.nxtError = "Static datum (nxtDeltaMachine) is not defined. Please run the configuration."
+    set global.nxtConfigPending = true
+    set global.nxtError = "Static datum (nxtDeltaMachine) is not defined — open Configuration and Save."
+    var resultVectorSize = { #move.axes + 1 }
+    while { iterations < #global.nxtProbeResults }
+        set global.nxtProbeResults[iterations] = { vector(var.resultVectorSize, 0.0) }
+    set global.nxtLoaded = true
+    echo "NeXT: configuration incomplete (nxtDeltaMachine) — use DWC Configuration panel"
     M99
 
 if { !exists(global.nxtProbeToolID) || global.nxtProbeToolID == null }
-    set global.nxtError = "Probe Tool ID (nxtProbeToolID) is not defined. Please run the configuration."
+    set global.nxtConfigPending = true
+    set global.nxtError = "Probe Tool ID (nxtProbeToolID) is not defined — open Configuration and Save."
+    var resultVectorSize = { #move.axes + 1 }
+    while { iterations < #global.nxtProbeResults }
+        set global.nxtProbeResults[iterations] = { vector(var.resultVectorSize, 0.0) }
+    set global.nxtLoaded = true
+    echo "NeXT: configuration incomplete (nxtProbeToolID) — use DWC Configuration panel"
     M99
 
 ; --- All checks passed ---

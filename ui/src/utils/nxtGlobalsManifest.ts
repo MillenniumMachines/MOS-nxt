@@ -48,6 +48,7 @@ export const NXT_GLOBAL_MANIFEST: NxtGlobalManifestEntry[] = [
   { key: 'nxtBoardPackExpectedEntry', description: 'Saved expected pack entry path (Configuration Save)' },
   { key: 'nxtBoardSysDeployPlatform', description: 'Platform whose home*.g were last deployed to 0:/sys/' },
   { key: 'nxtBoardPackEntry', description: 'Runtime: last resolved board pack entry path (nxt-board-pack-loader.g)' },
+  { key: 'nxtBoardPackResolveBrd', description: 'Scratch board shortName passed loader → pack resolver (M98)' },
   { key: 'nxtBoardBootstrapMode', description: 'Pack load preference (off|auto); SD sentinel enables load' },
   { key: 'nxtUserToolsFilePresent', description: 'True if 0:/sys/nxt-user-tools.g existed at last nxt.g boot load' },
   { key: 'nxtUserToolsDaemonReload', description: 'If true, daemon reloads nxt-user-tools.g when reload sentinel exists' }
