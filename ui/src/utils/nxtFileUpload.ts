@@ -19,6 +19,13 @@ export function resolveDwcUploadPath(fullPath: string): string {
   if (trimmed.startsWith('/')) {
     return `0:${trimmed}`
   }
+  // Manifest / boot macro paths (nxt-config/…) live under 0:/sys/
+  if (trimmed.startsWith('nxt-config/')) {
+    return `0:/sys/${trimmed}`
+  }
+  if (trimmed.startsWith('sys/')) {
+    return `0:/${trimmed}`
+  }
   return `0:/${trimmed}`
 }
 
@@ -85,20 +92,28 @@ export async function downloadDwcTextFile(fullPath: string): Promise<string> {
   throw new Error(`Unexpected download response for ${filename}`)
 }
 
-export async function listDwcDirectory(dir: string): Promise<string[] | null> {
-  const axios = (store as { $axios?: { get: (url: string, config?: object) => Promise<{ data: unknown }> } }).$axios
-  if (!axios) {
-    return null
-  }
+type DwcListEntry = { name: string; isDirectory?: boolean }
+
+/**
+ * List names in a directory via the host DWC connector (GET machine/directory/…).
+ * @param directoriesOnly When true, return subdirectory names only (e.g. machine profile ids).
+ */
+export async function listDwcDirectory(
+  dir: string,
+  options?: { directoriesOnly?: boolean }
+): Promise<string[] | null> {
+  const directory = resolveDwcUploadPath(dir)
   try {
-    const res = await axios.get('machine/directory', { params: { dir: resolveDwcUploadPath(dir) } })
-    const data = res.data as { files?: Array<{ name?: string }> }
-    if (!Array.isArray(data?.files)) {
+    const items = (await store.dispatch('machine/getFileList', directory)) as DwcListEntry[]
+    if (!Array.isArray(items)) {
       return []
     }
-    return data.files.map((f) => f.name).filter((n): n is string => typeof n === 'string')
+    return items
+      .filter((item) => !options?.directoriesOnly || item.isDirectory)
+      .map((item) => item.name)
+      .filter((n): n is string => typeof n === 'string')
   } catch (e) {
-    console.warn('NeXT: listDwcDirectory failed', dir, e)
+    console.warn('NeXT: listDwcDirectory failed', directory, e)
     return null
   }
 }

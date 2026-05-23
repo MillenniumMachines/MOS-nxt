@@ -83,13 +83,13 @@ export const NXT_SCYLLA_MOTOR_VOLTAGE_ITEMS: Array<{ value: number; title: strin
   { value: 48, title: '48 V motor supply' }
 ]
 
-/** Machine config folder under 0:/sys/nxt-config/ */
+/** Machine config folder on SD (0:/sys/nxt-config/machine/<id>/). */
 export function nxtMachineConfigBase(machineId: NxtPlatformId | null | undefined): string | null {
   if (machineId == null || machineId === '') {
     return null
   }
   if (nxtMachineFromManifest(machineId)) {
-    return `nxt-config/machine/${machineId}`
+    return `0:/sys/nxt-config/machine/${machineId}`
   }
   return null
 }

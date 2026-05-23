@@ -47,15 +47,15 @@ export async function scanNxtConfigOnSd(
   const bundledMachineIds = machinesList().map((m) => m.id)
   const machineRoot = `${NXT_CONFIG_SD_ROOT}/machine`
   const boardRoot = `${NXT_CONFIG_SD_ROOT}/board`
-  const machineNames = await listDwcDirectory(machineRoot)
-  const boardNames = await listDwcDirectory(boardRoot)
+  const machineNames = await listDwcDirectory(machineRoot, { directoriesOnly: true })
+  const boardNames = await listDwcDirectory(boardRoot, { directoriesOnly: true })
   if (machineNames == null && boardNames == null) {
     return {
       installedMachineIds: [],
       missingMachines: bundledMachineIds,
       missingEntryPaths: [],
       extraMachineIds: [],
-      scanError: 'Could not read SD nxt-config/machine or board (reinstall NeXT plugin)'
+      scanError: `Could not read ${machineRoot} or ${boardRoot} (reinstall NeXT plugin)`
     }
   }
   const installedMachineIds = machineNames ?? []
@@ -95,7 +95,7 @@ export function formatSdScanWarnings(result: NxtConfigSdScanResult): string[] {
   }
   if (result.missingMachines.length > 0) {
     messages.push(
-      `Missing on SD (reinstall NeXT plugin): nxt-config/machine/${result.missingMachines.join(', ')}`
+      `Missing on SD (reinstall NeXT plugin): ${result.missingMachines.map((id) => `${NXT_CONFIG_SD_ROOT}/machine/${id}`).join(', ')}`
     )
   }
   if (result.missingEntryPaths.length > 0) {
