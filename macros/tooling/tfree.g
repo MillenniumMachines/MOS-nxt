@@ -36,22 +36,9 @@ if { state.currentTool == global.nxtProbeToolID }
     ; Clear any cached measurements for the probe tool
     set global.nxtToolCache[state.currentTool] = { null }
 else
-    ; Handle standard cutting tool - perform probe-on-removal
-    if { global.nxtFeatureToolSetter && global.nxtToolSetterPos != null }
-        ; Measure tool length before removal for relative offset calculation
-        echo "tfree.g: Measuring tool " ^ state.currentTool ^ " before removal"
-        
-        ; Move to toolsetter and measure
-        G37
-        
-        ; Cache the measurement result for relative offset calculations
-        set global.nxtToolCache[state.currentTool] = { global.nxtLastProbeResult }
-        
-        echo "tfree.g: Tool " ^ state.currentTool ^ " measured at Z=" ^ global.nxtLastProbeResult
-    else
-        ; No toolsetter - just prompt for manual removal
-        ; ATC: replace with magazine unload / pocket deposit sequence
-        M291 P{"Please remove Tool " ^ state.currentTool ^ " and confirm when complete."} R"Remove Tool" S3
+    ; Standard cutting tool: removal only. New tool measurement runs in tpost.g.
+    ; ATC: replace with magazine unload / pocket deposit sequence.
+    M291 P{"Please remove Tool " ^ state.currentTool ^ " and confirm when complete."} R"Remove Tool" S3
 
 ; Set tool change state to indicate tfree.g completed
 set global.nxtToolChangeState = 2

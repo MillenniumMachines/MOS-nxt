@@ -38,8 +38,15 @@ global nxtProbeMaxSkewDeg = 5.0   ; Abort rectangle/bore skew solve if |theta| e
 global nxtProbeInnerSampleCount = 3
 global nxtProbeMaxSampleSpreadMm = 0.0075
 global nxtProbeSampleOuterRetries = 1
+global nxtTouchProbeInnerSampleCount = 3 ; Touch probe specific G6512 inner sample count
+global nxtTouchProbeMaxSampleSpreadMm = 0.0075 ; Touch probe consecutive-pair spread limit (mm), 0 disables
+global nxtTouchProbeSampleOuterRetries = 1 ; Touch probe extra 3-touch retry cycles
+global nxtToolSetterInnerSampleCount = 3 ; Toolsetter specific G6512 inner sample count (tpost enforces min 2)
+global nxtToolSetterMaxSampleSpreadMm = 0.0075 ; Toolsetter consecutive-pair spread limit (mm), 0 disables
+global nxtToolSetterSampleOuterRetries = 1 ; Toolsetter extra 3-touch retry cycles
 
 global nxtToolSetterPos = null     ; Toolsetter position vector [X, Y, Z]
+global nxtToolSetterProbeTravelMm = 80.0 ; Downward travel from toolsetter Z used for tool-length probing
 global nxtToolChangeState = null   ; Tracks the current tool change state (1=tfree, 2=tfree done, 3=tpre done, 4=tpost, null=complete)
 global nxtUserToolsFilePresent = false     ; set at boot by nxt.g: nxt-user-tools.g exists on SD
 global nxtUserToolsDaemonReload = false      ; if true, daemon reloads library when 0:/sys/nxt-user-tools.reload.requested exists (see TOOLCHANGING.md)
