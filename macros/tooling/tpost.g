@@ -32,37 +32,26 @@ G27 Z1
 
 ; Handle touch probe special case
 if { state.currentTool == global.nxtProbeToolID && global.nxtFeatureTouchProbe }
-    ; Touch probe must be measured against reference surface to establish
-    ; its length relative to the toolsetter for accurate offset calculations
-    
-    if { global.nxtDeltaMachine == null }
-        M291 P"Touch probe installed but nxtDeltaMachine not calibrated. Please run configuration wizard first." R"Configuration Required" S2
-        abort { "tpost.g: nxtDeltaMachine calibration required for touch probe" }
-    
-    ; Probe the reference surface with the touch probe
-    ; This establishes the probe's position relative to the static datum
-    echo "tpost.g: Measuring touch probe against reference surface"
-    
-    ; User must manually position probe near reference surface
-    ; ATC: replace with known reference approach position if changer defines it
-    M291 P"Please jog the touch probe close to the reference surface, then press OK to continue with automatic measurement." R"Position Touch Probe" S3
-    
-    ; Probe the reference surface (this should be implemented as a specific cycle)
-    ; For now, we'll use a simple Z probe - this may need enhancement
-    G6512 Z{move.axes[2].min + 50} I{global.nxtTouchProbeID} R{global.nxtProbeInnerSampleCount}
-    
-    ; Calculate the touch probe's "virtual" toolsetter position
-    ; This allows it to be used in relative offset calculations
-    var probeRefPos = { global.nxtLastProbeResult }
-    var probeVirtualToolsetterPos = { var.probeRefPos - global.nxtDeltaMachine }
-    
-    ; Cache this virtual measurement
-    set global.nxtToolCache[state.currentTool] = { var.probeVirtualToolsetterPos }
-    
-    ; Set tool offset to 0 for the touch probe (it defines the reference)
-    G10 L1 P{state.currentTool} Z0
-    
-    echo "tpost.g: Touch probe measured, virtual toolsetter position: " ^ var.probeVirtualToolsetterPos
+    ; If a toolsetter is enabled, touch probe must be measured against reference
+    ; surface to establish its virtual position for relative offset calculations.
+    if { global.nxtFeatureToolSetter && global.nxtToolSetterPos != null }
+        if { global.nxtDeltaMachine == null }
+            M291 P"Touch probe installed but nxtDeltaMachine not calibrated. Please run configuration wizard first." R"Configuration Required" S2
+            abort { "tpost.g: nxtDeltaMachine calibration required for touch probe" }
+        echo "tpost.g: Measuring touch probe against reference surface"
+        ; ATC: replace with known reference approach position if changer defines it
+        M291 P"Please jog the touch probe close to the reference surface, then press OK to continue with automatic measurement." R"Position Touch Probe" S3
+        G6512 Z{move.axes[2].min + 50} I{global.nxtTouchProbeID} R{global.nxtProbeInnerSampleCount}
+        var probeRefPos = { global.nxtLastProbeResult }
+        var probeVirtualToolsetterPos = { var.probeRefPos - global.nxtDeltaMachine }
+        set global.nxtToolCache[state.currentTool] = { var.probeVirtualToolsetterPos }
+        G10 L1 P{state.currentTool} Z0
+        echo "tpost.g: Touch probe measured, virtual toolsetter position: " ^ var.probeVirtualToolsetterPos
+    else
+        ; No toolsetter: keep probe active without forcing reference probing.
+        set global.nxtToolCache[state.currentTool] = null
+        G10 L1 P{state.currentTool} Z0
+        echo "tpost.g: Touch probe loaded (toolsetter disabled, reference probing skipped)"
     
 elif { global.nxtFeatureToolSetter && global.nxtToolSetterPos != null }
     ; Standard tool with toolsetter available
