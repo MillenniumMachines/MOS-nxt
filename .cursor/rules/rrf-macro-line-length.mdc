@@ -1,0 +1,36 @@
+---
+description: RRF macro G-code line length limit (~255 chars) — split long if/meta lines
+globs:
+  - macros/**/*.g
+  - macros/**/*.gcode
+alwaysApply: false
+---
+
+# RRF macro line length (255 characters)
+
+RepRapFirmware rejects startup and macro lines longer than about **255 characters** (`GCode command too long`, often reported at column 256).
+
+## Rules
+
+- Keep every line in `macros/**/*.g` at **≤255 characters** (logical line, excluding `\n`).
+- Long `if { ... }` conditions must be **split** (nested `if`, or set a `var` flag in steps) — do not rely on one giant boolean expression.
+- Run **`./dist/check-macro-line-length.sh`** before committing macro changes; CI runs the same check on pull requests.
+
+## Pattern (MOS import gate style)
+
+```gcode
+var nxtDoThing = false
+if { fileexists("0:/sys/foo.requested") }
+    set var.nxtDoThing = true
+if { !var.nxtDoThing && fileexists("0:/sys/bar.g") }
+    set var.nxtDoThing = true
+if { var.nxtDoThing }
+    M98 P"target.g"
+```
+
+## Anti-pattern
+
+```gcode
+; BAD — will fail at boot if over limit
+if { fileexists("a") || fileexists("b") || exists(global.x) || exists(global.y) || ... }
+```

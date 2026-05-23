@@ -7,13 +7,15 @@ alwaysApply: true
 
 ## Manifest alignment
 
-- **`ui/plugin.json`:** Keep `rrfVersion` and `dwcVersion` as **`auto-major`** (resolved to the DWC tree’s major.minor when the plugin ZIP is built). Rebuild against the target DWC line before release; a 3.6 build requires 3.6.x hosts, a 3.7 build requires 3.7.x.
+- **`ui/plugin.json`:** `dwcVersion` is **`auto`** (resolved to the **exact** DWC `package.json` version at build, e.g. `3.6.2`). `rrfVersion` stays **`auto-major`**. Pin in [`ci/dwc-build-ref`](ci/dwc-build-ref); run `./dist/verify-dwc-build-alignment.sh <DWC>` before every `build-plugin.sh`.
 - **When changing the dev/reference stack:** Update [`docs/RRF_REFERENCE.md`](docs/RRF_REFERENCE.md), [`README.md`](README.md), [`ui/src/index.ts`](ui/src/index.ts), and [`docs/UI_DEVELOPMENT.md`](docs/UI_DEVELOPMENT.md) as needed. [`docs/FEATURES.md`](docs/FEATURES.md) back-compat line tracks resolved `plugin.json` versions in shipped ZIPs.
 
 ## Gate before release commits or version tags
 
-1. Run `./dist/build-plugin.sh <path-to-DuetWebControl>` from the **NeXT repo root**; confirm **exit code 0**. Use a DWC tree on the major line you intend to ship (e.g. 3.6.2 for 3.6.x).
-2. **Manual verification:** Do not commit or tag a release until the user has **explicitly confirmed** the plugin **loads and works** in DWC on the target line (install ZIP, start plugin, smoke-test). Treat CI success as necessary but **not sufficient**.
+1. Run `./dist/check-macro-line-length.sh` from the **NeXT repo root** (all `macros/**/*.g` lines ≤255 characters — RRF G-code line limit).
+2. If **`macros/nxt-config/`**, **manifest generator**, or **UI path helpers** changed: run `node dist/generate-nxt-config-manifest.mjs` and follow [plugin-ui-paths.mdc](plugin-ui-paths.mdc) (grep `nxt/config`, confirm `platforms[].machineEntryPath`, ZIP contains `dwc/js/NeXT.*.js`).
+3. Run `./dist/verify-dwc-build-alignment.sh <path-to-DuetWebControl>` then `./dist/build-plugin.sh <same-DWC>` from the **NeXT repo root**; confirm **exit code 0**. The shipped ZIP’s `plugin.json` `dwcVersion` must match the printer’s DWC version (e.g. `3.6.2`, not merely “3.6.x”). If the host is a different patch (e.g. `3.6.5`), rebuild the plugin against that DWC tree.
+4. **Manual verification:** Do not commit or tag a release until the user has **explicitly confirmed** the plugin **loads and works** in DWC on the target line (install ZIP, start plugin, smoke-test). Treat CI success as necessary but **not sufficient**.
 
 ## Tagging conventions (this repo)
 

@@ -8,6 +8,7 @@
 global nxtFeatureTouchProbe = false
 global nxtFeatureToolSetter = false
 global nxtFeatureCoolantControl = false ; Coolant Control feature flag
+global nxtFeatureFourthAxis = false     ; Fourth axis (requires MosFourthAxis DWC plugin on SD)
 
 ; --- Core Settings ---
 global nxtProbeToolID = { limits.tools - 1 } ; Probe Tool ID, always the last tool
@@ -24,7 +25,10 @@ global nxtProbeResults = { vector(10, null) } ; Last 10 probe results (rows size
 global nxtToolCache = { vector(min(limits.tools, 50), null) } ; Per-tool cache (max 50 slots)
 global nxtLastProbeResult = null   ; Stores the result of the last probing operation
 global nxtProbeTipRadius = 0.0    ; Radius of the probe tip for compensation (mm)
-global nxtProbeDeflection = 0.0   ; Probe deflection compensation value (mm)
+global nxtProbeDeflection = {0.0, 0.0} ; {X,Y} touch-probe deflection (mm) — MOS mosTPD layout
+global nxtDatumToolRadius = null  ; Datum tool radius when touch probe feature is off (mm)
+global nxtProtectedMoveBackOff = null ; Protected move back-off distance (mm)
+global nxtTouchProbeRefPos = null ; Touch probe reference surface [X, Y, Z] machine coords
 global nxtProbeHitXY = { vector(8, 0.0) } ; Last contacts as X,Y pairs (G6512 H0..H3), machine mm — bore/boss use H0..H2
 global nxtProbeMaxSkewDeg = 5.0   ; Abort rectangle/bore skew solve if |theta| exceeds this (deg)
 
@@ -40,6 +44,7 @@ global nxtProbeMaxSampleSpreadMm = 0.0075
 global nxtProbeSampleOuterRetries = 1
 
 global nxtToolSetterPos = null     ; Toolsetter position vector [X, Y, Z]
+global nxtToolSetterRadius = null ; Toolsetter platen radius for large-tool multi-point G37 (mm)
 global nxtToolChangeState = null   ; Tracks the current tool change state (1=tfree, 2=tfree done, 3=tpre done, 4=tpost, null=complete)
 global nxtUserToolsFilePresent = false     ; set at boot by nxt.g: nxt-user-tools.g exists on SD
 global nxtUserToolsDaemonReload = false      ; if true, daemon reloads library when 0:/sys/nxt-user-tools.reload.requested exists (see TOOLCHANGING.md)
