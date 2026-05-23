@@ -1,0 +1,36 @@
+name: Checks
+
+on:
+  push:
+    branches:
+      - main
+      - v0.6.0
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  macro-line-length:
+    name: Macro line length (RRF ≤255)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check macro line lengths
+        run: |
+          chmod +x dist/check-macro-line-length.sh
+          ./dist/check-macro-line-length.sh
+
+  dwc-build-pin:
+    name: DWC build pin alignment
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch pinned DWC sources
+        run: |
+          chmod +x dist/ci-fetch-dwc.sh dist/verify-dwc-build-alignment.sh
+          dist/ci-fetch-dwc.sh
+
+      - name: Verify ci/dwc-build-ref matches DWC package.json
+        run: ./dist/verify-dwc-build-alignment.sh dwc-build

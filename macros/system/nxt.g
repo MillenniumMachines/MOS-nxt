@@ -23,7 +23,22 @@ if { !exists(global.nxtVarsLoaded) }
 ; Millennium OS migration: run when legacy MOS is present on SD and/or in globals.
 ; Re-import anytime: touch 0:/sys/nxt-mos-import.requested
 ; First-time only (default): MOS detected and nxt-user-vars.g not created yet
-if { fileexists("0:/sys/nxt-mos-import.requested") || (!fileexists("0:/sys/nxt-user-vars.g") && (fileexists("0:/sys/mos-vars.g") || fileexists("0:/sys/mos-user-vars.g") || fileexists("0:/sys/mos.g") || exists(global.mosSID) || exists(global.mosFeatTouchProbe) || exists(global.mosPTID) || exists(global.mosLdd))) }
+; (split — RRF rejects if { ... } lines longer than ~255 characters)
+var nxtDoMosImport = false
+if { fileexists("0:/sys/nxt-mos-import.requested") }
+    set var.nxtDoMosImport = true
+if { !var.nxtDoMosImport && !fileexists("0:/sys/nxt-user-vars.g") }
+    if { fileexists("0:/sys/mos-vars.g") || fileexists("0:/sys/mos-user-vars.g") || fileexists("0:/sys/mos.g") }
+        set var.nxtDoMosImport = true
+    if { !var.nxtDoMosImport && exists(global.mosSID) }
+        set var.nxtDoMosImport = true
+    if { !var.nxtDoMosImport && exists(global.mosFeatTouchProbe) }
+        set var.nxtDoMosImport = true
+    if { !var.nxtDoMosImport && exists(global.mosPTID) }
+        set var.nxtDoMosImport = true
+    if { !var.nxtDoMosImport && exists(global.mosLdd) }
+        set var.nxtDoMosImport = true
+if { var.nxtDoMosImport }
     M117 "NeXT MOS import"
     M98 P"nxt-mos-import.g"
 
@@ -47,12 +62,7 @@ else
     M117 "NeXT config pending"
     echo "NeXT: nxt-user-vars.g not found — open DWC Configuration, review settings, then Save to create the file."
 
-; Optional probe-repeatability overrides (defaults remain in nxt-vars.g)
-if { fileexists("0:/sys/nxt-user-overrides.g") }
-    M117 "NeXT nxt-user-overrides.g"
-    M98 P"nxt-user-overrides.g"
-
-; Optional: load board pack (drives, limits, spindle, …). After user vars so Scylla motor voltage applies.
+; Optional: load board pack (drives, limits, spindle, …). After user vars so motor voltage / platform apply.
 ; Requires 0:/sys/nxt-board-bootstrap.requested — see nxt-board-pack-loader.g
 M117 "NeXT board-pack"
 M98 P"nxt-board-pack-loader.g"
@@ -81,6 +91,14 @@ if { global.nxtLoaded && fileexists("0:/sys/nxt/plugins/nxt-plugin-init-dispatch
     M117 "NeXT plugin-init"
     M98 P"nxt/plugins/nxt-plugin-init-dispatch.g"
 
+; Optional user overrides last — wins over nxt-vars, nxt-user-vars, board pack, and tool table.
+; Shipped template: 0:/sys/nxt-user-overrides.g.example (never loaded). Active file only:
+if { fileexists("0:/sys/nxt-user-overrides.g") }
+    M117 "NeXT nxt-user-overrides.g"
+    M98 P"nxt-user-overrides.g"
+elif { fileexists("0:/sys/nxt-user-overrides.g.example") }
+    echo "NeXT: nxt-user-overrides.g not found — copy nxt-user-overrides.g.example to nxt-user-overrides.g on SD to apply overrides"
+
 ; Final check if NeXT loaded successfully
 if { global.nxtLoaded }
     M117 "NeXT ready"
@@ -88,4 +106,7 @@ if { global.nxtLoaded }
 else
     ; Safe message: nxtError may be null if boot aborted before it was set (avoid odd echo / OM values for DWC)
     M117 "NeXT load FAILED"
-    echo "FATAL: NeXT failed to load. Error: " ^ (exists(global.nxtError) && global.nxtError != null ? global.nxtError : "no details recorded")
+    var nxtErrMsg = "no details recorded"
+    if { exists(global.nxtError) && global.nxtError != null }
+        set var.nxtErrMsg = global.nxtError
+    echo "FATAL: NeXT failed to load. Error: " ^ var.nxtErrMsg

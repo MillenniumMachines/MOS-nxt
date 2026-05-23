@@ -321,6 +321,11 @@ function formatPersistedNumber(value: number | null | undefined): string {
   return value !== null && value !== undefined ? String(value) : 'null'
 }
 
+/** Last tool index when the Configuration UI has no probe-tool field (matches nxt-vars.g / nxt-boot.g). */
+export function formatPersistedProbeToolID(value: number | null | undefined): string {
+  return value !== null && value !== undefined ? String(value) : '{ limits.tools - 1 }'
+}
+
 function formatPersistedString(value: string | null | undefined): string {
   if (value == null || value === '') {
     return 'null'
@@ -339,8 +344,8 @@ export function buildNxtUserVarsGcode(config: NxtUserConfigDraft): string {
     `set global.nxtFeatureToolSetter = ${formatPersistedBool(config.nxtFeatureToolSetter)}`,
     `set global.nxtFeatureCoolantControl = ${formatPersistedBool(config.nxtFeatureCoolantControl)}`,
     '',
-    '; Probe tool index and static datum (touch probe / toolsetter calibration)',
-    `set global.nxtProbeToolID = ${formatPersistedNumber(config.nxtProbeToolID)}`,
+    '; Probe tool index (null in UI → last tool at load) and static datum (touch probe calibration)',
+    `set global.nxtProbeToolID = ${formatPersistedProbeToolID(config.nxtProbeToolID)}`,
     `set global.nxtDeltaMachine = ${formatPersistedNumber(config.nxtDeltaMachine)}`,
     '',
     '; Spindle Configuration',

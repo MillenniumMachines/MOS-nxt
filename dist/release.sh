@@ -135,8 +135,8 @@ if [[ -d "${WD}/macros/plugins" ]]; then
     ${SYNC_CMD} macros/plugins/* "${TMP_DIR}/sd/sys/plugins/"
 fi
 if [[ -d "${WD}/macros/nxt-config" ]]; then
-    mkdir -p "${TMP_DIR}/sd/sys/nxt/config"
-    ${SYNC_CMD} "${WD}/macros/nxt-config/" "${TMP_DIR}/sd/sys/nxt/config/"
+    mkdir -p "${TMP_DIR}/sd/sys/nxt-config"
+    ${SYNC_CMD} "${WD}/macros/nxt-config/" "${TMP_DIR}/sd/sys/nxt-config/"
 fi
 
 [[ -f "${ZIP_PATH}" ]] && rm "${ZIP_PATH}"
@@ -168,6 +168,8 @@ if [[ -f "${WD}/ui/plugin.json" ]]; then
         DWC_REPO_PATH="${DWC_REPO_PATH}" node "${WD}/dist/merge-sd-into-plugin-zip.cjs" \
             "${PWD}/dist/NeXT-${COMMIT_ID}.zip" \
             "${TMP_DIR}" || exit 1
+        DWC_REPO_PATH="${DWC_REPO_PATH}" node "${WD}/dist/inject-plugin-dwcfiles.mjs" \
+            "${PWD}/dist/NeXT-${COMMIT_ID}.zip" || exit 1
         # Copy the built plugin to the main dist folder
         cp dist/NeXT-${COMMIT_ID}.zip "${WD}/dist/" || exit 1
     ) || exit 1
@@ -179,12 +181,17 @@ if [[ -f "${WD}/ui/plugin.json" ]]; then
     echo "Generating dwc-plugins.json..."
 
     # Extract DWC file paths from the plugin ZIP
-    DWC_FILES=$(unzip -l "${WD}/dist/NeXT-${COMMIT_ID}.zip" | grep -E '^\s+[0-9]+.*dwc/' | awk '{print $4}' | sed 's|dwc/||' | sort | jq -R . | jq -s .)
+    # Prefer dwcFiles from built plugin.json (NeXT/js/... layout); fallback: strip dwc/ prefix from zip listing
+    if unzip -p "${WD}/dist/NeXT-${COMMIT_ID}.zip" plugin.json 2>/dev/null | jq -e '.dwcFiles | length > 0' >/dev/null 2>&1; then
+        DWC_FILES=$(unzip -p "${WD}/dist/NeXT-${COMMIT_ID}.zip" plugin.json | jq -c '.dwcFiles')
+    else
+        DWC_FILES=$(unzip -l "${WD}/dist/NeXT-${COMMIT_ID}.zip" | grep -E '^\s+[0-9]+.*dwc/' | awk '{print $4}' | sed 's|dwc/||' | sort | jq -R . | jq -s .)
+    fi
 
     # Extract SD file paths (macro files that go in sys/)
     SD_FILES=$(find "${TMP_DIR}/sd/sys" -type f -name "*.g" | sed "s|${TMP_DIR}/sd/||" | sort | jq -R . | jq -s .)
 
-    # Match dwc-plugins.json to the built plugin manifest (auto-major resolved at build-plugin time)
+    # Match dwc-plugins.json to the built plugin manifest (dwcVersion auto → exact; rrfVersion auto-major)
     PLUGIN_MANIFEST="${WD}/dist/NeXT-${COMMIT_ID}.zip"
     PLUGIN_DWC_VERSION="$(unzip -p "${PLUGIN_MANIFEST}" plugin.json | jq -r '.dwcVersion')"
     PLUGIN_RRF_VERSION="$(unzip -p "${PLUGIN_MANIFEST}" plugin.json | jq -r '.rrfVersion')"

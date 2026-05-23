@@ -98,4 +98,4 @@ These features and concepts from the old implementation will be explicitly remov
 - [x] **Manual Probing (Jogging Dialogs):** Removed; operators use standard DWC jogging plus probe results / WCS push workflow.
 - [x] **Multi-Axis Probing Moves:** Removed; `G6512` is strictly single-axis per command.
 - [x] **G8000 Configuration Wizard:** Replaced by the Configuration panel in the NeXT DWC plugin.
-- [x] **Backwards Compatibility (legacy MOS runtime):** NeXT does not run legacy MOS macros; optional one-shot import via `nxt-mos-import.g` maps settings into `nxt-user-vars.g`. RRF/DWC floor is the resolved `plugin.json` major line (`auto-major` at build time).
+- [x] **Backwards Compatibility (legacy MOS runtime):** NeXT does not run legacy MOS macros; optional one-shot import via `nxt-mos-import.g` maps settings into `nxt-user-vars.g`. RRF floor is `auto-major` in built `plugin.json`; DWC requires **exact** version (`auto` at build time).

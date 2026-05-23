@@ -1,0 +1,7 @@
+{
+  "boardId": "cdy3_f4",
+  "assigned": [
+    { "role": "fan_tool", "kind": "fan", "index": 0, "pin": "PA_4" }
+  ],
+  "free": []
+}

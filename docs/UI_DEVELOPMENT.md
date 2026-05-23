@@ -1,7 +1,7 @@
 # NeXT UI Plugin Development Guide
 
 ## Overview
-This guide explains how to develop the NeXT UI plugin within the DuetWebControl workspace. The NeXT UI is a Vue 2.7 plugin that integrates with Duet Web Control **v3.6.2** (see `ui/plugin.json` `dwcVersion`) to provide CNC-specific functionality for RepRapFirmware.
+This guide explains how to develop the NeXT UI plugin within the DuetWebControl workspace. The NeXT UI is a Vue 2.7 plugin that integrates with Duet Web Control **v3.6.2** (pin: `ci/dwc-build-ref`; shipped ZIPs set exact `dwcVersion` at build) to provide CNC-specific functionality for RepRapFirmware.
 
 > [!WARNING]
 > **NEVER** edit files within the `DuetWebControl` directory as the NeXT plugin is symlinked into it already. All source code changes should be within the `NeXT/ui` directory structure.
@@ -192,6 +192,26 @@ DWC's plugin system expects an `index.js` or `index.ts` at the plugin root.
 2. Verify `plugin.json` is valid JSON
 3. Check that `src/index.ts` exports a Vue component as default
 4. Look for missing dependencies or incorrect imports
+
+### `can't access property "call", v[ee] is undefined` when starting NeXT
+
+This is almost always **404**, **`dwcFiles`**, or **version skew** — see **[PLUGIN_LOAD_TROUBLESHOOTING.md](PLUGIN_LOAD_TROUBLESHOOTING.md)**. Run `node dist/verify-plugin-zip.mjs dist/NeXT-*.zip` and `node dist/diagnose-plugin-chunk.mjs dist/NeXT-*.zip <host-app.js>`.
+
+**Development (localhost / `npm run dev`):**
+
+1. Ensure the symlink exists: `ls -la DuetWebControl/src/plugins/NeXT` → should point at `NeXT/ui`.
+   - Create it: `./dist/setup-dwc-dev-symlink.sh [path-to-DuetWebControl]` from the NeXT repo root.
+2. After `./dist/build-plugin.sh`, DWC’s `src/plugins/NeXT` is removed again — re-run the symlink script (or dev against a fresh `npm run dev` only after the symlink is in place).
+3. Do **not** leave a stale NeXT entry in `src/plugins/imports.ts` without `src/plugins/NeXT/` on disk (regenerate: `node dist/regenerate-dwc-plugin-imports.cjs ../DuetWebControl`).
+4. Hard-refresh the browser (Ctrl+Shift+R).
+
+**Installed ZIP on a printer / SBC:**
+
+1. Rebuild and reinstall the latest `dist/NeXT-*.zip` (Settings → Plugins → upload). The ZIP must include `dwc/js/NeXT.*.js` (and `.css`).
+2. DWC on the machine must match the ZIP’s **`plugin.json` `dwcVersion` exactly** (e.g. `3.6.2`, not merely “3.6.x”). Run `./dist/verify-dwc-build-alignment.sh` before `./dist/build-plugin.sh`. See [PLUGIN_LOAD_TROUBLESHOOTING.md](PLUGIN_LOAD_TROUBLESHOOTING.md).
+3. Hard-refresh or clear site data for the DWC URL so old `NeXT.<hash>.js` chunks are not cached.
+
+If the error persists, open the browser devtools → **Sources**, enable the NeXT source map, and note the first stack frame outside webpack runtime (that module is the real missing/broken import).
 
 ### Hot Reload Not Working
 

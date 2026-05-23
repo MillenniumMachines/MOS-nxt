@@ -171,16 +171,23 @@
               hide-details
             />
             <div
-              v-if="selectedPlatformStructure.sysDeployFiles.length || selectedPlatformStructure.boardEntryPaths.length"
+              v-if="
+                selectedPlatformStructure.sysDeployFiles.length ||
+                selectedPlatformStructure.boardEntryPaths.length ||
+                selectedPlatformStructure.machineEntryPath
+              "
               class="mt-3"
             >
               <p class="text-caption font-weight-medium mb-1">{{ $t('plugins.next.panels.configuration.boardPlatformTree') }}</p>
               <ul class="text-caption grey--text text--darken-1 pl-4 mb-2">
+                <li v-if="selectedPlatformStructure.machineEntryPath">
+                  Boot machine: {{ selectedPlatformStructure.machineEntryPath }}
+                </li>
                 <li v-for="f in selectedPlatformStructure.sysDeployFiles" :key="'sd-' + f">
-                  0:/sys/{{ f }}
+                  Deploy homing: 0:/sys/{{ f }}
                 </li>
                 <li v-for="p in selectedPlatformStructure.boardEntryPaths" :key="'ent-' + p">
-                  {{ p }}
+                  Boot board: {{ p }}
                 </li>
               </ul>
               <p class="text-caption grey--text mb-2">{{ $t('plugins.next.panels.configuration.boardHomingDocHint') }}</p>
@@ -455,7 +462,7 @@
               <span class="text-caption">
                 Probe repeatability (G6512 sample count, pair tolerance, retries) uses defaults from
                 <code>nxt-vars.g</code>. Copy <code>nxt-user-overrides.g.example</code> to
-                <code>0:/sys/nxt-user-overrides.g</code> to override.
+                <code>0:/sys/nxt-user-overrides.g</code> to override (loaded last in <code>nxt.g</code>).
               </span>
             </v-alert>
 

@@ -29,8 +29,8 @@ global nxtProbeHitXY = { vector(8, 0.0) } ; Last contacts as X,Y pairs (G6512 H0
 global nxtProbeMaxSkewDeg = 5.0   ; Abort rectangle/bore skew solve if |theta| exceeds this (deg)
 
 ; --- Probe repeatability (G6512; all canned cycles use G6512) ---
-; Defaults below. To override, copy macros/system/nxt-user-overrides.g.example to 0:/sys/nxt-user-overrides.g
-; (loaded from nxt.g after nxt-user-vars.g). Not edited by the DWC Configuration panel.
+; Defaults below. Plugin installs 0:/sys/nxt-user-overrides.g.example on SD; copy to nxt-user-overrides.g
+; to enable (nxt.g loads only nxt-user-overrides.g, last in the boot sequence). Not in Configuration UI.
 ;   nxtProbeInnerSampleCount — inner sample count when tolerance disabled (limit = 0); ignored when limit > 0 (G6512 uses 3 touches).
 ;   nxtProbeMaxSampleSpreadMm — max consecutive-pair deviation (mm) between the 3 touches; both pairs must pass. Set 0 to disable.
 ;   nxtProbeSampleOuterRetries — how many *additional* full 3-touch blocks after a failed tolerance check
@@ -63,12 +63,13 @@ global nxtCannedRetractMode = 98   ; G98 initial plane / G99 R plane — set by 
 global nxtCannedZi = 0              ; scratch: Z axis index (set by nxt-canned-zindex.g)
 
 ; --- Board / platform selection (UI + pack loader) ---
-global nxtPlatformProfile = null   ; platform id = nxt/config/<id>/ directory name
+global nxtPlatformProfile = null   ; platform id = nxt-config/<id>/ directory name
 global nxtBoardKitKey = null       ; legacy UI key; optional — prefer shortName + nxtBoardMotorVoltage
 global nxtBoardShortNameOverride = null ; RRF boards[0].shortName override for pack resolution, or null
 global nxtBoardMotorVoltage = null ; 24 | 48 | null (motor-24v / motor-48v board packs)
 global nxtScyllaMotorVoltage = null ; deprecated — use nxtBoardMotorVoltage
 global nxtBoardPackEntry = null    ; last resolved entry path at boot (telemetry)
+global nxtBoardPackShortName = null ; board shortName during pack load (machine endstop-y.g)
 global nxtBoardPackExpectedEntry = null ; saved expected entry path (Configuration Save)
 global nxtBoardSysDeployPlatform = null ; platform whose home*.g were last deployed to 0:/sys/
 global nxtBoardBootstrapMode = "off" ; "off" | "auto" (Save syncs nxt-board-bootstrap.requested)

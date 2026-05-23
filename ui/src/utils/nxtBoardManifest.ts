@@ -1,8 +1,14 @@
 /**
  * Board pack metadata for NeXT Configuration UI and nxt-board-pack-loader.g.
- * Platform and board lists are driven by ui/src/generated/nxtConfigManifest.json.
+ * Boards: nxt-config/board/<shortName>/ — machines: nxt-config/machine/<profile>/.
  */
-import { nxtConfigManifest, nxtPlatformFromManifest } from './nxtConfigManifestData'
+import {
+  boardEntriesList,
+  machinesList,
+  nxtConfigManifest,
+  nxtMachineFromManifest,
+  nxtPlatformFromManifest
+} from './nxtConfigManifestData'
 
 export type NxtPlatformId = string
 
@@ -22,7 +28,7 @@ const BOARD_TITLE_OVERRIDE: Record<string, string> = {
   scylla1_0_h723: 'Scylla v1.0'
 }
 
-function platformDisplayTitle(id: string, overviewTitle: string): string {
+function machineDisplayTitle(id: string, overviewTitle: string): string {
   if (id === 'v1.5') {
     return 'Milo v1.5'
   }
@@ -33,35 +39,19 @@ function platformDisplayTitle(id: string, overviewTitle: string): string {
 }
 
 export const NXT_PLATFORM_OPTIONS: Array<{ value: NxtPlatformId; title: string }> =
-  nxtConfigManifest.platforms.map((p) => ({
-    value: p.id,
-    title: platformDisplayTitle(p.id, p.title)
+  machinesList().map((m) => ({
+    value: m.id,
+    title: machineDisplayTitle(m.id, m.title)
   }))
 
-function boardsForPlatform(platform: NxtPlatformId | null | undefined) {
-  return nxtPlatformFromManifest(platform)?.boards ?? []
-}
-
-/** Boards with vendored packs (union across platforms in manifest). */
-export const NXT_BUNDLED_BOARDS: NxtBundledBoardMeta[] = (() => {
-  const byShort = new Map<string, NxtBundledBoardMeta>()
-  for (const plat of nxtConfigManifest.platforms) {
-    for (const b of plat.boards) {
-      if (byShort.has(b.shortName)) {
-        continue
-      }
-      const hasMotorVariant = plat.boards.some(
-        (x) => x.shortName === b.shortName && x.variant != null
-      )
-      byShort.set(b.shortName, {
-        shortName: b.shortName,
-        title: BOARD_TITLE_OVERRIDE[b.shortName] ?? b.title.split(' (')[0],
-        variant: hasMotorVariant ? 'motor-24v-48v' : 'single'
-      })
-    }
-  }
-  return [...byShort.values()]
-})()
+/** Boards with vendored packs (from nxt-config/board/, not per-machine). */
+export const NXT_BUNDLED_BOARDS: NxtBundledBoardMeta[] = (nxtConfigManifest.boards ?? []).map(
+  (b) => ({
+    shortName: b.shortName,
+    title: b.title,
+    variant: b.variant as NxtBoardVariantKind
+  })
+)
 
 export function bundledBoardMeta(shortName: string | null | undefined): NxtBundledBoardMeta | null {
   if (shortName == null || typeof shortName !== 'string') {
@@ -71,18 +61,18 @@ export function bundledBoardMeta(shortName: string | null | undefined): NxtBundl
   return NXT_BUNDLED_BOARDS.find((b) => b.shortName === s) ?? null
 }
 
+/** Board profiles (independent of machine profile selection). */
 export function boardProfileSelectItems(
-  platform: NxtPlatformId | null | undefined
+  _platform?: NxtPlatformId | null | undefined
 ): Array<{ value: string; title: string }> {
-  const boards = boardsForPlatform(platform)
   const seen = new Set<string>()
   const items: Array<{ value: string; title: string }> = []
-  for (const b of boards) {
+  for (const b of boardEntriesList()) {
     if (seen.has(b.shortName)) {
       continue
     }
     seen.add(b.shortName)
-    const title = BOARD_TITLE_OVERRIDE[b.shortName] ?? b.title
+    const title = BOARD_TITLE_OVERRIDE[b.shortName] ?? b.title.split(' (')[0]
     items.push({ value: b.shortName, title: `${title} (${b.shortName})` })
   }
   return items
@@ -93,40 +83,50 @@ export const NXT_SCYLLA_MOTOR_VOLTAGE_ITEMS: Array<{ value: number; title: strin
   { value: 48, title: '48 V motor supply' }
 ]
 
-/** Config folder under 0:/sys/nxt/config/ */
-export function nxtKitConfigBase(platform: NxtPlatformId | null | undefined): string | null {
-  if (platform == null || platform === '') {
+/** Machine config folder under 0:/sys/nxt-config/ */
+export function nxtMachineConfigBase(machineId: NxtPlatformId | null | undefined): string | null {
+  if (machineId == null || machineId === '') {
     return null
   }
-  if (nxtPlatformFromManifest(platform)) {
-    return `nxt/config/${platform}`
+  if (nxtMachineFromManifest(machineId)) {
+    return `nxt-config/machine/${machineId}`
   }
   return null
 }
 
+/** @deprecated Use nxtMachineConfigBase */
+export function nxtKitConfigBase(platform: NxtPlatformId | null | undefined): string | null {
+  return nxtMachineConfigBase(platform)
+}
+
 /**
- * Relative path from 0:/sys/ to the board pack entry macro, or null if incomplete (e.g. Scylla without voltage).
+ * Relative path from 0:/sys/ to the board pack entry macro (nxt-config/board/...).
  */
 export function nxtBoardPackRelPath(
-  platform: NxtPlatformId | null | undefined,
+  _platform: NxtPlatformId | null | undefined,
   boardShortName: string | null | undefined,
   motorVoltage: number | null | undefined
 ): string | null {
-  const plat = nxtPlatformFromManifest(platform)
-  if (!plat || boardShortName == null || boardShortName === '') {
+  if (boardShortName == null || boardShortName === '') {
     return null
   }
   const sn = String(boardShortName).trim()
   if (motorVoltage === 48) {
-    const b = plat.boards.find((x) => x.shortName === sn && x.variant === '48v')
+    const b = boardEntriesList().find((x) => x.shortName === sn && x.variant === '48v')
     return b?.entryPath ?? null
   }
   if (motorVoltage === 24) {
-    const b = plat.boards.find((x) => x.shortName === sn && x.variant === '24v')
+    const b = boardEntriesList().find((x) => x.shortName === sn && x.variant === '24v')
     return b?.entryPath ?? null
   }
-  const b = plat.boards.find((x) => x.shortName === sn && x.variant == null)
+  const b = boardEntriesList().find((x) => x.shortName === sn && x.variant == null)
   return b?.entryPath ?? null
+}
+
+/** Machine pack entry path (boot loads after board pack). */
+export function nxtMachinePackRelPath(machineId: NxtPlatformId | null | undefined): string | null {
+  const m = nxtMachineFromManifest(machineId)
+  return m?.machineEntryPath ?? null
 }
 
 /** @deprecated Use nxtBoardPackRelPath */
@@ -148,7 +148,6 @@ export const NXT_KIT_ENTRY_PATH: Record<NxtBoardKitKey, string | null> = {
   scylla_48: nxtKitEntryPath('v1.5', 'scylla_48')
 }
 
-/** RRF boards[0].shortName when it matches a bundled pack (firmware-defined strings). */
 export function suggestBundledBoardShortName(shortName: string | null | undefined): string | null {
   if (shortName == null || typeof shortName !== 'string') {
     return null
@@ -228,16 +227,18 @@ export function applyKitKeyToGlobals(
   return { nxtBoardKitKey: kit, nxtBoardMotorVoltage: null }
 }
 
-export function platformStructureSummary(platformId: NxtPlatformId | null | undefined): {
+export function platformStructureSummary(machineId: NxtPlatformId | null | undefined): {
   sysDeployFiles: string[]
   boardEntryPaths: string[]
+  machineEntryPath: string | null
 } {
-  const p = nxtPlatformFromManifest(platformId)
-  if (!p) {
-    return { sysDeployFiles: [], boardEntryPaths: [] }
+  const m = nxtMachineFromManifest(machineId)
+  if (!m) {
+    return { sysDeployFiles: [], boardEntryPaths: [], machineEntryPath: null }
   }
   return {
-    sysDeployFiles: [...p.sysDeployFiles],
-    boardEntryPaths: p.boards.map((b) => b.entryPath)
+    sysDeployFiles: [...m.sysDeployFiles],
+    boardEntryPaths: boardEntriesList().map((b) => b.entryPath),
+    machineEntryPath: m.machineEntryPath
   }
 }

@@ -5,9 +5,8 @@
 ; Opt-out: create 0:/sys/nxt-board-bootstrap.skip
 ; Override: 0:/sys/nxt-user-board.g runs instead of resolution below.
 ;
-; Requires global nxtPlatformProfile in nxt-user-vars.g (any platform under nxt/config/<id>/).
-; Board id: global nxtBoardShortNameOverride (optional) else boards[0].shortName.
-; Motor variants: global nxtBoardMotorVoltage = 24 or 48 when motor-24v / motor-48v packs exist.
+; Load order: board pack (nxt-config/board/) then machine pack (nxt-config/machine/<profile>/).
+; Homing macros are deploy-only (Configuration UI), not M98'd at boot.
 
 if { !fileexists("0:/sys/nxt-board-bootstrap.requested") }
     M99
@@ -32,20 +31,17 @@ if { !exists(global.nxtPlatformProfile) || global.nxtPlatformProfile == null || 
     M117 "NeXT board pack no platform"
     M99
 
-if { !fileexists("0:/sys/nxt/config/" ^ global.nxtPlatformProfile ^ "/OVERVIEW.txt") }
-    echo "[NeXT] board pack: platform not on SD: nxt/config/" ^ global.nxtPlatformProfile ^ " — reinstall NeXT plugin"
-    M117 "NeXT board pack no platform SD"
-    M99
-
-var brd = ""
-if { exists(global.nxtBoardShortNameOverride) && global.nxtBoardShortNameOverride != null && global.nxtBoardShortNameOverride != "" }
-    set var.brd = global.nxtBoardShortNameOverride
-elif { #boards >= 1 }
-    set var.brd = boards[0].shortName
-else
-    echo "[NeXT] board pack: no boards[] and no nxtBoardShortNameOverride — add nxt-user-board.g or set override"
-    M117 "NeXT board pack no board id"
-    M99
+if { !fileexists("0:/sys/nxt-config/machine/" ^ global.nxtPlatformProfile ^ "/OVERVIEW.txt") }
+    if { !fileexists("0:/sys/nxt/config/" ^ global.nxtPlatformProfile ^ "/OVERVIEW.txt") }
+        echo "[NeXT] board pack: machine profile not on SD — reinstall NeXT plugin"
+        M117 "NeXT board pack no machine SD"
+        M99
 
 M98 P"nxt-board-pack-resolve.g"
+M98 P"nxt-board-machine-pack.g"
+
+if { fileexists("0:/sys/nxt-user-pinmap.g") }
+    M98 P"nxt-user-pinmap.g"
+
+echo "[NeXT] board pack: finished"
 M99

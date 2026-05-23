@@ -1,28 +1,28 @@
 /**
- * Deploy platform common/ homing files to 0:/sys/ (from build-time manifest).
+ * Deploy machine homing files to 0:/sys/ (from build-time manifest; deploy-only, not boot M98).
  */
-import { nxtPlatformFromManifest } from './nxtConfigManifestData'
+import { nxtMachineFromManifest, nxtPlatformFromManifest } from './nxtConfigManifestData'
 import { uploadDwcFile } from './nxtFileUpload'
 
 export function sysDeployFilesForPlatform(platformId: string): string[] {
-  const p = nxtPlatformFromManifest(platformId)
-  return p?.sysDeployFiles ?? []
+  const m = nxtMachineFromManifest(platformId) ?? nxtPlatformFromManifest(platformId)
+  return m?.sysDeployFiles ?? []
 }
 
 /**
- * Upload homing macros listed in sys-deploy-manifest.txt for the platform.
+ * Upload homing macros listed in machine/<id>/sys-deploy-manifest.txt.
  * @returns paths written under 0:/sys/
  */
 export async function deployPlatformSysFiles(platformId: string): Promise<string[]> {
-  const platform = nxtPlatformFromManifest(platformId)
-  if (!platform?.hasCommonDeploy) {
-    throw new Error(`Platform "${platformId}" has no sys deploy manifest`)
+  const machine = nxtMachineFromManifest(platformId) ?? nxtPlatformFromManifest(platformId)
+  if (!machine?.hasCommonDeploy) {
+    throw new Error(`Machine profile "${platformId}" has no sys deploy manifest`)
   }
   const written: string[] = []
-  for (const name of platform.sysDeployFiles) {
-    const content = platform.sysDeployContents[name]
+  for (const name of machine.sysDeployFiles) {
+    const content = machine.sysDeployContents[name]
     if (content == null) {
-      throw new Error(`Missing content for ${platformId}/common/${name} in manifest`)
+      throw new Error(`Missing content for machine/${platformId}/${name} in manifest`)
     }
     const dest = `0:/sys/${name}`
     await uploadDwcFile(dest, content)

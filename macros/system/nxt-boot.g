@@ -22,13 +22,14 @@ if { exists(global.nxtUserVarsPresent) && !global.nxtUserVarsPresent }
     echo "NeXT: configuration pending — complete setup in DWC Configuration panel and Save nxt-user-vars.g"
     M99
 
-; 4. Full configuration required when user-vars file was loaded
-if { !exists(global.nxtDeltaMachine) || global.nxtDeltaMachine == null }
-    set global.nxtError = "Static datum (nxtDeltaMachine) is not defined. Please run the configuration."
-    M99
-
+; 4. Full configuration when user-vars file was loaded
+; nxt-user-vars.g from Configuration Save may persist null for fields not in the UI — restore defaults.
 if { !exists(global.nxtProbeToolID) || global.nxtProbeToolID == null }
-    set global.nxtError = "Probe Tool ID (nxtProbeToolID) is not defined. Please run the configuration."
+    set global.nxtProbeToolID = { limits.tools - 1 }
+    echo "[NeXT] boot: nxtProbeToolID unset — defaulting to last tool index " ^ global.nxtProbeToolID
+
+if { global.nxtFeatureTouchProbe && (!exists(global.nxtDeltaMachine) || global.nxtDeltaMachine == null) }
+    set global.nxtError = "Touch probe enabled but nxtDeltaMachine is not set — calibrate static datum (Configuration / legacy wizard)"
     M99
 
 ; --- All checks passed ---

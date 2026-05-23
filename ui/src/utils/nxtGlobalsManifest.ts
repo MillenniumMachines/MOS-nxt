@@ -40,7 +40,7 @@ export const NXT_GLOBAL_MANIFEST: NxtGlobalManifestEntry[] = [
   { key: 'nxtCannedCycle', description: 'Active canned cycle state vector' },
   { key: 'nxtCannedRetractMode', description: 'G98/G99 retract mode' },
   { key: 'nxtCannedZi', description: 'Canned cycle scratch: Z axis index' },
-  { key: 'nxtPlatformProfile', description: 'Machine platform (v1.5 / v1.6_v2 / atlas); selects nxt/config path for board pack M98' },
+  { key: 'nxtPlatformProfile', description: 'Machine profile (v1.5 / v1.6_v2); nxt-config/machine/<id>/ motion pack at boot' },
   { key: 'nxtBoardShortNameOverride', description: 'Optional RRF boards[0].shortName override; null uses object model primary board' },
   { key: 'nxtBoardKitKey', description: 'Legacy kit key (deprecated; use shortName + nxtBoardMotorVoltage)' },
   { key: 'nxtBoardMotorVoltage', description: 'Motor supply 24 or 48 V for motor-24v/48v board packs' },

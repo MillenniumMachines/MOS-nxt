@@ -1,0 +1,10 @@
+{
+  "boardId": "scylla1_0_h723",
+  "assigned": [
+    { "role": "fan_tool", "kind": "fan", "index": 0, "pin": "PA_4" },
+    { "role": "endstop_x", "kind": "endstop", "axis": "X", "pin": "PD_11" },
+    { "role": "endstop_y", "kind": "endstop", "axis": "Y", "pin": "PD_14" },
+    { "role": "endstop_z", "kind": "endstop", "axis": "Z", "pin": "PD_12" }
+  ],
+  "free": []
+}

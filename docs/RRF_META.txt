@@ -8,6 +8,9 @@ Reference implementation (sibling repo): MillenniumOS loads vector-backed global
 and runtime arrays using a consistent RHS form — see especially:
   ../MillenniumOS/sys/mos-vars.g   (global mosTT, mosPS, mosWPCtrPos, …)
   ../MillenniumOS/sys/mos.g        (load order: vars → user → boot)
+
+Macro line length: RRF rejects lines longer than ~255 characters ("GCode command too long").
+  Keep each line in macros/**/*.g ≤255 chars; split long if { } conditions. CI: dist/check-macro-line-length.sh
   ../MillenniumOS/macro/machine/M5000.g  (set global.mosMI = { vector(#move.axes, null) })
   ../MillenniumOS/sys/pause.g      (gpOut snapshot into global.mosPS by index)
 NeXT mirrors that pattern: wrap vector() in { } on global / set / var RHS.
@@ -83,3 +86,11 @@ NeXT mirrors that pattern: wrap vector() in { } on global / set / var RHS.
 
   e) When adding macros, grep for “while (”, “if (”, “elif (” at line start —
      replace with braced forms.
+
+7) MACRO LINE LENGTH (≤255 characters per line)
+---------------------------------------------
+  RRF reports “GCode command too long” when a single physical line exceeds
+  about 255 characters (often at column 256). Split long if { } conditions across
+  multiple lines or use a var flag (see macros/system/nxt.g MOS import gate).
+
+  Before commit: ./dist/check-macro-line-length.sh  (also runs in CI)

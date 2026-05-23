@@ -1,4 +1,4 @@
-NeXT nxt/config — board kit fragments
+NeXT nxt-config — board kit fragments
 =====================================
 
 Machine configuration files under v1.5/ are derived from Millennium Machines

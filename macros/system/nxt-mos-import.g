@@ -14,8 +14,19 @@
 ;
 ; Each mos* -> nxt* copy uses exists(global.mos*) so a partial MOS install does not abort.
 
-var nxtMosSentinel = { fileexists("0:/sys/nxt-mos-import.requested") }
-var hasMosSource = { var.nxtMosSentinel || fileexists("0:/sys/mos-vars.g") || fileexists("0:/sys/mos-user-vars.g") || fileexists("0:/sys/mos.g") || exists(global.mosSID) || exists(global.mosFeatTouchProbe) || exists(global.mosPTID) || exists(global.mosLdd) }
+var hasMosSource = false
+if { fileexists("0:/sys/nxt-mos-import.requested") }
+    set var.hasMosSource = true
+if { fileexists("0:/sys/mos-vars.g") || fileexists("0:/sys/mos-user-vars.g") || fileexists("0:/sys/mos.g") }
+    set var.hasMosSource = true
+if { exists(global.mosSID) }
+    set var.hasMosSource = true
+if { exists(global.mosFeatTouchProbe) }
+    set var.hasMosSource = true
+if { exists(global.mosPTID) }
+    set var.hasMosSource = true
+if { exists(global.mosLdd) }
+    set var.hasMosSource = true
 
 if { !var.hasMosSource }
     echo "NeXT MOS import: no MillenniumOS files or mos* globals found — nothing to migrate"
@@ -117,13 +128,37 @@ echo >>{var.UV} {"set global.nxtCoolantMistID = " ^ (global.nxtCoolantMistID == 
 echo >>{var.UV} {"set global.nxtCoolantFloodID = " ^ (global.nxtCoolantFloodID == null ? "null" : global.nxtCoolantFloodID)}
 echo >>{var.UV} {""}
 echo >>{var.UV} {"; Board / platform (Configuration panel)"}
-echo >>{var.UV} {"set global.nxtPlatformProfile = " ^ (global.nxtPlatformProfile == null ? "null" : "\"" ^ global.nxtPlatformProfile ^ "\"")}
-echo >>{var.UV} {"set global.nxtBoardShortNameOverride = " ^ (global.nxtBoardShortNameOverride == null ? "null" : "\"" ^ global.nxtBoardShortNameOverride ^ "\"")}
-echo >>{var.UV} {"set global.nxtBoardKitKey = " ^ (global.nxtBoardKitKey == null ? "null" : "\"" ^ global.nxtBoardKitKey ^ "\"")}
-echo >>{var.UV} {"set global.nxtBoardMotorVoltage = " ^ (global.nxtBoardMotorVoltage == null ? (global.nxtScyllaMotorVoltage == null ? "null" : global.nxtScyllaMotorVoltage) : global.nxtBoardMotorVoltage)}
-echo >>{var.UV} {"set global.nxtBoardBootstrapMode = \"" ^ (global.nxtBoardBootstrapMode == "auto" ? "auto" : "off") ^ "\""}
-echo >>{var.UV} {"set global.nxtBoardPackExpectedEntry = " ^ (global.nxtBoardPackExpectedEntry == null ? "null" : "\"" ^ global.nxtBoardPackExpectedEntry ^ "\"")}
-echo >>{var.UV} {"set global.nxtBoardSysDeployPlatform = " ^ (global.nxtBoardSysDeployPlatform == null ? "null" : "\"" ^ global.nxtBoardSysDeployPlatform ^ "\"")}
+if { global.nxtPlatformProfile == null }
+    echo >>{var.UV} {"set global.nxtPlatformProfile = null"}
+else
+    echo >>{var.UV} {"set global.nxtPlatformProfile = "" ^ global.nxtPlatformProfile ^ """}
+if { global.nxtBoardShortNameOverride == null }
+    echo >>{var.UV} {"set global.nxtBoardShortNameOverride = null"}
+else
+    echo >>{var.UV} {"set global.nxtBoardShortNameOverride = "" ^ global.nxtBoardShortNameOverride ^ """}
+if { global.nxtBoardKitKey == null }
+    echo >>{var.UV} {"set global.nxtBoardKitKey = null"}
+else
+    echo >>{var.UV} {"set global.nxtBoardKitKey = "" ^ global.nxtBoardKitKey ^ """}
+if { global.nxtBoardMotorVoltage == null }
+    if { global.nxtScyllaMotorVoltage == null }
+        echo >>{var.UV} {"set global.nxtBoardMotorVoltage = null"}
+    else
+        echo >>{var.UV} {"set global.nxtBoardMotorVoltage = " ^ global.nxtScyllaMotorVoltage}
+else
+    echo >>{var.UV} {"set global.nxtBoardMotorVoltage = " ^ global.nxtBoardMotorVoltage}
+if { global.nxtBoardBootstrapMode == "auto" }
+    echo >>{var.UV} {"set global.nxtBoardBootstrapMode = ""auto"""}
+else
+    echo >>{var.UV} {"set global.nxtBoardBootstrapMode = ""off"""}
+if { global.nxtBoardPackExpectedEntry == null }
+    echo >>{var.UV} {"set global.nxtBoardPackExpectedEntry = null"}
+else
+    echo >>{var.UV} {"set global.nxtBoardPackExpectedEntry = "" ^ global.nxtBoardPackExpectedEntry ^ """}
+if { global.nxtBoardSysDeployPlatform == null }
+    echo >>{var.UV} {"set global.nxtBoardSysDeployPlatform = null"}
+else
+    echo >>{var.UV} {"set global.nxtBoardSysDeployPlatform = "" ^ global.nxtBoardSysDeployPlatform ^ """}
 echo >>{var.UV} {""}
 echo >>{var.UV} {"; gpOut snapshot (caps min(limits.gpOutPorts,32) in nxt-vars.g)"}
 var pline = {"set global.nxtPinStates = {"}

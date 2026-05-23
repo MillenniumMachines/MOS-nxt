@@ -1,5 +1,139 @@
 {
-  "generatedAt": "2026-05-18T23:24:39.680Z",
+  "generatedAt": "2026-05-23T00:31:24.178Z",
+  "boards": [
+    {
+      "shortName": "cdy3_f4",
+      "title": "Fly CDYv3",
+      "variant": "single",
+      "entries": [
+        {
+          "shortName": "cdy3_f4",
+          "variant": null,
+          "title": "Fly CDYv3",
+          "entryPath": "nxt-config/board/cdy3_f4/entry.g"
+        }
+      ],
+      "pinmap": {
+        "boardId": "cdy3_f4",
+        "assigned": [
+          {
+            "role": "fan_tool",
+            "kind": "fan",
+            "index": 0,
+            "pin": "PA_4"
+          }
+        ],
+        "free": []
+      }
+    },
+    {
+      "shortName": "scylla1_0_h723",
+      "title": "Scylla v1.0",
+      "variant": "motor-24v-48v",
+      "entries": [
+        {
+          "shortName": "scylla1_0_h723",
+          "variant": "24v",
+          "title": "Scylla v1.0 (24v V motor)",
+          "entryPath": "nxt-config/board/scylla1_0_h723/motor-24v/entry.g"
+        },
+        {
+          "shortName": "scylla1_0_h723",
+          "variant": "48v",
+          "title": "Scylla v1.0 (48v V motor)",
+          "entryPath": "nxt-config/board/scylla1_0_h723/motor-48v/entry.g"
+        }
+      ],
+      "pinmap": {
+        "boardId": "scylla1_0_h723",
+        "assigned": [
+          {
+            "role": "fan_tool",
+            "kind": "fan",
+            "index": 0,
+            "pin": "PA_4"
+          },
+          {
+            "role": "endstop_x",
+            "kind": "endstop",
+            "axis": "X",
+            "pin": "PD_11"
+          },
+          {
+            "role": "endstop_y",
+            "kind": "endstop",
+            "axis": "Y",
+            "pin": "PD_14"
+          },
+          {
+            "role": "endstop_z",
+            "kind": "endstop",
+            "axis": "Z",
+            "pin": "PD_12"
+          }
+        ],
+        "free": []
+      }
+    }
+  ],
+  "boardEntries": [
+    {
+      "shortName": "cdy3_f4",
+      "variant": null,
+      "title": "Fly CDYv3",
+      "entryPath": "nxt-config/board/cdy3_f4/entry.g"
+    },
+    {
+      "shortName": "scylla1_0_h723",
+      "variant": "24v",
+      "title": "Scylla v1.0 (24v V motor)",
+      "entryPath": "nxt-config/board/scylla1_0_h723/motor-24v/entry.g"
+    },
+    {
+      "shortName": "scylla1_0_h723",
+      "variant": "48v",
+      "title": "Scylla v1.0 (48v V motor)",
+      "entryPath": "nxt-config/board/scylla1_0_h723/motor-48v/entry.g"
+    }
+  ],
+  "machines": [
+    {
+      "id": "v1.5",
+      "title": "Milo v1.5 board packs (NeXT)",
+      "hasCommonDeploy": true,
+      "sysDeployFiles": [
+        "homeall.g",
+        "homex.g",
+        "homey.g",
+        "homez.g"
+      ],
+      "sysDeployContents": {
+        "homeall.g": "; homeall.g — NeXT platform v1.5 (Milo v1.5)\n; Requirements: see docs/NXT_BOARD_HOMING.md (v1.5 — Z first, then X+Y)\n\n; homeall.g - Homes Z, then homes X and Y together using existing machine limits.\n\n; Relative positioning in mm and mm/min\nG91\nG21\nG94\n\n; Home Z first to move spindle out of the way\nM98 P\"homez.g\"\n\n; Move quickly to X and Y axis endstops and stop there (first pass)\nG53 G1 H1 X{-(move.axes[0].max - move.axes[0].min + 5) } Y{ move.axes[1].max - move.axes[1].min + 5 } F{1800}\n\n; Endstops should now be triggered, verify\nif { ! sensors.endstops[0].triggered }\n    abort {\"X endstop not triggered after full axis travel. Check that your X motor is connected and the endstop is working!\"}\nif { ! sensors.endstops[1].triggered }\n    abort {\"Y endstop not triggered after full axis travel. Check that your Y motor is connected and the endstop is working!\"}\n\n; Move away from X and Y endstops\nG53 G1 H2 X{5} Y{-5}\n\n; Repeat X and Y home at low speed. Do not move further than\n; 2 * 5 further than the expected endstop locations.\nG53 G1 H1 X{-5*2} Y{5*2} F{180}\n",
+        "homex.g": "; homex.g — NeXT platform v1.5 (Milo v1.5)\n; Requirements: see docs/NXT_BOARD_HOMING.md (v1.5 — X toward min)\n\n; homex.g - Lifts Z, then homes X using existing machine limits.\n\n; Relative positioning in mm and mm/min\nG91\nG21\nG94\n\n; Raise Z towards machine limit as it is already homed\nG53 G0 Z{move.axes[2].max}\n\n; Move quickly to X axis endstop and stop there (first pass)\nG53 G1 H1 X{-(move.axes[0].max - move.axes[0].min + 5) } F{1800}\n\n; Endstop should now be triggered, verify\nif { ! sensors.endstops[0].triggered }\n    abort {\"X endstop not triggered after full axis travel. Check that your X motor is connected and the endstop is working!\"}\n\n; Move away from X endstop\nG53 G1 H2 X{5}\n\n; Repeat X home at low speed. Do not move further than\n; 2 * 5 further than the expected endstop location.\nG53 G1 H1 X{-5*2} F{180}\n",
+        "homey.g": "; homey.g — NeXT platform v1.5 (Milo v1.5)\n; Requirements: see docs/NXT_BOARD_HOMING.md (v1.5 — Y toward max)\n\n; homey.g - Lifts Z, then homes Y using existing machine limits.\n\n; Relative positioning\nG91\nG21\nG94\n\n; Raise Z towards machine limit as it is already homed\nG53 G0 Z{move.axes[2].max}\n\n; Move quickly to Y axis endstop and stop there (first pass)\nG53 G1 H1 Y{ move.axes[1].max - move.axes[1].min + 5 } F{1800}\n\n; Endstop should now be triggered, verify\nif { ! sensors.endstops[1].triggered }\n    abort {\"Y endstop not triggered after full axis travel. Check that your Y motor is connected and the endstop is working!\"}\n\n; Move away from Y endstop\nG53 G1 H2 Y{-5}\n\n; Repeat Y home at low speed. Do not move further than\n; 2 * 5 further than the expected endstop locations.\nG53 G1 H1 Y{5*2} F{180}\n",
+        "homez.g": "; homez.g — NeXT platform v1.5 (Milo v1.5)\n; Requirements: see docs/NXT_BOARD_HOMING.md (v1.5 — Z toward max, G92 at top)\n\n; homez.g - Homes Z.\n\n; Relative positioning in mm and mm/min\nG91\nG21\nG94\n\n; G92 to set the Z height takes existing tool offsets into\n; account, which can cause us to try to move outside of\n; machine limits.\n; To avoid this, we store the tool Z offset and restore it\n; after homing.\nvar toolZ = null\n\nif { state.currentTool != -1 }\n    set var.toolZ = { tools[state.currentTool].offsets[2] }\n    G10 L1 P{state.currentTool} Z0\n\n; Raise Z towards endstop at high speed\nG53 G1 H1 Z{move.axes[2].max - move.axes[2].min + 5} F{1800}\n\n; Endstop should now be triggered, verify\nif { ! sensors.endstops[2].triggered }\n    abort {\"Z endstop not triggered after full axis travel. Check that your Z motor is connected and the endstop is working!\"}\n\n; Move away from Z endstop\nG53 G1 H2 Z{-5}\n\n; Repeat Z home at low speed. Do not move further than\n; 2 * 5 above the expected endstop location.\nG53 G1 H1 Z{5*2} F{180}\n\n; Set Z position to axis maximum\nG53 G92 Z{move.axes[2].max}\n\n; Restore tool offset after homing\nif { var.toolZ != null }\n    G10 L1 P{state.currentTool} Z{var.toolZ}\n"
+      },
+      "machineEntryPath": "nxt-config/machine/v1.5/entry.g"
+    },
+    {
+      "id": "v1.6_v2",
+      "title": "Milo v1.6 / v2.0 board packs (NeXT)",
+      "hasCommonDeploy": true,
+      "sysDeployFiles": [
+        "homeall.g",
+        "homex.g",
+        "homey.g",
+        "homez.g"
+      ],
+      "sysDeployContents": {
+        "homeall.g": "; homeall.g — NeXT platform v1.6_v2 (Milo v1.6 / v2.0)\n; Requirements: see docs/NXT_BOARD_HOMING.md (v1.6_v2 — Z first, then X+Y toward min)\n\n; homeall.g - Homes Z, then homes X and Y together using existing machine limits.\n\n; Relative positioning in mm and mm/min\nG91\nG21\nG94\n\n; Home Z first to move spindle out of the way\nM98 P\"homez.g\"\n\n; Move quickly to X and Y axis endstops and stop there (first pass)\nG53 G1 H1 X{-(move.axes[0].max - move.axes[0].min + 5) } Y{-(move.axes[1].max - move.axes[1].min + 5)} F{1800}\n\n; Endstops should now be triggered, verify\nif { ! sensors.endstops[0].triggered }\n    abort {\"X endstop not triggered after full axis travel. Check that your X motor is connected and the endstop is working!\"}\nif { ! sensors.endstops[1].triggered }\n    abort {\"Y endstop not triggered after full axis travel. Check that your Y motor is connected and the endstop is working!\"}\n\n; Move away from X and Y endstops\nG53 G1 H2 X{5} Y{5}\n\n; Repeat X and Y home at low speed. Do not move further than\n; 2 * 5 further than the expected endstop locations.\nG53 G1 H1 X{-5*2} Y{-5*2} F{180}\n",
+        "homex.g": "; homex.g — NeXT platform v1.6_v2 (Milo v1.6 / v2.0)\n; Requirements: see docs/NXT_BOARD_HOMING.md (v1.6_v2 — X toward min)\n\n; homex.g - Lifts Z, then homes X using existing machine limits.\n\n; Relative positioning in mm and mm/min\nG91\nG21\nG94\n\n; Raise Z towards machine limit as it is already homed\nG53 G0 Z{move.axes[2].max}\n\n; Move quickly to X axis endstop and stop there (first pass)\nG53 G1 H1 X{-(move.axes[0].max - move.axes[0].min + 5) } F{1800}\n\n; Endstop should now be triggered, verify\nif { ! sensors.endstops[0].triggered }\n    abort {\"X endstop not triggered after full axis travel. Check that your X motor is connected and the endstop is working!\"}\n\n; Move away from X endstop\nG53 G1 H2 X{5}\n\n; Repeat X home at low speed. Do not move further than\n; 2 * 5 further than the expected endstop location.\nG53 G1 H1 X{-5*2} F{180}\n",
+        "homey.g": "; homey.g — NeXT platform v1.6_v2 (Milo v1.6 / v2.0)\n; Requirements: see docs/NXT_BOARD_HOMING.md (v1.6_v2 — Y toward min / Y0)\n\n; homey.g - Lifts Z, then homes Y using existing machine limits.\n\n; Relative positioning\nG91\nG21\nG94\n\n; Raise Z towards machine limit as it is already homed\nG53 G0 Z{move.axes[2].max}\n\n; Move quickly to Y axis endstop and stop there (first pass) — toward Y0 (min)\nG53 G1 H1 Y{-(move.axes[1].max - move.axes[1].min + 5)} F{1800}\n\n; Endstop should now be triggered, verify\nif { ! sensors.endstops[1].triggered }\n    abort {\"Y endstop not triggered after full axis travel. Check that your Y motor is connected and the endstop is working!\"}\n\n; Move away from Y endstop\nG53 G1 H2 Y{5}\n\n; Repeat Y home at low speed. Do not move further than\n; 2 * 5 further than the expected endstop locations.\nG53 G1 H1 Y{-5*2} F{180}\n",
+        "homez.g": "; homez.g — NeXT platform v1.6_v2 (Milo v1.6 / v2.0)\n; Requirements: see docs/NXT_BOARD_HOMING.md (v1.6_v2 — Z reversed drive, G92 at top)\n\n; homez.g - Homes Z.\n\n; Relative positioning in mm and mm/min\nG91\nG21\nG94\n\n; G92 to set the Z height takes existing tool offsets into\n; account, which can cause us to try to move outside of\n; machine limits.\n; To avoid this, we store the tool Z offset and restore it\n; after homing.\nvar toolZ = null\n\nif { state.currentTool != -1 }\n    set var.toolZ = { tools[state.currentTool].offsets[2] }\n    G10 L1 P{state.currentTool} Z0\n\n; Move toward Z endstop at high speed (inverted drive vs v1.5)\nG53 G1 H1 Z{-(move.axes[2].max - move.axes[2].min + 5)} F{1800}\n\n; Endstop should now be triggered, verify\nif { ! sensors.endstops[2].triggered }\n    abort {\"Z endstop not triggered after full axis travel. Check that your Z motor is connected and the endstop is working!\"}\n\n; Move away from Z endstop\nG53 G1 H2 Z{5}\n\n; Repeat Z home at low speed. Do not move further than\n; 2 * 5 above the expected endstop location.\nG53 G1 H1 Z{-5*2} F{180}\n\n; Set Z position to axis maximum\nG53 G92 Z{move.axes[2].max}\n\n; Restore tool offset after homing\nif { var.toolZ != null }\n    G10 L1 P{state.currentTool} Z{var.toolZ}\n"
+      },
+      "machineEntryPath": "nxt-config/machine/v1.6_v2/entry.g"
+    }
+  ],
   "platforms": [
     {
       "id": "v1.5",
@@ -17,27 +151,25 @@
         "homey.g": "; homey.g — NeXT platform v1.5 (Milo v1.5)\n; Requirements: see docs/NXT_BOARD_HOMING.md (v1.5 — Y toward max)\n\n; homey.g - Lifts Z, then homes Y using existing machine limits.\n\n; Relative positioning\nG91\nG21\nG94\n\n; Raise Z towards machine limit as it is already homed\nG53 G0 Z{move.axes[2].max}\n\n; Move quickly to Y axis endstop and stop there (first pass)\nG53 G1 H1 Y{ move.axes[1].max - move.axes[1].min + 5 } F{1800}\n\n; Endstop should now be triggered, verify\nif { ! sensors.endstops[1].triggered }\n    abort {\"Y endstop not triggered after full axis travel. Check that your Y motor is connected and the endstop is working!\"}\n\n; Move away from Y endstop\nG53 G1 H2 Y{-5}\n\n; Repeat Y home at low speed. Do not move further than\n; 2 * 5 further than the expected endstop locations.\nG53 G1 H1 Y{5*2} F{180}\n",
         "homez.g": "; homez.g — NeXT platform v1.5 (Milo v1.5)\n; Requirements: see docs/NXT_BOARD_HOMING.md (v1.5 — Z toward max, G92 at top)\n\n; homez.g - Homes Z.\n\n; Relative positioning in mm and mm/min\nG91\nG21\nG94\n\n; G92 to set the Z height takes existing tool offsets into\n; account, which can cause us to try to move outside of\n; machine limits.\n; To avoid this, we store the tool Z offset and restore it\n; after homing.\nvar toolZ = null\n\nif { state.currentTool != -1 }\n    set var.toolZ = { tools[state.currentTool].offsets[2] }\n    G10 L1 P{state.currentTool} Z0\n\n; Raise Z towards endstop at high speed\nG53 G1 H1 Z{move.axes[2].max - move.axes[2].min + 5} F{1800}\n\n; Endstop should now be triggered, verify\nif { ! sensors.endstops[2].triggered }\n    abort {\"Z endstop not triggered after full axis travel. Check that your Z motor is connected and the endstop is working!\"}\n\n; Move away from Z endstop\nG53 G1 H2 Z{-5}\n\n; Repeat Z home at low speed. Do not move further than\n; 2 * 5 above the expected endstop location.\nG53 G1 H1 Z{5*2} F{180}\n\n; Set Z position to axis maximum\nG53 G92 Z{move.axes[2].max}\n\n; Restore tool offset after homing\nif { var.toolZ != null }\n    G10 L1 P{state.currentTool} Z{var.toolZ}\n"
       },
+      "machineEntryPath": "nxt-config/machine/v1.5/entry.g",
       "boards": [
         {
-          "relPath": "cdy3_f4",
           "shortName": "cdy3_f4",
           "variant": null,
           "title": "Fly CDYv3",
-          "entryPath": "nxt/config/v1.5/boards/cdy3_f4/entry.g"
+          "entryPath": "nxt-config/board/cdy3_f4/entry.g"
         },
         {
-          "relPath": "scylla1_0_h723/motor-24v",
           "shortName": "scylla1_0_h723",
           "variant": "24v",
           "title": "Scylla v1.0 (24v V motor)",
-          "entryPath": "nxt/config/v1.5/boards/scylla1_0_h723/motor-24v/entry.g"
+          "entryPath": "nxt-config/board/scylla1_0_h723/motor-24v/entry.g"
         },
         {
-          "relPath": "scylla1_0_h723/motor-48v",
           "shortName": "scylla1_0_h723",
           "variant": "48v",
           "title": "Scylla v1.0 (48v V motor)",
-          "entryPath": "nxt/config/v1.5/boards/scylla1_0_h723/motor-48v/entry.g"
+          "entryPath": "nxt-config/board/scylla1_0_h723/motor-48v/entry.g"
         }
       ]
     },
@@ -57,27 +189,25 @@
         "homey.g": "; homey.g — NeXT platform v1.6_v2 (Milo v1.6 / v2.0)\n; Requirements: see docs/NXT_BOARD_HOMING.md (v1.6_v2 — Y toward min / Y0)\n\n; homey.g - Lifts Z, then homes Y using existing machine limits.\n\n; Relative positioning\nG91\nG21\nG94\n\n; Raise Z towards machine limit as it is already homed\nG53 G0 Z{move.axes[2].max}\n\n; Move quickly to Y axis endstop and stop there (first pass) — toward Y0 (min)\nG53 G1 H1 Y{-(move.axes[1].max - move.axes[1].min + 5)} F{1800}\n\n; Endstop should now be triggered, verify\nif { ! sensors.endstops[1].triggered }\n    abort {\"Y endstop not triggered after full axis travel. Check that your Y motor is connected and the endstop is working!\"}\n\n; Move away from Y endstop\nG53 G1 H2 Y{5}\n\n; Repeat Y home at low speed. Do not move further than\n; 2 * 5 further than the expected endstop locations.\nG53 G1 H1 Y{-5*2} F{180}\n",
         "homez.g": "; homez.g — NeXT platform v1.6_v2 (Milo v1.6 / v2.0)\n; Requirements: see docs/NXT_BOARD_HOMING.md (v1.6_v2 — Z reversed drive, G92 at top)\n\n; homez.g - Homes Z.\n\n; Relative positioning in mm and mm/min\nG91\nG21\nG94\n\n; G92 to set the Z height takes existing tool offsets into\n; account, which can cause us to try to move outside of\n; machine limits.\n; To avoid this, we store the tool Z offset and restore it\n; after homing.\nvar toolZ = null\n\nif { state.currentTool != -1 }\n    set var.toolZ = { tools[state.currentTool].offsets[2] }\n    G10 L1 P{state.currentTool} Z0\n\n; Move toward Z endstop at high speed (inverted drive vs v1.5)\nG53 G1 H1 Z{-(move.axes[2].max - move.axes[2].min + 5)} F{1800}\n\n; Endstop should now be triggered, verify\nif { ! sensors.endstops[2].triggered }\n    abort {\"Z endstop not triggered after full axis travel. Check that your Z motor is connected and the endstop is working!\"}\n\n; Move away from Z endstop\nG53 G1 H2 Z{5}\n\n; Repeat Z home at low speed. Do not move further than\n; 2 * 5 above the expected endstop location.\nG53 G1 H1 Z{-5*2} F{180}\n\n; Set Z position to axis maximum\nG53 G92 Z{move.axes[2].max}\n\n; Restore tool offset after homing\nif { var.toolZ != null }\n    G10 L1 P{state.currentTool} Z{var.toolZ}\n"
       },
+      "machineEntryPath": "nxt-config/machine/v1.6_v2/entry.g",
       "boards": [
         {
-          "relPath": "cdy3_f4",
           "shortName": "cdy3_f4",
           "variant": null,
           "title": "Fly CDYv3",
-          "entryPath": "nxt/config/v1.6_v2/boards/cdy3_f4/entry.g"
+          "entryPath": "nxt-config/board/cdy3_f4/entry.g"
         },
         {
-          "relPath": "scylla1_0_h723/motor-24v",
           "shortName": "scylla1_0_h723",
           "variant": "24v",
           "title": "Scylla v1.0 (24v V motor)",
-          "entryPath": "nxt/config/v1.6_v2/boards/scylla1_0_h723/motor-24v/entry.g"
+          "entryPath": "nxt-config/board/scylla1_0_h723/motor-24v/entry.g"
         },
         {
-          "relPath": "scylla1_0_h723/motor-48v",
           "shortName": "scylla1_0_h723",
           "variant": "48v",
           "title": "Scylla v1.0 (48v V motor)",
-          "entryPath": "nxt/config/v1.6_v2/boards/scylla1_0_h723/motor-48v/entry.g"
+          "entryPath": "nxt-config/board/scylla1_0_h723/motor-48v/entry.g"
         }
       ]
     }

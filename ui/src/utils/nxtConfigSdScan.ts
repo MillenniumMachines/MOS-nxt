@@ -1,70 +1,76 @@
 /**
- * Compare bundled nxt-config manifest with on-SD tree under 0:/sys/nxt/config/.
+ * Compare bundled nxt-config manifest with on-SD tree under 0:/sys/nxt-config/.
  */
-import { nxtConfigManifest, nxtPlatformFromManifest } from './nxtConfigManifestData'
+import { boardEntriesList, machinesList, nxtMachineFromManifest } from './nxtConfigManifestData'
 import { nxtBoardPackRelPath } from './nxtBoardManifest'
 import { dwcFileExists, listDwcDirectory } from './nxtFileUpload'
 
 export type NxtConfigSdScanResult = {
-  installedPlatformIds: string[]
-  missingPlatforms: string[]
+  installedMachineIds: string[]
+  missingMachines: string[]
   missingEntryPaths: string[]
-  extraPlatformIds: string[]
+  extraMachineIds: string[]
   scanError: string | null
 }
 
-const NXT_CONFIG_SD_ROOT = '0:/sys/nxt/config'
+const NXT_CONFIG_SD_ROOT = '0:/sys/nxt-config'
 
-export function expectedSdPathsForPlatform(
-  platformId: string | null | undefined,
+export function expectedSdPathsForMachine(
+  machineId: string | null | undefined,
   boardShortName: string | null | undefined,
   motorVoltage: number | null | undefined
 ): string[] {
   const paths: string[] = []
-  const plat = nxtPlatformFromManifest(platformId)
-  if (!plat) {
+  const machine = nxtMachineFromManifest(machineId)
+  if (!machine) {
     return paths
   }
-  paths.push(`${NXT_CONFIG_SD_ROOT}/${plat.id}/OVERVIEW.txt`)
-  const entry = nxtBoardPackRelPath(platformId, boardShortName, motorVoltage)
+  paths.push(`${NXT_CONFIG_SD_ROOT}/machine/${machine.id}/OVERVIEW.txt`)
+  if (machine.machineEntryPath) {
+    paths.push(`0:/sys/${machine.machineEntryPath}`)
+  }
+  const entry = nxtBoardPackRelPath(machineId, boardShortName, motorVoltage)
   if (entry) {
     paths.push(`0:/sys/${entry}`)
   }
-  for (const b of plat.boards) {
+  for (const b of boardEntriesList()) {
     paths.push(`0:/sys/${b.entryPath}`)
   }
   return [...new Set(paths)]
 }
 
 export async function scanNxtConfigOnSd(
-  selectedPlatformId: string | null | undefined,
+  selectedMachineId: string | null | undefined,
   boardShortName: string | null | undefined,
   motorVoltage: number | null | undefined
 ): Promise<NxtConfigSdScanResult> {
-  const bundledIds = nxtConfigManifest.platforms.map((p) => p.id)
-  const names = await listDwcDirectory(NXT_CONFIG_SD_ROOT)
-  if (names == null) {
+  const bundledMachineIds = machinesList().map((m) => m.id)
+  const machineRoot = `${NXT_CONFIG_SD_ROOT}/machine`
+  const boardRoot = `${NXT_CONFIG_SD_ROOT}/board`
+  const machineNames = await listDwcDirectory(machineRoot)
+  const boardNames = await listDwcDirectory(boardRoot)
+  if (machineNames == null && boardNames == null) {
     return {
-      installedPlatformIds: [],
-      missingPlatforms: bundledIds,
+      installedMachineIds: [],
+      missingMachines: bundledMachineIds,
       missingEntryPaths: [],
-      extraPlatformIds: [],
-      scanError: 'Could not read SD directory (machine not connected or API unavailable)'
+      extraMachineIds: [],
+      scanError: 'Could not read SD nxt-config/machine or board (reinstall NeXT plugin)'
     }
   }
-  const installedPlatformIds = names.filter((n) => !n.includes('.'))
-  const missingPlatforms = bundledIds.filter((id) => !installedPlatformIds.includes(id))
-  const extraPlatformIds = installedPlatformIds.filter((id) => !bundledIds.includes(id))
+  const installedMachineIds = machineNames ?? []
+  const missingMachines = bundledMachineIds.filter((id) => !installedMachineIds.includes(id))
+  const extraMachineIds = installedMachineIds.filter((id) => !bundledMachineIds.includes(id))
 
   const missingEntryPaths: string[] = []
-  if (selectedPlatformId) {
-    const overview = `${NXT_CONFIG_SD_ROOT}/${selectedPlatformId}/OVERVIEW.txt`
-    if (!installedPlatformIds.includes(selectedPlatformId)) {
+  if (selectedMachineId) {
+    const overview = `${machineRoot}/${selectedMachineId}/OVERVIEW.txt`
+    if (!installedMachineIds.includes(selectedMachineId)) {
       missingEntryPaths.push(overview)
     } else if (!(await dwcFileExists(overview))) {
       missingEntryPaths.push(overview)
     }
-    const entry = nxtBoardPackRelPath(selectedPlatformId, boardShortName, motorVoltage)
+    const entry = nxtBoardPackRelPath(selectedMachineId, boardShortName, motorVoltage)
     if (entry) {
       const full = `0:/sys/${entry}`
       if (!(await dwcFileExists(full))) {
@@ -74,10 +80,10 @@ export async function scanNxtConfigOnSd(
   }
 
   return {
-    installedPlatformIds,
-    missingPlatforms,
+    installedMachineIds,
+    missingMachines,
     missingEntryPaths,
-    extraPlatformIds,
+    extraMachineIds,
     scanError: null
   }
 }
@@ -87,16 +93,16 @@ export function formatSdScanWarnings(result: NxtConfigSdScanResult): string[] {
   if (result.scanError) {
     return [result.scanError]
   }
-  if (result.missingPlatforms.length > 0) {
+  if (result.missingMachines.length > 0) {
     messages.push(
-      `Missing on SD (reinstall NeXT plugin): nxt/config/${result.missingPlatforms.join(', ')}`
+      `Missing on SD (reinstall NeXT plugin): nxt-config/machine/${result.missingMachines.join(', ')}`
     )
   }
   if (result.missingEntryPaths.length > 0) {
     messages.push(`Missing pack files: ${result.missingEntryPaths.join('; ')}`)
   }
-  if (result.extraPlatformIds.length > 0) {
-    messages.push(`SD has extra platform folders (not in this plugin build): ${result.extraPlatformIds.join(', ')}`)
+  if (result.extraMachineIds.length > 0) {
+    messages.push(`SD has extra machine folders (not in this plugin build): ${result.extraMachineIds.join(', ')}`)
   }
   return messages
 }
