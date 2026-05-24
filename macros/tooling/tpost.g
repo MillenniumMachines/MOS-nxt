@@ -69,8 +69,15 @@ elif { global.nxtFeatureToolSetter && global.nxtToolSetterPos != null }
     var tsX = global.nxtToolSetterPos[0]
     var tsY = global.nxtToolSetterPos[1]
     var tsZ = global.nxtToolSetterPos[2]
+    var tsZMin = move.axes[2].min
     var tsTravel = { exists(global.nxtToolSetterProbeTravelMm) && global.nxtToolSetterProbeTravelMm > 0 ? global.nxtToolSetterProbeTravelMm : 80.0 }
-    var tsProbeTargetZ = { var.tsZ - var.tsTravel }
+    var tsRequestedTargetZ = { var.tsZ - var.tsTravel }
+    var tsProbeTargetZ = { max(var.tsZMin, var.tsRequestedTargetZ) }
+    var tsAppliedTravel = { var.tsZ - var.tsProbeTargetZ }
+    if { var.tsAppliedTravel <= 0 }
+        abort { "tpost.g: Toolsetter probe travel has no room within Z limits. Increase toolsetter Z or reduce nxtToolSetterProbeTravelMm." }
+    if { var.tsRequestedTargetZ < var.tsZMin }
+        echo "tpost.g: Requested probe target Z " ^ var.tsRequestedTargetZ ^ " is below Z min " ^ var.tsZMin ^ "; clamping to " ^ var.tsProbeTargetZ ^ " (travel " ^ var.tsAppliedTravel ^ "mm)"
     var tsSamplesRaw = { exists(global.nxtToolSetterInnerSampleCount) && global.nxtToolSetterInnerSampleCount > 0 ? global.nxtToolSetterInnerSampleCount : global.nxtProbeInnerSampleCount }
     var tsSamples = { var.tsSamplesRaw < 2 ? 2 : var.tsSamplesRaw }
     var tsTol = { exists(global.nxtToolSetterMaxSampleSpreadMm) && global.nxtToolSetterMaxSampleSpreadMm >= 0 ? global.nxtToolSetterMaxSampleSpreadMm : global.nxtProbeMaxSampleSpreadMm }

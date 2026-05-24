@@ -5,22 +5,38 @@
  * Usage: node dist/verify-plugin-zip.mjs [path-to-NeXT.zip]
  */
 import fs from 'node:fs'
-import { execSync } from 'node:child_process'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { createRequire } from 'node:module'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
-function main() {
+const require = createRequire(import.meta.url)
+
+function loadJsZip() {
+  const dwcRoot = process.env.DWC_REPO_PATH || path.join(__dirname, '..', '..', 'DuetWebControl')
+  try {
+    return require(path.join(dwcRoot, 'node_modules', 'jszip'))
+  } catch {
+    try {
+      return require('jszip')
+    } catch {
+      console.error('error: jszip not found. Set DWC_REPO_PATH or install jszip.')
+      process.exit(1)
+    }
+  }
+}
+
+async function main() {
   const zipPath = process.argv[2] || path.join(__dirname, '..', 'dist', 'NeXT-v0.6.0-565d193-dirty.zip')
   if (!fs.existsSync(zipPath)) {
     console.error(`error: zip not found: ${zipPath}`)
     process.exit(1)
   }
 
-  const listing = execSync(`unzip -Z1 "${zipPath}"`, { encoding: 'utf8' })
-    .split(/\r?\n/)
-    .filter(Boolean)
+  const JSZip = loadJsZip()
+  const zip = await JSZip.loadAsync(fs.readFileSync(zipPath))
+  const listing = Object.keys(zip.files).filter((n) => !zip.files[n].dir)
 
   const dwcJs = listing.filter((n) => /^dwc\/js\/NeXT\.[a-f0-9]+\.js$/.test(n))
   const dwcCss = listing.filter((n) => /^dwc\/css\/NeXT\.[a-f0-9]+\.css$/.test(n))
@@ -39,7 +55,11 @@ function main() {
 
   let pluginJson = null
   try {
-    pluginJson = JSON.parse(execSync(`unzip -p "${zipPath}" plugin.json`, { encoding: 'utf8' }))
+    const pluginJsonText = await zip.file('plugin.json')?.async('string')
+    if (!pluginJsonText) {
+      throw new Error('plugin.json missing')
+    }
+    pluginJson = JSON.parse(pluginJsonText)
   } catch (e) {
     console.error('error: plugin.json missing or invalid', e)
     process.exit(1)

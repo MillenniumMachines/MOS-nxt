@@ -74,6 +74,27 @@ $pluginDest = Join-Path $DwcRoot "src\plugins\NeXT"
 New-Item -ItemType Directory -Path $pluginDest -Force | Out-Null
 Copy-Item -Path "$stagingDir\*" -Destination $pluginDest -Recurse -Force
 
+# Guard: avoid building NeXT against a DWC tree that has extra third-party plugins.
+# That can produce a host runtime mismatch and trigger webpack `.call` load failures
+# on stock machine installs.
+$pluginsRoot = Join-Path $DwcRoot "src\plugins"
+$allowedPlugins = @(
+  "GCodeViewer",
+  "HeightMap",
+  "InputShaping",
+  "ObjectModelBrowser",
+  "OnScreenKeyboard",
+  "NeXT"
+)
+$unexpectedPlugins = @(
+  Get-ChildItem $pluginsRoot -Directory |
+    Where-Object { $allowedPlugins -notcontains $_.Name } |
+    ForEach-Object { $_.Name }
+)
+if ($unexpectedPlugins.Count -gt 0) {
+  throw "Unexpected plugins present in DWC build tree: $($unexpectedPlugins -join ', '). Use a clean DWC tree for NeXT release builds."
+}
+
 # Stage SD files (macros)
 Write-Host "[3/6] Staging SD macro files..." -ForegroundColor Yellow
 $sdSys = Join-Path $stagingDir "sd\sys"
@@ -124,7 +145,11 @@ $buildPluginBak = "$buildPluginJs.next-bak"
 Copy-Item $buildPluginJs $buildPluginBak -Force
 Push-Location $Root
 node "$Root\dist\patch-dwc-build-plugin-zip.cjs" $buildPluginJs
+$patchExit = $LASTEXITCODE
 Pop-Location
+if ($patchExit -ne 0) {
+  throw "patch-dwc-build-plugin-zip failed with exit code $patchExit"
+}
 
 # --- Run production build ---
 Write-Host "[5/6] Running DWC production build (this takes ~60s)..." -ForegroundColor Yellow
@@ -135,10 +160,15 @@ try {
   # This makes build-plugin.js use the internal path (no re-copy, no module structure breakage)
   $buildLog = cmd /c "npm run build-plugin NeXT 2>&1"
   $buildLog | ForEach-Object { Write-Host "  $_" }
+  $buildExit = $LASTEXITCODE
+  if ($buildExit -ne 0) {
+    throw "DWC build-plugin failed with exit code $buildExit"
+  }
   Pop-Location
 } catch {
-  Write-Host "  Build warning (may be non-fatal): $_" -ForegroundColor Yellow
+  Write-Host "  Build failed: $_" -ForegroundColor Red
   Pop-Location
+  throw
 } finally {
   # Restore original build-plugin.js
   if (Test-Path $buildPluginBak) {
@@ -163,6 +193,17 @@ if (-not (Test-Path $dwcDistZip)) {
 
 $env:DWC_REPO_PATH = $DwcRoot
 node "$Root\dist\merge-sd-into-plugin-zip.cjs" $dwcDistZip $stagingDir
+if ($LASTEXITCODE -ne 0) {
+  throw "merge-sd-into-plugin-zip failed with exit code $LASTEXITCODE"
+}
+node "$Root\dist\inject-plugin-dwcfiles.cjs" $dwcDistZip
+if ($LASTEXITCODE -ne 0) {
+  throw "inject-plugin-dwcfiles failed with exit code $LASTEXITCODE"
+}
+node "$Root\dist\verify-plugin-zip.mjs" $dwcDistZip
+if ($LASTEXITCODE -ne 0) {
+  throw "verify-plugin-zip failed with exit code $LASTEXITCODE"
+}
 
 # --- Copy output ---
 New-Item -ItemType Directory -Path $OutDir -Force | Out-Null
