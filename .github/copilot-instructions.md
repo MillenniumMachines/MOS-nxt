@@ -76,7 +76,12 @@ NeXT (Next-Gen Extended Tooling) is a complete rewrite of the legacy MillenniumO
   1. From NeXT repo root: `./dist/build-plugin.sh <path-to-DuetWebControl>` — **must exit 0** (DWC tree matching `dwcVersion`, e.g. 3.6.2).
   2. **User must explicitly confirm** manual verification: plugin ZIP installs, NeXT loads in DWC, smoke-test OK. Do not tag on build success alone.
 - **Betas:** Incremental annotated tags `vMAJOR.MINOR.PATCH-beta.N`; do not force-move stable tags without explicit user request.
-- **CI:** Push of `v*` tags triggers [`.github/workflows/release.yml`](.github/workflows/release.yml), which checks out **NeXT only** and fetches DWC via read-only tarball ([`dist/ci-fetch-dwc.sh`](../dist/ci-fetch-dwc.sh), pin [`ci/dwc-build-ref`](../ci/dwc-build-ref)) — no `actions/checkout` or push to external repos. Local build + manual load confirmation still required before tagging.
+- **CI workflows:**
+  - [`check.yml`](.github/workflows/check.yml) — fast validation (macro line length, DWC pin alignment) on push/PR to `main` and version branches; **no build ZIPs**.
+  - [`release.yml`](.github/workflows/release.yml) — full build **only** on semver version branches (`v*.*.*`, e.g. `v0.6.0`) and `v*` tags. Push/PR to `main` or feature branches does **not** produce CI artifacts.
+  - **Version branches:** push or open a PR targeting `vMAJOR.MINOR.PATCH` to get downloadable Actions artifacts (`NeXT-*.zip` + SD release zip). `main` is integration-only; cut a version branch or tag for buildable releases (see [`dist/publish-release.sh`](../dist/publish-release.sh)).
+  - **Tags:** push of `v*` triggers a draft GitHub Release with plugin + SD zips; Actions artifacts are **not** uploaded on tag runs (download from the Release page).
+  - CI checks out **NeXT only** and fetches DWC via read-only tarball ([`dist/ci-fetch-dwc.sh`](../dist/ci-fetch-dwc.sh), pin [`ci/dwc-build-ref`](../ci/dwc-build-ref)) — no `actions/checkout` or push to external repos. Local build + manual load confirmation still required before tagging.
 - **Full SD / release zip:** `dist/release.sh` (see script docs); plugin-only zip: `dist/build-plugin.sh`
 
 ## Integration & Compatibility

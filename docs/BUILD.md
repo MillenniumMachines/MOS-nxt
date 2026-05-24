@@ -2,6 +2,18 @@
 
 > **NeXT (current):** Build the DWC plugin with `./dist/build-plugin.sh <path-to-DuetWebControl>` from the repository root; full SD releases use `dist/release.sh`. **Release workflow** (manifest alignment, successful build, manual plugin load in DWC before tags): see [`.cursor/rules/release-plugin-verify.mdc`](../.cursor/rules/release-plugin-verify.mdc) and [`.github/copilot-instructions.md`](../.github/copilot-instructions.md) (Build & Release Process).
 
+## NeXT CI build policy
+
+| Workflow | Triggers | Output |
+|----------|----------|--------|
+| [`.github/workflows/check.yml`](../.github/workflows/check.yml) | Push/PR to `main` or version branches | Macro line length + DWC pin checks only |
+| [`.github/workflows/release.yml`](../.github/workflows/release.yml) | Push/PR to **`v*.*.*`** branches (e.g. `v0.6.0`) or push of **`v*`** tags | Full build via `dist/release.sh` |
+
+- **`main`** does not trigger a full CI build. Merge there for integration; open a PR to a version branch or push a tag for downloadable ZIPs.
+- **Version branches** (`vMAJOR.MINOR.PATCH`): push or PR → Actions **Artifacts** include `NeXT-*.zip` and the SD release zip.
+- **Tags** (`v0.6.0-beta.N`, etc.): draft **GitHub Release** with plugin + SD zips; no Actions artifacts (use the Release page).
+- Local release publishing: [`dist/publish-release.sh`](../dist/publish-release.sh).
+
 This document outlines the build and release process for the legacy version of MillenniumOS. This is for reference purposes only, as the NeXT rewrite will use an updated process.
 
 ---
