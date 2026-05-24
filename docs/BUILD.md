@@ -7,10 +7,10 @@
 | Workflow | Triggers | Output |
 |----------|----------|--------|
 | [`.github/workflows/check.yml`](../.github/workflows/check.yml) | Push/PR to `main` or version branches | Macro line length + DWC pin checks only |
-| [`.github/workflows/release.yml`](../.github/workflows/release.yml) | Push/PR to **`v*.*.*`** branches (e.g. `v0.6.0`) or push of **`v*`** tags | Full build via `dist/release.sh` |
+| [`.github/workflows/release.yml`](../.github/workflows/release.yml) | Push/PR to version branches (e.g. `v0.6.0`, `v0.6.0-beta.13`) or push of **`v*`** tags | Full build via `dist/release.sh` |
 
 - **`main`** does not trigger a full CI build. Merge there for integration; open a PR to a version branch or push a tag for downloadable ZIPs.
-- **Version branches** (`vMAJOR.MINOR.PATCH`): push or PR → Actions **Artifacts** include `NeXT-*.zip` and the SD release zip.
+- **Version branches** (`vMAJOR.MINOR.PATCH` or `vMAJOR.MINOR.PATCH-beta.N`): push or PR → Actions **Artifacts** include `NeXT-*.zip` and the SD release zip.
 - **Tags** (`v0.6.0-beta.N`, etc.): draft **GitHub Release** with plugin + SD zips; no Actions artifacts (use the Release page).
 - Local release publishing: [`dist/publish-release.sh`](../dist/publish-release.sh).
 

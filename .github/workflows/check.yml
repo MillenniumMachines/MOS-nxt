@@ -4,10 +4,13 @@ on:
   push:
     branches:
       - main
-      - v0.6.0
+      - 'v*.*.*'
+      - 'v*.*.*-beta.*'
   pull_request:
     branches:
       - main
+      - 'v*.*.*'
+      - 'v*.*.*-beta.*'
 
 jobs:
   macro-line-length:
