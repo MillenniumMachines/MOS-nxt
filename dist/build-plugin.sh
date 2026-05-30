@@ -112,24 +112,18 @@ node "${ROOT}/dist/check-gcode-line-length.mjs" || exit 1
 
 TMP_DIR="$(mktemp -d -t next-plugin-build-XXXXX)"
 
-GIT_TAG="$(git -C "${ROOT}" describe --tags --exact-match 2>/dev/null || true)"
-GIT_BRANCH="$(git -C "${ROOT}" rev-parse --abbrev-ref HEAD)"
-GIT_SHA="$(git -C "${ROOT}" rev-parse --short HEAD)"
+# shellcheck source=dist/resolve-build-version.sh
+source "${ROOT}/dist/resolve-build-version.sh"
+
 if git -C "${ROOT}" diff-index --quiet HEAD --; then
   DIRTY_SUFFIX=""
 else
   DIRTY_SUFFIX="-dirty"
 fi
 
-if [[ -n "${GIT_TAG}" ]]; then
-  BUILD_VERSION="$(sanitize_ref "${GIT_TAG}")${DIRTY_SUFFIX}"
-  BUILD_BASIS="tag:${GIT_TAG}"
-else
-  BUILD_VERSION="$(sanitize_ref "${GIT_BRANCH}")-${GIT_SHA}${DIRTY_SUFFIX}"
-  BUILD_BASIS="branch:${GIT_BRANCH}@${GIT_SHA}"
-fi
-
-OUT_ZIP="NeXT-${BUILD_VERSION}.zip"
+# Embedded %%NXT_VERSION%% uses release line (e.g. v0.6.0); zip basename includes ref+sha for uniqueness.
+OUT_ZIP="NeXT-$(sanitize_ref "${BUILD_REF}")-${BUILD_SHA}${DIRTY_SUFFIX}.zip"
+echo "NeXT plugin build: embedded version ${BUILD_VERSION} (ref ${BUILD_REF}, zip ${OUT_ZIP})"
 BUILD_PLUGIN_JS="${DWC_REPO_PATH}/scripts/build-plugin.js"
 
 plugin_build_exit() {

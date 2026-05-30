@@ -1,3 +1,11 @@
 *.zip
 
 DuetWebControl/
+
+# Generated at build time (dist/stage-post-processors.sh, dist/release.sh)
+dist/post-processors/
+dist/post-processors-staging.env
+dist/build-version.env
+dist/next.cps
+dist/next_post.py
+dist/milo-v1.5-std.mch

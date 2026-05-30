@@ -7,7 +7,8 @@ TMP_DIR=$(mktemp -d -t next-release-XXXXX)
 ZIP_NAME="${1:-next-sd-release}.zip"
 ZIP_PATH="${WD}/dist/${ZIP_NAME}"
 SYNC_CMD="rsync -a --exclude=README.md --exclude='*.gitkeep'"
-COMMIT_ID=$(git describe --tags --exclude "release-*" --always --dirty)
+# shellcheck source=dist/resolve-build-version.sh
+source "${ROOT}/dist/resolve-build-version.sh"
 DWC_REPO_PATH="${2:-${WD}/DuetWebControl}"
 
 generate_nxt_plugin_dispatchers() {
@@ -119,7 +120,7 @@ EOF
     append_hook "${cancel_dispatch}" "${cancel_path}" "cancel"
 }
 
-echo "Building NeXT release ${ZIP_NAME} for ${COMMIT_ID}..."
+echo "Building NeXT release ${ZIP_NAME} for ${BUILD_VERSION} (ref ${BUILD_REF}, sha ${BUILD_SHA})..."
 
 # Make stub folder-structure
 # This also creates the sys directory
@@ -146,8 +147,8 @@ fi
 
 cd "${TMP_DIR}"
 
-echo "Replacing %%NXT_VERSION%% with ${COMMIT_ID}..."
-sed -si -e "s/%%NXT_VERSION%%/${COMMIT_ID}/g" sd/sys/nxt.g
+echo "Replacing %%NXT_VERSION%% with ${BUILD_VERSION}..."
+sed -si -e "s/%%NXT_VERSION%%/${BUILD_VERSION}/g" sd/sys/nxt.g
 
 # Conditionally build and include the UI if it exists
 if [[ -f "${WD}/ui/plugin.json" ]]; then
@@ -160,7 +161,7 @@ if [[ -f "${WD}/ui/plugin.json" ]]; then
 
     # Copy UI source for build
     cp -r "${WD}/ui/"* "${TMP_DIR}/"
-    sed -si -e "s/%%NXT_VERSION%%/${COMMIT_ID}/g" plugin.json
+    sed -si -e "s/%%NXT_VERSION%%/${BUILD_VERSION}/g" plugin.json
 
     # Build the DWC Plugin
     (   cd "${DWC_REPO_PATH}"
@@ -169,33 +170,33 @@ if [[ -f "${WD}/ui/plugin.json" ]]; then
         npm run build-plugin "${TMP_DIR}" || exit 1
         # Ensure sd/ entries use dwc/expected "sd/..." paths so PollConnector installs M-codes to 0:/sys/
         DWC_REPO_PATH="${DWC_REPO_PATH}" node "${WD}/dist/merge-sd-into-plugin-zip.cjs" \
-            "${PWD}/dist/NeXT-${COMMIT_ID}.zip" \
+            "${PWD}/dist/NeXT-${BUILD_VERSION}.zip" \
             "${TMP_DIR}" || exit 1
         DWC_REPO_PATH="${DWC_REPO_PATH}" node "${WD}/dist/inject-plugin-dwcfiles.cjs" \
             "${PWD}/dist/NeXT-${COMMIT_ID}.zip" || exit 1
         # Copy the built plugin to the main dist folder
-        cp dist/NeXT-${COMMIT_ID}.zip "${WD}/dist/" || exit 1
+        cp dist/NeXT-${BUILD_VERSION}.zip "${WD}/dist/" || exit 1
     ) || exit 1
 
     # Extract the "dwc" folder from the plugin into the SD directory
-    unzip -o "${WD}/dist/NeXT-${COMMIT_ID}.zip" "dwc/*" -d "${TMP_DIR}/sd"
+    unzip -o "${WD}/dist/NeXT-${BUILD_VERSION}.zip" "dwc/*" -d "${TMP_DIR}/sd"
 
     # Generate dwc-plugins.json automatically
     echo "Generating dwc-plugins.json..."
 
     # Extract DWC file paths from the plugin ZIP
     # Prefer dwcFiles from built plugin.json (NeXT/js/... layout); fallback: strip dwc/ prefix from zip listing
-    if unzip -p "${WD}/dist/NeXT-${COMMIT_ID}.zip" plugin.json 2>/dev/null | jq -e '.dwcFiles | length > 0' >/dev/null 2>&1; then
-        DWC_FILES=$(unzip -p "${WD}/dist/NeXT-${COMMIT_ID}.zip" plugin.json | jq -c '.dwcFiles')
+    if unzip -p "${WD}/dist/NeXT-${BUILD_VERSION}.zip" plugin.json 2>/dev/null | jq -e '.dwcFiles | length > 0' >/dev/null 2>&1; then
+        DWC_FILES=$(unzip -p "${WD}/dist/NeXT-${BUILD_VERSION}.zip" plugin.json | jq -c '.dwcFiles')
     else
-        DWC_FILES=$(unzip -l "${WD}/dist/NeXT-${COMMIT_ID}.zip" | grep -E '^\s+[0-9]+.*dwc/' | awk '{print $4}' | sed 's|dwc/||' | sort | jq -R . | jq -s .)
+        DWC_FILES=$(unzip -l "${WD}/dist/NeXT-${BUILD_VERSION}.zip" | grep -E '^\s+[0-9]+.*dwc/' | awk '{print $4}' | sed 's|dwc/||' | sort | jq -R . | jq -s .)
     fi
 
     # Extract SD file paths (macro files that go in sys/)
     SD_FILES=$(find "${TMP_DIR}/sd/sys" -type f -name "*.g" | sed "s|${TMP_DIR}/sd/||" | sort | jq -R . | jq -s .)
 
     # Match dwc-plugins.json to the built plugin manifest (dwcVersion auto → exact; rrfVersion auto-major)
-    PLUGIN_MANIFEST="${WD}/dist/NeXT-${COMMIT_ID}.zip"
+    PLUGIN_MANIFEST="${WD}/dist/NeXT-${BUILD_VERSION}.zip"
     PLUGIN_DWC_VERSION="$(unzip -p "${PLUGIN_MANIFEST}" plugin.json | jq -r '.dwcVersion')"
     PLUGIN_RRF_VERSION="$(unzip -p "${PLUGIN_MANIFEST}" plugin.json | jq -r '.rrfVersion')"
     if [[ -z "${PLUGIN_DWC_VERSION}" || "${PLUGIN_DWC_VERSION}" == "null" || -z "${PLUGIN_RRF_VERSION}" || "${PLUGIN_RRF_VERSION}" == "null" ]]; then
@@ -208,7 +209,7 @@ if [[ -f "${WD}/ui/plugin.json" ]]; then
       --arg id "NeXT" \
       --arg name "NeXT - Next-Gen Extended Tooling" \
       --arg author "NeXT Development Team" \
-      --arg version "${COMMIT_ID}" \
+      --arg version "${BUILD_VERSION}" \
       --arg license "GPL-3.0-or-later" \
       --arg homepage "https://github.com/benagricola/NeXT" \
       --arg dwcVersion "${PLUGIN_DWC_VERSION}" \
@@ -254,6 +255,21 @@ generate_nxt_plugin_dispatchers "${TMP_DIR}/plugin.json"
 # Prefer catalog-driven dispatcher generation when available.
 if [[ -f "${WD}/dist/generate-plugin-dispatchers.sh" && -f "${WD}/dist/plugins.catalog.json" ]]; then
     bash "${WD}/dist/generate-plugin-dispatchers.sh" "${WD}/dist/plugins.catalog.json" "${TMP_DIR}/sd/sys"
+fi
+
+chmod +x "${WD}/dist/stage-post-processors.sh"
+"${WD}/dist/stage-post-processors.sh" "${BUILD_VERSION}"
+
+cat > "${WD}/dist/build-version.env" <<EOF
+# Generated by dist/release.sh — do not commit
+NXT_BUILD_VERSION=${BUILD_VERSION}
+NXT_BUILD_REF=${BUILD_REF}
+NXT_BUILD_SHA=${BUILD_SHA}
+NXT_PLUGIN_ZIP=${WD}/dist/NeXT-${BUILD_VERSION}.zip
+NXT_SD_ZIP=${ZIP_PATH}
+EOF
+if [[ -f "${WD}/dist/post-processors-staging.env" ]]; then
+    cat "${WD}/dist/post-processors-staging.env" >> "${WD}/dist/build-version.env"
 fi
 
 # Create the final SD card release ZIP

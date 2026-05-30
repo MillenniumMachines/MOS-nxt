@@ -59,11 +59,40 @@ jobs:
         run: node dist/check-gcode-line-length.mjs
 
       - name: Build release asset
+        env:
+          NXT_BUILD_REF_OVERRIDE: ${{ github.event_name == 'pull_request' && github.base_ref || '' }}
         run: |
           command -v rsync >/dev/null 2>&1 || {
             apt-get update && apt-get install -y rsync;
           }
           dist/release.sh "${RELEASE_ZIP_BASENAME}" "${{ github.workspace }}/dwc-build"
+
+      - name: Load build manifest
+        run: |
+          set -euo pipefail
+          if [[ ! -f dist/build-version.env ]]; then
+            echo "::error::dist/build-version.env missing after release.sh" >&2
+            exit 1
+          fi
+          set -a
+          # shellcheck source=/dev/null
+          source dist/build-version.env
+          set +a
+          for key in NXT_BUILD_VERSION NXT_PLUGIN_ZIP NXT_SD_ZIP NXT_PP_CPS NXT_PP_PY NXT_PP_MCH; do
+            if [[ -z "${!key:-}" ]]; then
+              echo "::error::${key} not set in build-version.env" >&2
+              exit 1
+            fi
+          done
+          {
+            echo "NXT_BUILD_VERSION=${NXT_BUILD_VERSION}"
+            echo "NXT_PLUGIN_ZIP=${NXT_PLUGIN_ZIP}"
+            echo "NXT_SD_ZIP=${NXT_SD_ZIP}"
+            echo "NXT_PP_CPS=${NXT_PP_CPS}"
+            echo "NXT_PP_PY=${NXT_PP_PY}"
+            echo "NXT_PP_MCH=${NXT_PP_MCH}"
+          } >> "${GITHUB_ENV}"
+          echo "Build version (release line): ${NXT_BUILD_VERSION}"
 
       - name: Create Release
         id: create_release
@@ -76,11 +105,11 @@ jobs:
           draft: true
           generate_release_notes: true
           files: |
-            dist/NeXT-${{ github.ref_name }}.zip
-            dist/next-release-${{ github.ref_name }}.zip
-            dist/next.cps
-            dist/next_post.py
-            dist/milo-v1.5-std.mch
+            ${{ env.NXT_PLUGIN_ZIP }}
+            ${{ env.NXT_SD_ZIP }}
+            ${{ env.NXT_PP_CPS }}
+            ${{ env.NXT_PP_PY }}
+            ${{ env.NXT_PP_MCH }}
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
@@ -89,5 +118,6 @@ jobs:
           name: next-build-${{ github.sha }}
           path: |
             dist/**/*.zip
+            dist/post-processors/**/*
           if-no-files-found: error
           retention-days: 7
