@@ -49,3 +49,6 @@ while { iterations < #global.nxtProbeResults }
 
 set global.nxtConfigPending = false
 set global.nxtLoaded = true
+
+; Activate machine power if safety net is configured
+M80.9
