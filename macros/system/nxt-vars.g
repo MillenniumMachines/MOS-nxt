@@ -9,6 +9,7 @@ global nxtFeatureTouchProbe = false
 global nxtFeatureToolSetter = false
 global nxtFeatureCoolantControl = false ; Coolant Control feature flag
 global nxtFeatureFourthAxis = false     ; Fourth axis (requires MosFourthAxis DWC plugin on SD)
+global nxtFeatureSafetyNet = false      ; Safety Net — prompt operator to activate ATX power at boot
 
 ; --- Core Settings ---
 global nxtProbeToolID = { limits.tools - 1 } ; Probe Tool ID, always the last tool
