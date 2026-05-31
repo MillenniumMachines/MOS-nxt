@@ -315,5 +315,5 @@ fi
 
 echo "Done."
 if [[ "${SKIP_TAG}" == false && "${DRY_RUN}" == false ]]; then
-  echo "CI should run on tag push; draft release: NeXT ${VERSION} on GitHub."
+  echo "CI should run on tag push; draft release: nxt ${VERSION} on GitHub."
 fi

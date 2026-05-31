@@ -9,7 +9,9 @@ ZIP_PATH="${WD}/dist/${ZIP_NAME}"
 SYNC_CMD="rsync -a --exclude=README.md --exclude='*.gitkeep'"
 # shellcheck source=dist/resolve-build-version.sh
 source "${ROOT}/dist/resolve-build-version.sh"
+DWC_PLUGIN_ZIP="NeXT-${BUILD_VERSION}.zip"
 DWC_REPO_PATH="${2:-${WD}/DuetWebControl}"
+PLUGIN_ZIP="nxt-${BUILD_VERSION}.zip"
 
 generate_nxt_plugin_dispatchers() {
     local plugin_json="$1"
@@ -120,7 +122,7 @@ EOF
     append_hook "${cancel_dispatch}" "${cancel_path}" "cancel"
 }
 
-echo "Building NeXT release ${ZIP_NAME} for ${BUILD_VERSION} (ref ${BUILD_REF}, sha ${BUILD_SHA})..."
+echo "Building nxt release ${ZIP_NAME} for ${BUILD_VERSION} (ref ${BUILD_REF}, sha ${BUILD_SHA})..."
 
 # Make stub folder-structure
 # This also creates the sys directory
@@ -168,35 +170,39 @@ if [[ -f "${WD}/ui/plugin.json" ]]; then
         npm ci
         npm install three@0.181.0
         npm run build-plugin "${TMP_DIR}" || exit 1
+        if [[ ! -f "${PWD}/dist/${DWC_PLUGIN_ZIP}" ]]; then
+            echo "error: expected DWC plugin zip dist/${DWC_PLUGIN_ZIP}" >&2
+            exit 1
+        fi
         # Ensure sd/ entries use dwc/expected "sd/..." paths so PollConnector installs M-codes to 0:/sys/
         DWC_REPO_PATH="${DWC_REPO_PATH}" node "${WD}/dist/merge-sd-into-plugin-zip.cjs" \
-            "${PWD}/dist/NeXT-${BUILD_VERSION}.zip" \
+            "${PWD}/dist/${DWC_PLUGIN_ZIP}" \
             "${TMP_DIR}" || exit 1
         DWC_REPO_PATH="${DWC_REPO_PATH}" node "${WD}/dist/inject-plugin-dwcfiles.cjs" \
-            "${PWD}/dist/NeXT-${COMMIT_ID}.zip" || exit 1
-        # Copy the built plugin to the main dist folder
-        cp dist/NeXT-${BUILD_VERSION}.zip "${WD}/dist/" || exit 1
+            "${PWD}/dist/${DWC_PLUGIN_ZIP}" || exit 1
+        mv "${PWD}/dist/${DWC_PLUGIN_ZIP}" "${PWD}/dist/${PLUGIN_ZIP}"
+        cp "dist/${PLUGIN_ZIP}" "${WD}/dist/" || exit 1
     ) || exit 1
 
     # Extract the "dwc" folder from the plugin into the SD directory
-    unzip -o "${WD}/dist/NeXT-${BUILD_VERSION}.zip" "dwc/*" -d "${TMP_DIR}/sd"
+    unzip -o "${WD}/dist/${PLUGIN_ZIP}" "dwc/*" -d "${TMP_DIR}/sd"
 
     # Generate dwc-plugins.json automatically
     echo "Generating dwc-plugins.json..."
 
     # Extract DWC file paths from the plugin ZIP
     # Prefer dwcFiles from built plugin.json (NeXT/js/... layout); fallback: strip dwc/ prefix from zip listing
-    if unzip -p "${WD}/dist/NeXT-${BUILD_VERSION}.zip" plugin.json 2>/dev/null | jq -e '.dwcFiles | length > 0' >/dev/null 2>&1; then
-        DWC_FILES=$(unzip -p "${WD}/dist/NeXT-${BUILD_VERSION}.zip" plugin.json | jq -c '.dwcFiles')
+    if unzip -p "${WD}/dist/${PLUGIN_ZIP}" plugin.json 2>/dev/null | jq -e '.dwcFiles | length > 0' >/dev/null 2>&1; then
+        DWC_FILES=$(unzip -p "${WD}/dist/${PLUGIN_ZIP}" plugin.json | jq -c '.dwcFiles')
     else
-        DWC_FILES=$(unzip -l "${WD}/dist/NeXT-${BUILD_VERSION}.zip" | grep -E '^\s+[0-9]+.*dwc/' | awk '{print $4}' | sed 's|dwc/||' | sort | jq -R . | jq -s .)
+        DWC_FILES=$(unzip -l "${WD}/dist/${PLUGIN_ZIP}" | grep -E '^\s+[0-9]+.*dwc/' | awk '{print $4}' | sed 's|dwc/||' | sort | jq -R . | jq -s .)
     fi
 
     # Extract SD file paths (macro files that go in sys/)
     SD_FILES=$(find "${TMP_DIR}/sd/sys" -type f -name "*.g" | sed "s|${TMP_DIR}/sd/||" | sort | jq -R . | jq -s .)
 
     # Match dwc-plugins.json to the built plugin manifest (dwcVersion auto → exact; rrfVersion auto-major)
-    PLUGIN_MANIFEST="${WD}/dist/NeXT-${BUILD_VERSION}.zip"
+    PLUGIN_MANIFEST="${WD}/dist/${PLUGIN_ZIP}"
     PLUGIN_DWC_VERSION="$(unzip -p "${PLUGIN_MANIFEST}" plugin.json | jq -r '.dwcVersion')"
     PLUGIN_RRF_VERSION="$(unzip -p "${PLUGIN_MANIFEST}" plugin.json | jq -r '.rrfVersion')"
     if [[ -z "${PLUGIN_DWC_VERSION}" || "${PLUGIN_DWC_VERSION}" == "null" || -z "${PLUGIN_RRF_VERSION}" || "${PLUGIN_RRF_VERSION}" == "null" ]]; then
@@ -265,7 +271,7 @@ cat > "${WD}/dist/build-version.env" <<EOF
 NXT_BUILD_VERSION=${BUILD_VERSION}
 NXT_BUILD_REF=${BUILD_REF}
 NXT_BUILD_SHA=${BUILD_SHA}
-NXT_PLUGIN_ZIP=${WD}/dist/NeXT-${BUILD_VERSION}.zip
+NXT_PLUGIN_ZIP=${WD}/dist/${PLUGIN_ZIP}
 NXT_SD_ZIP=${ZIP_PATH}
 EOF
 if [[ -f "${WD}/dist/post-processors-staging.env" ]]; then
@@ -283,4 +289,4 @@ mkdir -p "$(dirname "${ZIP_PATH}")"
 cd "${WD}"
 rm -rf "${TMP_DIR}"
 
-echo "NeXT release created at ${ZIP_PATH}"
+echo "nxt release created at ${ZIP_PATH}"

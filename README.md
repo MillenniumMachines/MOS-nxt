@@ -119,7 +119,7 @@ To help us work out any issues, please run `M7600 D1` and paste the whole output
 
 To install the NeXT plugin on your physical machine:
 
-1. **Download** the `NeXT-vX.X.X.zip` package.
+1. **Download** the `nxt-vX.X.X.zip` package.
 2. In Duet Web Control, navigate to **Settings → Plugins**.
 3. Click **Install Plugin** and upload the ZIP. Start the plugin once installed.
 4. **Mandatory Firmware Step:** Open your `0:/sys/config.g` via the System Directory and add `M98 P"nxt.g"` to the end of the file. (If you are upgrading from `mos`, ensure you remove the old `M98 P"mos.g"` and replace it with `nxt.g`).

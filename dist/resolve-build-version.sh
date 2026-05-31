@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
-# Resolve NeXT BUILD_VERSION = release line (vMAJOR.MINOR.PATCH) from version branch or tag name.
+# Resolve NeXT BUILD_VERSION from version branch or tag name.
 #
 # Usage (source from other scripts):
 #   source dist/resolve-build-version.sh
 #   # exports BUILD_VERSION, BUILD_REF, BUILD_SHA, NXT_REPO_ROOT
+#
+# BUILD_VERSION:
+#   - Annotated tag (e.g. v0.6.0-beta.5): full tag name
+#   - Version branch (e.g. v0.6.0, v0.6.0-beta.13): release line (vM.m.p)
 #
 # Optional env:
 #   NXT_BUILD_REF_OVERRIDE  — force ref (e.g. GITHUB_BASE_REF on PR CI)
@@ -53,8 +57,25 @@ resolve_build_ref() {
   return 1
 }
 
-BUILD_REF="$(resolve_build_ref)"
-BUILD_VERSION="$(extract_release_line "${BUILD_REF}")"
+is_exact_tag_ref() {
+  local ref="$1"
+  local exact
+  exact="$(git -C "${NXT_REPO_ROOT}" describe --tags --exact-match HEAD 2>/dev/null || true)"
+  [[ -n "${exact}" && "${exact}" == "${ref}" ]]
+}
+
+RAW_BUILD_REF="$(resolve_build_ref)"
+
+if [[ "${GITHUB_REF:-}" == refs/tags/* && -n "${GITHUB_REF_NAME:-}" ]]; then
+  BUILD_REF="${GITHUB_REF_NAME}"
+  BUILD_VERSION="${GITHUB_REF_NAME}"
+elif is_exact_tag_ref "${RAW_BUILD_REF}"; then
+  BUILD_REF="${RAW_BUILD_REF}"
+  BUILD_VERSION="${RAW_BUILD_REF}"
+else
+  BUILD_REF="${RAW_BUILD_REF}"
+  BUILD_VERSION="$(extract_release_line "${BUILD_REF}")"
+fi
 BUILD_SHA="$(git -C "${NXT_REPO_ROOT}" rev-parse --short HEAD)"
 
 export BUILD_REF BUILD_VERSION BUILD_SHA NXT_REPO_ROOT

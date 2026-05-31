@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 function main() {
-  const zipPath = process.argv[2] || path.join(__dirname, '..', 'dist', 'NeXT-v0.6.0-565d193-dirty.zip')
+  const zipPath = process.argv[2] || path.join(__dirname, '..', 'dist', 'nxt-v0.6.0-565d193-dirty.zip')
   if (!fs.existsSync(zipPath)) {
     console.error(`error: zip not found: ${zipPath}`)
     process.exit(1)
