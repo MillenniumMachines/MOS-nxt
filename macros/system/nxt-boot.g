@@ -51,4 +51,5 @@ set global.nxtConfigPending = false
 set global.nxtLoaded = true
 
 ; Activate machine power if safety net is configured
-M80.9
+if { global.nxtFeatureSafetyNet }
+    M80.9
