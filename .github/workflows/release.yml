@@ -2,53 +2,46 @@ on:
   push:
     tags:
       - 'v*'
-    branches:
-      - 'v*.*.*'
-      - 'v*.*.*-beta.*'
-  pull_request:
-    branches:
-      - 'v*.*.*'
-      - 'v*.*.*-beta.*'
 
 name: Build and Release
 
 concurrency:
-  group: build-${{ github.head_ref || github.ref }}
+  group: build-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   build:
-    name: Build NeXT
+    name: Build nxt
     runs-on: ubuntu-latest
     permissions:
       contents: write
       id-token: write
-    env:
-      RELEASE_ZIP_BASENAME: ${{ startsWith(github.ref, 'refs/tags/') && format('next-release-{0}', github.ref_name) || format('next-build-{0}-{1}', github.event.pull_request.number || github.run_number, github.sha) }}
     steps:
-      - name: Verify semver version branch or v tag
+      - name: Verify semver release tag
         run: |
           set -euo pipefail
-          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
-            echo "Tag build OK: ${GITHUB_REF_NAME}"
-            exit 0
-          fi
-          if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
-            ref="${GITHUB_BASE_REF}"
-          else
-            ref="${GITHUB_REF_NAME}"
-          fi
-          if [[ ! "${ref}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] && \
-             [[ ! "${ref}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-beta\.[0-9]+$ ]]; then
-            echo "::error::Build allowed only on version branches (vMAJOR.MINOR.PATCH or vMAJOR.MINOR.PATCH-beta.N) or v* tags; got: ${ref}"
+          tag="${GITHUB_REF_NAME}"
+          if [[ ! "${tag}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] && \
+             [[ ! "${tag}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-beta\.[0-9]+$ ]]; then
+            echo "::error::Build allowed only for semver tags (vM.m.p or vM.m.p-beta.N); got: ${tag}"
             exit 1
           fi
-          echo "Version branch OK: ${ref}"
+          echo "Tag build OK: ${tag}"
 
       - name: Checkout NeXT only
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Resolve release version
+        run: |
+          set -euo pipefail
+          # shellcheck source=dist/resolve-build-version.sh
+          source dist/resolve-build-version.sh
+          echo "BUILD_REF=${BUILD_REF}" >> "${GITHUB_ENV}"
+          echo "BUILD_VERSION=${BUILD_VERSION}" >> "${GITHUB_ENV}"
+          echo "RELEASE_ZIP_BASENAME=next-release-${BUILD_VERSION}" >> "${GITHUB_ENV}"
+          echo "Resolved tag ${GITHUB_REF_NAME} → BUILD_REF=${BUILD_REF} BUILD_VERSION=${BUILD_VERSION} (sha ${BUILD_SHA})"
 
       - name: Fetch DWC build sources (read-only tarball)
         run: |
@@ -59,8 +52,6 @@ jobs:
         run: node dist/check-gcode-line-length.mjs
 
       - name: Build release asset
-        env:
-          NXT_BUILD_REF_OVERRIDE: ${{ github.event_name == 'pull_request' && github.base_ref || '' }}
         run: |
           command -v rsync >/dev/null 2>&1 || {
             apt-get update && apt-get install -y rsync;
@@ -92,16 +83,15 @@ jobs:
             echo "NXT_PP_PY=${NXT_PP_PY}"
             echo "NXT_PP_MCH=${NXT_PP_MCH}"
           } >> "${GITHUB_ENV}"
-          echo "Build version (release line): ${NXT_BUILD_VERSION}"
+          echo "Build version: ${NXT_BUILD_VERSION}"
 
       - name: Create Release
         id: create_release
         uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/')
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          name: NeXT ${{ github.ref_name }}
+          name: nxt ${{ github.ref_name }}
           draft: true
           generate_release_notes: true
           files: |
@@ -110,14 +100,3 @@ jobs:
             ${{ env.NXT_PP_CPS }}
             ${{ env.NXT_PP_PY }}
             ${{ env.NXT_PP_MCH }}
-
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
-        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
-        with:
-          name: next-build-${{ github.sha }}
-          path: |
-            dist/**/*.zip
-            dist/post-processors/**/*
-          if-no-files-found: error
-          retention-days: 7

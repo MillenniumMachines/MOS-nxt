@@ -10,7 +10,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-BUILD_VERSION="${1:?BUILD_VERSION required (release line e.g. v0.6.0)}"
+BUILD_VERSION="${1:?BUILD_VERSION required (e.g. v0.6.0 or v0.6.0-beta.5)}"
 OUT_DIR="${2:-${ROOT}/dist/post-processors/${BUILD_VERSION}}"
 MANIFEST="${ROOT}/dist/post-processors-staging.env"
 

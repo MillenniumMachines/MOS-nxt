@@ -8,7 +8,7 @@
 #
 # Default DWC path: <NeXT-repo>/../DuetWebControl
 #
-# Output: dist/NeXT-<git-describe>.zip
+# Output: dist/nxt-<ref>-<sha>[-dirty].zip
 #
 # Artifact cleanup runs automatically before staging and npm/webpack (not after the build).
 # --clean-only removes artifacts and exits. --clean is accepted as a no-op for backwards compatibility.
@@ -18,7 +18,7 @@
 #   - DuetWebControl/src/plugins/NeXT/  (staged plugin tree if a prior build stopped early)
 #   - DuetWebControl/node_modules/.cache/ (vue-cli / webpack cache; optional but helps stale chunks)
 #   - DuetWebControl/scripts/build-plugin.js.next-bak (leftover if a build was interrupted)
-#   - NeXT/dist/NeXT-*.zip        (previous plugin zip outputs only; other files under dist/ are kept)
+#   - NeXT/dist/nxt-*.zip        (previous plugin zip outputs only; other files under dist/ are kept)
 
 set -euo pipefail
 
@@ -76,14 +76,14 @@ clean_next_plugin_artifacts() {
   mkdir -p "${OUT_DIR}"
   local found_zip=false
   shopt -s nullglob
-  for z in "${OUT_DIR}"/NeXT-*.zip; do
+  for z in "${OUT_DIR}"/nxt-*.zip "${OUT_DIR}"/NeXT-*.zip; do
     echo "  rm -f ${z}"
     rm -f "${z}"
     found_zip=true
   done
   shopt -u nullglob
   if [[ "${found_zip}" == false ]]; then
-    echo "  (skip) no ${OUT_DIR}/NeXT-*.zip"
+    echo "  (skip) no ${OUT_DIR}/nxt-*.zip"
   fi
   echo "Cleanup finished."
 }
@@ -122,8 +122,9 @@ else
 fi
 
 # Embedded %%NXT_VERSION%% uses release line (e.g. v0.6.0); zip basename includes ref+sha for uniqueness.
-OUT_ZIP="NeXT-$(sanitize_ref "${BUILD_REF}")-${BUILD_SHA}${DIRTY_SUFFIX}.zip"
-echo "NeXT plugin build: embedded version ${BUILD_VERSION} (ref ${BUILD_REF}, zip ${OUT_ZIP})"
+DWC_PLUGIN_ZIP="NeXT-${BUILD_VERSION}.zip"
+OUT_ZIP="nxt-$(sanitize_ref "${BUILD_REF}")-${BUILD_SHA}${DIRTY_SUFFIX}.zip"
+echo "nxt plugin build: embedded version ${BUILD_VERSION} (ref ${BUILD_REF}, zip ${OUT_ZIP})"
 BUILD_PLUGIN_JS="${DWC_REPO_PATH}/scripts/build-plugin.js"
 
 plugin_build_exit() {
@@ -243,7 +244,7 @@ EOF
   append_hook "${cancel_dispatch}" "${cancel_path}" "cancel"
 }
 
-echo "Building NeXT plugin (${OUT_ZIP}) using DWC at ${DWC_REPO_PATH}..."
+echo "Building nxt plugin (${OUT_ZIP}) using DWC at ${DWC_REPO_PATH}..."
 echo "Build basis: ${BUILD_BASIS}"
 
 # Stage sd/sys*: same layout as release.sh — macros/system/ → sd/sys/; macros/daemon/
@@ -303,6 +304,12 @@ node "${ROOT}/dist/patch-dwc-build-plugin-zip.cjs" "${BUILD_PLUGIN_JS}"
   npm run build-plugin "${TMP_DIR}"
 )
 
+if [[ ! -f "${DWC_REPO_PATH}/dist/${DWC_PLUGIN_ZIP}" ]]; then
+  echo "error: expected DWC plugin zip ${DWC_REPO_PATH}/dist/${DWC_PLUGIN_ZIP}" >&2
+  exit 1
+fi
+mv "${DWC_REPO_PATH}/dist/${DWC_PLUGIN_ZIP}" "${DWC_REPO_PATH}/dist/${OUT_ZIP}"
+
 # build-plugin copies then deletes src/plugins/NeXT; restore imports.ts so dwc dev is not left broken
 node "${ROOT}/dist/regenerate-dwc-plugin-imports.cjs" "${DWC_REPO_PATH}"
 
@@ -332,7 +339,7 @@ if [[ -n "${_zip_js}" ]]; then
   unzip -p "${DWC_REPO_PATH}/dist/${OUT_ZIP}" "${_zip_js}" > "${_tmp_js}"
   node --check "${_tmp_js}"
   rm -f "${_tmp_js}"
-  echo "NeXT chunk syntax check: OK"
+  echo "nxt chunk syntax check: OK"
 fi
 
 mkdir -p "${OUT_DIR}"

@@ -19,7 +19,7 @@ $Root = (Resolve-Path "$PSScriptRoot\..").Path
 $OutDir = Join-Path $Root "dist"
 $DwcRoot = (Resolve-Path $DwcRoot).Path
 
-Write-Host "=== NeXT Plugin Builder (Windows) ===" -ForegroundColor Cyan
+Write-Host "=== nxt Plugin Builder (Windows) ===" -ForegroundColor Cyan
 Write-Host "  NeXT repo : $Root"
 Write-Host "  DWC root  : $DwcRoot"
 
@@ -31,7 +31,7 @@ if (-not $gitBranch) { $gitBranch = "dev" }
 git -C $Root diff-index --quiet HEAD -- 2>$null
 $dirty = if ($LASTEXITCODE -ne 0) { "-dirty" } else { "" }
 $buildVersion = ("$gitBranch-$gitSha$dirty") -replace '[^A-Za-z0-9._-]', '-'
-$outZip = "NeXT-$buildVersion.zip"
+$outZip = "nxt-$buildVersion.zip"
 
 
 Write-Host "  Version   : $buildVersion"
@@ -59,7 +59,7 @@ if (Test-Path $pluginStaged) {
 if (Test-Path (Join-Path $DwcRoot "dist")) {
   Remove-Item (Join-Path $DwcRoot "dist") -Recurse -Force
 }
-Get-ChildItem "$OutDir\NeXT-*.zip" -ErrorAction SilentlyContinue | Remove-Item -Force
+Get-ChildItem "$OutDir\nxt-*.zip","$OutDir\NeXT-*.zip" -ErrorAction SilentlyContinue | Remove-Item -Force
 
 # --- Stage plugin source (copy, not junction — required for prod build) ---
 Write-Host "[2/6] Staging plugin source into DWC..." -ForegroundColor Yellow
@@ -151,11 +151,11 @@ try {
 Write-Host "[6/6] Merging SD files into plugin ZIP..." -ForegroundColor Yellow
 $dwcDistZip = Join-Path $DwcRoot "dist\$outZip"
 if (-not (Test-Path $dwcDistZip)) {
-  # Try to find any NeXT zip in DWC dist
+  # DWC names the zip NeXT-<version>.zip from plugin.json id; rename to nxt-* for release artifacts
   $found = Get-ChildItem (Join-Path $DwcRoot "dist") -Filter "NeXT*.zip" -ErrorAction SilentlyContinue | Select-Object -First 1
   if ($found) {
-    $dwcDistZip = $found.FullName
-    Write-Host "  Found ZIP: $($found.Name)"
+    Move-Item $found.FullName $dwcDistZip -Force
+    Write-Host "  Renamed ZIP: $($found.Name) -> $outZip"
   } else {
     Write-Error "No plugin ZIP found in $DwcRoot\dist\"
   }

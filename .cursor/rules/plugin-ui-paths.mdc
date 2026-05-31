@@ -46,11 +46,11 @@ This is **webpack**, not RRF. See `dist/diagnose-plugin-chunk.mjs` for a full re
 
 **URL resolution (critical on stock DWC):** Host `getChunkScriptFilename` uses `plugin.dwcFiles` when `window.pluginBeingLoaded` is set. Stock app has **no** `NeXT:"<hash>"` entry. If `dwcFiles` is empty or missing `js/NeXT.*.js`, webpack requests **`js/NeXT.undefined.js`** → same `.call` symptom.
 
-**Diagnose:** `node dist/diagnose-plugin-chunk.mjs dist/NeXT-*.zip /path/to/host/app.*.js` (save printer `app.*.js` from DevTools → Network).
+**Diagnose:** `node dist/diagnose-plugin-chunk.mjs dist/nxt-*.zip /path/to/host/app.*.js` (save printer `app.*.js` from DevTools → Network).
 
 **Browser checks:** Network → `NeXT.*.js` must be **200**; `app.*.js` must contain `pluginBeingLoaded`. Console → object model / plugins file → `NeXT.dwcFiles` includes `js/NeXT.<hash>.js`.
 
-**Fix:** See [docs/PLUGIN_LOAD_TROUBLESHOOTING.md](docs/PLUGIN_LOAD_TROUBLESHOOTING.md). ZIP must use **flat** `dwc/js/` (not `dwc/NeXT/js/`). Run `node dist/trace-plugin-404.mjs dist/NeXT-*.zip [dwc-plugins.json]`.
+**Fix:** See [docs/PLUGIN_LOAD_TROUBLESHOOTING.md](docs/PLUGIN_LOAD_TROUBLESHOOTING.md). ZIP must use **flat** `dwc/js/` (not `dwc/NeXT/js/`). Run `node dist/trace-plugin-404.mjs dist/nxt-*.zip [dwc-plugins.json]`.
 
 ## UI change triggers (always re-check paths)
 
