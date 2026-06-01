@@ -353,6 +353,34 @@ M6520 P0 W1 X Y       ; Push averaged result to G54
 
 ---
 
+### M6523: Probe Cycle Output Calibration (repeatability)
+
+Runs multiple full **G6512** Z probe cycles at a fixed reference surface (touch probe or toolsetter), then reports **min**, **max**, **range**, and **mean** of the compensated Z results. Use to validate or tune probe repeatability limits (`nxtTouchProbe*` / `nxtToolSetter*` or `nxt-user-overrides.g`). See [docs/CALIBRATION.md](docs/CALIBRATION.md).
+
+**Usage:** `M6523 [B<0|1>] [C<count>] [Z<targetZ>] [F<feed>] [L<limitMm>] [O<outerRetries>]`
+
+**Parameters:**
+- `B`: Reference probe — **0** = touch probe, **1** = toolsetter (default: touch if feature enabled, else toolsetter)
+- `C`: Number of **G6512** cycles (default **10**, max **50**)
+- `Z`: Machine Z target for **G6512** (default: reference surface Z from `nxtTouchProbeRefPos` or `nxtToolSetterPos`)
+- `F`, `L`, `O`: Passed through to **G6512** (`L`/`O` default from probe-specific globals)
+
+**Requirements:**
+- **B0:** Touch probe feature on, `nxtTouchProbeRefPos` set, probe tool (`global.nxtProbeToolID`) selected
+- **B1:** Toolsetter feature on, `nxtToolSetterPos` set, current tool over setter (same as **G37**)
+
+**Examples:**
+```gcode
+T{n}                    ; probe tool number (touch path)
+M6523 B0 C10            ; 10 cycles at touch reference
+M6523 B1 C10            ; 10 cycles at toolsetter
+M6523 B0 C20 Z120.5 L0.01
+```
+
+Does not modify globals or `nxt-user-overrides.g` (report only).
+
+---
+
 ## Movement Control
 
 RRF homing uses `0:/sys/homeall.g`, `homex.g`, `homey.g`, and `homez.g`. NeXT vendors homing sources under `nxt-config/machine/<profile>/` and deploys them from the Configuration panel (not loaded at boot). See [docs/NXT_BOARD_HOMING.md](docs/NXT_BOARD_HOMING.md) for axis directions and verification.

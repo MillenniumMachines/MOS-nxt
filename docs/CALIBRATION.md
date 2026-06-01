@@ -481,8 +481,9 @@ A dedicated calibration wizard in the Settings panel would:
 
 3. **Repeatability Test**:
    - Probe the same feature 10 times without moving the part
-   - Calculate standard deviation of measurements
-   - Should be < 0.005mm for a good setup
+   - On a NeXT machine with touch probe or toolsetter configured, run **`M6523`** (e.g. `M6523 B0 C10` at the touch reference, or `M6523 B1 C10` at the toolsetter) — see [GCODE.md](../GCODE.md) and `macros/utilities/M6523.g`
+   - Review echoed min / max / **range** / mean; range should be **< 0.005 mm** for a good setup
+   - Tune pair tolerance via `nxt-user-overrides.g` or Configuration repeatability notes if range exceeds `L`
 
 4. **Directional Test**:
    - Probe surfaces from both positive and negative approach directions
