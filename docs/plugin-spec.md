@@ -84,6 +84,9 @@ dispatcher generation.
 Use `docs/future-state-plugin-template.md` for net-new plugin requirements,
 catalog usage, and baseline automation patterns for external plugin repos.
 
+For local build, test, and sibling-directory layout, see
+[LOCAL_PLUGIN_BUILD_AND_TEST.md](LOCAL_PLUGIN_BUILD_AND_TEST.md).
+
 ## Runtime Integration Points
 
 - `nxt.g` calls the generated init dispatcher once boot checks pass.
