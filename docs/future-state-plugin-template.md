@@ -109,6 +109,11 @@ Branch safety checks:
 - Verify remote branch does not already exist before creating
 - Verify branch source is external repo `main` before committing automation changes
 
+## Local build and test
+
+Step-by-step local workflows (DWC paths, plugin ZIP, testing matrix) are in
+[LOCAL_PLUGIN_BUILD_AND_TEST.md](LOCAL_PLUGIN_BUILD_AND_TEST.md).
+
 ## Acceptance Criteria for a New Plugin
 
 A new plugin is considered NeXT-compatible when:

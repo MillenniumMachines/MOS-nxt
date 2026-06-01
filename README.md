@@ -131,6 +131,8 @@ To install the NeXT plugin on your physical machine:
 
 The NeXT UI is a **Vue 2.7 / Vuetify 2.x** plugin for [Duet Web Control](https://github.com/Duet3D/DuetWebControl) **3.6.2+** (`dwcVersion` in [`ui/plugin.json`](ui/plugin.json)). Source lives in `ui/`.
 
+For building and testing **additional** NeXT-compatible plugins (sibling repos, catalog, plugin ZIP), see [docs/LOCAL_PLUGIN_BUILD_AND_TEST.md](docs/LOCAL_PLUGIN_BUILD_AND_TEST.md).
+
 ### Quick Start
 
 **Prerequisites:** A local clone of [DuetWebControl](https://github.com/Duet3D/DuetWebControl) on a **3.6.2-compatible** branch or tag (e.g. `3.6-dev` or `v3.6.2` when available) with `npm install` completed.
