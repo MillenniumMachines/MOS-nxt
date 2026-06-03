@@ -1,6 +1,6 @@
 # NeXT - Next-Gen Extended Tooling for RepRapFirmware
 
-## ⚠️ ⚠️ ⚠️ Please download NeXT from the [Releases](https://github.com/benagricola/NeXT/releases) page only
+## ⚠️ ⚠️ ⚠️ Please download NeXT from the [Releases](https://github.com/MillenniumMachines/MOS-nxt/releases) page only
 
 ## Introduction
 
