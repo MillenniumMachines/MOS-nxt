@@ -366,8 +366,8 @@ Runs multiple full **G6512** Z probe cycles at a fixed reference surface (touch 
 - `F`, `L`, `O`: Passed through to **G6512** (`L`/`O` default from probe-specific globals)
 
 **Requirements:**
-- **B0:** Touch probe feature on, `nxtTouchProbeRefPos` set, valid `nxtTouchProbeID` sensor; selects **`T{global.nxtProbeToolID}`** if another tool is active (runs normal tool-change macros); prompts until the probe input reads active
-- **B1:** Toolsetter feature on, `nxtToolSetterPos` set, current tool over setter (same as **G37**)
+- **B0:** Touch probe enabled (`nxtFeatureTouchProbe` or legacy `mosFeatTouchProbe`), `nxtTouchProbeRefPos` set, valid `nxtTouchProbeID` sensor; selects **`T{global.nxtProbeToolID}`** if another tool is active (runs normal tool-change macros); prompts until the probe input reads active
+- **B1:** Toolsetter enabled (`nxtFeatureToolSetter` or legacy `mosFeatToolSetter`), `nxtToolSetterPos` set, current tool over setter (same as **G37**)
 
 **Examples:**
 ```gcode

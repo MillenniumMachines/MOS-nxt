@@ -45,9 +45,11 @@ set var.toolSame = { var.toolSame && global.mosTT[param.P][0] == param.R && tool
 ; Check that tool description matches
 set var.toolSame = { var.toolSame && tools[param.P].name == param.S }
 
-; Check that deflection values match
-set var.toolSame = { var.toolSame && exists(param.X) && global.mosTT[param.P][1][0] == param.X }
-set var.toolSame = { var.toolSame && exists(param.Y) && global.mosTT[param.P][1][1] == param.Y }
+; Check that deflection values match (probe tools only; cutting tools omit X/Y)
+if { exists(param.X) }
+    set var.toolSame = { var.toolSame && global.mosTT[param.P][1][0] == param.X }
+if { exists(param.Y) }
+    set var.toolSame = { var.toolSame && global.mosTT[param.P][1][1] == param.Y }
 
 ; Optional flute count (F) and flute length (L), stored in mosTT[P][2] and [3]; -1 = unset
 if { exists(param.F) }
@@ -70,15 +72,46 @@ if { global.mosTT[param.P] != null }
     if { #global.mosTT[param.P] > 3 }
         set var.preserveL = global.mosTT[param.P][3]
 
-; If the tool already matches, refresh persistence only (captures G10 changes without a new M563) then exit.
+; Definition unchanged — nothing to do (no M563). Sync SD library (captures G10 without M563).
 if { var.toolSame }
     if { (!exists(global.nxtUserToolsLoadDepth) || global.nxtUserToolsLoadDepth < 1) && (!exists(global.nxtAutoPersistTools) || global.nxtAutoPersistTools) }
         M98 P"nxt-user-tools-sync.g"
     M99
 
-; Define RRF tool against spindle.
+; Same tool already selected (e.g. T1 active, job preamble M4000 P1 on re-run).
+; M563 clears probed Z offsets — skip it entirely.
+if { state.currentTool == param.P && #tools > param.P && tools[param.P] != null }
+    M99
+
+; Tool exists in RRF but is not the active tool — refresh mosTT metadata only.
+if { #tools > param.P && tools[param.P] != null }
+    set global.mosTT[param.P] = { global.mosET }
+    set global.mosTT[param.P][0] = { param.R }
+    if { exists(param.X) }
+        set global.mosTT[param.P][1][0] = { param.X }
+    if { exists(param.Y) }
+        set global.mosTT[param.P][1][1] = { param.Y }
+    if { exists(param.F) }
+        set global.mosTT[param.P][2] = { param.F }
+    elif { var.preserveF >= 0 }
+        set global.mosTT[param.P][2] = { var.preserveF }
+    if { exists(param.L) }
+        set global.mosTT[param.P][3] = { param.L }
+    elif { var.preserveL >= 0 }
+        set global.mosTT[param.P][3] = { var.preserveL }
+    if { (!exists(global.nxtUserToolsLoadDepth) || global.nxtUserToolsLoadDepth < 1) && (!exists(global.nxtAutoPersistTools) || global.nxtAutoPersistTools) }
+        M98 P"nxt-user-tools-sync.g"
+    M99
+
+; New tool — define in RRF (may deselect the active tool).
+var wasSelected = { state.currentTool == param.P }
+
 ; Allow spindle ID to be overridden where necessary using I parameter.
 M563 P{param.P} S{param.S} R{var.spinId}
+
+; Restore selection without running tool-change macros
+if { var.wasSelected }
+    T{param.P} P0
 
 ; Store tool details in zero-indexed array.
 set global.mosTT[param.P] = { global.mosET }
