@@ -8,6 +8,7 @@
 global nxtFeatureTouchProbe = false
 global nxtFeatureToolSetter = false
 global nxtFeatureCoolantControl = false ; Coolant Control feature flag
+global nxtFeatureRgbLight = false       ; RGB work light (M150 addressable strip)
 global nxtFeatureFourthAxis = false     ; Fourth axis (requires MosFourthAxis DWC plugin on SD)
 
 ; --- Core Settings ---
@@ -55,6 +56,9 @@ global nxtToolSetterRadius = null ; Toolsetter platen radius for large-tool mult
 global nxtToolChangeState = null   ; Tracks the current tool change state (1=tfree, 2=tfree done, 3=tpre done, 4=tpost, null=complete)
 global nxtUserToolsFilePresent = false     ; set at boot by nxt.g: nxt-user-tools.g exists on SD
 global nxtUserToolsDaemonReload = false      ; if true, daemon reloads library when 0:/sys/nxt-user-tools.reload.requested exists (see TOOLCHANGING.md)
+
+; --- RGB work light (M150) ---
+global nxtRgbLedIndex = 0 ; LED strip index (M150 P parameter)
 
 ; --- Coolant Control ---
 global nxtCoolantAirID = null ; Coolant Air Output Pin ID

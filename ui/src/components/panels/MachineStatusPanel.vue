@@ -133,9 +133,24 @@
                     Coolant Control
                   </div>
                 </v-col>
+                <v-col cols="6" sm="4" v-if="rgbHardwareConfigured">
+                  <div class="feature-status">
+                    <v-icon 
+                      :color="globals.nxtFeatureRgbLight ? 'success' : 'grey'"
+                      left
+                    >
+                      mdi-lightbulb-on
+                    </v-icon>
+                    RGB Work Light
+                  </div>
+                </v-col>
               </v-row>
             </v-card-text>
           </v-card>
+        </v-col>
+
+        <v-col v-if="rgbHardwareConfigured" cols="12">
+          <nxt-rgb-light-control />
         </v-col>
       </v-row>
     </v-card-text>
@@ -144,6 +159,8 @@
 
 <script lang="ts">
 import BaseComponent from '../base/BaseComponent.vue'
+import { isRgbLightHardwareConfigured, readOmLedsFromMachineModel } from '../../utils/nxtRgbAvailability'
+import store from '@/store'
 
 /**
  * NeXT Machine Status Panel
@@ -192,7 +209,22 @@ export default BaseComponent.extend({
       if (!this.globals.nxtFeatureTouchProbe || this.probeToolId === null) {
         return false
       }
-      return this.currentTool === this.probeToolId
+      return this.currentTool?.number === this.probeToolId
+    },
+
+    rgbHardwareConfigured(): boolean {
+      const boards = store.state.machine.model.boards
+      const boardShortName =
+        this.globals.nxtBoardShortNameOverride != null &&
+        String(this.globals.nxtBoardShortNameOverride).trim().length > 0
+          ? String(this.globals.nxtBoardShortNameOverride).trim()
+          : Array.isArray(boards) && boards[0]?.shortName
+            ? String(boards[0].shortName)
+            : null
+      return isRgbLightHardwareConfigured({
+        leds: readOmLedsFromMachineModel(store.state.machine.model),
+        boardShortName
+      })
     }
   },
 
