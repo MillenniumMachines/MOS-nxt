@@ -6,6 +6,6 @@ DuetWebControl/
 dist/post-processors/
 dist/post-processors-staging.env
 dist/build-version.env
-dist/next.cps
-dist/next_post.py
+dist/nxt*.cps
+dist/nxt*_post.py
 dist/milo-v1.5-std.mch

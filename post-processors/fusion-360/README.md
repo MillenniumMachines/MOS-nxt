@@ -6,13 +6,13 @@ The Fusion360 post-processor for nxt outputs a relatively basic gcode flavour th
 
 ## Installation
 
-1. Download the `next-<version>-post-f360.cps` file from the release matching your installed nxt version.
+1. Download the `nxt-<version>-f360.cps` file from the release matching your installed nxt version.
 2. Switch to the **"MANUFACTURE"** workbench in Fusion360.
 3. Under the **"Milling"** tab, click the **"NC Program"** icon (the one with a G at the top of a document).
 4. Click the **"Folder"** icon to the right of Post (**"Select post from the library"**).
 5. Hit the **"Import"** button (Document with Arrow on the left, facing right).
-6. Select the `next-...-f360.cps` file from your filesystem.
-7. Select the newly created `next-...-f360.cps` file in the Post Library.
+6. Select the `nxt-...-f360.cps` file from your filesystem.
+7. Select the newly created `nxt-...-f360.cps` file in the Post Library.
 8. Configure the post-processor in the **"Post properties"** section of the **"NC Program"** window to your liking. The default settings should work fine unless you have more advanced needs.
 9. Create a setup, add some toolpaths and then run the Post to generate nxt flavoured output gcode.
 
