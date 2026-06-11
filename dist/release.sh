@@ -181,18 +181,18 @@ if [[ -f "${WD}/dist/generate-plugin-dispatchers.sh" && -f "${WD}/dist/plugins.c
     bash "${WD}/dist/generate-plugin-dispatchers.sh" "${WD}/dist/plugins.catalog.json" "${TMP_DIR}/sd/sys"
 fi
 
-BUILT_PLUGIN_ZIP=""
 (
     cd "${DWC_REPO_PATH}"
     npm ci
     npm install three@0.181.0
     npm run build-plugin "${TMP_DIR}" || exit 1
-    if [[ ! -f "${PWD}/dist/${DWC_PLUGIN_ZIP}" ]]; then
-        echo "error: expected DWC plugin zip dist/${DWC_PLUGIN_ZIP}" >&2
-        exit 1
-    fi
-    BUILT_PLUGIN_ZIP="${PWD}/dist/${DWC_PLUGIN_ZIP}"
 ) || exit 1
+
+BUILT_PLUGIN_ZIP="${DWC_REPO_PATH}/dist/${DWC_PLUGIN_ZIP}"
+if [[ ! -f "${BUILT_PLUGIN_ZIP}" ]]; then
+    echo "error: expected DWC plugin zip ${BUILT_PLUGIN_ZIP}" >&2
+    exit 1
+fi
 
 echo "Generating dwc-plugins.json..."
 
