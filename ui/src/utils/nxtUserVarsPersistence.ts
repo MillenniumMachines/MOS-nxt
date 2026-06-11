@@ -7,6 +7,8 @@ export type NxtUserConfigDraft = {
   nxtFeatureTouchProbe: boolean
   nxtFeatureToolSetter: boolean
   nxtFeatureCoolantControl: boolean
+  nxtFeatureRgbLight: boolean
+  nxtRgbLedIndex: number | null
   nxtProbeToolID: number | null
   nxtDeltaMachine: number | null
   nxtSpindleID: number | null
@@ -33,6 +35,8 @@ export const NXT_USER_VARS_PERSISTED_KEYS = [
   'nxtFeatureTouchProbe',
   'nxtFeatureToolSetter',
   'nxtFeatureCoolantControl',
+  'nxtFeatureRgbLight',
+  'nxtRgbLedIndex',
   'nxtProbeToolID',
   'nxtDeltaMachine',
   'nxtSpindleID',
@@ -114,6 +118,8 @@ export function emptyConfigDraft(): NxtUserConfigDraft {
     nxtFeatureTouchProbe: false,
     nxtFeatureToolSetter: false,
     nxtFeatureCoolantControl: false,
+    nxtFeatureRgbLight: false,
+    nxtRgbLedIndex: 0,
     nxtProbeToolID: null,
     nxtDeltaMachine: null,
     nxtSpindleID: null,
@@ -189,6 +195,8 @@ export function snapshotConfigFromOm(globalVal: unknown): NxtUserConfigDraft {
   draft.nxtFeatureTouchProbe = readConfigBool(readFirmwareGlobal(globalVal, 'nxtFeatureTouchProbe'))
   draft.nxtFeatureToolSetter = readConfigBool(readFirmwareGlobal(globalVal, 'nxtFeatureToolSetter'))
   draft.nxtFeatureCoolantControl = readConfigBool(readFirmwareGlobal(globalVal, 'nxtFeatureCoolantControl'))
+  draft.nxtFeatureRgbLight = readConfigBool(readFirmwareGlobal(globalVal, 'nxtFeatureRgbLight'))
+  draft.nxtRgbLedIndex = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtRgbLedIndex'))
   draft.nxtProbeToolID = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtProbeToolID'))
   draft.nxtDeltaMachine = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtDeltaMachine'))
   draft.nxtSpindleID = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtSpindleID'))
@@ -343,6 +351,10 @@ export function buildNxtUserVarsGcode(config: NxtUserConfigDraft): string {
     `set global.nxtFeatureTouchProbe = ${formatPersistedBool(config.nxtFeatureTouchProbe)}`,
     `set global.nxtFeatureToolSetter = ${formatPersistedBool(config.nxtFeatureToolSetter)}`,
     `set global.nxtFeatureCoolantControl = ${formatPersistedBool(config.nxtFeatureCoolantControl)}`,
+    `set global.nxtFeatureRgbLight = ${formatPersistedBool(config.nxtFeatureRgbLight)}`,
+    '',
+    '; RGB work light (M150)',
+    `set global.nxtRgbLedIndex = ${formatPersistedNumber(config.nxtRgbLedIndex)}`,
     '',
     '; Probe tool index (null in UI → last tool at load) and static datum (touch probe calibration)',
     `set global.nxtProbeToolID = ${formatPersistedProbeToolID(config.nxtProbeToolID)}`,

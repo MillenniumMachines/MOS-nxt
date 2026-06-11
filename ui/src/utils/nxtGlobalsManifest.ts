@@ -12,6 +12,8 @@ export const NXT_GLOBAL_MANIFEST: NxtGlobalManifestEntry[] = [
   { key: 'nxtFeatureTouchProbe', description: 'Feature: touch probe' },
   { key: 'nxtFeatureToolSetter', description: 'Feature: tool setter' },
   { key: 'nxtFeatureCoolantControl', description: 'Feature: coolant control' },
+  { key: 'nxtFeatureRgbLight', description: 'Feature: RGB work light (M150)' },
+  { key: 'nxtRgbLedIndex', description: 'M150 LED strip index (P parameter)' },
   { key: 'nxtProbeToolID', description: 'RRF tool index for probe' },
   { key: 'nxtTouchProbeID', description: 'Touch probe sensor ID' },
   { key: 'nxtToolSetterID', description: 'Tool setter sensor ID' },

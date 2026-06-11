@@ -245,7 +245,7 @@ EOF
 }
 
 echo "Building nxt plugin (${OUT_ZIP}) using DWC at ${DWC_REPO_PATH}..."
-echo "Build basis: ${BUILD_BASIS}"
+echo "Build basis: ${BUILD_REF} (${BUILD_VERSION}) @ ${BUILD_SHA}"
 
 # Stage sd/sys*: same layout as release.sh — macros/system/ → sd/sys/; macros/daemon/
 # (nxt-daemon.g, nxt-user-tools-reload-daemon.g, …) → sd/sys/nxt/.
@@ -333,7 +333,12 @@ DWC_REPO_PATH="${DWC_REPO_PATH}" node "${ROOT}/dist/merge-sd-into-plugin-zip.cjs
 DWC_REPO_PATH="${DWC_REPO_PATH}" node "${ROOT}/dist/inject-plugin-dwcfiles.cjs" \
   "${DWC_REPO_PATH}/dist/${OUT_ZIP}"
 
-_zip_js="$(unzip -Z1 "${DWC_REPO_PATH}/dist/${OUT_ZIP}" 'dwc/NeXT/js/NeXT*.js' | head -1)"
+set +o pipefail
+_zip_js="$(unzip -Z1 "${DWC_REPO_PATH}/dist/${OUT_ZIP}" 'dwc/js/NeXT*.js' 2>/dev/null | head -1)"
+if [[ -z "${_zip_js}" ]]; then
+  _zip_js="$(unzip -Z1 "${DWC_REPO_PATH}/dist/${OUT_ZIP}" 'dwc/NeXT/js/NeXT*.js' 2>/dev/null | head -1)"
+fi
+set -o pipefail
 if [[ -n "${_zip_js}" ]]; then
   _tmp_js="$(mktemp --suffix=.js)"
   unzip -p "${DWC_REPO_PATH}/dist/${OUT_ZIP}" "${_zip_js}" > "${_tmp_js}"

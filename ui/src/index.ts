@@ -30,7 +30,7 @@ import './components/inputs'
 // Side-effect: registers kebab-case tags used inside NeXT.vue.
 import './components/panels'
 // Overrides (CNC dashboard + MessageBoxDialog) — re-enable after plugin starts reliably.
-// import './components/overrides'
+import './components/overrides'
 
 // Import localization
 import en from './locales/en.json'
@@ -56,6 +56,14 @@ function registerNeXTSideEffects(): void {
       dialogResponse: null,
       lastProbeResults: [],
       selectedResultIndex: 0
+    })
+
+    registerPluginData('NeXT', PluginDataType.globalSetting, 'nxtRgbUiState', {
+      r: 255,
+      g: 255,
+      b: 255,
+      brightness: 100,
+      on: true
     })
 
     registerRoute(NeXT, {

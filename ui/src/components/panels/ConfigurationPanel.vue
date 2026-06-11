@@ -720,6 +720,48 @@
           </v-expansion-panel-content>
         </v-expansion-panel>
 
+        <!-- RGB / Work Light Configuration -->
+        <v-expansion-panel v-if="rgbHardwareConfigured">
+          <v-expansion-panel-header>
+            <div>
+              <v-icon left>mdi-lightbulb-on</v-icon>
+              <strong>{{ $t('plugins.next.panels.configuration.rgbLight') }}</strong>
+              <v-spacer />
+              <v-icon v-if="configDraft.nxtFeatureRgbLight" small color="success" class="mr-2">
+                mdi-check-circle
+              </v-icon>
+            </div>
+          </v-expansion-panel-header>
+          <v-expansion-panel-content>
+            <v-row>
+              <v-col cols="12" md="4">
+                <v-select
+                  :value="configDraft.nxtRgbLedIndex"
+                  :items="rgbLedSelectItems"
+                  item-text="text"
+                  item-value="value"
+                  :label="$t('plugins.next.panels.configuration.rgbLedIndex')"
+                  :disabled="uiFrozen"
+                  @input="onConfigDraftSelect('nxtRgbLedIndex', $event)"
+                  :hint="$t('plugins.next.panels.configuration.rgbLedIndexHint')"
+                  persistent-hint
+                />
+              </v-col>
+            </v-row>
+            <v-row class="mt-2">
+              <v-col cols="12">
+                <v-switch
+                  :input-value="configDraft.nxtFeatureRgbLight"
+                  :label="$t('plugins.next.panels.configuration.rgbFeatureEnable')"
+                  :disabled="uiFrozen"
+                  @change="updateFeature('nxtFeatureRgbLight', $event)"
+                  class="mt-0"
+                />
+              </v-col>
+            </v-row>
+          </v-expansion-panel-content>
+        </v-expansion-panel>
+
         <!-- NeXT globals snapshot (read-only) -->
         <v-expansion-panel>
           <v-expansion-panel-header>
@@ -877,6 +919,12 @@ import {
   type NxtUserConfigDraft
 } from '../../utils/nxtUserVarsPersistence'
 import { readFirmwareGlobal } from '../../utils/nxtToolChangerOm'
+import {
+  countOmLeds,
+  isRgbLightHardwareConfigured,
+  readOmLedsFromMachineModel,
+  rgbLedIndexItems
+} from '../../utils/nxtRgbAvailability'
 import {
   getProbeByIndex,
   isProbeTriggered,
@@ -1182,6 +1230,18 @@ export default BaseComponent.extend({
         return 'At least one output configured - feature can be enabled'
       }
       return 'Required: At least one coolant output (Air, Mist, or Flood)'
+    },
+
+    rgbHardwareConfigured(): boolean {
+      return isRgbLightHardwareConfigured({
+        leds: readOmLedsFromMachineModel(this.$store.state.machine.model),
+        boardShortName: this.resolvedBoardShortNameForPack
+      })
+    },
+
+    rgbLedSelectItems(): Array<{ value: number; text: string }> {
+      const n = countOmLeds(readOmLedsFromMachineModel(this.$store.state.machine.model))
+      return rgbLedIndexItems(n > 0 ? n : 1)
     },
 
     machineBoardsList(): Array<{ shortName?: string; name?: string }> {
@@ -1602,6 +1662,10 @@ export default BaseComponent.extend({
             this.showStatus('Cannot enable Coolant Control: ' + this.coolantControlRequirementsMessage, 'error')
             return
           }
+          if (key === 'nxtFeatureRgbLight' && !this.rgbHardwareConfigured) {
+            this.showStatus('Cannot enable RGB light: no LED strip configured', 'error')
+            return
+          }
         }
 
         await this.sendCode(`set global.${key} = ${value}`)
@@ -1640,6 +1704,9 @@ export default BaseComponent.extend({
       this.saving = true
       try {
         this.prepareBoardPackFieldsForSave()
+        if (!this.rgbHardwareConfigured) {
+          this.configDraft.nxtFeatureRgbLight = false
+        }
         const bootMode = this.configDraft.nxtBoardBootstrapMode === 'auto' ? 'auto' : 'off'
         const content = buildNxtUserVarsGcode(this.configDraft)
         await uploadDwcFile(NXT_USER_VARS_DWC_PATH, content)

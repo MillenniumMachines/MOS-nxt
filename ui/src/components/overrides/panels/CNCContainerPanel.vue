@@ -66,6 +66,38 @@
 											</td>
 										</tr>
 
+										<!-- Tool Role -->
+										<tr v-if="loadedTool.role !== 'none'">
+											<td><strong>{{ $t("plugins.next.panels.status.toolRole") }}</strong></td>
+											<td align="right">
+												<v-chip x-small :color="loadedToolRoleColor" text-color="white" label>
+													{{ loadedToolRoleText }}
+												</v-chip>
+											</td>
+										</tr>
+
+										<!-- Tool Flutes -->
+										<tr v-if="loadedTool.fluteCount !== null">
+											<td><strong>{{ $t("plugins.next.panels.status.toolFlutes") }}</strong></td>
+											<td align="right">
+												<v-chip label outlined small class="status-chip">
+													<span class="pill-text">{{ loadedTool.fluteCount }}</span>
+													<v-avatar right rounded color="primary" class="ma-0"><v-icon small>mdi-format-list-numbered</v-icon></v-avatar>
+												</v-chip>
+											</td>
+										</tr>
+
+										<!-- Tool Flute Length -->
+										<tr v-if="loadedTool.fluteLengthMm !== null">
+											<td><strong>{{ $t("plugins.next.panels.status.toolFluteLength") }}</strong></td>
+											<td align="right">
+												<v-chip label outlined small class="status-chip">
+													<span class="pill-text">{{ $display(loadedTool.fluteLengthMm, 3, "mm") }}</span>
+													<v-avatar right rounded color="primary" class="ma-0"><v-icon small>mdi-ruler</v-icon></v-avatar>
+												</v-chip>
+											</td>
+										</tr>
+
 										<!-- Spindle Status -->
 										<tr v-if="activeSpindle !== null">
 											<td><strong>{{ $t("plugins.next.panels.status.spindle") }}</strong></td>
@@ -182,19 +214,14 @@
 						</v-card>
 					</v-col>
 
-					<!-- Spindle Control (placeholder for future implementation) -->
-					<v-col cols="12" v-if="isConnected && activeSpindle">
-						<v-card class="fill-height">
-							<v-card-title class="py-2 font-weight-bold">
-								{{ $t('plugins.next.panels.spindleControl.caption') }}
-							</v-card-title>
-							<v-card-text>
-								<v-alert type="info" outlined dense>
-									<v-icon left>mdi-information</v-icon>
-									{{ $t('plugins.next.panels.spindleControl.placeholder') }}
-								</v-alert>
-							</v-card-text>
-						</v-card>
+					<!-- RGB work light -->
+					<v-col cols="12" v-if="rgbHardwareConfigured">
+						<nxt-rgb-light-control compact />
+					</v-col>
+
+					<!-- Spindle control (spindle 0 only) -->
+					<v-col cols="12" v-if="isConnected">
+						<nxt-spindle0-control-panel />
 					</v-col>
 				</v-row>
 			</v-col>
@@ -203,9 +230,13 @@
 </template>
 
 <script lang="ts">
+// @ts-nocheck — Vue 2 + BaseComponent.extend(): tsc does not merge computeds onto `this`.
 import BaseComponent from "../../base/BaseComponent.vue";
 import { Probe, Axis, Spindle, SpindleState } from "@duet3d/objectmodel";
 import store from "@/store";
+import { readFirmwareGlobal } from "../../../utils/nxtToolChangerOm";
+import { buildLoadedToolStatus } from "../../../utils/nxtLoadedToolStatus";
+import { isRgbLightHardwareConfigured, readOmLedsFromMachineModel } from "../../../utils/nxtRgbAvailability";
 
 const enum WorkplaceSet {
 	NONE,
@@ -279,31 +310,61 @@ export default BaseComponent.extend({
 			return t < 0 ? null : t;
 		},
 
+		loadedTool() {
+			const model = store.state.machine.model;
+			const idx = model.state.currentTool ?? -1;
+			return buildLoadedToolStatus(model.tools, idx, model.global);
+		},
+
 		toolName(): string | null {
-			const t = store.state.machine.model.state.currentTool ?? -1;
-			if (t < 0) return null;
-			return store.state.machine.model.tools.at(t)?.name ?? '';
+			return this.loadedTool.name;
 		},
 
 		toolNameShort(): string {
-			const t = store.state.machine.model.state.currentTool ?? -1;
-			if (t < 0) return '';
-			const toolName = store.state.machine.model.tools.at(t)?.name ?? '';
-			return toolName.length > 20 ? toolName.substring(0, 20) + '...' : toolName;
+			return this.loadedTool.nameShort;
 		},
 
 		toolRadius(): number | null {
-			const t = store.state.machine.model.state.currentTool ?? -1;
-			if (t < 0) return null;
-			const toolTable = store.state.machine.model.global.get('nxtToolTable');
-			return toolTable?.at(t)?.at(0) ?? null;
+			return this.loadedTool.radiusMm;
 		},
 
 		toolOffset(): number | null {
-			const t = store.state.machine.model.state.currentTool ?? -1;
-			if (t < 0) return null;
-			// Return Z offset of tool (Axis 2)
-			return store.state.machine.model.tools.at(t)?.offsets[2] ?? null;
+			return this.loadedTool.zOffset;
+		},
+
+		loadedToolRoleText(): string {
+			const role = this.loadedTool.role;
+			if (role === 'probe') {
+				return (this as any).$t('plugins.next.panels.toolManagement.statusProbe').toString();
+			}
+			if (role === 'spindle') {
+				return (this as any).$t('plugins.next.panels.toolManagement.statusInSpindle').toString();
+			}
+			return (this as any).$t('plugins.next.panels.status.none').toString();
+		},
+
+		loadedToolRoleColor(): string {
+			const role = this.loadedTool.role;
+			if (role === 'probe') {
+				return 'deep-purple';
+			}
+			if (role === 'spindle') {
+				return 'success';
+			}
+			return 'grey';
+		},
+
+		rgbHardwareConfigured(): boolean {
+			const g = store.state.machine.model.global;
+			const override = readFirmwareGlobal(g, 'nxtBoardShortNameOverride');
+			const boardShortName =
+				override != null && String(override).trim().length > 0
+					? String(override).trim()
+					: store.state.machine.model.boards?.[0]?.shortName ?? null;
+			return isRgbLightHardwareConfigured({
+				leds: readOmLedsFromMachineModel(store.state.machine.model),
+				boardShortName: boardShortName != null ? String(boardShortName) : null
+			});
 		},
 
 		// Spindle information
@@ -374,28 +435,40 @@ export default BaseComponent.extend({
 
 		// Probe information
 		touchProbeEnabled(): boolean {
-			return (
-				store.state.machine.model.global.get('nxtFeatTouchProbe') === true &&
-				store.state.machine.model.global.get('nxtTPID') !== null
-			);
+			const feat = readFirmwareGlobal(store.state.machine.model.global, 'nxtFeatureTouchProbe');
+			const legacyFeat = readFirmwareGlobal(store.state.machine.model.global, 'nxtFeatTouchProbe');
+			const enabled = feat === true || feat === 1 || legacyFeat === true || legacyFeat === 1;
+			const id =
+				readFirmwareGlobal(store.state.machine.model.global, 'nxtTouchProbeID') ??
+				readFirmwareGlobal(store.state.machine.model.global, 'nxtTPID');
+			return enabled && id !== null && id !== undefined;
 		},
 
 		toolsetterEnabled(): boolean {
-			return (
-				store.state.machine.model.global.get('nxtFeatToolSetter') === true &&
-				store.state.machine.model.global.get('nxtTSID') !== null
-			);
+			const feat = readFirmwareGlobal(store.state.machine.model.global, 'nxtFeatureToolSetter');
+			const legacyFeat = readFirmwareGlobal(store.state.machine.model.global, 'nxtFeatToolSetter');
+			const enabled = feat === true || feat === 1 || legacyFeat === true || legacyFeat === 1;
+			const id =
+				readFirmwareGlobal(store.state.machine.model.global, 'nxtToolSetterID') ??
+				readFirmwareGlobal(store.state.machine.model.global, 'nxtTSID');
+			return enabled && id !== null && id !== undefined;
 		},
 
 		touchProbe(): Probe | null {
-			const nxtTPID: number = store.state.machine.model.global.get('nxtTPID') ?? null;
+			const raw =
+				readFirmwareGlobal(store.state.machine.model.global, 'nxtTouchProbeID') ??
+				readFirmwareGlobal(store.state.machine.model.global, 'nxtTPID');
+			const nxtTPID = typeof raw === 'number' ? raw : null;
 			if (nxtTPID === null) return null;
 			const p = store.state.machine.model.sensors.probes.at(nxtTPID);
 			return p ? p : null;
 		},
 
 		toolsetter(): Probe | null {
-			const nxtTSID: number = store.state.machine.model.global.get('nxtTSID') ?? null;
+			const raw =
+				readFirmwareGlobal(store.state.machine.model.global, 'nxtToolSetterID') ??
+				readFirmwareGlobal(store.state.machine.model.global, 'nxtTSID');
+			const nxtTSID = typeof raw === 'number' ? raw : null;
 			if (nxtTSID === null) return null;
 			const p = store.state.machine.model.sensors.probes.at(nxtTSID);
 			return p ? p : null;

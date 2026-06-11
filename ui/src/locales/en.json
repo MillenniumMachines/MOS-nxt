@@ -20,6 +20,9 @@
       "disabled": "Disabled",
       "toolRadius": "Tool Radius",
       "toolOffset": "Tool Z Offset",
+      "toolRole": "Tool Role",
+      "toolFlutes": "Flutes",
+      "toolFluteLength": "Flute Length",
       "spindle": "Spindle",
       "spindleRPM": "Spindle RPM",
       "spindleForward": "Running (Forward)",
@@ -44,6 +47,10 @@
       "touchProbe": "Touch Probe Configuration",
       "toolSetter": "Tool Setter Configuration",
       "coolant": "Coolant Control Configuration",
+      "rgbLight": "RGB / Work Light",
+      "rgbLedIndex": "LED strip index (M150 P)",
+      "rgbLedIndexHint": "Addressable LED strip from M950 L in config.g",
+      "rgbFeatureEnable": "Enable RGB Work Light Feature",
       "saveSuccess": "Configuration saved successfully",
       "saveError": "Failed to save configuration",
       "loadError": "Failed to load configuration",
@@ -126,6 +133,16 @@
     "spindleControl": {
       "caption": "Spindle Control",
       "placeholder": "Spindle control panel will be implemented in a future phase"
+    },
+    "rgbLight": {
+      "caption": "RGB Work Light",
+      "power": "Light on",
+      "brightness": "Brightness",
+      "enableInConfiguration": "Enable RGB Work Light in Configuration to control the machine light.",
+      "presetWhite": "White",
+      "presetWarm": "Warm",
+      "presetRed": "Red",
+      "presetOff": "Off"
     },
     "wizards": {
       "probeDeflection": {
