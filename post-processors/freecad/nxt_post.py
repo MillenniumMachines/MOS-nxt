@@ -45,6 +45,8 @@ class RELEASE:
     VERSION = "%%NXT_VERSION%%"
     VENDOR  = "Millennium Machines"
 
+POST_PREFIX = "nxt-{}".format(RELEASE.VERSION)
+
 class PROBE:
     AT_START = 'AT_START'
     ON_CHANGE = 'ON_CHANGE'
@@ -122,7 +124,7 @@ class Control(Flag):
     NONZERO = auto()
 
 # User-configurable arguments.
-parser = argparse.ArgumentParser(prog="nxt {}".format(RELEASE.VERSION),
+parser = argparse.ArgumentParser(prog=POST_PREFIX,
     description="nxt {} Post Processor for FreeCAD".format(RELEASE.VERSION))
 
 parser.add_argument('--show-editor', action=argparse.BooleanOptionalAction, default=True,
@@ -550,9 +552,7 @@ class NxtPostProcessor(PostProcessor):
     _T   = Output(fmt=FORMATS.CMD, prefix='T', ctrl=Control.FORCE)
 
     def __init__(self, args={}):
-        post_name = "nxt {}".format(RELEASE.VERSION)
-
-        super().__init__(post_name, vendor=RELEASE.VENDOR, args=args)
+        super().__init__(POST_PREFIX, vendor=RELEASE.VENDOR, args=args)
         self._MOVES           = self._LINEAR_MOVES + self._ARC_MOVES + self._CANNED_CYCLES
         self._SPINDLE_ACTIONS = self._SPINDLE_ACTIONS_START + self._SPINDLE_ACTIONS_STOP
         self.active_wcs      = False

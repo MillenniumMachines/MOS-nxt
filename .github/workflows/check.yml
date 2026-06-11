@@ -27,6 +27,11 @@ jobs:
       - name: Plugin id / path contract
         run: node dist/verify-nxt-plugin-contract.mjs
 
+      - name: Post-processor naming (FreeCAD _post.py)
+        run: |
+          chmod +x dist/verify-post-processor-naming.sh
+          ./dist/verify-post-processor-naming.sh
+
   macro-line-length:
     name: Macro line length (RRF ≤255)
     runs-on: ubuntu-latest

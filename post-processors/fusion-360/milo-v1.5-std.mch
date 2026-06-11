@@ -324,7 +324,7 @@
    },
    "post" : {
       "default" : {
-         "path" : "user://next-%%NXT_VERSION%%-post-f360.cps",
+         "path" : "user://nxt-%%NXT_VERSION%%-f360.cps",
          "properties" : {
             "jobHomeBeforeStart" : true
          }

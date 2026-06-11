@@ -12,7 +12,7 @@ check_rg() {
   shift
   local hits
   hits="$(rg -n "$@" --glob '!.git' . 2>/dev/null \
-    | grep -Ev '^(\./)?dist/(audit-naming\.sh|verify-nxt-plugin-contract\.mjs):' \
+    | grep -Ev '^(\./)?dist/(audit-naming\.sh|verify-nxt-plugin-contract\.mjs|verify-post-processor-naming\.sh):' \
     || true)"
   if [[ -n "${hits}" ]]; then
     echo "::error::${label}" >&2
@@ -27,6 +27,7 @@ check_rg "Wrong DWC plugin paths" \
   'src/plugins/NeXT|/NeXT/|NeXT\.vue|"id":\s*"NeXT"|dwcWebpackChunk":\s*"NeXT"'
 check_rg "Retired tagline" 'Next-Gen Extended Tooling'
 check_rg "Retired i18n namespace" 'plugins\.next'
+check_rg "Legacy post-processor names" 'next_post\.py|next\.cps|-post-freecad\.py'
 
 if [[ "${FAIL}" -ne 0 ]]; then
   echo "audit-naming: FAILED" >&2
