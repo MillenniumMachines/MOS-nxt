@@ -1,6 +1,6 @@
-# NeXT Future-State Plugin Template
+# nxt Future-State Plugin Template
 
-This document defines the minimum requirements and baseline automation for building a net-new plugin that is supported by NeXT using a fully RRF runtime model.
+This document defines the minimum requirements and baseline automation for building a net-new plugin that is supported by nxt using a fully RRF runtime model.
 
 ## Design Intent
 
@@ -27,7 +27,7 @@ Example:
 
 ```json
 {
-  "id": "NeXT-CoolantPlus",
+  "id": "nxt-CoolantPlus",
   "version": "1.0.0",
   "data": {
     "nxt": {
@@ -66,12 +66,12 @@ This guarantees one-time init per boot/session.
 
 ## Plugin Catalog
 
-NeXT uses `dist/plugins.catalog.json` as a source list for build automation.
+nxt uses `dist/plugins.catalog.json` as a source list for build automation.
 
 Fields:
 
 - `id` (logical identifier)
-- `repoPath` (e.g. `.` or `../NeXT-Plugin-CoolantPlus`)
+- `repoPath` (e.g. `.` or `../nxt-Plugin-CoolantPlus`)
 - `manifestPath` (e.g. `ui/plugin.json`)
 - `required` (boolean)
 
@@ -116,7 +116,7 @@ Step-by-step local workflows (DWC paths, plugin ZIP, testing matrix) are in
 
 ## Acceptance Criteria for a New Plugin
 
-A new plugin is considered NeXT-compatible when:
+A new plugin is considered nxt-compatible when:
 
 - Metadata validates against required fields
 - Required init macro exists in staged `/sys`

@@ -1,7 +1,7 @@
 /**
  * Input Components Registration
  * 
- * Registers all NeXT input components globally for use in templates
+ * Registers all nxt input components globally for use in templates
  * Currently placeholder for Phase 2.2 implementation
  */
 

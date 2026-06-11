@@ -99,7 +99,7 @@
   "machines": [
     {
       "id": "v1.5",
-      "title": "Milo v1.5 board packs (NeXT)",
+      "title": "Milo v1.5 board packs (nxt)",
       "hasCommonDeploy": true,
       "sysDeployFiles": [
         "homeall.g",
@@ -111,7 +111,7 @@
     },
     {
       "id": "v1.6_v2",
-      "title": "Milo v1.6 / v2.0 board packs (NeXT)",
+      "title": "Milo v1.6 / v2.0 board packs (nxt)",
       "hasCommonDeploy": true,
       "sysDeployFiles": [
         "homeall.g",
@@ -125,7 +125,7 @@
   "platforms": [
     {
       "id": "v1.5",
-      "title": "Milo v1.5 board packs (NeXT)",
+      "title": "Milo v1.5 board packs (nxt)",
       "hasCommonDeploy": true,
       "sysDeployFiles": [
         "homeall.g",
@@ -157,7 +157,7 @@
     },
     {
       "id": "v1.6_v2",
-      "title": "Milo v1.6 / v2.0 board packs (NeXT)",
+      "title": "Milo v1.6 / v2.0 board packs (nxt)",
       "hasCommonDeploy": true,
       "sysDeployFiles": [
         "homeall.g",

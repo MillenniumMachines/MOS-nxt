@@ -13,6 +13,20 @@ on:
       - 'v*.*.*-beta.*'
 
 jobs:
+  naming-and-contract:
+    name: nxt naming and plugin contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Naming regression guard
+        run: |
+          chmod +x dist/audit-naming.sh
+          ./dist/audit-naming.sh
+
+      - name: Plugin id / path contract
+        run: node dist/verify-nxt-plugin-contract.mjs
+
   macro-line-length:
     name: Macro line length (RRF ≤255)
     runs-on: ubuntu-latest

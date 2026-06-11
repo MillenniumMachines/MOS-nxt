@@ -1,9 +1,9 @@
 ---
-description: NeXT DWC plugin releases — build gate, manual plugin load, version/manifest alignment
+description: nxt DWC plugin releases — build gate, manual plugin load, version/manifest alignment
 alwaysApply: true
 ---
 
-# NeXT plugin releases and versioning
+# nxt plugin releases and versioning
 
 ## Manifest alignment
 
@@ -12,14 +12,16 @@ alwaysApply: true
 
 ## Gate before release commits or version tags
 
-1. Run `./dist/check-macro-line-length.sh` from the **NeXT repo root** (all `macros/**/*.g` lines ≤255 characters — RRF G-code line limit).
-2. If **`macros/nxt-config/`**, **manifest generator**, or **UI path helpers** changed: run `node dist/generate-nxt-config-manifest.mjs` and follow [plugin-ui-paths.mdc](plugin-ui-paths.mdc) (grep `nxt/config`, confirm `platforms[].machineEntryPath`, ZIP contains `dwc/js/NeXT.*.js`).
-3. Run `./dist/verify-dwc-build-alignment.sh <path-to-DuetWebControl>` then `./dist/build-plugin.sh <same-DWC>` from the **NeXT repo root**; confirm **exit code 0**. The shipped ZIP’s `plugin.json` `dwcVersion` must match the printer’s DWC version (e.g. `3.6.2`, not merely “3.6.x”). If the host is a different patch (e.g. `3.6.5`), rebuild the plugin against that DWC tree.
-4. **Manual verification:** Do not commit or tag a release until the user has **explicitly confirmed** the plugin **loads and works** in DWC on the target line (install ZIP, start plugin, smoke-test). Treat CI success as necessary but **not sufficient**.
+1. Run `./dist/audit-naming.sh` and `node dist/verify-nxt-plugin-contract.mjs` from the **MOS-nxt repo root**.
+2. Run `./dist/check-macro-line-length.sh` from the **MOS-nxt repo root** (all `macros/**/*.g` lines ≤255 characters — RRF G-code line limit).
+3. If **`macros/nxt-config/`**, **manifest generator**, or **UI path helpers** changed: run `node dist/generate-nxt-config-manifest.mjs` and follow [plugin-ui-paths.mdc](plugin-ui-paths.mdc) (grep `nxt/config`, confirm `platforms[].machineEntryPath`, ZIP contains `dwc/js/nxt.*.js`).
+4. Run `./dist/verify-dwc-build-alignment.sh <path-to-DuetWebControl>` then `./dist/build-plugin.sh <same-DWC>` from the **MOS-nxt repo root**; confirm **exit code 0**. The shipped ZIP’s `plugin.json` `dwcVersion` must match the printer’s DWC version (e.g. `3.6.2`, not merely “3.6.x”). If the host is a different patch (e.g. `3.6.5`), rebuild the plugin against that DWC tree.
+5. **Manual verification:** Do not commit or tag a release until the user has **explicitly confirmed** the plugin **loads and works** in DWC on the target line (install ZIP, start plugin, smoke-test). Treat CI success as necessary but **not sufficient**.
 
 ## Tagging conventions (this repo)
 
 - **Betas:** Increment **`vMAJOR.MINOR.PATCH-beta.N`** (e.g. next after `v0.6.0-beta.3` is `beta.4`). Use **`git tag -a`** with a short message.
+- **Release candidates:** **`vMAJOR.MINOR.PATCH-rcN`** (e.g. `v0.6.0-rc1`, `v0.6.0-rc2` — no dot before the rc number). Same CI release workflow as beta/stable tags.
 - **Stable:** Avoid **`git tag -f`** on an existing stable tag unless the user explicitly asks; prefer a new semver tag.
 
 ## CI

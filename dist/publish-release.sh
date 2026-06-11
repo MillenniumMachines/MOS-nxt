@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Publish a NeXT release line to origin: push the maintenance branch and an annotated tag.
+# Publish a nxt release line to origin: push the maintenance branch and an annotated tag.
 #
 # Gates (see .cursor/rules/release-plugin-verify.mdc):
 #   - clean git working tree
@@ -15,6 +15,7 @@
 #   ./dist/publish-release.sh v0.6.0 --source kadders/v0.6.0
 #   ./dist/publish-release.sh v0.6.0 --dwc-path ../DuetWebControl
 #   ./dist/publish-release.sh v0.6.0-beta.5 --source HEAD --skip-branch
+#   ./dist/publish-release.sh v0.6.0-rc1 --source HEAD --skip-branch
 #   ./dist/publish-release.sh v0.6.0 --dry-run
 #
 # Options:
@@ -33,6 +34,9 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${ROOT}"
+
+# shellcheck source=dist/semver-version.sh
+source "${ROOT}/dist/semver-version.sh"
 
 VERSION=""
 SOURCE_REF=""
@@ -85,22 +89,12 @@ normalize_version() {
   fi
 }
 
-is_stable_version() {
-  local ver="$1"
-  [[ "${ver}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
-}
-
-is_beta_version() {
-  local ver="$1"
-  [[ "${ver}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-beta\.[0-9]+$ ]]
-}
-
 validate_version() {
   local ver="$1"
-  if is_stable_version "${ver}" || is_beta_version "${ver}"; then
+  if is_release_version "${ver}"; then
     return 0
   fi
-  die "unsupported version format: ${ver} (expected vMAJOR.MINOR.PATCH or vMAJOR.MINOR.PATCH-beta.N)"
+  die "unsupported version format: ${ver} (expected $(semver_version_formats_hint))"
 }
 
 resolve_source_ref() {
@@ -214,7 +208,7 @@ SOURCE_REF="$(resolve_source_ref "${VERSION}")"
 COMMIT_SHA="$(git rev-parse "${SOURCE_REF}^{commit}")"
 COMMIT_SUBJECT="$(git log -1 --format='%s' "${COMMIT_SHA}")"
 
-echo "NeXT publish-release"
+echo "nxt publish-release"
 echo "  version:     ${VERSION}"
 echo "  source:      ${SOURCE_REF} (${COMMIT_SHA})"
 echo "  subject:     ${COMMIT_SUBJECT}"
@@ -294,9 +288,9 @@ if [[ "${SKIP_TAG}" == false ]]; then
   fi
 
   if ! tag_exists "${VERSION}" || [[ "${FORCE_TAG}" == true ]]; then
-    TAG_MSG="NeXT ${VERSION}"
-    if is_beta_version "${VERSION}"; then
-      TAG_MSG="NeXT ${VERSION} pre-release"
+    TAG_MSG="nxt ${VERSION}"
+    if is_beta_version "${VERSION}" || is_rc_version "${VERSION}"; then
+      TAG_MSG="nxt ${VERSION} pre-release"
     fi
     if tag_exists "${VERSION}" && [[ "${FORCE_TAG}" == true ]]; then
       run git tag -f -a "${VERSION}" -m "${TAG_MSG}" "${COMMIT_SHA}"

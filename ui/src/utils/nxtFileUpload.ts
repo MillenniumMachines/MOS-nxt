@@ -1,5 +1,5 @@
 /**
- * DWC file upload for NeXT persistence files.
+ * DWC file upload for nxt persistence files.
  * Uses the machine connector (rr_upload + CRC/retry) — not raw fetch.
  */
 import store from '@/store'
@@ -10,7 +10,7 @@ export const NXT_USER_TOOLS_DWC_PATH = '0:/sys/nxt-user-tools.g'
 export const NXT_BOARD_BOOTSTRAP_REQUESTED = '0:/sys/nxt-board-bootstrap.requested'
 export const NXT_BOARD_BOOTSTRAP_SKIP = '0:/sys/nxt-board-bootstrap.skip'
 
-/** Legacy HTTP-style paths from early NeXT UI — normalize to SD paths. */
+/** Legacy HTTP-style paths from early nxt UI — normalize to SD paths. */
 export function resolveDwcUploadPath(fullPath: string): string {
   const trimmed = fullPath.trim()
   if (/^\d+:/.test(trimmed)) {
@@ -113,7 +113,7 @@ export async function listDwcDirectory(
       .map((item) => item.name)
       .filter((n): n is string => typeof n === 'string')
   } catch (e) {
-    console.warn('NeXT: listDwcDirectory failed', directory, e)
+    console.warn('nxt: listDwcDirectory failed', directory, e)
     return null
   }
 }

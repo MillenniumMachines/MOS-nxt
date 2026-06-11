@@ -1,5 +1,5 @@
 ; nxt-vars.g
-; Defines default global variables for the NeXT system.
+; Defines default global variables for the nxt system.
 ;
 ; Vector globals use the same RHS form as MillenniumOS (sys/mos-vars.g): { vector(...) }.
 ; RRF 3.5.0+. See macros/system/RRF_META.txt. Caps: tool cache 50, gpOut snapshot 32 (MOS uses full limits.gpOutPorts).
@@ -16,7 +16,7 @@ global nxtProbeToolID = { limits.tools - 1 } ; Probe Tool ID, always the last to
 global nxtTouchProbeID = 0             ; The ID of the touch probe sensor
 global nxtToolSetterID = 1             ; The ID of the tool setter sensor
 global nxtError = null               ; Stores the last error message
-global nxtLoaded = false              ; Tracks if NeXT has loaded successfully
+global nxtLoaded = false              ; Tracks if nxt has loaded successfully
 global nxtUserVarsPresent = false     ; true after nxt-user-vars.g is loaded from SD (set in nxt.g)
 global nxtConfigPending = false       ; true when nxt-user-vars.g missing — use DWC Configuration + Save
 
@@ -93,7 +93,7 @@ global nxtBoardBootstrapMode = "off" ; "off" | "auto" (Save syncs nxt-board-boot
 
 ; --- Optional magazine / ATC extension (not allocated here) ---
 ; Bay maps, job sequence vectors, and related globals are defined only when a tool changer
-; macro pack is installed on the machine. Base NeXT does not create atc*. globals mosET and
+; macro pack is installed on the machine. Base nxt does not create atc*. globals mosET and
 ; mosTT are allocated by nxt-tooltable.g (invoked from nxt.g) when not already present from
 ; mos-vars.g, and maintained by M4000/M4001 for post-driven tool definitions.
 ; See docs/TOOLCHANGING.md and ui/src/utils/nxtToolChangerOm.ts (OM key map).

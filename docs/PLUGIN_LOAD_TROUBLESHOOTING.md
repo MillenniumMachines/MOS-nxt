@@ -1,12 +1,12 @@
-# NeXT plugin load failure (`can't access property "call"`)
+# nxt plugin load failure (`can't access property "call"`)
 
 This guide assumes the failure is one of:
 
-1. **404** — `NeXT.<hash>.js` not on the DWC web root  
+1. **404** — `nxt.<hash>.js` not on the DWC web root  
 2. **`dwcFiles`** — plugin object missing JS/CSS paths after install  
 3. **Version skew** — ZIP `dwcVersion` (e.g. **3.6.2**) does not match host DWC, or webpack modules differ between builds
 
-The error is always **webpack** failing while loading `dwc/js/NeXT.*.js`, not RRF macros.
+The error is always **webpack** failing while loading `dwc/js/nxt.*.js`, not RRF macros.
 
 ## Quick checks (browser, after failed Start)
 
@@ -15,21 +15,21 @@ Open DevTools → **Network** (disable cache):
 | Request | Expected |
 |---------|----------|
 | `app.<hash>.js` | **200** |
-| `js/NeXT.<hash>.js` | **200** (not 404, not `NeXT.undefined.js`) |
-| `css/NeXT.<hash>.css` | **200** |
+| `js/nxt.<hash>.js` | **200** (not 404, not `nxt.undefined.js`) |
+| `css/nxt.<hash>.css` | **200** |
 
 Open DevTools → **Console** (if you can connect to the object model):
 
 ```javascript
 // Replace store access if needed — run on DWC page when connected
-const p = document.querySelector('#app')?.__vue__?.$store?.state?.machine?.model?.plugins?.get?.('NeXT')
+const p = document.querySelector('#app')?.__vue__?.$store?.state?.machine?.model?.plugins?.get?.('nxt')
 p?.dwcFiles
 ```
 
 Expected:
 
 ```json
-["js/NeXT.<hash>.js", "css/NeXT.<hash>.css"]
+["js/nxt.<hash>.js", "css/nxt.<hash>.css"]
 ```
 
 If `undefined` or `[]` → **dwcFiles** problem.  
@@ -44,90 +44,90 @@ If version error in console before `.call` → **version skew** (DWC also checks
 |--------|----------------|
 | **Truncated upload** | Network shows 200 but file size ≠ ZIP (was ~200 KB; check Content-Length) |
 | **Wrong URL still** | Response is HTML/JSON, not JS (open the script URL in a new tab) |
-| **Stale hash** | Page requests `NeXT.782c5978.js` but only `NeXT.884dc59d.js` exists |
+| **Stale hash** | Page requests `nxt.782c5978.js` but only `nxt.884dc59d.js` exists |
 | **Old bloated ZIP** | Huge manifest embedded G-code with `{move.axes[0]…}` — rebuild after slim manifest |
 
 **Checks:**
 
-1. DevTools → Network → the `NeXT.*.js` request → **Response** tab must start with `"use strict";(self["webpackChunkduetwebcontrol"]`  
-2. Compare size to your ZIP: `unzip -l dist/NeXT-*.zip 'dwc/NeXT/js/*'`  
-3. Direct URL must match `dwcFiles` (subdir layout): `/NeXT/js/NeXT.<hash>.js`  
-4. Rebuild with current NeXT (`./dist/build-plugin.sh`) — manifest no longer embeds homing file bodies.
+1. DevTools → Network → the `nxt.*.js` request → **Response** tab must start with `"use strict";(self["webpackChunkduetwebcontrol"]`  
+2. Compare size to your ZIP: `unzip -l dist/nxt-*.zip 'dwc/nxt/js/*'`  
+3. Direct URL must match `dwcFiles` (subdir layout): `/nxt/js/nxt.<hash>.js`  
+4. Rebuild with current nxt (`./dist/build-plugin.sh`) — manifest no longer embeds homing file bodies.
 
 Build runs `node --check` on the chunk before finishing.
 
 ## 1) Fix: 404 (file missing on www)
 
-**Cause:** The browser requests `js/NeXT.<hash>.js` from the **DWC web root** (`directories.web`, e.g. SBC `/opt/dsf/www/`), but the file is missing or the **hash in `dwc-plugins.json` does not match** the file on disk. Webpack then fails with the same `.call` error as version skew.
+**Cause:** The browser requests `js/nxt.<hash>.js` from the **DWC web root** (`directories.web`, e.g. SBC `/opt/dsf/www/`), but the file is missing or the **hash in `dwc-plugins.json` does not match** the file on disk. Webpack then fails with the same `.call` error as version skew.
 
 **How install maps paths (PollConnector):**
 
 | ZIP entry (correct) | On SBC after DSF install | `plugin.dwcFiles` | Browser URL |
 |-------------------|--------------------------|-------------------|-------------|
-| `dwc/js/NeXT.abc.js` | `0:/www/NeXT/js/NeXT.abc.js` | `NeXT/js/NeXT.abc.js` | `/NeXT/js/NeXT.abc.js` |
+| `dwc/js/nxt.abc.js` | `0:/www/nxt/js/nxt.abc.js` | `nxt/js/nxt.abc.js` | `/nxt/js/nxt.abc.js` |
 
-**Wrong layout (404 at `/NeXT/js/…`):** `dwc/NeXT/js/NeXT.abc.js` in the ZIP → DSF puts files at `0:/www/NeXT/NeXT/js/…` while the browser requests `/NeXT/js/…`. Fix: `node dist/fix-plugin-dwc-zip-layout.cjs dist/NeXT-*.zip` or rebuild.
+**Wrong layout (404 at `/nxt/js/…`):** `dwc/nxt/js/nxt.abc.js` in the ZIP → DSF puts files at `0:/www/nxt/nxt/js/…` while the browser requests `/nxt/js/…`. Fix: `node dist/fix-plugin-dwc-zip-layout.cjs dist/nxt-*.zip` or rebuild.
 
-**Install timeout:** The ZIP also uploads many `sd/sys/` macros. On slow links the install can time out before `dwc/` lands on `www` → same 404. Retry install; in DWC **Files → System** confirm `www/NeXT/js/NeXT.<hash>.js` exists.
+**Install timeout:** The ZIP also uploads many `sd/sys/` macros. On slow links the install can time out before `dwc/` lands on `www` → same 404. Retry install; in DWC **Files → System** confirm `www/nxt/js/nxt.<hash>.js` exists.
 
 `plugin.json` in the ZIP is **not** uploaded — only `dwc/*` and `sd/*`.
 
-**SD full release trap:** `dist/release.sh` unpacks `dwc/*` into `sd/dwc/` on the SD card zip. That puts files at `0:/dwc/js/…` on the card, **not** on the HTTP www root. If you only copied the SD release and have `0:/sys/dwc-plugins.json` listing `js/NeXT.<hash>.js`, DWC will still **404** until you **install the plugin ZIP** in Settings → Plugins (or manually copy `dwc/js` and `dwc/css` into the www tree).
+**Install via DWC:** Release builds ship a single `nxt-<version>.zip`. Upload it in **Settings → Plugins** so `dwc/js` and `dwc/css` land on the HTTP www root. Copying only `sd/sys` macros from the ZIP (or an old SD-card layout) leaves DWC assets missing → **404** until the plugin ZIP is installed (or you manually copy `dwc/js` and `dwc/css` into the www tree).
 
 **Trace locally:**
 
 ```bash
-node dist/trace-plugin-404.mjs dist/NeXT-*.zip
+node dist/trace-plugin-404.mjs dist/nxt-*.zip
 # After downloading 0:/sys/dwc-plugins.json from the printer:
-node dist/trace-plugin-404.mjs dist/NeXT-*.zip dwc-plugins.json
+node dist/trace-plugin-404.mjs dist/nxt-*.zip dwc-plugins.json
 ```
 
 **Steps:**
 
-1. **Uninstall** NeXT in DWC → Settings → Plugins (if listed).  
-2. **Re-upload** the latest `dist/NeXT-*.zip` and wait until install finishes.  
+1. **Uninstall** nxt in DWC → Settings → Plugins (if listed).  
+2. **Re-upload** the latest `dist/nxt-*.zip` and wait until install finishes.  
 3. On the printer/SBC, confirm files exist next to `app.*.js` (paths are relative to the DWC web root):
 
-   - `js/NeXT.<hash>.js`  
-   - `css/NeXT.<hash>.css`  
+   - `js/nxt.<hash>.js`  
+   - `css/nxt.<hash>.css`  
 
 4. In the browser, open directly:  
-   `http://<printer-host>/js/NeXT.<hash>.js`  
-   (use the hash from the ZIP — run `node dist/verify-plugin-zip.mjs dist/NeXT-*.zip`).  
+   `http://<printer-host>/js/nxt.<hash>.js`  
+   (use the hash from the ZIP — run `node dist/verify-plugin-zip.mjs dist/nxt-*.zip`).  
 5. **Hard refresh** DWC (Ctrl+Shift+R).
 
 **Build-side:** Rebuild so the ZIP only contains runtime assets:
 
 ```bash
 ./dist/build-plugin.sh /path/to/DuetWebControl   # same major line as printer
-node dist/verify-plugin-zip.mjs dist/NeXT-*.zip
+node dist/verify-plugin-zip.mjs dist/nxt-*.zip
 ```
 
 ## 2) Fix: `dwcFiles` empty or wrong
 
-**Cause:** DWC resolves the script URL from `plugin.dwcFiles` when `window.pluginBeingLoaded` is set. On **stock** DWC (no NeXT baked into `app.js`), if `dwcFiles` is empty, webpack requests **`js/NeXT.undefined.js`** → same `.call` error.
+**Cause:** DWC resolves the script URL from `plugin.dwcFiles` when `window.pluginBeingLoaded` is set. On **stock** DWC (no nxt baked into `app.js`), if `dwcFiles` is empty, webpack requests **`js/nxt.undefined.js`** → same `.call` error.
 
 **Steps:**
 
-1. **Disable auto-load** while fixing: DWC → Settings → uncheck **Start** for NeXT (or remove from enabled plugins), refresh once.  
-2. **Uninstall** NeXT plugin completely.  
+1. **Disable auto-load** while fixing: DWC → Settings → uncheck **Start** for nxt (or remove from enabled plugins), refresh once.  
+2. **Uninstall** nxt plugin completely.  
 3. **Reinstall** the ZIP; confirm install completes without errors.  
 4. Verify persistence on SD:
 
    - File: **`0:/sys/dwc-plugins.json`**  
-   - Entry: **`plugins.NeXT.dwcFiles`** must list `js/NeXT.<hash>.js` and `css/NeXT.<hash>.css`.
+   - Entry: **`plugins.nxt.dwcFiles`** must list `js/nxt.<hash>.js` and `css/nxt.<hash>.css`.
 
 5. **Then** Start the plugin from Settings (not only via old browser localStorage auto-enable).
 
-**Do not** rely on built-in NeXT in `DuetWebControl/src/plugins/imports.ts` unless `src/plugins/NeXT` symlink exists (`./dist/setup-dwc-dev-symlink.sh`).
+**Do not** rely on built-in nxt in `DuetWebControl/src/plugins/imports.ts` unless `src/plugins/nxt` symlink exists (`./dist/setup-dwc-dev-symlink.sh`).
 
 ## 3) Fix: version skew
 
-**Cause:** The NeXT chunk expects **~45 webpack modules** from host `app.js`. If the ZIP was built with a different DWC than the printer serves (e.g. plugin built on **3.6.2** but host is **3.7.x**, or a different **3.6.x** webpack layout), a module is `undefined` → `.call` error.
+**Cause:** The nxt chunk expects **~45 webpack modules** from host `app.js`. If the ZIP was built with a different DWC than the printer serves (e.g. plugin built on **3.6.2** but host is **3.7.x**, or a different **3.6.x** webpack layout), a module is `undefined` → `.call` error.
 
 **DWC version gate (first line of defence):** Shipped ZIPs now set `plugin.json` **`dwcVersion` to the exact build version** (e.g. `"3.6.2"`), not just `"3.6"`. DWC should refuse load with a clear message:
 
-`Plugin NeXT requires incompatible DWC version (need 3.6.2, got 3.7.0)`
+`Plugin nxt requires incompatible DWC version (need 3.6.2, got 3.7.0)`
 
 If you still only see `.call` with no version message, the host may match semver but webpack modules still differ — use the diagnose step below.
 
@@ -137,7 +137,7 @@ If you still only see `.call` with no version message, the host may match semver
 2. Inspect the ZIP you installed:
 
    ```bash
-   unzip -p dist/NeXT-*.zip plugin.json | jq '.dwcVersion'
+   unzip -p dist/nxt-*.zip plugin.json | jq '.dwcVersion'
    ```
 
    Host and this value must match **exactly**.
@@ -157,7 +157,7 @@ If you still only see `.call` with no version message, the host may match semver
 5. Confirm webpack modules (catches skew that semver hides):
 
    ```bash
-   node dist/diagnose-plugin-chunk.mjs dist/NeXT-*.zip /path/to/host/app.<hash>.js
+   node dist/diagnose-plugin-chunk.mjs dist/nxt-*.zip /path/to/host/app.<hash>.js
    ```
 
    **MISSING** lines → rebuild plugin against the host’s DWC sources.
@@ -177,6 +177,6 @@ cd /path/to/DuetWebControl && npm run dev
 
 | Command | Purpose |
 |---------|---------|
-| `node dist/verify-plugin-zip.mjs dist/NeXT-*.zip` | ZIP has one JS + one CSS; shows expected `dwcFiles` |
-| `node dist/trace-plugin-404.mjs dist/NeXT-*.zip [dwc-plugins.json]` | Install URL mapping; hash mismatch vs printer manifest |
-| `node dist/diagnose-plugin-chunk.mjs dist/NeXT-*.zip app.<hash>.js` | Host module + URL resolution analysis |
+| `node dist/verify-plugin-zip.mjs dist/nxt-*.zip` | ZIP has one JS + one CSS; shows expected `dwcFiles` |
+| `node dist/trace-plugin-404.mjs dist/nxt-*.zip [dwc-plugins.json]` | Install URL mapping; hash mismatch vs printer manifest |
+| `node dist/diagnose-plugin-chunk.mjs dist/nxt-*.zip app.<hash>.js` | Host module + URL resolution analysis |

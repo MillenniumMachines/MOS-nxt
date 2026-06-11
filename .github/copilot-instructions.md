@@ -1,7 +1,7 @@
-# NeXT AI Coding Guidelines
+# nxt AI Coding Guidelines
 
 ## Project Overview
-NeXT (Next-Gen Extended Tooling) is a complete rewrite of the legacy MillenniumOS that extends RepRapFirmware (RRF) v3.6+ with meta G-code macros for CNC operations. This is designed specifically for CNC machines, not 3D printers.
+**nxt** (MOS-nxt) is a complete rewrite of the legacy MillenniumOS that extends RepRapFirmware (RRF) v3.6+ with meta G-code macros for CNC operations. This is designed specifically for CNC machines, not 3D printers.
 
 **RRF reference for code review:** Target **RepRapFirmware 3.6.2** when evaluating macro behavior, G/M-codes, and object-model usage (see [`docs/RRF_REFERENCE.md`](../docs/RRF_REFERENCE.md)).
 
@@ -28,7 +28,7 @@ NeXT (Next-Gen Extended Tooling) is a complete rewrite of the legacy MillenniumO
 ## Development Repository & Workflow
 
 ### Repository Structure
-**Current Repository**: `benagricola/NeXT` - All development targets the `main` branch.
+**Current repository:** [MillenniumMachines/MOS-nxt](https://github.com/MillenniumMachines/MOS-nxt) (`MOS-nxt`). All development targets the `main` branch.
 
 ### Branching Strategy
 - **Feature Branches**: Create from `main` for all new features
@@ -69,20 +69,20 @@ NeXT (Next-Gen Extended Tooling) is a complete rewrite of the legacy MillenniumO
 - **Safety First**: Always test with soft materials first
 - **Operator Confirmation**: Required for any machine movement
 
-### Build & Release Process (NeXT DWC plugin)
+### Build & Release Process (nxt DWC plugin)
 - **Authoritative guidance:** `.cursor/rules/release-plugin-verify.mdc` (always-on for Cursor agents).
 - **Plugin manifest:** `ui/plugin.json` — `rrfVersion` and `dwcVersion` must stay aligned with the supported stack; bump together and sync short mentions in README, `ui/src/index.ts`, `docs/UI_DEVELOPMENT.md`, and `docs/RRF_REFERENCE.md` as needed.
 - **Before any release commit or version tag:**
-  1. From NeXT repo root: `./dist/build-plugin.sh <path-to-DuetWebControl>` — **must exit 0** (DWC tree matching `dwcVersion`, e.g. 3.6.2).
-  2. **User must explicitly confirm** manual verification: plugin ZIP installs, NeXT loads in DWC, smoke-test OK. Do not tag on build success alone.
+  1. From MOS-nxt repo root: `./dist/build-plugin.sh <path-to-DuetWebControl>` — **must exit 0** (DWC tree matching `dwcVersion`, e.g. 3.6.2).
+  2. **User must explicitly confirm** manual verification: plugin ZIP installs, nxt loads in DWC, smoke-test OK. Do not tag on build success alone.
 - **Betas:** Incremental annotated tags `vMAJOR.MINOR.PATCH-beta.N`; do not force-move stable tags without explicit user request.
 - **CI workflows:**
   - [`check.yml`](.github/workflows/check.yml) — fast validation (macro line length, DWC pin alignment) on push/PR to `main` and version branches; **no build ZIPs**.
   - [`release.yml`](.github/workflows/release.yml) — full build **only** on version branches (`v*.*.*` or `v*.*.*-beta.*`, e.g. `v0.6.0` or `v0.6.0-beta.13`) and `v*` tags. Push/PR to `main` or feature branches does **not** produce CI artifacts.
-  - **Version branches:** push or open a PR targeting `vMAJOR.MINOR.PATCH` or `vMAJOR.MINOR.PATCH-beta.N` to get downloadable Actions artifacts (`NeXT-*.zip` + SD release zip). `main` is integration-only; cut a version branch or tag for buildable releases (see [`dist/publish-release.sh`](../dist/publish-release.sh)).
-  - **Tags:** push of `v*` triggers a draft GitHub Release with plugin + SD zips; Actions artifacts are **not** uploaded on tag runs (download from the Release page).
-  - CI checks out **NeXT only** and fetches DWC via read-only tarball ([`dist/ci-fetch-dwc.sh`](../dist/ci-fetch-dwc.sh), pin [`ci/dwc-build-ref`](../ci/dwc-build-ref)) — no `actions/checkout` or push to external repos. Local build + manual load confirmation still required before tagging.
-- **Full SD / release zip:** `dist/release.sh` (see script docs); plugin-only zip: `dist/build-plugin.sh`
+  - **Version branches:** push or open a PR targeting `vMAJOR.MINOR.PATCH` or `vMAJOR.MINOR.PATCH-beta.N` to get downloadable Actions artifacts (`nxt-*.zip`). `main` is integration-only; cut a version branch or tag for buildable releases (see [`dist/publish-release.sh`](../dist/publish-release.sh)).
+  - **Tags:** push of `v*` triggers a draft GitHub Release with `nxt-<version>.zip` plus post-processors; Actions artifacts are **not** uploaded on tag runs (download from the Release page).
+  - CI checks out **nxt only** and fetches DWC via read-only tarball ([`dist/ci-fetch-dwc.sh`](../dist/ci-fetch-dwc.sh), pin [`ci/dwc-build-ref`](../ci/dwc-build-ref)) — no `actions/checkout` or push to external repos. Local build + manual load confirmation still required before tagging.
+- **Release zip (CI/tags):** `dist/release.sh` → `dist/nxt-<version>.zip` (DWC plugin + `sd/sys` macros). **Local dev zip:** `dist/build-plugin.sh` → `dist/nxt-<ref>-<sha>.zip`.
 
 ## Integration & Compatibility
 
@@ -94,14 +94,14 @@ NeXT (Next-Gen Extended Tooling) is a complete rewrite of the legacy MillenniumO
 - **Daemon Integration**: Uses `daemon.g` for repetitive tasks (VSSC, etc.)
 
 ### UI Integration
-- **Fallback Strategy**: Check `global.nxtLoaded` for NeXT firmware boot success (not a DWC handshake flag)
+- **Fallback Strategy**: Check `global.nxtLoaded` for nxt firmware boot success (not a DWC handshake flag)
 - **Manual Alternatives**: Always provide M291 dialogs as fallback
 - **Plugin System**: Integrates with Duet Web Control plugin architecture
 
 ### External Tool Integration
 - **Post-Processors**: Output extended G-codes for enhanced functionality
 - **CAD Workflows**: Documented in `docs/` directory
-- **Version Checking**: Post-processors validate NeXT version compatibility
+- **Version Checking**: Post-processors validate nxt version compatibility
 
 ## Development Phases & Feature Implementation
 
@@ -118,7 +118,7 @@ NeXT (Next-Gen Extended Tooling) is a complete rewrite of the legacy MillenniumO
 - **Testing Procedures**: `docs/TESTING.md` - Live machine testing guidelines
 - **Legacy Documentation**: `docs/DETAILS.md` - Understanding existing MillenniumOS functionality
 - **G-Code Reference**: `GCODE.md` - Custom G-code and M-code documentation
-- **UI Development**: `docs/UI_DEVELOPMENT.md` - Complete guide for developing the NeXT UI plugin in DuetWebControl
+- **UI Development**: `docs/UI_DEVELOPMENT.md` - Complete guide for developing the nxt UI plugin in DuetWebControl
 
 ## Safety & Liability Considerations
 - **Physical Hardware**: All testing involves real CNC machines

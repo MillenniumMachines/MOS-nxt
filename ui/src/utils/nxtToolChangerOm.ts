@@ -1,10 +1,10 @@
 /**
- * NeXT tool changer — object model helpers (firmware / optional ATC pack).
+ * nxt tool changer — object model helpers (firmware / optional ATC pack).
  *
- * Base NeXT does **not** define magazine/ATC globals. Those keys exist only
+ * Base nxt does **not** define magazine/ATC globals. Those keys exist only
  * when an optional tool changer firmware pack is installed (same wire format as the legacy
  * mos-atc macro set). **Magazine / bay / job-sequence / M-code operator UI** belongs in the
- * **mos-atc** DWC plugin; this module stays in NeXT as the shared OM key map and helpers
+ * **mos-atc** DWC plugin; this module stays in nxt as the shared OM key map and helpers
  * (e.g. legacy probe ID, `mosTT` radius) for that plugin or forks.
  *
  * See docs/TOOLCHANGING.md for RRF T/tpre/tfree/tpost and extension layout.
@@ -286,7 +286,7 @@ export function normalizeIntVector(raw: unknown, length: number): number[] {
 }
 
 /**
- * M-code numbers for the optional NeXT-compatible tool changer macro pack on SD (`0:/sys/`).
+ * M-code numbers for the optional nxt-compatible tool changer macro pack on SD (`0:/sys/`).
  * Absent until that pack is installed; numbers match the legacy mos-atc pack for compatibility.
  */
 /** Prefer RRF tool OM, then optional legacy `mosTT` column. */
@@ -308,7 +308,7 @@ export function resolveToolRadiusMm(
 }
 
 /**
- * Shallow merge of a DWC `machine.model.tools[n]` entry with NeXT display fields.
+ * Shallow merge of a DWC `machine.model.tools[n]` entry with nxt display fields.
  *
  * RepRapFirmware’s canonical `tools[]` object model does not include cutter radius/diameter
  * (see upstream `Tool` / OM); `M4000` stores CAM radius in `global.mosTT`. Until/unless RRF
@@ -318,18 +318,18 @@ export function resolveToolRadiusMm(
  * when repurpose rules in `readFluteCountFromToolMix` match).
  * **Always treat `tools[n]` from the machine model as the primary tool record**; use this helper only for display.
  */
-export type NeXtAugmentedRrfTool = Record<string, unknown> & {
+export type NxtAugmentedRrfTool = Record<string, unknown> & {
   nxtRadiusMm: number | null
   nxtDiameterMm: number | null
   nxtFluteCount: number | null
   nxtFluteLengthMm: number | null
 }
 
-export function augmentRrfToolForNeXtUi(
+export function augmentRrfToolForNxtUi(
   toolObj: unknown,
   firmwareGlobals: unknown,
   toolIndex: number
-): NeXtAugmentedRrfTool {
+): NxtAugmentedRrfTool {
   const base =
     toolObj != null && typeof toolObj === 'object'
       ? { ...(toolObj as Record<string, unknown>) }

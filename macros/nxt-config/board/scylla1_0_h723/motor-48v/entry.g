@@ -1,6 +1,6 @@
-; NeXT board pack — Scylla v1.0 (scylla1_0_h723), 48 V motor supply
+; nxt board pack — Scylla v1.0 (scylla1_0_h723), 48 V motor supply
 
-M117 "NeXT board Scylla 48V"
+M117 "nxt board Scylla 48V"
 M98 P"nxt-config/board/scylla1_0_h723/motor-48v/endstops.g"
 if { fileexists("0:/sys/estop.g") }
     M98 P"estop.g"

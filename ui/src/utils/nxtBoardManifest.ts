@@ -1,5 +1,5 @@
 /**
- * Board pack metadata for NeXT Configuration UI and nxt-board-pack-loader.g.
+ * Board pack metadata for nxt Configuration UI and nxt-board-pack-loader.g.
  * Boards: nxt-config/board/<shortName>/ — machines: nxt-config/machine/<profile>/.
  */
 import {
@@ -35,7 +35,7 @@ function machineDisplayTitle(id: string, overviewTitle: string): string {
   if (id === 'v1.6_v2') {
     return 'Milo v1.6 / v2.0'
   }
-  return overviewTitle.replace(/\s*\(NeXT\)\s*$/i, '').trim() || id
+  return overviewTitle.replace(/\s*(nxt)\s*$/i, '').trim() || id
 }
 
 export const NXT_PLATFORM_OPTIONS: Array<{ value: NxtPlatformId; title: string }> =

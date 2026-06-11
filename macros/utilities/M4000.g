@@ -4,7 +4,7 @@
 ;
 ; RRF's tools[] object model (see upstream Tool / OM) exposes name, spindle, offsets, etc.
 ; — not cutter radius or diameter. M563 updates the real tools[P] record; param.R (radius) is
-; stored in global.mosTT for CAM/DWC. The NeXT plugin merges mosTT into tool rows client-side.
+; stored in global.mosTT for CAM/DWC. The nxt plugin merges mosTT into tool rows client-side.
 ;
 ; Creates an RRF tool and links it to the default spindle (global.nxtSpindleID, or 0 if unset).
 ; Stores CAM radius, optional probe deflections, and optional flute count / flute length in global.mosTT (see nxt-tooltable.g).

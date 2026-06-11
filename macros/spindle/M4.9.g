@@ -76,5 +76,5 @@ if { result != 0 }
 
 if { var.dwellTime > 0 }
     if { !global.nxtExpertMode }
-        echo { "NeXT: Waiting " ^ var.dwellTime ^ " seconds for spindle #" ^ var.spindleID ^ " to reach the target speed" }
+        echo { "nxt: Waiting " ^ var.dwellTime ^ " seconds for spindle #" ^ var.spindleID ^ " to reach the target speed" }
     G4 S{var.dwellTime}

@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * Patch DWC build-plugin.js for NeXT plugin ZIP:
- * - Include split chunks (vendors~NeXT.*) and only .js/.css (not .map/.gz)
- * - Keep official flat dwc/js + dwc/css layout (DSF installs dwc/* under 0:/www/NeXT/)
+ * Patch DWC build-plugin.js for nxt plugin ZIP:
+ * - Include split chunks (vendors~nxt.*) and only .js/.css (not .map/.gz)
+ * - Keep official flat dwc/js + dwc/css layout (DSF installs dwc/* under 0:/www/nxt/)
  *
  * Usage: node patch-dwc-build-plugin-zip.cjs <path-to-DWC>/scripts/build-plugin.js
  */
@@ -30,7 +30,7 @@ if (filterCount !== 2) {
 }
 s = s.split(filterNeedle).join(filterReplacement)
 
-// Undo mistaken dwc/NeXT/js subdir patch if present from an older NeXT build
+// Undo mistaken dwc/nxt/js subdir patch if present from an older nxt build
 const cssSub = 'archive.file(distDir + "/css/" + file, { name: "dwc/" + pluginManifest.id + "/css/" + file });'
 const cssFlat = 'archive.file(distDir + "/css/" + file, { name: "dwc/css/" + file });'
 const jsSub = 'archive.file(distDir + "/js/" + file, { name: "dwc/" + pluginManifest.id + "/js/" + file });'

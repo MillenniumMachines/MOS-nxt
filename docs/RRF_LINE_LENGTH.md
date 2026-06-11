@@ -2,7 +2,7 @@
 
 RRF rejects overlong single lines with **`GCode command too long`**. That aborts the current macro (including `config.g` → `nxt.g` on boot), so **`global.nxtLoaded` never becomes true** even when the DWC plugin is installed and started.
 
-## Hard limit (NeXT policy)
+## Hard limit (nxt policy)
 
 | Rule | Value |
 |------|--------|
@@ -50,7 +50,7 @@ if { var.nxtRunMosImport }
 
 ```gcode
 var nxtM81Msg = {"<b>CAUTION</b>: Machine Power is <b>on</b>. Deactivate?<br/>Stops <b>ALL</b> movement and spindle."}
-M291 P{var.nxtM81Msg} R"NeXT: Safety Net" S4 K{"Deactivate", "Cancel"} F1
+M291 P{var.nxtM81Msg} R"nxt: Safety Net" S4 K{"Deactivate", "Cancel"} F1
 ```
 
 ### Long `echo` / `abort`

@@ -1,4 +1,4 @@
-; nxt-probe-tool-sync.g — (Re)define probe tool row via M4000 from NeXT configuration.
+; nxt-probe-tool-sync.g — (Re)define probe tool row via M4000 from nxt configuration.
 ; Idempotent: M4000 exits early when tool already matches.
 
 if { !exists(global.nxtProbeToolID) || global.nxtProbeToolID == null }

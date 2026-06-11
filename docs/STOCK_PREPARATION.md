@@ -1,6 +1,6 @@
 # Stock Preparation UI - Implementation Approach
 
-This document details the comprehensive approach for implementing the Stock Preparation UI feature (Issue #34) for NeXT. This feature will enable operators to generate facing toolpaths for stock preparation directly from the DWC UI, with visual preview and direct execution capabilities.
+This document details the comprehensive approach for implementing the Stock Preparation UI feature (Issue #34) for nxt. This feature will enable operators to generate facing toolpaths for stock preparation directly from the DWC UI, with visual preview and direct execution capabilities.
 
 ---
 
@@ -26,7 +26,7 @@ The Stock Preparation UI provides a guided interface for generating facing opera
 - **Default:** Current tool radius from `global.nxtToolRadius[nxtCurrentTool]` if tool is selected
 - **Range:** 0.1mm - 50mm
 - **Purpose:** Determines stepover calculations and toolpath boundaries
-- **Source:** Read from NeXT's tool radius vector (RRF does not store tool radius)
+- **Source:** Read from nxt's tool radius vector (RRF does not store tool radius)
 - **Validation:** 
   - Must be positive
   - Should be less than stock dimensions
@@ -459,7 +459,7 @@ Output: Array of Z levels with retract heights
 
 **Header Section:**
 ```gcode
-; NeXT Stock Preparation - Generated Facing Operation
+; nxt Stock Preparation - Generated Facing Operation
 ; Stock: [Rectangular/Circular] [dimensions]
 ; Pattern: [pattern type] at [angle]°
 ; Tool: T[number] R[radius]mm
@@ -829,7 +829,7 @@ Feed and Speed
 │ G-code Preview (expandable):            │
 │ ▼ Show G-code (1,234 lines)            │
 │ ┌─────────────────────────────────────┐ │
-│ │ ; NeXT Stock Preparation           │ │
+│ │ ; nxt Stock Preparation           │ │
 │ │ ; Stock: Rectangular 100x75mm      │ │
 │ │ ; Pattern: Zigzag at 0°            │ │
 │ │ G21                                │ │
@@ -944,7 +944,7 @@ Feed and Speed
 2. Implement two-step interface structure (Setup and Preview/Run steps)
 3. Create Setup step with all input fields
 4. Add form validation logic
-5. Integrate with NeXT store for current tool/WCS
+5. Integrate with nxt store for current tool/WCS
 6. Add input field change handlers
 7. Create computed properties for validation state
 
@@ -1101,10 +1101,10 @@ Feed and Speed
 
 ### 9.4 Integration Points
 
-**NeXT Backend Integration:**
+**nxt Backend Integration:**
 - Read current tool from `global.nxtCurrentTool`
 - Read tool radius from `global.nxtToolRadius[nxtCurrentTool]` (indexed vector)
-- **Note:** RRF does not store tool radius. NeXT uses `global.nxtToolRadius` vector to track tool radius for each tool
+- **Note:** RRF does not store tool radius. nxt uses `global.nxtToolRadius` vector to track tool radius for each tool
 - **Example:** `set global.nxtToolRadius[state.currentTool] = radius`
 - Read active WCS from `move.workplaceNumber`
 - Read spindle configuration from `spindles[global.nxtSpindleID]`
@@ -1114,7 +1114,7 @@ Feed and Speed
 
 **Object Model Queries:**
 ```javascript
-// Get current tool and radius from NeXT tool radius vector
+// Get current tool and radius from nxt tool radius vector
 const currentToolNum = this.$store.state.machine.model.global.nxtCurrentTool;
 const toolRadiusVector = this.$store.state.machine.model.global.nxtToolRadius;
 const toolRadius = toolRadiusVector && toolRadiusVector[currentToolNum] 
@@ -1366,7 +1366,7 @@ async saveGCodeFile(filename, gcode) {
 
 ## Conclusion
 
-The Stock Preparation UI represents a significant enhancement to NeXT, providing operators with a powerful, integrated tool for common facing operations. By following this comprehensive implementation approach, we can deliver a feature that is:
+The Stock Preparation UI represents a significant enhancement to nxt, providing operators with a powerful, integrated tool for common facing operations. By following this comprehensive implementation approach, we can deliver a feature that is:
 
 1. **User-Friendly:** Intuitive interface with visual feedback
 2. **Powerful:** Flexible pattern types and parameter control
@@ -1376,4 +1376,4 @@ The Stock Preparation UI represents a significant enhancement to NeXT, providing
 
 The detailed technical specifications provide clear guidance for development, while the success criteria and risk assessment help manage expectations and provide contingency plans.
 
-This feature will significantly improve the NeXT user experience and reduce dependency on external CAM software for basic stock preparation operations.
+This feature will significantly improve the nxt user experience and reduce dependency on external CAM software for basic stock preparation operations.

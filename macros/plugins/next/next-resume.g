@@ -1,2 +1,2 @@
 ; next-resume.g
-; Resume hook for the built-in NeXT plugin.
+; Resume hook for the built-in nxt plugin.

@@ -8,7 +8,7 @@ set -euo pipefail
 #   ./dist/sync-external-plugin-branch.sh <plugin-repo-path> <plugin-id> <source-sha>
 #
 # Example:
-#   ./dist/sync-external-plugin-branch.sh ../NeXT-Plugin-CoolantPlus next-coolant-plus abc12345
+#   ./dist/sync-external-plugin-branch.sh ../nxt-Plugin-CoolantPlus next-coolant-plus abc12345
 
 PLUGIN_REPO_PATH="${1:?plugin repo path required}"
 PLUGIN_ID="${2:?plugin id required}"

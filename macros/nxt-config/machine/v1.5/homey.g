@@ -1,4 +1,4 @@
-; homey.g — NeXT platform v1.5 (Milo v1.5)
+; homey.g — nxt platform v1.5 (Milo v1.5)
 ; Requirements: see docs/NXT_BOARD_HOMING.md (v1.5 — Y toward max)
 
 ; homey.g - Lifts Z, then homes Y using existing machine limits.

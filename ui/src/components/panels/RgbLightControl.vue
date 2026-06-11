@@ -2,18 +2,18 @@
   <v-card v-if="showCard" :outlined="!compact" :flat="compact" :class="compact ? 'pa-0' : ''">
     <v-card-subtitle v-if="!compact" class="pb-0">
       <v-icon left small>mdi-lightbulb-on</v-icon>
-      {{ $t('plugins.next.panels.rgbLight.caption') }}
+      {{ $t('plugins.nxt.panels.rgbLight.caption') }}
     </v-card-subtitle>
     <v-card-text :class="compact ? 'pa-2' : 'pt-2'">
       <v-alert v-if="!featureEnabled" type="info" dense outlined class="mb-3">
-        {{ $t('plugins.next.panels.rgbLight.enableInConfiguration') }}
+        {{ $t('plugins.nxt.panels.rgbLight.enableInConfiguration') }}
       </v-alert>
       <template v-else>
         <v-row dense align="center">
           <v-col cols="12" :sm="compact ? 12 : 6">
             <v-switch
               :input-value="rgbState.on"
-              :label="$t('plugins.next.panels.rgbLight.power')"
+              :label="$t('plugins.nxt.panels.rgbLight.power')"
               :disabled="controlsDisabled"
               hide-details
               class="mt-0"
@@ -23,7 +23,7 @@
           <v-col cols="12" :sm="compact ? 12 : 6">
             <v-slider
               :value="rgbState.brightness"
-              :label="$t('plugins.next.panels.rgbLight.brightness')"
+              :label="$t('plugins.nxt.panels.rgbLight.brightness')"
               min="0"
               max="100"
               step="1"
@@ -81,7 +81,7 @@ import { isRgbLightHardwareConfigured, readOmLedsFromMachineModel } from '../../
 
 type RgbPreset = { key: string; label: string; r: number; g: number; b: number }
 
-const PLUGIN = 'NeXT'
+const PLUGIN = 'nxt'
 const RGB_STATE_KEY = 'nxtRgbUiState'
 
 export default BaseComponent.extend({
@@ -162,10 +162,10 @@ export default BaseComponent.extend({
         return v === key ? fallback : v
       }
       return [
-        { key: 'white', label: t('plugins.next.panels.rgbLight.presetWhite', 'White'), r: 255, g: 255, b: 255 },
-        { key: 'warm', label: t('plugins.next.panels.rgbLight.presetWarm', 'Warm'), r: 255, g: 180, b: 80 },
-        { key: 'red', label: t('plugins.next.panels.rgbLight.presetRed', 'Red'), r: 255, g: 0, b: 0 },
-        { key: 'off', label: t('plugins.next.panels.rgbLight.presetOff', 'Off'), r: 0, g: 0, b: 0 }
+        { key: 'white', label: t('plugins.nxt.panels.rgbLight.presetWhite', 'White'), r: 255, g: 255, b: 255 },
+        { key: 'warm', label: t('plugins.nxt.panels.rgbLight.presetWarm', 'Warm'), r: 255, g: 180, b: 80 },
+        { key: 'red', label: t('plugins.nxt.panels.rgbLight.presetRed', 'Red'), r: 255, g: 0, b: 0 },
+        { key: 'off', label: t('plugins.nxt.panels.rgbLight.presetOff', 'Off'), r: 0, g: 0, b: 0 }
       ]
     }
   },
@@ -210,7 +210,7 @@ export default BaseComponent.extend({
       try {
         await this.sendCode(buildM6524Command(next))
       } catch (e) {
-        console.error('NeXT RGB: failed to send M6524', e)
+        console.error('nxt RGB: failed to send M6524', e)
       } finally {
         this.sending = false
       }

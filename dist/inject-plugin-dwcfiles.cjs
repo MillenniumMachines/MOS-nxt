@@ -2,25 +2,25 @@
 /**
  * Write dwcFiles into plugin.json for release dwc-plugins.json sync.
  *
- * DSF installs the contents of dwc/ under 0:/www/NeXT/ (see DSF PLUGINS.md).
- *   ZIP dwc/js/NeXT.<hash>.js  →  on disk 0:/www/NeXT/js/NeXT.<hash>.js
- *   Browser URL                 →  /NeXT/js/NeXT.<hash>.js
+ * DSF installs the contents of dwc/ under 0:/www/nxt/ (see DSF PLUGINS.md).
+ *   ZIP dwc/js/nxt.<hash>.js  →  on disk 0:/www/nxt/js/nxt.<hash>.js
+ *   Browser URL                 →  /nxt/js/nxt.<hash>.js
  *
- * Do NOT use dwc/NeXT/js/ in the ZIP (that becomes www/NeXT/NeXT/js/ → 404).
+ * Do NOT use dwc/nxt/js/ in the ZIP (that becomes www/nxt/nxt/js/ → 404).
  *
- * Usage: DWC_REPO_PATH=<dwc> node dist/inject-plugin-dwcfiles.cjs <NeXT.zip>
+ * Usage: DWC_REPO_PATH=<dwc> node dist/inject-plugin-dwcfiles.cjs <nxt.zip>
  */
 'use strict'
 
 const fs = require('fs')
 const path = require('path')
 
-const PLUGIN_ID = 'NeXT'
+const PLUGIN_ID = 'nxt'
 const dwcRoot = process.env.DWC_REPO_PATH || path.join(__dirname, '..', '..', 'DuetWebControl')
 const zipPath = process.argv[2]
 
 if (!zipPath || !fs.existsSync(zipPath)) {
-  console.error('usage: DWC_REPO_PATH=<dwc> node dist/inject-plugin-dwcfiles.cjs <NeXT.zip>')
+  console.error('usage: DWC_REPO_PATH=<dwc> node dist/inject-plugin-dwcfiles.cjs <nxt.zip>')
   process.exit(1)
 }
 
@@ -28,9 +28,9 @@ const JSZip = require(path.join(dwcRoot, 'node_modules', 'jszip'))
 
 function dwcRelToServedUrl(zipEntry) {
   const rel = zipEntry.substring(4)
-  if (/^NeXT\/(js|css)\//.test(rel)) {
+  if (/^nxt\/(js|css)\//.test(rel)) {
     console.error(
-      `inject-plugin-dwcfiles: wrong ZIP layout ${zipEntry} — use dwc/js/ not dwc/NeXT/js/ (run dist/fix-plugin-dwc-zip-layout.cjs)`
+      `inject-plugin-dwcfiles: wrong ZIP layout ${zipEntry} — use dwc/js/ not dwc/nxt/js/ (run dist/fix-plugin-dwc-zip-layout.cjs)`
     )
     process.exit(1)
   }

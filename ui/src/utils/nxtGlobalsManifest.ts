@@ -1,5 +1,5 @@
 /**
- * Expected NeXT `global.*` keys (base install: nxt.g / nxt-vars.g).
+ * Expected nxt `global.*` keys (base install: nxt.g / nxt-vars.g).
  * Used by Configuration panel snapshot; keep aligned with macros/system/nxt-vars.g and nxt.g.
  */
 import { readFirmwareGlobal } from './nxtToolChangerOm'
@@ -7,7 +7,7 @@ import { readFirmwareGlobal } from './nxtToolChangerOm'
 export type NxtGlobalManifestEntry = { key: string; description: string }
 
 export const NXT_GLOBAL_MANIFEST: NxtGlobalManifestEntry[] = [
-  { key: 'nxtVersion', description: 'NeXT build/version (set in nxt.g)' },
+  { key: 'nxtVersion', description: 'nxt build/version (set in nxt.g)' },
   { key: 'nxtVarsLoaded', description: 'True after nxt-vars.g has been run once' },
   { key: 'nxtFeatureTouchProbe', description: 'Feature: touch probe' },
   { key: 'nxtFeatureToolSetter', description: 'Feature: tool setter' },
@@ -17,8 +17,8 @@ export const NXT_GLOBAL_MANIFEST: NxtGlobalManifestEntry[] = [
   { key: 'nxtProbeToolID', description: 'RRF tool index for probe' },
   { key: 'nxtTouchProbeID', description: 'Touch probe sensor ID' },
   { key: 'nxtToolSetterID', description: 'Tool setter sensor ID' },
-  { key: 'nxtError', description: 'Last NeXT error message' },
-  { key: 'nxtLoaded', description: 'NeXT boot completed successfully' },
+  { key: 'nxtError', description: 'Last nxt error message' },
+  { key: 'nxtLoaded', description: 'nxt boot completed successfully' },
   { key: 'nxtUserVarsPresent', description: 'True after nxt-user-vars.g was loaded from SD (nxt.g)' },
   { key: 'nxtConfigPending', description: 'True when nxt-user-vars.g is missing — complete setup in Configuration UI' },
   { key: 'nxtDeltaMachine', description: 'Static datum Z (toolsetter ↔ reference)' },

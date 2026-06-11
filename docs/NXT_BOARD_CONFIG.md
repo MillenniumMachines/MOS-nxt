@@ -1,6 +1,6 @@
-# NeXT board and machine configuration (nxt-config)
+# nxt board and machine configuration (nxt-config)
 
-NeXT ships vendored **board packs** (controller pins, drives, fans) and **machine packs** (motion, limits, homing sources). On the SD card they live under `0:/sys/nxt-config/` (from `macros/nxt-config/` at build time).
+nxt ships vendored **board packs** (controller pins, drives, fans) and **machine packs** (motion, limits, homing sources). On the SD card they live under `0:/sys/nxt-config/` (from `macros/nxt-config/` at build time).
 
 ## Directory layout
 

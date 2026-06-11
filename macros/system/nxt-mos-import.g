@@ -1,5 +1,5 @@
 ; nxt-mos-import.g
-; One-shot migration: read legacy MillenniumOS configuration from SD, copy into NeXT globals,
+; One-shot migration: read legacy MillenniumOS configuration from SD, copy into nxt globals,
 ; write 0:/sys/nxt-user-vars.g. Does not depend on mosVarsLoaded or whether MOS is still "active".
 ;
 ; Typical SD sources (run in order when present):
@@ -28,7 +28,7 @@ if { exists(global.mosLdd) }
     set var.hasMosSource = true
 
 if { !var.hasMosSource }
-    echo "NeXT MOS import: no MillenniumOS files or mos* globals found — nothing to migrate"
+    echo "nxt MOS import: no MillenniumOS files or mos* globals found — nothing to migrate"
     M99
 
 if { fileexists("0:/sys/mos-vars.g") }
@@ -96,7 +96,7 @@ if { exists(global.mosTCS) }
 
 var UV = "0:/sys/nxt-user-vars.g"
 
-echo >{var.UV} {"; NeXT User Configuration"}
+echo >{var.UV} {"; nxt User Configuration"}
 echo >>{var.UV} {"; Written by nxt-mos-import.g (Millennium OS migration)"}
 echo >>{var.UV} {"; Re-run: M98 P""nxt-mos-import.g"""}
 echo >>{var.UV} {""}
@@ -195,7 +195,7 @@ while { iterations < #global.nxtPinStates }
 set var.pline = { var.pline ^ "}" }
 echo >>{var.UV} {var.pline}
 
-echo "NeXT: MOS migration complete — saved " ^ var.UV
+echo "nxt: MOS migration complete — saved " ^ var.UV
 
 if { var.nxtMosSentinel }
     M472 P{"0:/sys/nxt-mos-import.requested"}

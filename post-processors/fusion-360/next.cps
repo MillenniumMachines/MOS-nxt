@@ -1,5 +1,5 @@
 /**
- * NeXT %%NXT_VERSION%% Postprocessor for Fusion360.
+ * nxt %%NXT_VERSION%% Postprocessor for Fusion360.
  *
  * This post-processor assumes that most complex functionality like
  * tool changes and work coordinate setting is handled in the machine firmware.
@@ -46,8 +46,8 @@ String.prototype.capitalize = function() {
 };
 
 // Set display configuration of Postprocessor in Fusion360
-description = "NeXT %%NXT_VERSION%% for Milo v1.5";
-longDescription = "NeXT %%NXT_VERSION%% Post Processor for Milo v1.5.";
+description = "nxt %%NXT_VERSION%% for Milo v1.5";
+longDescription = "nxt %%NXT_VERSION%% Post Processor for Milo v1.5.";
 vendor = "Millennium Machines";
 vendorUrl = "https://www.millennium-machines.com/";
 legal = "Copyright (C) 2012-2018 by Autodesk, Inc. 2023-2024 Millennium Machines";
@@ -141,8 +141,8 @@ properties = {
     value: true
   },
   versionCheck: {
-    title: "Check NeXT version",
-    description: "Check that the NeXT version installed in RRF matches the post-processor version. Undefined behaviour may occur if this check is disabled and the firmware is not compatible with this post-processor.",
+    title: "Check nxt version",
+    description: "Check that the nxt version installed in RRF matches the post-processor version. Undefined behaviour may occur if this check is disabled and the firmware is not compatible with this post-processor.",
     group: "formats",
     scope: "post",
     type: "boolean",
@@ -454,7 +454,7 @@ function onOpen() {
   writeln("");
 
   if(properties.versionCheck) {
-    writeComment("Check NeXT version matches post-processor version");
+    writeComment("Check nxt version matches post-processor version");
     writeBlock(mCodes.format(M.VERSION_CHECK), 'V"{version}"'.supplant({version: version}));
     writeln("");
   }
@@ -516,7 +516,7 @@ function onOpen() {
       writeBlock(gCodes.format(21));
       break;
     case IN:
-      error("NeXT does not support gcode output in inches. Please switch your post-processor output to millimeters.");
+      error("nxt does not support gcode output in inches. Please switch your post-processor output to millimeters.");
   }
 
   // All feeds in mm/min
@@ -630,7 +630,7 @@ function onSection() {
   var curWorkOffset = currentSection.workOffset;
 
   if(curWorkOffset > 9) {
-    error("Extended Work Co-ordinate Systems above G59.3 are not supported by NeXT!")
+    error("Extended Work Co-ordinate Systems above G59.3 are not supported by nxt!")
   }
 
   // Work Offset

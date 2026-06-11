@@ -1,12 +1,12 @@
 # Legacy MillenniumOS Custom G and M Codes Documentation
 
-This document outlines the custom G and M codes implemented in NeXT, detailing their functionality, arguments, and operational specifics.
+This document outlines the custom G and M codes implemented in nxt, detailing their functionality, arguments, and operational specifics.
 
 ---
 
-## NeXT native probing: workplace `U`, skew, and `M6520`
+## nxt native probing: workplace `U`, skew, and `M6520`
 
-NeXT **`G650x`** cycle macros accept **`U1`–`U9`** to select the target workplace (same numbering as **`M6520 W`** / `G10 L2 P`: **1 = G54**, …, **9** last standard offset). The probe result is stored at row **`P = U − 1`** in **`global.nxtProbeResults`**. With **`U`** set, the cycle ends by calling **`M6520.g`** with **`P`**, **`W=U`**, and the appropriate axis flags (`X` `Y`, etc.), so the operator does not run **`M6520`** as a separate step.
+nxt **`G650x`** cycle macros accept **`U1`–`U9`** to select the target workplace (same numbering as **`M6520 W`** / `G10 L2 P`: **1 = G54**, …, **9** last standard offset). The probe result is stored at row **`P = U − 1`** in **`global.nxtProbeResults`**. With **`U`** set, the cycle ends by calling **`M6520.g`** with **`P`**, **`W=U`**, and the appropriate axis flags (`X` `Y`, etc.), so the operator does not run **`M6520`** as a separate step.
 
 **Legacy:** omit **`U`** and pass **`P`** only to store results without applying a WCS.
 
@@ -126,7 +126,7 @@ NeXT **`G650x`** cycle macros accept **`U1`–`U9`** to select the target workpl
 ### M4000: DEFINE TOOL
 
 *   **Code:** `M4000`
-*   **Description:** Defines a tool by its index. NeXT implements this in **`macros/utilities/M4000.g`** (shipped to **`0:/sys/M4000.g`**). **`mosET`** / **`mosTT`** are allocated at boot by **`nxt-tooltable.g`** when not already provided by **`mos-vars.g`** (MOS migration). The macro creates an RRF tool and links it to the configured spindle, storing CAM radius and optional probe deflections in **`global.mosTT`** (same layout as MillenniumOS for compatibility with the DWC helpers).
+*   **Description:** Defines a tool by its index. nxt implements this in **`macros/utilities/M4000.g`** (shipped to **`0:/sys/M4000.g`**). **`mosET`** / **`mosTT`** are allocated at boot by **`nxt-tooltable.g`** when not already provided by **`mos-vars.g`** (MOS migration). The macro creates an RRF tool and links it to the configured spindle, storing CAM radius and optional probe deflections in **`global.mosTT`** (same layout as MillenniumOS for compatibility with the DWC helpers).
 *   **Arguments:**
     *   `P<tool-number>`: The 0-indexed number of the tool to define.
     *   `R<radius>`: The radius of the tool in millimeters.
@@ -144,7 +144,7 @@ NeXT **`G650x`** cycle macros accept **`U1`–`U9`** to select the target workpl
 ### M4001: REMOVE TOOL
 
 *   **Code:** `M4001`
-*   **Description:** Removes a tool by its index. NeXT implements this in **`macros/utilities/M4001.g`**. It resets the tool definition in RRF and clears the corresponding **`mosTT`** entry.
+*   **Description:** Removes a tool by its index. nxt implements this in **`macros/utilities/M4001.g`**. It resets the tool definition in RRF and clears the corresponding **`mosTT`** entry.
 *   **Arguments:**
     *   `P<tool-number>`: The 0-indexed number of the tool to remove.
 *   **How it works:**

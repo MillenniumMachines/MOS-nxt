@@ -133,7 +133,7 @@ if { exists(param.X) && exists(param.Y) && abs(var.thetaDeg) >= 0.0005 }
     elif { var.qMode == 1 }
         set var.applyG68 = true
     else
-        M291 P{"Probe skew: " ^ var.thetaDeg ^ " deg. Apply G68 to G" ^ (53 + var.wcsNumber) ^ "?"} R"NeXT: Rotation" S4 K{"Apply", "Skip"} F1
+        M291 P{"Probe skew: " ^ var.thetaDeg ^ " deg. Apply G68 to G" ^ (53 + var.wcsNumber) ^ "?"} R"nxt: Rotation" S4 K{"Apply", "Skip"} F1
         if { input == 0 }
             set var.applyG68 = true
 

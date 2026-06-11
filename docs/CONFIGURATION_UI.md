@@ -1,20 +1,20 @@
-# NeXT Configuration UI Guide
+# nxt Configuration UI Guide
 
 ## Overview
 
-The NeXT Configuration UI is a comprehensive web-based interface that replaces the legacy G8000 configuration wizard. It provides direct, real-time editing of all NeXT settings through an intuitive interface within Duet Web Control.
+The nxt Configuration UI is a comprehensive web-based interface that replaces the legacy G8000 configuration wizard. It provides direct, real-time editing of all nxt settings through an intuitive interface within Duet Web Control.
 
 ## Accessing the Configuration UI
 
 1. Open Duet Web Control in your browser
-2. Navigate to **Control** → **NeXT**
+2. Navigate to **Control** → **nxt**
 3. Select the **Configuration** tab
 
 ## Configuration Sections
 
 ### 1. Features
 
-Toggle switches to enable or disable major NeXT features:
+Toggle switches to enable or disable major nxt features:
 
 - **Touch Probe**: Enable automated touch probe operations
 - **Tool Setter**: Enable automatic tool length measurement
@@ -114,7 +114,7 @@ Runtime values are still updated immediately via `set global.*` when you change 
 The **"Reload"** button:
 
 - If **`nxt-user-vars.g` exists** on SD (`global.nxtUserVarsPresent`): runs **`M98 P"nxt-user-vars.g"`**, then syncs the form from the object model.
-- If the file is **missing** (first install): **no error** — the form is rebuilt from live NeXT globals, MillenniumOS `mos*` globals (when present), and singleton auto-picks (e.g. one spindle → ID 0). Use **Save Configuration** to create `nxt-user-vars.g`.
+- If the file is **missing** (first install): **no error** — the form is rebuilt from live nxt globals, MillenniumOS `mos*` globals (when present), and singleton auto-picks (e.g. one spindle → ID 0). Use **Save Configuration** to create `nxt-user-vars.g`.
 
 Use Reload to apply hand-edits on the SD card, discard unsaved form changes, or refresh after external `set global.*` changes.
 
@@ -196,8 +196,8 @@ All configuration values are stored as RRF global variables:
 
 On the machine, configuration lives on the SD card as **`0:/sys/nxt-user-vars.g`**; the UI saves it via **`rr_upload?name=/sys/nxt-user-vars.g`** (full-file HTTP upload):
 
-- Loads automatically when NeXT starts (`M98 P"nxt-user-vars.g"` from `nxt.g`) when the file exists
-- If the file is missing at boot, NeXT still loads (`global.nxtConfigPending = true`) so this panel is available — review settings and **Save** to create the file
+- Loads automatically when nxt starts (`M98 P"nxt-user-vars.g"` from `nxt.g`) when the file exists
+- If the file is missing at boot, nxt still loads (`global.nxtConfigPending = true`) so this panel is available — review settings and **Save** to create the file
 - Survives machine restarts
 - Can be edited manually on the SD card if needed
 - **Probe repeatability** (G6512 sample count, pair tolerance, retries) is **not** in `nxt-user-vars.g` — defaults live in **`nxt-vars.g`**. The plugin ships **`0:/sys/nxt-user-overrides.g.example`** on SD; copy it to **`nxt-user-overrides.g`** to enable overrides. Only **`nxt-user-overrides.g`** is loaded (never the `.example` file), and only **last** in `nxt.g` after board pack and boot.

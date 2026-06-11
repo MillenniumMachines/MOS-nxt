@@ -1,6 +1,6 @@
-# NeXT Machine Calibration Guide
+# nxt Machine Calibration Guide
 
-This document describes the resilient steps-per-mm calibration system for NeXT, designed to eliminate the circular dependency between steps-per-mm accuracy, backlash compensation, and touch probe deflection measurement.
+This document describes the resilient steps-per-mm calibration system for nxt, designed to eliminate the circular dependency between steps-per-mm accuracy, backlash compensation, and touch probe deflection measurement.
 
 ---
 
@@ -88,7 +88,7 @@ Phase 5: Verification
 ### 3.1 Prerequisites
 
 **Required Equipment:**
-- Touch probe (configured in NeXT)
+- Touch probe (configured in nxt)
 - Precision reference object with known dimensions:
   - **Recommended**: 1-2-3 block (1" × 2" × 3" = 25.4mm × 50.8mm × 76.2mm)
   - **Alternative**: Any precision ground rectangular block with known dimensions
@@ -98,7 +98,7 @@ Phase 5: Verification
 - Machine must be mechanically assembled and motion system functional
 - RRF firmware installed and basic axis configuration completed
 - Approximate steps-per-mm values entered in firmware (even if incorrect)
-- NeXT system loaded
+- nxt system loaded
 - Touch probe configured (ID, tip radius estimated, deflection can be zero initially)
 
 ### 3.2 Procedure Overview
@@ -452,7 +452,7 @@ A dedicated calibration wizard in the Settings panel would:
    deflection = (25.45 - 25.40) / 2 = 0.025mm
    ```
 
-4. **Update NeXT Configuration**:
+4. **Update nxt Configuration**:
    - Set `global.nxtProbeDeflection = {calculated_deflection}`
    - Add to nxt-user-vars.g for persistence
 
@@ -481,7 +481,7 @@ A dedicated calibration wizard in the Settings panel would:
 
 3. **Repeatability Test**:
    - Probe the same feature 10 times without moving the part
-   - On a NeXT machine with touch probe or toolsetter configured, run **`M6523`** (e.g. `M6523 B0 C10` at the touch reference, or `M6523 B1 C10` at the toolsetter) — see [GCODE.md](../GCODE.md) and `macros/utilities/M6523.g`
+   - On a nxt machine with touch probe or toolsetter configured, run **`M6523`** (e.g. `M6523 B0 C10` at the touch reference, or `M6523 B1 C10` at the toolsetter) — see [GCODE.md](../GCODE.md) and `macros/utilities/M6523.g`
    - Review echoed min / max / **range** / mean; range should be **< 0.005 mm** for a good setup
    - Tune pair tolerance via `nxt-user-overrides.g` or Configuration repeatability notes if range exceeds `L`
 
@@ -504,7 +504,7 @@ If verification reveals errors:
 
 ---
 
-## 4. Implementation in NeXT
+## 4. Implementation in nxt
 
 ### 4.1 Implementation Approach
 
@@ -664,7 +664,7 @@ These accuracies assume:
 
 ## 6. Roadmap Integration
 
-This calibration system should be implemented in **Phase 4** of the NeXT development roadmap.
+This calibration system should be implemented in **Phase 4** of the nxt development roadmap.
 
 **Justification**:
 - Requires stable probing engine (Phase 1) ✓
@@ -693,7 +693,7 @@ This calibration system should be implemented in **Phase 4** of the NeXT develop
 ## 7. References
 
 ### Related Documentation
-- `docs/CODE.md` - NeXT coding standards and conventions
+- `docs/CODE.md` - nxt coding standards and conventions
 - `docs/FEATURES.md` - Feature requirements and implementation status
 - `docs/ROADMAP.md` - Development phases and timeline
 - `GCODE.md` - Custom G-code and M-code reference

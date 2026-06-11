@@ -19,7 +19,7 @@ var defS = 0
 if { exists(global.nxtSpindleID) && global.nxtSpindleID != null }
     set var.defS = { global.nxtSpindleID }
 
-echo >{var.TP} {"; NeXT user tool library (persisted)"}
+echo >{var.TP} {"; nxt user tool library (persisted)"}
 echo >>{var.TP} {"; Maintained by nxt-user-tools-sync.g after M4000/M4001 (and DWC Tool Library save)."}
 echo >>{var.TP} {"; When M98-loading this file, nxtUserToolsLoadDepth prevents re-entrant sync."}
 echo >>{var.TP} {""}

@@ -1,4 +1,4 @@
-NeXT nxt-config — board kit fragments
+nxt nxt-config — board kit fragments
 =====================================
 
 Machine configuration files under v1.5/ are derived from Millennium Machines
@@ -14,7 +14,7 @@ Sources:
 
 Review upstream license before redistribution; refresh vendored files when kits change.
 
-NeXT on-SD layout (per platform v1.5 / v1.6_v2):
+nxt on-SD layout (per platform v1.5 / v1.6_v2):
   boards/cdy3_f4/entry.g  (RRF boards[0].shortName cdy3_f4)
   boards/scylla1_0_h723/motor-24v/entry.g
   boards/scylla1_0_h723/motor-48v/entry.g

@@ -2,7 +2,7 @@
   <v-card v-if="spindleConfigured" class="fill-height">
     <v-card-title class="py-2 font-weight-bold">
       <v-icon left>mdi-rotate-right</v-icon>
-      {{ $t('plugins.next.panels.spindleControl.caption') }}
+      {{ $t('plugins.nxt.panels.spindleControl.caption') }}
     </v-card-title>
     <v-card-text class="pt-0">
       <v-simple-table dense>

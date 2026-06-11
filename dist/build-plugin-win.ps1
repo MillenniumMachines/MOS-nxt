@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  Build the NeXT DWC plugin ZIP for installation on a real machine.
+  Build the nxt DWC plugin ZIP for installation on a real machine.
   PowerShell port of dist/build-plugin.sh for Windows.
 
 .PARAMETER DwcRoot
@@ -20,7 +20,7 @@ $OutDir = Join-Path $Root "dist"
 $DwcRoot = (Resolve-Path $DwcRoot).Path
 
 Write-Host "=== nxt Plugin Builder (Windows) ===" -ForegroundColor Cyan
-Write-Host "  NeXT repo : $Root"
+Write-Host "  MOS-nxt repo : $Root"
 Write-Host "  DWC root  : $DwcRoot"
 
 # --- Version from git ---
@@ -44,7 +44,7 @@ if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 # --- Cleanup ---
 Write-Host "[1/6] Cleaning previous build artifacts..." -ForegroundColor Yellow
-$pluginStaged = Join-Path $DwcRoot "src\plugins\NeXT"
+$pluginStaged = Join-Path $DwcRoot "src\plugins\nxt"
 # If the junction exists, remove it first (we'll copy files directly for prod build)
 if (Test-Path $pluginStaged) {
   $item = Get-Item $pluginStaged -Force
@@ -59,7 +59,7 @@ if (Test-Path $pluginStaged) {
 if (Test-Path (Join-Path $DwcRoot "dist")) {
   Remove-Item (Join-Path $DwcRoot "dist") -Recurse -Force
 }
-Get-ChildItem "$OutDir\nxt-*.zip","$OutDir\NeXT-*.zip" -ErrorAction SilentlyContinue | Remove-Item -Force
+Get-ChildItem "$OutDir\nxt-*.zip","$OutDir\nxt-*.zip" -ErrorAction SilentlyContinue | Remove-Item -Force
 
 # --- Stage plugin source (copy, not junction — required for prod build) ---
 Write-Host "[2/6] Staging plugin source into DWC..." -ForegroundColor Yellow
@@ -70,7 +70,7 @@ New-Item -ItemType Directory -Path $stagingDir -Force | Out-Null
 Copy-Item -Path "$Root\ui\*" -Destination $stagingDir -Recurse -Force
 
 # Copy into DWC plugins as real files
-$pluginDest = Join-Path $DwcRoot "src\plugins\NeXT"
+$pluginDest = Join-Path $DwcRoot "src\plugins\nxt"
 New-Item -ItemType Directory -Path $pluginDest -Force | Out-Null
 Copy-Item -Path "$stagingDir\*" -Destination $pluginDest -Recurse -Force
 
@@ -131,9 +131,9 @@ Write-Host "[5/6] Running DWC production build (this takes ~60s)..." -Foreground
 try {
   Push-Location $DwcRoot
   $env:NOZIP = "1"
-  # Pass plugin ID since files are already staged under src/plugins/NeXT
+  # Pass plugin ID since files are already staged under src/plugins/nxt
   # This makes build-plugin.js use the internal path (no re-copy, no module structure breakage)
-  $buildLog = cmd /c "npm run build-plugin NeXT 2>&1"
+  $buildLog = cmd /c "npm run build-plugin nxt 2>&1"
   $buildLog | ForEach-Object { Write-Host "  $_" }
   Pop-Location
 } catch {
@@ -151,8 +151,8 @@ try {
 Write-Host "[6/6] Merging SD files into plugin ZIP..." -ForegroundColor Yellow
 $dwcDistZip = Join-Path $DwcRoot "dist\$outZip"
 if (-not (Test-Path $dwcDistZip)) {
-  # DWC names the zip NeXT-<version>.zip from plugin.json id; rename to nxt-* for release artifacts
-  $found = Get-ChildItem (Join-Path $DwcRoot "dist") -Filter "NeXT*.zip" -ErrorAction SilentlyContinue | Select-Object -First 1
+  # DWC names the zip nxt-<version>.zip from plugin.json id; rename to nxt-* for release artifacts
+  $found = Get-ChildItem (Join-Path $DwcRoot "dist") -Filter "nxt*.zip" -ErrorAction SilentlyContinue | Select-Object -First 1
   if ($found) {
     Move-Item $found.FullName $dwcDistZip -Force
     Write-Host "  Renamed ZIP: $($found.Name) -> $outZip"

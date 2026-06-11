@@ -2,18 +2,18 @@
   <v-card>
     <v-card-title class="d-flex align-center">
       <v-icon left>mdi-crosshairs-gps</v-icon>
-      {{ $t('plugins.next.panels.probingCycles.title') }}
+      {{ $t('plugins.nxt.panels.probingCycles.title') }}
     </v-card-title>
 
     <v-card-text>
       <v-alert v-if="!touchProbeEnabled" type="warning" dense outlined class="mb-4">
         <v-icon small left>mdi-alert</v-icon>
-        {{ $t('plugins.next.panels.probingCycles.touchProbeWarning') }}
+        {{ $t('plugins.nxt.panels.probingCycles.touchProbeWarning') }}
       </v-alert>
 
       <v-alert v-else-if="!touchProbeSelected" type="info" dense outlined class="mb-4">
         <v-icon small left>mdi-information</v-icon>
-        {{ $t('plugins.next.panels.probingCycles.selectProbeTool', [probeToolId]) }}
+        {{ $t('plugins.nxt.panels.probingCycles.selectProbeTool', [probeToolId]) }}
       </v-alert>
 
       <v-row dense class="mb-3">
@@ -21,8 +21,8 @@
           <v-select
             v-model="targetWcs"
             :items="wcsOptions"
-            :label="$t('plugins.next.panels.probingCycles.targetWcs')"
-            :hint="$t('plugins.next.panels.probingCycles.wcsHint')"
+            :label="$t('plugins.nxt.panels.probingCycles.targetWcs')"
+            :hint="$t('plugins.nxt.panels.probingCycles.wcsHint')"
             outlined
             dense
             persistent-hint
@@ -36,7 +36,7 @@
           <v-select
             v-model="rotationPolicy"
             :items="rotationPolicyOptions"
-            :label="$t('plugins.next.panels.probingCycles.rotationPolicy')"
+            :label="$t('plugins.nxt.panels.probingCycles.rotationPolicy')"
             outlined
             dense
             hide-details
@@ -46,7 +46,7 @@
           <v-select
             v-model="selectedCycle"
             :items="probingCycles"
-            :label="$t('plugins.next.panels.probing.caption')"
+            :label="$t('plugins.nxt.panels.probing.caption')"
             outlined
             dense
             hide-details
@@ -176,7 +176,7 @@
                     <v-expansion-panel-header class="px-0">
                       <span class="text-caption">
                         <v-icon small left>mdi-tune</v-icon>
-                        {{ $t('plugins.next.panels.probingCycles.optionalParams') }}
+                        {{ $t('plugins.nxt.panels.probingCycles.optionalParams') }}
                       </span>
                     </v-expansion-panel-header>
                     <v-expansion-panel-content>
@@ -247,14 +247,14 @@
             :loading="executing"
           >
             <v-icon left>mdi-play</v-icon>
-            {{ $t('plugins.next.panels.probingCycles.execute', [cycleConfig.gcode]) }}
+            {{ $t('plugins.nxt.panels.probingCycles.execute', [cycleConfig.gcode]) }}
           </v-btn>
         </v-card-text>
       </v-card>
 
       <v-alert v-else type="info" outlined class="mt-3">
         <v-icon left>mdi-arrow-up</v-icon>
-        {{ $t('plugins.next.panels.probingCycles.selectCycle') }}
+        {{ $t('plugins.nxt.panels.probingCycles.selectCycle') }}
       </v-alert>
     </v-card-text>
   </v-card>
@@ -438,9 +438,9 @@ export default BaseComponent.extend({
     },
     rotationPolicyOptions(): { text: string; value: number }[] {
       return [
-        { text: this.$t('plugins.next.panels.probingCycles.rotPrompt').toString(), value: 0 },
-        { text: this.$t('plugins.next.panels.probingCycles.rotApply').toString(), value: 1 },
-        { text: this.$t('plugins.next.panels.probingCycles.rotNever').toString(), value: 2 }
+        { text: this.$t('plugins.nxt.panels.probingCycles.rotPrompt').toString(), value: 0 },
+        { text: this.$t('plugins.nxt.panels.probingCycles.rotApply').toString(), value: 1 },
+        { text: this.$t('plugins.nxt.panels.probingCycles.rotNever').toString(), value: 2 }
       ]
     },
     cycleConfig(): CycleConfig | null {
