@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Resolve NeXT BUILD_VERSION from version branch or tag name.
+# Resolve nxt BUILD_VERSION from version branch or tag name.
 #
 # Usage (source from other scripts):
 #   source dist/resolve-build-version.sh
 #   # exports BUILD_VERSION, BUILD_REF, BUILD_SHA, NXT_REPO_ROOT
 #
 # BUILD_VERSION:
-#   - Annotated tag (e.g. v0.6.0-beta.5): full tag name
+#   - Annotated tag (e.g. v0.6.0-beta.5, v0.6.0-rc1): full tag name
 #   - Version branch (e.g. v0.6.0, v0.6.0-beta.13): release line (vM.m.p)
 #
 # Optional env:

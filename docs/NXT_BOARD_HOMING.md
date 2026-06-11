@@ -1,4 +1,4 @@
-# NeXT board homing requirements
+# nxt board homing requirements
 
 RRF uses homing macros on the SD card root:
 
@@ -9,7 +9,7 @@ RRF uses homing macros on the SD card root:
 | `0:/sys/homey.g` | Home Y (lifts Z first) |
 | `0:/sys/homeall.g` | Home all — **Z first**, then X and Y together |
 
-NeXT vendors homing sources under `0:/sys/nxt-config/machine/<profile>/` and deploys them from **Configuration → Apply platform sys files**. They are **not** loaded by `nxt.g` at boot (deploy-only).
+nxt vendors homing sources under `0:/sys/nxt-config/machine/<profile>/` and deploys them from **Configuration → Apply platform sys files**. They are **not** loaded by `nxt.g` at boot (deploy-only).
 
 Board + machine packs load via `nxt-board-pack-loader.g` (drives, limits, pins).
 
@@ -46,7 +46,7 @@ Source files:
 
 ## Deploy workflow
 
-1. Install or update the NeXT plugin (ships `nxt-config/machine/<profile>/` on SD).
+1. Install or update the nxt plugin (ships `nxt-config/machine/<profile>/` on SD).
 2. In DWC **Configuration**, select **Machine profile** (`v1.5` or `v1.6_v2`).
 3. Review deploy list (homing → `0:/sys/`, board/machine boot paths).
 4. Click **Apply platform sys files**.
@@ -54,7 +54,7 @@ Source files:
 
 ## Tuning
 
-1. Edit homing under `macros/nxt-config/machine/<profile>/` in the NeXT repo.
+1. Edit homing under `macros/nxt-config/machine/<profile>/` in the MOS-nxt repo.
 2. Keep `board/.../endstops.g` and `machine/.../endstop-y.g` consistent with travel direction.
 3. Run `node dist/generate-nxt-config-manifest.mjs` and reinstall the plugin ZIP.
 4. **Apply platform sys files** again on the machine.

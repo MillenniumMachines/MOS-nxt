@@ -6,7 +6,7 @@
 ; M98 P"nxt-config/v1.5/boards/cdy3_f4/entry.g"
 ; M98 P"nxt-config/v1.5/boards/scylla1_0_h723/motor-24v/entry.g"
 ; M98 P"nxt-config/v1.5/boards/scylla1_0_h723/motor-48v/entry.g"
-; v1.6 / v2.0 (NeXT baseline tree — customize on SD as needed)
+; v1.6 / v2.0 (nxt baseline tree — customize on SD as needed)
 ; M98 P"nxt-config/v1.6_v2/boards/cdy3_f4/entry.g"
 ; M98 P"nxt-config/v1.6_v2/boards/scylla1_0_h723/motor-24v/entry.g"
 ; M98 P"nxt-config/v1.6_v2/boards/scylla1_0_h723/motor-48v/entry.g"

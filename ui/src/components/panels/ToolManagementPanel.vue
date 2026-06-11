@@ -3,7 +3,7 @@
     <v-card outlined>
       <v-card-title class="subtitle-1 d-flex flex-wrap align-center py-3">
         <v-icon left class="mr-2">mdi-bookshelf</v-icon>
-        <span>{{ $t('plugins.next.panels.toolManagement.caption') }}</span>
+        <span>{{ $t('plugins.nxt.panels.toolManagement.caption') }}</span>
         <v-spacer />
         <v-btn
           v-if="isConnected && nxtReady"
@@ -15,7 +15,7 @@
           :disabled="uiFrozen || persistingTools"
           @click="saveToolLibraryToBoard"
         >
-          {{ $t('plugins.next.panels.toolManagement.saveToBoard') }}
+          {{ $t('plugins.nxt.panels.toolManagement.saveToBoard') }}
         </v-btn>
         <v-btn
           v-if="isConnected && nxtReady"
@@ -24,34 +24,34 @@
           :disabled="uiFrozen || persistingTools"
           @click="reloadToolLibraryFromSd"
         >
-          {{ $t('plugins.next.panels.toolManagement.reloadFromSd') }}
+          {{ $t('plugins.nxt.panels.toolManagement.reloadFromSd') }}
         </v-btn>
         <div v-if="!isConnected || !nxtReady" class="d-flex align-center">
           <v-icon small class="mr-2" color="warning">{{ !isConnected ? 'mdi-lan-disconnect' : 'mdi-alert-circle-outline' }}</v-icon>
           <span class="text-caption">{{
-            !isConnected ? $t('plugins.next.messages.disconnectedShort') : $t('plugins.next.messages.notReadyShort')
+            !isConnected ? $t('plugins.nxt.messages.disconnectedShort') : $t('plugins.nxt.messages.notReadyShort')
           }}</span>
         </div>
       </v-card-title>
       <v-divider />
       <v-card-text class="pa-3">
         <p class="body-2 grey--text text--darken-1 mb-3">
-          {{ $t('plugins.next.panels.toolManagement.libraryIntro') }}
+          {{ $t('plugins.nxt.panels.toolManagement.libraryIntro') }}
         </p>
         <p class="body-2 grey--text text--darken-1 mb-3">
-          {{ $t('plugins.next.panels.toolManagement.persistenceHint') }}
+          {{ $t('plugins.nxt.panels.toolManagement.persistenceHint') }}
         </p>
         <v-simple-table dense class="nxt-tc-tool-lib-table">
           <template #default>
             <thead>
               <tr>
-                <th class="text-left">{{ $t('plugins.next.panels.toolManagement.colToolNumber') }}</th>
-                <th class="text-left">{{ $t('plugins.next.panels.toolManagement.colDescription') }}</th>
-                <th class="text-left">{{ $t('plugins.next.panels.toolManagement.colRadius') }}</th>
-                <th class="text-left">{{ $t('plugins.next.panels.toolManagement.colFlutes') }}</th>
-                <th class="text-left">{{ $t('plugins.next.panels.toolManagement.colFluteLength') }}</th>
-                <th class="text-left">{{ $t('plugins.next.panels.toolManagement.colStatus') }}</th>
-                <th class="text-left">{{ $t('plugins.next.panels.toolManagement.colLife') }}</th>
+                <th class="text-left">{{ $t('plugins.nxt.panels.toolManagement.colToolNumber') }}</th>
+                <th class="text-left">{{ $t('plugins.nxt.panels.toolManagement.colDescription') }}</th>
+                <th class="text-left">{{ $t('plugins.nxt.panels.toolManagement.colRadius') }}</th>
+                <th class="text-left">{{ $t('plugins.nxt.panels.toolManagement.colFlutes') }}</th>
+                <th class="text-left">{{ $t('plugins.nxt.panels.toolManagement.colFluteLength') }}</th>
+                <th class="text-left">{{ $t('plugins.nxt.panels.toolManagement.colStatus') }}</th>
+                <th class="text-left">{{ $t('plugins.nxt.panels.toolManagement.colLife') }}</th>
               </tr>
             </thead>
             <tbody>
@@ -73,7 +73,7 @@
                     text-color="white"
                     label
                   >
-                    {{ $t('plugins.next.panels.toolManagement.statusInSpindle') }}
+                    {{ $t('plugins.nxt.panels.toolManagement.statusInSpindle') }}
                   </v-chip>
                   <v-chip
                     v-else-if="row.statusKind === 'probe'"
@@ -82,10 +82,10 @@
                     text-color="white"
                     label
                   >
-                    {{ $t('plugins.next.panels.toolManagement.statusProbe') }}
+                    {{ $t('plugins.nxt.panels.toolManagement.statusProbe') }}
                   </v-chip>
                   <v-chip v-else x-small outlined label>
-                    {{ $t('plugins.next.panels.toolManagement.statusManual') }}
+                    {{ $t('plugins.nxt.panels.toolManagement.statusManual') }}
                   </v-chip>
                 </td>
                 <td class="grey--text">—</td>
@@ -94,7 +94,7 @@
           </template>
         </v-simple-table>
         <p v-if="toolLibraryRows.length === 0" class="body-2 grey--text mb-0">
-          {{ $t('plugins.next.panels.toolManagement.noTools') }}
+          {{ $t('plugins.nxt.panels.toolManagement.noTools') }}
         </p>
       </v-card-text>
     </v-card>
@@ -108,10 +108,10 @@ import store from '@/store'
 import {
   readFirmwareGlobal,
   NxtToolChangerOmKeys,
-  augmentRrfToolForNeXtUi
+  augmentRrfToolForNxtUi
 } from '../../utils/nxtToolChangerOm'
 import {
-  isNeXtToolSlotConfiguredInLibrary,
+  isNxtToolSlotConfiguredInLibrary,
   isToolRecord,
   buildNxtUserToolsGContent
 } from '../../utils/nxtUserToolsFile'
@@ -172,11 +172,11 @@ export default BaseComponent.extend({
         }
         const inSpindle = i === ct
         const isProbeSlot = probeIdx >= 0 && i === probeIdx
-        if (!inSpindle && !isProbeSlot && !isNeXtToolSlotConfiguredInLibrary(t)) {
+        if (!inSpindle && !isProbeSlot && !isNxtToolSlotConfiguredInLibrary(t)) {
           continue
         }
         const isProbe = isProbeSlot || this.probeNameMatch(t)
-        const augmented = augmentRrfToolForNeXtUi(t, this.firmwareGlobals, i)
+        const augmented = augmentRrfToolForNxtUi(t, this.firmwareGlobals, i)
         const radiusLabel =
           augmented.nxtRadiusMm != null ? String(augmented.nxtRadiusMm) : '—'
         const flutesLabel =
@@ -208,7 +208,7 @@ export default BaseComponent.extend({
         isToolRecord(tools[ct])
       ) {
         const t = tools[ct]
-        const augmented = augmentRrfToolForNeXtUi(t, this.firmwareGlobals, ct)
+        const augmented = augmentRrfToolForNxtUi(t, this.firmwareGlobals, ct)
         rows.push({
           index: ct,
           description:
@@ -261,7 +261,7 @@ export default BaseComponent.extend({
         await uploadDwcFile(NXT_USER_TOOLS_DWC_PATH, body)
         await this.$store.dispatch('machine/showMessage', {
           type: 'success',
-          message: this.$t('plugins.next.panels.toolManagement.saveToBoardSuccess', {
+          message: this.$t('plugins.nxt.panels.toolManagement.saveToBoardSuccess', {
             path: NXT_USER_TOOLS_DWC_PATH
           })
         })
@@ -269,8 +269,8 @@ export default BaseComponent.extend({
         const msg =
           e && typeof e.message === 'string'
             ? e.message
-            : this.$t('plugins.next.panels.toolManagement.saveToBoardFailed')
-        console.error('NeXT: saveToolLibraryToBoard', e)
+            : this.$t('plugins.nxt.panels.toolManagement.saveToBoardFailed')
+        console.error('nxt: saveToolLibraryToBoard', e)
         await this.$store.dispatch('machine/showMessage', {
           type: 'error',
           message: msg
@@ -288,14 +288,14 @@ export default BaseComponent.extend({
         await this.sendCode('M98 P"nxt-user-tools.g"')
         await this.$store.dispatch('machine/showMessage', {
           type: 'success',
-          message: this.$t('plugins.next.panels.toolManagement.reloadFromSdSuccess')
+          message: this.$t('plugins.nxt.panels.toolManagement.reloadFromSdSuccess')
         })
       } catch (e) {
         const msg =
           e && typeof e.message === 'string'
             ? e.message
-            : this.$t('plugins.next.panels.toolManagement.reloadFromSdFailed')
-        console.error('NeXT: reloadToolLibraryFromSd', e)
+            : this.$t('plugins.nxt.panels.toolManagement.reloadFromSdFailed')
+        console.error('nxt: reloadToolLibraryFromSd', e)
         await this.$store.dispatch('machine/showMessage', {
           type: 'error',
           message: msg

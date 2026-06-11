@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Synchronize NeXT plugin dispatcher macros from runtime plugin metadata.
+Synchronize nxt plugin dispatcher macros from runtime plugin metadata.
 
 This script is intended to run on the SBC/DSF host. It reads plugin metadata,
 filters plugins tagged as "nxt-plugin", and atomically writes dispatcher
@@ -31,7 +31,7 @@ DISPATCH_FILES = {
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Generate NeXT plugin dispatchers from runtime metadata."
+        description="Generate nxt plugin dispatchers from runtime metadata."
     )
     parser.add_argument(
         "--registry",
@@ -134,12 +134,12 @@ def build_dispatchers(
     plugins: List[Dict[str, Any]], sys_root: Path, strict_default: bool
 ) -> Dict[str, str]:
     files: Dict[str, List[str]] = {
-        "init": header("NeXT plugin init dispatcher"),
-        "daemon": header("NeXT plugin daemon dispatcher"),
-        "pause": header("NeXT plugin pause hooks dispatcher"),
-        "resume": header("NeXT plugin resume hooks dispatcher"),
-        "stop": header("NeXT plugin stop hooks dispatcher"),
-        "cancel": header("NeXT plugin cancel hooks dispatcher"),
+        "init": header("nxt plugin init dispatcher"),
+        "daemon": header("nxt plugin daemon dispatcher"),
+        "pause": header("nxt plugin pause hooks dispatcher"),
+        "resume": header("nxt plugin resume hooks dispatcher"),
+        "stop": header("nxt plugin stop hooks dispatcher"),
+        "cancel": header("nxt plugin cancel hooks dispatcher"),
     }
 
     def validate_or_error(

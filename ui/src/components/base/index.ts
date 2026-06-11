@@ -1,7 +1,7 @@
 /**
  * Base Components Registration
  * 
- * Registers base components for NeXT UI
+ * Registers base components for nxt UI
  */
 
 import Vue from 'vue'

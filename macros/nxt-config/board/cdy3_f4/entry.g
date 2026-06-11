@@ -1,6 +1,6 @@
-; NeXT board pack — Fly CDYv3 (RRF shortName cdy3_f4)
+; nxt board pack — Fly CDYv3 (RRF shortName cdy3_f4)
 
-M117 "NeXT board cdy3_f4"
+M117 "nxt board cdy3_f4"
 M98 P"nxt-config/board/cdy3_f4/endstops.g"
 if { fileexists("0:/sys/estop.g") }
     M98 P"estop.g"

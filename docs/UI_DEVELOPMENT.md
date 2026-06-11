@@ -1,35 +1,35 @@
-# NeXT UI Plugin Development Guide
+# nxt UI Plugin Development Guide
 
 ## Overview
-This guide explains how to develop the NeXT UI plugin within the DuetWebControl workspace. The NeXT UI is a Vue 2.7 plugin that integrates with Duet Web Control **v3.6.2** (pin: `ci/dwc-build-ref`; shipped ZIPs set exact `dwcVersion` at build) to provide CNC-specific functionality for RepRapFirmware.
+This guide explains how to develop the nxt UI plugin within the DuetWebControl workspace. The nxt UI is a Vue 2.7 plugin that integrates with Duet Web Control **v3.6.2** (pin: `ci/dwc-build-ref`; shipped ZIPs set exact `dwcVersion` at build) to provide CNC-specific functionality for RepRapFirmware.
 
 > [!WARNING]
-> **NEVER** edit files within the `DuetWebControl` directory as the NeXT plugin is symlinked into it already. All source code changes should be within the `NeXT/ui` directory structure.
+> **NEVER** edit files within the `DuetWebControl` directory as the nxt plugin is symlinked into it already. All source code changes should be within the `MOS-nxt/ui` directory structure.
 
 ## Instructions for AI Agents
-If you are an AI Agent or running in a CI/CD environment, there is a high chance you already have access to a running instance of DuetWebControl. You will need to make sure NeXT is available and built in to the running DWC server, by running `node add-next.js`.
+If you are an AI Agent or running in a CI/CD environment, there is a high chance you already have access to a running instance of DuetWebControl. You will need to make sure nxt is available and built in to the running DWC server, by running `node add-next.js`.
 
-You can then follow these instructions from [Accessing the NeXT Plugin](#accessing-the-next-plugin), with the development server running at http://localhost:8080 - with server logs available at /tmp/dev-server.log
+You can then follow these instructions from [Accessing the nxt Plugin](#accessing-the-next-plugin), with the development server running at http://localhost:8080 - with server logs available at /tmp/dev-server.log
 
-If you are not able to access the DWC instance at that address, please assume that it did not run for some reason and start from [Start the Development Server](#1-start-the-development-server). The NeXT repository and the DuetWebControl repository are siblings inside the GitHub workspace directory.
+If you are not able to access the DWC instance at that address, please assume that it did not run for some reason and start from [Start the Development Server](#1-start-the-development-server). the MOS-nxt repo and the DuetWebControl repository are siblings inside the GitHub workspace directory.
 
 ## Workspace Structure
 
-The NeXT repository contains the UI plugin source code, which is **symlinked** into the DuetWebControl repository for development:
+the MOS-nxt repo contains the UI plugin source code, which is **symlinked** into the DuetWebControl repository for development:
 
-- **NeXT UI Source**: `NeXT/ui/`
+- **nxt UI Source**: `MOS-nxt/ui/`
 - **DWC Repository**: `DuetWebControl/`
-- **DWC Plugin Location**: `DuetWebControl/src/plugins/NeXT` (symlink to NeXT UI source, may need creating)
+- **DWC Plugin Location**: `DuetWebControl/src/plugins/nxt` (symlink to nxt UI source, may need creating)
 
 ### Important Files
 
 ```
-NeXT/ui/
+MOS-nxt/ui/
 ├── index.ts                 # Plugin entry point (re-exports from src/index.ts)
 ├── plugin.json              # Plugin manifest (id, name, version, etc.)
 └── src/
     ├── index.ts            # Main plugin registration and setup
-    ├── NeXT.vue            # Main plugin component
+    ├── nxt.vue            # Main plugin component
     ├── components/         # All Vue components
     │   ├── base/           # BaseComponent.vue and shared utilities
     │   ├── inputs/         # Input components
@@ -40,7 +40,7 @@ NeXT/ui/
 
 DuetWebControl/
 ├── src/plugins/
-│   ├── NeXT/              # Symlink to NeXT/ui/
+│   ├── nxt/              # Symlink to MOS-nxt/ui/
 │   └── imports.ts         # Auto-generated plugin registry
 └── webpack/lib/
     └── auto-imports-plugin.js  # Plugin discovery system (modified for symlinks)
@@ -73,38 +73,38 @@ DONE  Compiled successfully in 56000ms
   - Local:   http://localhost:8080/
 ```
 
-## Accessing the NeXT Plugin
+## Accessing the nxt Plugin
 
 ### First Time Setup (Plugin Not Enabled)
 
-When you first open DWC, the "Connect to Machine" modal dialog will appear. **Before connecting**, check if the NeXT menu item exists in the sidebar:
+When you first open DWC, the "Connect to Machine" modal dialog will appear. **Before connecting**, check if the nxt menu item exists in the sidebar:
 
 1. Navigate to `http://localhost:8080/`
 2. The "Connect to Machine" dialog will appear
-3. **Look at the sidebar behind the dialog** - under **Control**, check for **NeXT** and **Tool Library** (separate entries)
-4. **If "NeXT" menu item is NOT visible**:
+3. **Look at the sidebar behind the dialog** - under **Control**, check for **nxt** and **Tool Library** (separate entries)
+4. **If "nxt" menu item is NOT visible**:
    - Click **Cancel** to close the connect dialog
    - Go to **Settings → Plugins**
-   - Find "NeXT - Next-Gen Extended Tooling" in the plugin list
+   - Find **nxt** in the plugin list
    - Click **Start** to enable the plugin
-   - **NeXT** and **Tool Library** will appear under **Control** in the sidebar
+   - **nxt** and **Tool Library** will appear under **Control** in the sidebar
 5. **Now connect to the machine**:
    - Click the **Connect** button in the top banner
    - Enter hostname: `<server address>` (port 80 is default)
    - Leave password blank unless configured on the machine
    - Click **Connect**
-6. Once connected, use **NeXT** (dashboard: Status, Configuration, Probing) or **Tool Library** (configured RRF tools; mos-atc plugin adds ATC UI) under **Control**
+6. Once connected, use **nxt** (dashboard: Status, Configuration, Probing) or **Tool Library** (configured RRF tools; mos-atc plugin adds ATC UI) under **Control**
 
 ### Subsequent Sessions (Plugin Already Enabled)
 
-If the plugin is already enabled (you can see "NeXT" in the sidebar):
+If the plugin is already enabled (you can see "nxt" in the sidebar):
 
 1. Navigate to `http://localhost:8080/`
 2. The "Connect to Machine" dialog will appear
 3. Enter hostname: `<server address>`
 4. Leave password blank unless configured on the machine
 5. Click **Connect**
-6. Open **NeXT** or **Tool Library** under **Control** as needed
+6. Open **nxt** or **Tool Library** under **Control** as needed
 
 **Note**: The plugin must be enabled (started) at least once. This setting persists in browser localStorage, so you typically only need to enable it once per browser/profile.
 
@@ -114,7 +114,7 @@ If the plugin is already enabled (you can see "NeXT" in the sidebar):
 
 ### Making Changes
 
-1. Edit files in `NeXT/ui/src/`
+1. Edit files in `MOS-nxt/ui/src/`
 2. Save the file
 3. Webpack will automatically detect changes and rebuild
 4. Monitor the background terminal output to check for any errors and confirm the files have updated
@@ -124,7 +124,7 @@ If the plugin is already enabled (you can see "NeXT" in the sidebar):
 
 #### Fixing TypeScript Errors
 
-All NeXT UI code is TypeScript. When you see compilation errors:
+All nxt UI code is TypeScript. When you see compilation errors:
 
 1. Check the terminal output for error details
 2. Read the RRF Object Model types in `DuetWebControl/node_modules/@duet3d/objectmodel/dist/`
@@ -133,7 +133,7 @@ All NeXT UI code is TypeScript. When you see compilation errors:
 
 #### Adding New Components
 
-1. Create component in `NeXT/ui/src/components/<category>/`
+1. Create component in `MOS-nxt/ui/src/components/<category>/`
 2. Export from the category's `index.ts`
 3. Import in parent component or `src/index.ts`
 4. Register with Vue if it's a global component
@@ -148,14 +148,14 @@ Use Chrome DevTools or similar to check for:
 
 ### Testing With the CNC Machine
 
-**Default Machine**: The NeXT development machine is typically at `192.168.1.126` on port 80 (the default).
+**Default Machine**: The nxt development machine is typically at `192.168.1.126` on port 80 (the default).
 
 When connected to the machine:
-- Full NeXT functionality is available
+- Full nxt functionality is available
 - Real-time axis positions and machine state
 - G-code commands can be sent and tested
 - Probing cycles can be executed (use caution!)
-- The "Machine Restart Required" banner will disappear once NeXT variables are loaded
+- The "Machine Restart Required" banner will disappear once nxt variables are loaded
 
 ### Testing Without a Real Machine (Disconnected Mode)
 
@@ -175,8 +175,8 @@ DWC's plugin system expects an `index.js` or `index.ts` at the plugin root.
 
 ### Plugin Not Appearing in Plugins List
 
-1. Check if symlink exists: `ls -la DuetWebControl/src/plugins/NeXT`
-2. Verify `imports.ts` includes NeXT: `grep -A5 "NeXT" DuetWebControl/src/plugins/imports.ts`
+1. Check if symlink exists: `ls -la DuetWebControl/src/plugins/nxt`
+2. Verify `imports.ts` includes nxt: `grep -A5 "nxt" DuetWebControl/src/plugins/imports.ts`
 3. Restart dev server if needed
 
 ### Compilation Errors
@@ -193,25 +193,25 @@ DWC's plugin system expects an `index.js` or `index.ts` at the plugin root.
 3. Check that `src/index.ts` exports a Vue component as default
 4. Look for missing dependencies or incorrect imports
 
-### `can't access property "call", v[ee] is undefined` when starting NeXT
+### `can't access property "call", v[ee] is undefined` when starting nxt
 
-This is almost always **404**, **`dwcFiles`**, or **version skew** — see **[PLUGIN_LOAD_TROUBLESHOOTING.md](PLUGIN_LOAD_TROUBLESHOOTING.md)**. Run `node dist/verify-plugin-zip.mjs dist/NeXT-*.zip` and `node dist/diagnose-plugin-chunk.mjs dist/NeXT-*.zip <host-app.js>`.
+This is almost always **404**, **`dwcFiles`**, or **version skew** — see **[PLUGIN_LOAD_TROUBLESHOOTING.md](PLUGIN_LOAD_TROUBLESHOOTING.md)**. Run `node dist/verify-plugin-zip.mjs dist/nxt-*.zip` and `node dist/diagnose-plugin-chunk.mjs dist/nxt-*.zip <host-app.js>`.
 
 **Development (localhost / `npm run dev`):**
 
-1. Ensure the symlink exists: `ls -la DuetWebControl/src/plugins/NeXT` → should point at `NeXT/ui`.
-   - Create it: `./dist/setup-dwc-dev-symlink.sh [path-to-DuetWebControl]` from the NeXT repo root.
-2. After `./dist/build-plugin.sh`, DWC’s `src/plugins/NeXT` is removed again — re-run the symlink script (or dev against a fresh `npm run dev` only after the symlink is in place).
-3. Do **not** leave a stale NeXT entry in `src/plugins/imports.ts` without `src/plugins/NeXT/` on disk (regenerate: `node dist/regenerate-dwc-plugin-imports.cjs ../DuetWebControl`).
+1. Ensure the symlink exists: `ls -la DuetWebControl/src/plugins/nxt` → should point at `MOS-nxt/ui`.
+   - Create it: `./dist/setup-dwc-dev-symlink.sh [path-to-DuetWebControl]` from the MOS-nxt repo root.
+2. After `./dist/build-plugin.sh`, DWC’s `src/plugins/nxt` is removed again — re-run the symlink script (or dev against a fresh `npm run dev` only after the symlink is in place).
+3. Do **not** leave a stale nxt entry in `src/plugins/imports.ts` without `src/plugins/nxt/` on disk (regenerate: `node dist/regenerate-dwc-plugin-imports.cjs ../DuetWebControl`).
 4. Hard-refresh the browser (Ctrl+Shift+R).
 
 **Installed ZIP on a printer / SBC:**
 
-1. Rebuild and reinstall the latest `dist/NeXT-*.zip` (Settings → Plugins → upload). The ZIP must include `dwc/js/NeXT.*.js` (and `.css`).
+1. Rebuild and reinstall the latest `dist/nxt-*.zip` (Settings → Plugins → upload). The ZIP must include `dwc/js/nxt.*.js` (and `.css`).
 2. DWC on the machine must match the ZIP’s **`plugin.json` `dwcVersion` exactly** (e.g. `3.6.2`, not merely “3.6.x”). Run `./dist/verify-dwc-build-alignment.sh` before `./dist/build-plugin.sh`. See [PLUGIN_LOAD_TROUBLESHOOTING.md](PLUGIN_LOAD_TROUBLESHOOTING.md).
-3. Hard-refresh or clear site data for the DWC URL so old `NeXT.<hash>.js` chunks are not cached.
+3. Hard-refresh or clear site data for the DWC URL so old `nxt.<hash>.js` chunks are not cached.
 
-If the error persists, open the browser devtools → **Sources**, enable the NeXT source map, and note the first stack frame outside webpack runtime (that module is the real missing/broken import).
+If the error persists, open the browser devtools → **Sources**, enable the nxt source map, and note the first stack frame outside webpack runtime (that module is the real missing/broken import).
 
 ### Hot Reload Not Working
 
@@ -220,14 +220,14 @@ If the error persists, open the browser devtools → **Sources**, enable the NeX
 3. Try a hard refresh in browser (Ctrl+Shift+R)
 4. Restart dev server if necessary
 
-### Can't Access NeXT Menu Item
+### Can't Access nxt Menu Item
 
 1. Plugin must be **started** via Settings → Plugins first
 2. Check that route is registered: Open browser console and run:
    ```javascript
    document.querySelector('#app').__vue__.$router.options.routes.map(r => r.path)
    ```
-3. Look for `/NeXT` in the routes list
+3. Look for `/nxt` in the routes list
 
 ## Best Practices
 
@@ -282,28 +282,28 @@ pgrep -af "vue-cli-service serve"
 pkill -f "npm run dev"
 
 # View plugin imports
-cat DuetWebControl/src/plugins/imports.ts | grep -A7 NeXT
+cat DuetWebControl/src/plugins/imports.ts | grep -A7 nxt
 
 # Check compilation errors
 # (Monitor the terminal where npm run dev is running)
 
-# Edit NeXT UI source
-cd NeXT/ui/src/
+# Edit nxt UI source
+cd MOS-nxt/ui/src/
 ```
 
 ## Summary
 
-To start developing the NeXT UI:
+To start developing the nxt UI:
 
 1. `cd DuetWebControl && npm run dev`
 2. Wait ~60 seconds for compilation
 3. Open `http://localhost:8080/` in browser
-4. **First time only**: If "NeXT" not in sidebar, cancel connect dialog → Settings → Plugins → Start "NeXT"
+4. **First time only**: If "nxt" not in sidebar, cancel connect dialog → Settings → Plugins → Start "nxt"
 5. Connect to machine at `<server address>` (or work disconnected)
-6. Click "NeXT" in sidebar to view plugin
-7. Edit files in `NeXT/ui/src/` and see changes hot-reload
+6. Click "nxt" in sidebar to view plugin
+7. Edit files in `MOS-nxt/ui/src/` and see changes hot-reload
 
-The symlinked structure allows you to work directly on the NeXT repository files while testing in the DWC environment.
+The symlinked structure allows you to work directly on the MOS-nxt repo files while testing in the DWC environment.
 
 ## Code Quality
 

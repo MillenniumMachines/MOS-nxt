@@ -1,6 +1,6 @@
-# NeXT Feature Set
+# nxt Feature Set
 
-This document distills the requirements for the NeXT rewrite, categorizing features into Critical, Nice-to-Have, and To Be Cut. The focus is on simplicity, accuracy, and a streamlined user experience.
+This document distills the requirements for the nxt rewrite, categorizing features into Critical, Nice-to-Have, and To Be Cut. The focus is on simplicity, accuracy, and a streamlined user experience.
 
 ---
 
@@ -13,7 +13,7 @@ This document distills the requirements for the NeXT rewrite, categorizing featu
 
 ## 2. Critical Features
 
-These features form the core of the new NeXT system and must be implemented for the system to be considered functional.
+These features form the core of the new nxt system and must be implemented for the system to be considered functional.
 
 #### **Core System & Structure**
 - [x] **Simplified Loading Mechanism:** Retain the `nxt.g` entrypoint and `nxt-boot.g` sanity-check structure, but simplify the internal logic.
@@ -58,7 +58,7 @@ These features form the core of the new NeXT system and must be implemented for 
 - [x] **Touch Probe Handling:** The touch probe is the exception. It will be measured against a reference surface upon installation (`tpost.g`) to establish its length relative to the toolsetter, ensuring accurate offsets for all subsequent tools.
 
 #### **UI-Driven Workflow**
-- [x] **Persistent UI Screen:** A new primary screen/view in DWC dedicated to NeXT, containing always-visible widgets for core status and actions.
+- [x] **Persistent UI Screen:** A new primary screen/view in DWC dedicated to nxt, containing always-visible widgets for core status and actions.
     - [x] **Status Widget:** A persistent widget displaying: selected tool name, tool offset, machine state, selected WCS, and spindle state (direction, RPM).
     - [x] **Action Confirmation Widget:** A persistent widget that replaces blocking `M291` dialogs. It will pause the job queue and display a confirmation request (e.g., "Start Spindle?") that the operator must interact with to resume the job.
 - [x] **UI-Based Configuration:** A new settings panel within the UI plugin will completely replace the `G8000` configuration wizard, allowing for non-serial, direct editing of all settings. Includes directory-driven platform/board selection and **Apply platform sys files** for homing macros ([NXT_BOARD_HOMING.md](NXT_BOARD_HOMING.md)).
@@ -77,7 +77,7 @@ These features form the core of the new NeXT system and must be implemented for 
 These features add value but are not part of the initial core rewrite. They can be implemented in a later phase after the critical systems are stable.
 
 - [x] **Drilling Canned Cycles:** `G80`, `G81`, `G73`, `G83`, plus `G82`, `G85`, `G89`, and `G98`/`G99` retract mode (see `docs/CODE.md` §8.1). LinuxCNC-oriented; absolute XY/Z only in v1.
-- [ ] **Variable Spindle Speed Control (VSSC):** Planned for a later phase; not yet implemented in NeXT (legacy MillenniumOS VSSC is not ported). See `docs/ROADMAP.md`.
+- [ ] **Variable Spindle Speed Control (VSSC):** Planned for a later phase; not yet implemented in nxt (legacy MillenniumOS VSSC is not ported). See `docs/ROADMAP.md`.
 - [ ] **Spindle Feedback:** Use sensor input to detect when the spindle has reached target speed or stopped.
 - [x] **Stock Preparation UI (Issue #34):** A dedicated UI panel for generating facing toolpaths to prepare raw stock. Features include:
   - [x] Multiple pattern types: rectilinear, zigzag, and spiral
@@ -97,5 +97,5 @@ These features and concepts from the old implementation will be explicitly remov
 - [x] **Dialog-Driven Probing System:** Removed in favor of the DWC probing UI (`ProbingCyclesPanel`, `ProbeResultsPanel`).
 - [x] **Manual Probing (Jogging Dialogs):** Removed; operators use standard DWC jogging plus probe results / WCS push workflow.
 - [x] **Multi-Axis Probing Moves:** Removed; `G6512` is strictly single-axis per command.
-- [x] **G8000 Configuration Wizard:** Replaced by the Configuration panel in the NeXT DWC plugin.
-- [x] **Backwards Compatibility (legacy MOS runtime):** NeXT does not run legacy MOS macros; optional one-shot import via `nxt-mos-import.g` maps settings into `nxt-user-vars.g`. RRF floor is `auto-major` in built `plugin.json`; DWC requires **exact** version (`auto` at build time).
+- [x] **G8000 Configuration Wizard:** Replaced by the Configuration panel in the nxt DWC plugin.
+- [x] **Backwards Compatibility (legacy MOS runtime):** nxt does not run legacy MOS macros; optional one-shot import via `nxt-mos-import.g` maps settings into `nxt-user-vars.g`. RRF floor is `auto-major` in built `plugin.json`; DWC requires **exact** version (`auto` at build time).

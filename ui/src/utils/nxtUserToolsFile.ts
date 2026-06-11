@@ -1,5 +1,5 @@
 /**
- * Build `0:/sys/nxt-user-tools.g` content for NeXT: M4000 (library) + G10 L1 (offsets).
+ * Build `0:/sys/nxt-user-tools.g` content for nxt: M4000 (library) + G10 L1 (offsets).
  * Loaded at boot from nxt.g when the file exists; optional UI upload via rr_upload.
  * Also rewritten on the board by `nxt-user-tools-sync.g` after M4000/M4001 (unless load depth > 0).
  */
@@ -32,7 +32,7 @@ export function isToolRecord(t: unknown): t is Record<string, unknown> {
 }
 
 /** Match ToolManagementPanel: RRF slots that count as “configured” for listing. */
-export function isNeXtToolSlotConfiguredInLibrary(tool: unknown): boolean {
+export function isNxtToolSlotConfiguredInLibrary(tool: unknown): boolean {
   if (!isToolRecord(tool)) {
     return false
   }
@@ -225,7 +225,7 @@ function shouldIncludeToolIndex(
   }
   const inSpindle = toolIndex === currentToolIndex
   const isProbeSlot = probeToolIndex >= 0 && toolIndex === probeToolIndex
-  if (!inSpindle && !isProbeSlot && !isNeXtToolSlotConfiguredInLibrary(t)) {
+  if (!inSpindle && !isProbeSlot && !isNxtToolSlotConfiguredInLibrary(t)) {
     return false
   }
   return true
@@ -258,7 +258,7 @@ export function buildNxtUserToolsGContent(args: BuildNxtUserToolsGArgs): string 
 
   const defaultSpindleId = readDefaultSpindleId(firmwareGlobals)
   const lines: string[] = [
-    '; NeXT user tool library (persisted)',
+    '; nxt user tool library (persisted)',
     '; Auto-generated — Tool Library "Save to board", M4000/M4001 (nxt-user-tools-sync.g), or edit on SD.',
     `; Generated: ${generatedAt}`,
     '',

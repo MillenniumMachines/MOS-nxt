@@ -30,7 +30,7 @@ export async function deployPlatformSysFiles(platformId: string): Promise<string
       content = await downloadDwcTextFile(sdPath)
     } catch {
       throw new Error(
-        `Missing homing file ${sdPath} on SD — reinstall the NeXT plugin ZIP or copy macros/nxt-config/machine/${platformId}/${name}`
+        `Missing homing file ${sdPath} on SD — reinstall the nxt plugin ZIP or copy macros/nxt-config/machine/${platformId}/${name}`
       )
     }
     const dest = `0:/sys/${name}`

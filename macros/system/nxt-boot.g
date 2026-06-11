@@ -1,5 +1,5 @@
 ; nxt-boot.g
-; Performs critical sanity checks before allowing NeXT to load.
+; Performs critical sanity checks before allowing nxt to load.
 ; CNC mode: meta conditions use { }, not ( ) — see macros/system/RRF_META.txt section 6.
 
 set global.nxtLoaded = false
@@ -22,14 +22,14 @@ if { exists(global.nxtUserVarsPresent) && !global.nxtUserVarsPresent }
     while { iterations < #global.nxtProbeResults }
         set global.nxtProbeResults[iterations] = { vector(var.resultVectorSize, 0.0) }
     set global.nxtLoaded = true
-    echo "NeXT: configuration pending — complete setup in DWC Configuration panel and Save nxt-user-vars.g"
+    echo "nxt: configuration pending — complete setup in DWC Configuration panel and Save nxt-user-vars.g"
     M99
 
 ; 4. Full configuration when user-vars file was loaded
 ; nxt-user-vars.g from Configuration Save may persist null for fields not in the UI — restore defaults.
 if { !exists(global.nxtProbeToolID) || global.nxtProbeToolID == null }
     set global.nxtProbeToolID = { limits.tools - 1 }
-    echo "[NeXT] boot: nxtProbeToolID unset — defaulting to last tool index " ^ global.nxtProbeToolID
+    echo "[nxt] boot: nxtProbeToolID unset — defaulting to last tool index " ^ global.nxtProbeToolID
 
 if { global.nxtFeatureTouchProbe && (!exists(global.nxtDeltaMachine) || global.nxtDeltaMachine == null) }
     set global.nxtConfigPending = true
@@ -38,7 +38,7 @@ if { global.nxtFeatureTouchProbe && (!exists(global.nxtDeltaMachine) || global.n
     while { iterations < #global.nxtProbeResults }
         set global.nxtProbeResults[iterations] = { vector(var.resultVectorSize, 0.0) }
     set global.nxtLoaded = true
-    echo "NeXT: configuration incomplete (touch probe datum missing) — use DWC Configuration panel"
+    echo "nxt: configuration incomplete (touch probe datum missing) — use DWC Configuration panel"
     M99
 
 ; --- All checks passed ---

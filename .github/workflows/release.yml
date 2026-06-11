@@ -19,16 +19,10 @@ jobs:
     steps:
       - name: Verify semver release tag
         run: |
-          set -euo pipefail
-          tag="${GITHUB_REF_NAME}"
-          if [[ ! "${tag}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] && \
-             [[ ! "${tag}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-beta\.[0-9]+$ ]]; then
-            echo "::error::Build allowed only for semver tags (vM.m.p or vM.m.p-beta.N); got: ${tag}"
-            exit 1
-          fi
-          echo "Tag build OK: ${tag}"
+          chmod +x dist/verify-release-tag.sh
+          dist/verify-release-tag.sh "${GITHUB_REF_NAME}"
 
-      - name: Checkout NeXT only
+      - name: Checkout nxt only
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -40,7 +34,6 @@ jobs:
           source dist/resolve-build-version.sh
           echo "BUILD_REF=${BUILD_REF}" >> "${GITHUB_ENV}"
           echo "BUILD_VERSION=${BUILD_VERSION}" >> "${GITHUB_ENV}"
-          echo "RELEASE_ZIP_BASENAME=next-release-${BUILD_VERSION}" >> "${GITHUB_ENV}"
           echo "Resolved tag ${GITHUB_REF_NAME} → BUILD_REF=${BUILD_REF} BUILD_VERSION=${BUILD_VERSION} (sha ${BUILD_SHA})"
 
       - name: Fetch DWC build sources (read-only tarball)
@@ -56,7 +49,7 @@ jobs:
           command -v rsync >/dev/null 2>&1 || {
             apt-get update && apt-get install -y rsync;
           }
-          dist/release.sh "${RELEASE_ZIP_BASENAME}" "${{ github.workspace }}/dwc-build"
+          dist/release.sh "${{ github.workspace }}/dwc-build"
 
       - name: Load build manifest
         run: |
@@ -69,7 +62,7 @@ jobs:
           # shellcheck source=/dev/null
           source dist/build-version.env
           set +a
-          for key in NXT_BUILD_VERSION NXT_PLUGIN_ZIP NXT_SD_ZIP NXT_PP_CPS NXT_PP_PY NXT_PP_MCH; do
+          for key in NXT_BUILD_VERSION NXT_RELEASE_ZIP NXT_PP_CPS NXT_PP_PY NXT_PP_MCH; do
             if [[ -z "${!key:-}" ]]; then
               echo "::error::${key} not set in build-version.env" >&2
               exit 1
@@ -77,8 +70,7 @@ jobs:
           done
           {
             echo "NXT_BUILD_VERSION=${NXT_BUILD_VERSION}"
-            echo "NXT_PLUGIN_ZIP=${NXT_PLUGIN_ZIP}"
-            echo "NXT_SD_ZIP=${NXT_SD_ZIP}"
+            echo "NXT_RELEASE_ZIP=${NXT_RELEASE_ZIP}"
             echo "NXT_PP_CPS=${NXT_PP_CPS}"
             echo "NXT_PP_PY=${NXT_PP_PY}"
             echo "NXT_PP_MCH=${NXT_PP_MCH}"
@@ -95,8 +87,7 @@ jobs:
           draft: true
           generate_release_notes: true
           files: |
-            ${{ env.NXT_PLUGIN_ZIP }}
-            ${{ env.NXT_SD_ZIP }}
+            ${{ env.NXT_RELEASE_ZIP }}
             ${{ env.NXT_PP_CPS }}
             ${{ env.NXT_PP_PY }}
             ${{ env.NXT_PP_MCH }}

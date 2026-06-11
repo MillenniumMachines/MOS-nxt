@@ -1,4 +1,4 @@
-import { augmentRrfToolForNeXtUi, readFirmwareGlobal } from './nxtToolChangerOm'
+import { augmentRrfToolForNxtUi, readFirmwareGlobal } from './nxtToolChangerOm'
 
 export type LoadedToolRole = 'none' | 'spindle' | 'probe'
 
@@ -48,7 +48,7 @@ export function buildLoadedToolStatus(
   if (toolObj == null) {
     return empty
   }
-  const augmented = augmentRrfToolForNeXtUi(toolObj, firmwareGlobals, currentToolIndex)
+  const augmented = augmentRrfToolForNxtUi(toolObj, firmwareGlobals, currentToolIndex)
   const name =
     typeof augmented.name === 'string' && augmented.name.length > 0 ? augmented.name : null
   const offsets =

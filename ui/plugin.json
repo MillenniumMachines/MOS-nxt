@@ -1,15 +1,15 @@
 {
-  "id": "NeXT",
-  "name": "NeXT - Next-Gen Extended Tooling",
-  "author": "NeXT Development Team",
+  "id": "nxt",
+  "name": "nxt",
+  "author": "MOS-nxt contributors",
   "version": "%%NXT_VERSION%%",
   "license": "GPL-3.0-or-later",
-  "homepage": "https://github.com/benagricola/NeXT",
+  "homepage": "https://github.com/MillenniumMachines/MOS-nxt",
   "tags": [],
   "dwcVersion": "auto",
   "dwcDependencies": [],
   "rrfVersion": "auto-major",
-  "dwcWebpackChunk": "NeXT",
+  "dwcWebpackChunk": "nxt",
   "data": {
     "nxt": {
       "tag": "nxt-plugin",

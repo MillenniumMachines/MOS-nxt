@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 /**
- * Deep analysis of NeXT dwc/js/*.js vs host app.*.js — explains
+ * Deep analysis of nxt dwc/js/*.js vs host app.*.js — explains
  *   can't access property "call", v[ee] is undefined
  *
  * Usage:
- *   node dist/diagnose-plugin-chunk.mjs <NeXT.js|zip> [host-app.js]
+ *   node dist/diagnose-plugin-chunk.mjs <nxt.js|zip> [host-app.js]
  */
 import fs from 'node:fs'
 import path from 'node:path'
@@ -16,30 +16,30 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 function readChunkFromZip(zipPath) {
   let member = ''
   try {
-    member = execSync(`unzip -Z1 "${zipPath}" 'dwc/NeXT/js/NeXT*.js' | head -1`, {
+    member = execSync(`unzip -Z1 "${zipPath}" 'dwc/nxt/js/nxt*.js' | head -1`, {
       encoding: 'utf8'
     }).trim()
   } catch {
     /* legacy layout */
   }
   if (!member) {
-    member = execSync(`unzip -Z1 "${zipPath}" 'dwc/js/NeXT*.js' | head -1`, {
+    member = execSync(`unzip -Z1 "${zipPath}" 'dwc/js/nxt*.js' | head -1`, {
       encoding: 'utf8'
     }).trim()
   }
   if (!member) {
-    throw new Error(`no dwc/NeXT/js/NeXT*.js (or legacy dwc/js) in ${zipPath}`)
+    throw new Error(`no dwc/nxt/js/nxt*.js (or legacy dwc/js) in ${zipPath}`)
   }
   let css = ''
   try {
-    css = execSync(`unzip -Z1 "${zipPath}" 'dwc/NeXT/css/NeXT*.css' | head -1`, {
+    css = execSync(`unzip -Z1 "${zipPath}" 'dwc/nxt/css/nxt*.css' | head -1`, {
       encoding: 'utf8'
     }).trim()
   } catch {
     /* legacy */
   }
   if (!css) {
-    css = execSync(`unzip -Z1 "${zipPath}" 'dwc/css/NeXT*.css' | head -1`, {
+    css = execSync(`unzip -Z1 "${zipPath}" 'dwc/css/nxt*.css' | head -1`, {
       encoding: 'utf8'
     }).trim()
   }
@@ -62,7 +62,7 @@ function resolveAppJs(appPath) {
 
 function analyzeHostApp(appJs) {
   const hasPluginPatch = appJs.includes('pluginBeingLoaded')
-  const hasNextInMap = /NeXT:"[a-f0-9]+"/.test(appJs)
+  const hasNextInMap = /nxt:"[a-f0-9]+"/.test(appJs)
   const mapMatch = appJs.match(
     /GCodeViewer:"[^"]+",HeightMap:"[^"]+",InputShaping:"[^"]+"([^}]+)\}/
   )
@@ -103,7 +103,7 @@ function main() {
   const appArg = process.argv[3] || path.join(__dirname, '../../DuetWebControl/dist/js/app.js')
 
   if (!chunkPath) {
-    console.error('usage: node dist/diagnose-plugin-chunk.mjs <NeXT.js|zip> [host-app.js]')
+    console.error('usage: node dist/diagnose-plugin-chunk.mjs <nxt.js|zip> [host-app.js]')
     process.exit(1)
   }
 
@@ -139,11 +139,11 @@ function main() {
   const vueVuetify = hostOnly.filter((p) => p.includes('node_modules'))
 
   console.log('\n=== 1) Chunk shape ===\n')
-  console.log(`Modules inside NeXT chunk: ${keys.size}`)
+  console.log(`Modules inside nxt chunk: ${keys.size}`)
   console.log(`Modules expected from HOST app.js: ${hostOnly.length}`)
   console.log(`  DWC APIs: ${dwcApi.filter((p) => hostOnly.includes(p)).length}/3`)
   console.log(`  Vue/Vuetify/loader: ${vueVuetify.length}`)
-  console.log(`Entry: ${keys.has('./src/plugins/NeXT/index.js') ? 'index.js → index-ts.ts' : 'MISSING index.js'}`)
+  console.log(`Entry: ${keys.has('./src/plugins/nxt/index.js') ? 'index.js → index-ts.ts' : 'MISSING index.js'}`)
 
   const appFile = resolveAppJs(appArg)
   let exitCode = 0
@@ -156,7 +156,7 @@ function main() {
     console.log('\n=== 2) Host app.js compatibility ===\n')
     console.log(`File: ${appFile}`)
     console.log(`pluginBeingLoaded patch: ${hostInfo.hasPluginPatch ? 'yes' : 'NO'}`)
-    console.log(`NeXT baked into app chunk map: ${hostInfo.hasNextInMap ? 'yes (from a combined plugin+DWC build)' : 'no (stock DWC)'}`)
+    console.log(`nxt baked into app chunk map: ${hostInfo.hasNextInMap ? 'yes (from a combined plugin+DWC build)' : 'no (stock DWC)'}`)
     console.log(`Host provides all ${hostOnly.length} required modules: ${missing.length === 0 ? 'yes' : 'NO'}`)
 
     if (missing.length > 0) {
@@ -165,9 +165,9 @@ function main() {
       exitCode = 2
     }
 
-    const dwcFiles = zipJsName ? [zipJsName] : ['js/NeXT.<hash>.js']
-    const urlSim = simulateChunkUrl(appJs, 'NeXT', dwcFiles)
-    console.log('\n=== 3) How DWC resolves the NeXT script URL ===\n')
+    const dwcFiles = zipJsName ? [zipJsName] : ['js/nxt.<hash>.js']
+    const urlSim = simulateChunkUrl(appJs, 'nxt', dwcFiles)
+    console.log('\n=== 3) How DWC resolves the nxt script URL ===\n')
     console.log(`Mode: ${urlSim.mode}`)
     console.log(`Resolved URL: ${urlSim.url ?? '(none)'}`)
     if (urlSim.risk) {
@@ -175,7 +175,7 @@ function main() {
       exitCode = 2
     }
 
-    const badUrl = simulateChunkUrl(appJs, 'NeXT', [])
+    const badUrl = simulateChunkUrl(appJs, 'nxt', [])
     if (badUrl.url && badUrl.url.includes('undefined')) {
       console.log('\nIf plugin.dwcFiles is empty when loading:')
       console.log(`  webpack would request: ${badUrl.url}`)
@@ -188,20 +188,20 @@ function main() {
 
   console.log('\n=== 4) Load sequence (what actually runs) ===\n')
   console.log(`1. Settings → Start sets window.pluginBeingLoaded = plugin manifest`)
-  console.log(`2. __webpack_require__.e("NeXT") fetches JS (must match dwcFiles, not a stale hash)`)
+  console.log(`2. __webpack_require__.e("nxt") fetches JS (must match dwcFiles, not a stale hash)`)
   console.log(`3. Chunk runs; first host requires: ${hostOnly.slice(0, 3).join(', ')}…`)
-  console.log(`4. __webpack_require__("./src/plugins/NeXT/index.js") must find module in chunk`)
+  console.log(`4. __webpack_require__("./src/plugins/nxt/index.js") must find module in chunk`)
 
   console.log('\n=== 5) Common causes of .call undefined ===\n')
   if (pluginDwcVersion) {
     console.log(`ZIP dwcVersion: ${pluginDwcVersion} — host must match exactly (not just same major.minor)`)
   }
   console.log('A) Host app.js mismatch — ZIP built on one DWC patch, printer serves another (e.g. 3.6.2 vs 3.7.x)')
-  console.log('B) dwcFiles empty / wrong — plugin object missing js/NeXT.*.js → js/NeXT.undefined.js')
-  console.log('C) NeXT.*.js 404 — hash in dwcFiles does not exist under www (reinstall ZIP)')
-  console.log('D) Stale browser cache — old app.*.js + new NeXT.*.js')
+  console.log('B) dwcFiles empty / wrong — plugin object missing js/nxt.*.js → js/nxt.undefined.js')
+  console.log('C) nxt.*.js 404 — hash in dwcFiles does not exist under www (reinstall ZIP)')
+  console.log('D) Stale browser cache — old app.*.js + new nxt.*.js')
   console.log('E) npm run dev — external ZIP cannot load; use ./dist/setup-dwc-dev-symlink.sh')
-  console.log('F) Start before install — enabling NeXT without machine plugin entry (different error usually)')
+  console.log('F) Start before install — enabling nxt without machine plugin entry (different error usually)')
 
   console.log('\n--- All host dependencies ---')
   hostOnly.forEach((p) => console.log(`  ${p}`))

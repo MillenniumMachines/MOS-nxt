@@ -1,8 +1,8 @@
 /**
  * Override Components Registration
  * 
- * Central entry point for registering all UI overrides within NeXT.
- * This enables NeXT to customize the default DWC user interface.
+ * Central entry point for registering all UI overrides within nxt.
+ * This enables nxt to customize the default DWC user interface.
  */
 
 import Vue from 'vue'
@@ -18,5 +18,5 @@ import './routes'
 // This replaces DWC's built-in MessageBoxDialog with our custom version
 Vue.component('message-box-dialog', MessageBoxDialog)
 
-console.log('NeXT UI: Override components loaded (dialog, panels, and routes)')
-console.log('NeXT UI: MessageBoxDialog override registered - persistent dialogs enabled')
+console.log('nxt UI: Override components loaded (dialog, panels, and routes)')
+console.log('nxt UI: MessageBoxDialog override registered - persistent dialogs enabled')

@@ -1,6 +1,6 @@
 <template>
   <!-- Custom MessageBoxDialog that provides conditional rendering -->
-  <!-- When NeXT UI is ready, render nothing (persistent display handled by ActionConfirmationWidget) -->
+  <!-- When nxt UI is ready, render nothing (persistent display handled by ActionConfirmationWidget) -->
   <!-- Otherwise, fall back to standard modal dialog -->
   <div v-if="shouldShowModal">
     <!-- Standard modal dialog fallback -->
@@ -40,10 +40,10 @@ import Vue from 'vue'
 import { readFirmwareGlobal } from '../../utils/nxtToolChangerOm'
 
 /**
- * NeXT MessageBoxDialog Override
+ * nxt MessageBoxDialog Override
  *
- * When NeXT firmware has booted (`nxtLoaded`), non-critical M291 traffic can stay off the
- * blocking modal (persistent UI handles it). If NeXT globals are not loaded, or the message
+ * When nxt firmware has booted (`nxtLoaded`), non-critical M291 traffic can stay off the
+ * blocking modal (persistent UI handles it). If nxt globals are not loaded, or the message
  * looks critical, show the standard modal.
  */
 export default Vue.extend({
@@ -64,7 +64,7 @@ export default Vue.extend({
       return !!(this.messageBox && this.messageBox.message)
     },
 
-    /** NeXT macros/vars loaded and boot succeeded — safe to defer non-critical dialogs. */
+    /** nxt macros/vars loaded and boot succeeded — safe to defer non-critical dialogs. */
     nxtFirmwareReady(): boolean {
       const g = this.$store.state.machine.model.global
       const v = readFirmwareGlobal(g, 'nxtLoaded')
@@ -74,7 +74,7 @@ export default Vue.extend({
     /**
      * Determine if we should show the modal dialog
      * Show modal when:
-     * - NeXT firmware is not in a loaded state (fallback)
+     * - nxt firmware is not in a loaded state (fallback)
      * - Message is marked as critical
      * - Message contains specific critical keywords
      */
@@ -152,15 +152,15 @@ export default Vue.extend({
       try {
         // Send M292 response to the message box
         await this.$store.dispatch('machine/sendCode', `M292 P${buttonIndex}`)
-        console.log(`NeXT UI: MessageBoxDialog response sent: ${buttonIndex}`)
+        console.log(`nxt UI: MessageBoxDialog response sent: ${buttonIndex}`)
       } catch (error) {
-        console.error('NeXT UI: Failed to send dialog response:', error)
+        console.error('nxt UI: Failed to send dialog response:', error)
       }
     }
   },
 
   mounted() {
-    console.log('NeXT UI: MessageBoxDialog override loaded')
+    console.log('nxt UI: MessageBoxDialog override loaded')
   }
 })
 </script>

@@ -1,5 +1,5 @@
 /**
- * Global panel tags for NeXT.vue and shared widgets only.
+ * Global panel tags for nxt.vue and shared widgets only.
  *
  * Route-only panels (Stock prep, Tool library, etc.) are NOT imported here so they
  * do not run at plugin startup — they load when their route is registered via dynamic import.

@@ -7,7 +7,7 @@ while { exists(global.nxtDaemonEnabled) && global.nxtDaemonEnabled }
         M98 P"arborctl/arborctl-daemon.g" ; Control spindle using ArborCTL
 
     if { fileexists("0:/sys/nxt/nxt-daemon.g") }
-        M98 P"nxt/nxt-daemon.g" ; NeXT specific daemon tasks
+        M98 P"nxt/nxt-daemon.g" ; nxt specific daemon tasks
 
     if { fileexists("0:/sys/user-daemon.g") }
         M98 P"user-daemon.g"

@@ -1,4 +1,4 @@
-; homez.g — NeXT platform v1.5 (Milo v1.5)
+; homez.g — nxt platform v1.5 (Milo v1.5)
 ; Requirements: see docs/NXT_BOARD_HOMING.md (v1.5 — Z toward max, G92 at top)
 
 ; homez.g - Homes Z.

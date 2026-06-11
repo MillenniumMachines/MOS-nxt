@@ -1,4 +1,4 @@
-; homex.g — NeXT platform v1.6_v2 (Milo v1.6 / v2.0)
+; homex.g — nxt platform v1.6_v2 (Milo v1.6 / v2.0)
 ; Requirements: see docs/NXT_BOARD_HOMING.md (v1.6_v2 — X toward min)
 
 ; homex.g - Lifts Z, then homes X using existing machine limits.

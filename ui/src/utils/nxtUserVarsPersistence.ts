@@ -1,5 +1,5 @@
 /**
- * NeXT Configuration panel — nxt-user-vars.g persistence helpers.
+ * nxt Configuration panel — nxt-user-vars.g persistence helpers.
  */
 import { readFirmwareGlobal } from './nxtToolChangerOm'
 
@@ -343,7 +343,7 @@ function formatPersistedString(value: string | null | undefined): string {
 
 export function buildNxtUserVarsGcode(config: NxtUserConfigDraft): string {
   const lines = [
-    '; NeXT User Configuration',
+    '; nxt User Configuration',
     '; Auto-generated - Do not edit manually',
     '; Last updated: ' + new Date().toISOString(),
     '',

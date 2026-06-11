@@ -1,6 +1,6 @@
 ; nxt-user-pinmap.g — optional; copy to 0:/sys/nxt-user-pinmap.g if used
 ; Load from config.g AFTER board kit / nxt.g if you add runtime M950 overrides here.
-; The NeXT Configuration panel may generate this file in a future release.
+; The nxt Configuration panel may generate this file in a future release.
 
 ; Example:
 ; M950 P0 C"pin+name" Q500

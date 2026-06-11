@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# NeXT %%NXT_VERSION%% Postprocessor for FreeCAD.
+# nxt %%NXT_VERSION%% Postprocessor for FreeCAD.
 #
 # Copyright (C)2022-2024 Millennium Machines
 #
@@ -122,8 +122,8 @@ class Control(Flag):
     NONZERO = auto()
 
 # User-configurable arguments.
-parser = argparse.ArgumentParser(prog="NeXT {}".format(RELEASE.VERSION),
-    description="NeXT {} Post Processor for FreeCAD".format(RELEASE.VERSION))
+parser = argparse.ArgumentParser(prog="nxt {}".format(RELEASE.VERSION),
+    description="nxt {} Post Processor for FreeCAD".format(RELEASE.VERSION))
 
 parser.add_argument('--show-editor', action=argparse.BooleanOptionalAction, default=True,
     help="Show gcode in FreeCAD Editor before saving to file.")
@@ -160,15 +160,15 @@ parser.add_argument('--allow-zero-rpm', action=argparse.BooleanOptionalAction, d
 parser.add_argument('--version-check', action=argparse.BooleanOptionalAction, default=True,
     help="""
     When enabled, the post-processor will output a version check command
-    to make sure the post-processor version and NeXT version installed
+    to make sure the post-processor version and nxt version installed
     in RRF match.
     """)
 probe_mode = parser.add_mutually_exclusive_group(required=False)
 probe_mode.add_argument('--probe-at-start', dest='probe_mode', action='store_const', const=PROBE.AT_START, default=PROBE.ON_CHANGE,
-    help="When enabled, NeXT will probe a work-piece in each used WCS prior to executing any operations.")
+    help="When enabled, nxt will probe a work-piece in each used WCS prior to executing any operations.")
 
 probe_mode.add_argument('--probe-on-change', dest='probe_mode', action='store_const', const=PROBE.ON_CHANGE,
-    help="When enabled, NeXT will probe a work-piece just prior to switching into each used WCS.")
+    help="When enabled, nxt will probe a work-piece just prior to switching into each used WCS.")
 
 probe_mode.add_argument('--no-probe', dest='probe_mode', action='store_const', const=PROBE.NONE)
 
@@ -503,7 +503,7 @@ class PostProcessor:
         out.extend(getattr(self, Section.POST))
         return '\n'.join(out)
 
-class NeXTPostProcessor(PostProcessor):
+class NxtPostProcessor(PostProcessor):
     _RAPID_MOVES           = [0]
     _LINEAR_MOVES          = [0, 1]
     _ARC_MOVES             = [2, 3]
@@ -550,7 +550,7 @@ class NeXTPostProcessor(PostProcessor):
     _T   = Output(fmt=FORMATS.CMD, prefix='T', ctrl=Control.FORCE)
 
     def __init__(self, args={}):
-        post_name = "NeXT {}".format(RELEASE.VERSION)
+        post_name = "nxt {}".format(RELEASE.VERSION)
 
         super().__init__(post_name, vendor=RELEASE.VENDOR, args=args)
         self._MOVES           = self._LINEAR_MOVES + self._ARC_MOVES + self._CANNED_CYCLES
@@ -805,7 +805,7 @@ class NeXTPostProcessor(PostProcessor):
         # Some FreeCAD operations will output a Z
         # move to the clearance height at the start of the operation
         # rather than moving to XY first and then down to the clearance
-        # height. NeXT enforces a parking location after
+        # height. nxt enforces a parking location after
         # tool-changes so it is safe for us to move in the XY plane
         # first and then down to the clearance height, and this stops
         # us from scaring the operator by moving the tool downwards over
@@ -914,7 +914,7 @@ class NeXTPostProcessor(PostProcessor):
             self.comment("Begin preamble")
 
             self.brk()
-            self.comment("Check NeXT version matches post-processor version")
+            self.comment("Check nxt version matches post-processor version")
             self.M(MCODES.VERSION_CHECK, V=RELEASE.VERSION, ctrl=Control.FORCE)
 
             # Parsing must be completed to enumerate all tools.
@@ -986,7 +986,7 @@ def export(objectslist, _, argstring):
         sys.exit(1)
 
     # Instantiate the Milo post-processor
-    pp = NeXTPostProcessor(args=args)
+    pp = NxtPostProcessor(args=args)
 
     pp.parse(objectslist)
 

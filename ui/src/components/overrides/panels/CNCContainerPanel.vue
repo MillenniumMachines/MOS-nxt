@@ -14,7 +14,7 @@
 									<tbody>
 										<!-- Workplace (WCS) -->
 										<tr>
-											<td><strong>{{ $t("plugins.next.panels.status.workplace") }}</strong></td>
+											<td><strong>{{ $t("plugins.nxt.panels.status.workplace") }}</strong></td>
 											<td align="right">
 												<v-tooltip top>
 													<template v-slot:activator="{ on, attrs }">
@@ -30,23 +30,23 @@
 
 										<!-- Current Tool (always shown) -->
 										<tr>
-											<td><strong>{{ $t("plugins.next.panels.status.tool") }}</strong></td>
+											<td><strong>{{ $t("plugins.nxt.panels.status.tool") }}</strong></td>
 											<td align="right">
 												<v-tooltip top>
 													<template v-slot:activator="{ on, attrs }">
 														<v-chip v-bind="attrs" v-on="on" label outlined small class="status-chip">
-															<span class="pill-text">{{ toolNameShort || $t('plugins.next.panels.status.none') }}</span>
+															<span class="pill-text">{{ toolNameShort || $t('plugins.nxt.panels.status.none') }}</span>
 															<v-avatar right rounded :color="toolNumber !== null ? 'green' : 'grey'" class="ma-0">{{ toolNumber !== null ? toolNumber : '—' }}</v-avatar>
 														</v-chip>
 													</template>
-													<span>{{ toolName || $t('plugins.next.panels.status.none') }}</span>
+													<span>{{ toolName || $t('plugins.nxt.panels.status.none') }}</span>
 												</v-tooltip>
 											</td>
 										</tr>
 
 										<!-- Tool Radius -->
 										<tr v-if="toolRadius !== null">
-											<td><strong>{{ $t("plugins.next.panels.status.toolRadius") }}</strong></td>
+											<td><strong>{{ $t("plugins.nxt.panels.status.toolRadius") }}</strong></td>
 											<td align="right">
 												<v-chip label outlined small class="status-chip">
 													<span class="pill-text">{{ $display(toolRadius, 3, "mm") }}</span>
@@ -57,7 +57,7 @@
 
 										<!-- Tool Offset (Z) -->
 										<tr v-if="toolOffset !== null">
-											<td><strong>{{ $t("plugins.next.panels.status.toolOffset") }}</strong></td>
+											<td><strong>{{ $t("plugins.nxt.panels.status.toolOffset") }}</strong></td>
 											<td align="right">
 												<v-chip label outlined small class="status-chip">
 													<span class="pill-text">{{ $display(toolOffset, 3, "mm") }}</span>
@@ -68,7 +68,7 @@
 
 										<!-- Tool Role -->
 										<tr v-if="loadedTool.role !== 'none'">
-											<td><strong>{{ $t("plugins.next.panels.status.toolRole") }}</strong></td>
+											<td><strong>{{ $t("plugins.nxt.panels.status.toolRole") }}</strong></td>
 											<td align="right">
 												<v-chip x-small :color="loadedToolRoleColor" text-color="white" label>
 													{{ loadedToolRoleText }}
@@ -78,7 +78,7 @@
 
 										<!-- Tool Flutes -->
 										<tr v-if="loadedTool.fluteCount !== null">
-											<td><strong>{{ $t("plugins.next.panels.status.toolFlutes") }}</strong></td>
+											<td><strong>{{ $t("plugins.nxt.panels.status.toolFlutes") }}</strong></td>
 											<td align="right">
 												<v-chip label outlined small class="status-chip">
 													<span class="pill-text">{{ loadedTool.fluteCount }}</span>
@@ -89,7 +89,7 @@
 
 										<!-- Tool Flute Length -->
 										<tr v-if="loadedTool.fluteLengthMm !== null">
-											<td><strong>{{ $t("plugins.next.panels.status.toolFluteLength") }}</strong></td>
+											<td><strong>{{ $t("plugins.nxt.panels.status.toolFluteLength") }}</strong></td>
 											<td align="right">
 												<v-chip label outlined small class="status-chip">
 													<span class="pill-text">{{ $display(loadedTool.fluteLengthMm, 3, "mm") }}</span>
@@ -100,7 +100,7 @@
 
 										<!-- Spindle Status -->
 										<tr v-if="activeSpindle !== null">
-											<td><strong>{{ $t("plugins.next.panels.status.spindle") }}</strong></td>
+											<td><strong>{{ $t("plugins.nxt.panels.status.spindle") }}</strong></td>
 											<td align="right">
 												<v-chip label outlined small class="status-chip">
 													<span class="pill-text">{{ spindleStateText }}</span>
@@ -113,7 +113,7 @@
 
 										<!-- Spindle RPM (when running) -->
 										<tr v-if="activeSpindle !== null && spindleRPM !== null">
-											<td><strong>{{ $t("plugins.next.panels.status.spindleRPM") }}</strong></td>
+											<td><strong>{{ $t("plugins.nxt.panels.status.spindleRPM") }}</strong></td>
 											<td align="right">
 												<v-chip label outlined small class="status-chip">
 													<span class="pill-text">{{ spindleRPM }} RPM</span>
@@ -124,7 +124,7 @@
 
 										<!-- Touch Probe -->
 										<tr>
-											<td><strong>{{ $t("plugins.next.panels.status.touchProbe") }}</strong></td>
+											<td><strong>{{ $t("plugins.nxt.panels.status.touchProbe") }}</strong></td>
 											<td align="right">
 												<v-chip label outlined small class="status-chip">
 													<span class="pill-text">{{ touchProbeStatusText }}</span>
@@ -137,7 +137,7 @@
 
 										<!-- Tool Setter -->
 										<tr>
-											<td><strong>{{ $t("plugins.next.panels.status.toolsetter") }}</strong></td>
+											<td><strong>{{ $t("plugins.nxt.panels.status.toolsetter") }}</strong></td>
 											<td align="right">
 												<v-chip label outlined small class="status-chip">
 													<span class="pill-text">{{ toolsetterStatusText }}</span>
@@ -150,7 +150,7 @@
 
 										<!-- Rotation Compensation (when active) -->
 										<tr v-if="rotationCompensation !== 0">
-											<td><strong>{{ $t("plugins.next.panels.status.rotation") }}</strong></td>
+											<td><strong>{{ $t("plugins.nxt.panels.status.rotation") }}</strong></td>
 											<td align="right">
 												<v-chip label outlined small class="status-chip">
 													<span class="pill-text">{{ $display(rotationCompensation, 3, "°") }}</span>
@@ -167,7 +167,7 @@
 						<template v-else>
 							<v-alert type="info" dense text>
 								<v-icon left>mdi-lan-disconnect</v-icon>
-								{{ $t("plugins.next.panels.status.disconnected") }}
+								{{ $t("plugins.nxt.panels.status.disconnected") }}
 							</v-alert>
 						</template>
 					</v-card-text>
@@ -208,7 +208,7 @@
 							<v-card-text v-else>
 								<v-alert type="info" dense text>
 									<v-icon left>mdi-lan-disconnect</v-icon>
-									{{ $t('plugins.next.panels.status.disconnected') }}
+									{{ $t('plugins.nxt.panels.status.disconnected') }}
 								</v-alert>
 							</v-card-text>
 						</v-card>
@@ -295,9 +295,9 @@ export default BaseComponent.extend({
 
 		currentWorkplaceTooltip(): string {
 			const translations = {
-				[WorkplaceSet.ALL]: 'plugins.next.panels.status.workplaceValid',
-				[WorkplaceSet.SOME]: 'plugins.next.panels.status.workplacePartial',
-				[WorkplaceSet.NONE]: 'plugins.next.panels.status.workplaceInvalid'
+				[WorkplaceSet.ALL]: 'plugins.nxt.panels.status.workplaceValid',
+				[WorkplaceSet.SOME]: 'plugins.nxt.panels.status.workplacePartial',
+				[WorkplaceSet.NONE]: 'plugins.nxt.panels.status.workplaceInvalid'
 			};
 			const valid = this.currentWorkplaceValid as any as WorkplaceSet;
 			const gcode = this.currentWorkplaceGCode as any as string;
@@ -335,12 +335,12 @@ export default BaseComponent.extend({
 		loadedToolRoleText(): string {
 			const role = this.loadedTool.role;
 			if (role === 'probe') {
-				return (this as any).$t('plugins.next.panels.toolManagement.statusProbe').toString();
+				return (this as any).$t('plugins.nxt.panels.toolManagement.statusProbe').toString();
 			}
 			if (role === 'spindle') {
-				return (this as any).$t('plugins.next.panels.toolManagement.statusInSpindle').toString();
+				return (this as any).$t('plugins.nxt.panels.toolManagement.statusInSpindle').toString();
 			}
-			return (this as any).$t('plugins.next.panels.status.none').toString();
+			return (this as any).$t('plugins.nxt.panels.status.none').toString();
 		},
 
 		loadedToolRoleColor(): string {
@@ -381,13 +381,13 @@ export default BaseComponent.extend({
 			
 			switch (spindle.state) {
 				case SpindleState.forward:
-					return (this as any).$t('plugins.next.panels.status.spindleForward').toString();
+					return (this as any).$t('plugins.nxt.panels.status.spindleForward').toString();
 				case SpindleState.reverse:
-					return (this as any).$t('plugins.next.panels.status.spindleReverse').toString();
+					return (this as any).$t('plugins.nxt.panels.status.spindleReverse').toString();
 				case SpindleState.stopped:
-					return (this as any).$t('plugins.next.panels.status.spindleStopped').toString();
+					return (this as any).$t('plugins.nxt.panels.status.spindleStopped').toString();
 				default:
-					return (this as any).$t('plugins.next.panels.status.spindleUnconfigured').toString();
+					return (this as any).$t('plugins.nxt.panels.status.spindleUnconfigured').toString();
 			}
 		},
 
@@ -481,7 +481,7 @@ export default BaseComponent.extend({
 
 		// Touch probe status (always shown)
 		touchProbeStatusText(): string {
-			if (!this.touchProbeEnabled || this.touchProbe === null) return (this as any).$t('plugins.next.panels.status.disabled').toString();
+			if (!this.touchProbeEnabled || this.touchProbe === null) return (this as any).$t('plugins.nxt.panels.status.disabled').toString();
 			return (this as any).probeText(this.touchProbe as Probe);
 		},
 		touchProbeStatusColor(): string {
@@ -495,7 +495,7 @@ export default BaseComponent.extend({
 
 		// Toolsetter status (always shown)
 		toolsetterStatusText(): string {
-			if (!this.toolsetterEnabled || this.toolsetter === null) return (this as any).$t('plugins.next.panels.status.disabled').toString();
+			if (!this.toolsetterEnabled || this.toolsetter === null) return (this as any).$t('plugins.nxt.panels.status.disabled').toString();
 			return (this as any).probeText(this.toolsetter as Probe);
 		},
 		toolsetterStatusColor(): string {
@@ -515,8 +515,8 @@ export default BaseComponent.extend({
 
 		probeText(probe: Probe): string {
 			const key = (probe.value[0] >= probe.threshold) ? 
-				'plugins.next.panels.status.probeTriggered' : 
-				'plugins.next.panels.status.probeNotTriggered';
+				'plugins.nxt.panels.status.probeTriggered' : 
+				'plugins.nxt.panels.status.probeNotTriggered';
 			return (this as any).$t(key, [probe.value[0]]).toString();
 		},
 

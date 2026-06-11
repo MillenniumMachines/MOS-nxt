@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Symlink NeXT/ui into DuetWebControl for dwc dev / built-in plugin load.
+# Symlink MOS-nxt/ui into DuetWebControl for dwc dev / built-in plugin load.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DWC="${1:-${ROOT}/../DuetWebControl}"
-LINK="${DWC}/src/plugins/NeXT"
+LINK="${DWC}/src/plugins/nxt"
 TARGET="${ROOT}/ui"
 
 if [[ ! -d "${DWC}/src/plugins" ]]; then

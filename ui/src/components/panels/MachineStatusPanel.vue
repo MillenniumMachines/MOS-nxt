@@ -2,27 +2,27 @@
   <v-card>
     <v-card-title>
       <v-icon left>mdi-information-outline</v-icon>
-      {{ $t('plugins.next.panels.status.caption') }}
+      {{ $t('plugins.nxt.panels.status.caption') }}
       <v-spacer />
       <div v-if="!isConnected || !nxtReady" class="d-flex align-center">
         <v-icon small class="mr-2" color="warning">{{ !isConnected ? 'mdi-lan-disconnect' : 'mdi-alert-circle-outline' }}</v-icon>
         <span class="text-caption">{{
-          !isConnected ? $t('plugins.next.messages.disconnectedShort') : $t('plugins.next.messages.notReadyShort')
+          !isConnected ? $t('plugins.nxt.messages.disconnectedShort') : $t('plugins.nxt.messages.notReadyShort')
         }}</span>
       </div>
     </v-card-title>
     
     <v-card-text>
       <v-row>
-        <!-- NeXT System Status -->
+        <!-- nxt System Status -->
         <v-col cols="12" md="6">
           <v-card outlined>
-            <v-card-subtitle>NeXT System</v-card-subtitle>
+            <v-card-subtitle>nxt System</v-card-subtitle>
             <v-card-text>
               <v-list dense>
                 <v-list-item>
                   <v-list-item-content>
-                    <v-list-item-title>NeXT loaded (firmware)</v-list-item-title>
+                    <v-list-item-title>nxt loaded (firmware)</v-list-item-title>
                     <v-list-item-subtitle class="text-caption">
                       <code>global.nxtLoaded</code> true after successful boot
                     </v-list-item-subtitle>
@@ -95,7 +95,7 @@
         <!-- Feature Status -->
         <v-col cols="12">
           <v-card outlined>
-            <v-card-subtitle>NeXT Features</v-card-subtitle>
+            <v-card-subtitle>nxt Features</v-card-subtitle>
             <v-card-text>
               <v-row>
                 <v-col cols="6" sm="4">
@@ -163,9 +163,9 @@ import { isRgbLightHardwareConfigured, readOmLedsFromMachineModel } from '../../
 import store from '@/store'
 
 /**
- * NeXT Machine Status Panel
+ * nxt Machine Status Panel
  * 
- * Displays detailed machine and NeXT system status information
+ * Displays detailed machine and nxt system status information
  */
 export default BaseComponent.extend({
   name: 'NxtMachineStatusPanel',

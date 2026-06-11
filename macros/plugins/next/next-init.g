@@ -1,5 +1,5 @@
 ; next-init.g
-; One-time boot/session initialization for the built-in NeXT plugin.
+; One-time boot/session initialization for the built-in nxt plugin.
 
 echo "[nxt-plugin:next] init"
 if { exists(global.nxtPlatformProfile) && global.nxtPlatformProfile != null }

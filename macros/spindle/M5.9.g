@@ -24,7 +24,7 @@ while { iterations < #spindles && !var.doWait }
 
     set var.doWait = { spindles[iterations].current != 0 }
     ; In case M5.9 should stop a spindle that _isnt_ the one
-    ; configured in NeXT. We'll calculate the delay time based
+    ; configured in nxt. We'll calculate the delay time based
     ; on the spindle that is actually running.
     set var.spindleID = { iterations }
 

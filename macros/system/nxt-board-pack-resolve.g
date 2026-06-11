@@ -8,8 +8,8 @@ if { exists(global.nxtBoardShortNameOverride) && global.nxtBoardShortNameOverrid
 elif { #boards >= 1 }
     set var.brd = boards[0].shortName
 else
-    echo "[NeXT] board pack resolve: no boards[] and no nxtBoardShortNameOverride"
-    M117 "NeXT board pack no board id"
+    echo "[nxt] board pack resolve: no boards[] and no nxtBoardShortNameOverride"
+    M117 "nxt board pack no board id"
     M99
 
 set global.nxtBoardPackShortName = var.brd
@@ -18,7 +18,7 @@ var volt = null
 if { exists(global.nxtBoardMotorVoltage) && global.nxtBoardMotorVoltage != null }
     set var.volt = global.nxtBoardMotorVoltage
 elif { exists(global.nxtScyllaMotorVoltage) && global.nxtScyllaMotorVoltage != null }
-    echo "[NeXT] board pack: nxtScyllaMotorVoltage is deprecated — use nxtBoardMotorVoltage"
+    echo "[nxt] board pack: nxtScyllaMotorVoltage is deprecated — use nxtBoardMotorVoltage"
     set var.volt = global.nxtScyllaMotorVoltage
 
 var base = "nxt-config/board/" ^ var.brd
@@ -35,31 +35,31 @@ elif { var.volt == 24 && fileexists("0:/sys/" ^ var.base ^ "/motor-24v/entry.g")
 elif { fileexists("0:/sys/" ^ var.base ^ "/entry.g") }
     set var.entry = var.base ^ "/entry.g"
 elif { fileexists("0:/sys/" ^ var.base ^ "/motor-24v/entry.g") || fileexists("0:/sys/" ^ var.base ^ "/motor-48v/entry.g") }
-    echo "[NeXT] board pack: motor variant requires nxtBoardMotorVoltage = 24 or 48"
-    M117 "NeXT board motor V missing"
+    echo "[nxt] board pack: motor variant requires nxtBoardMotorVoltage = 24 or 48"
+    M117 "nxt board motor V missing"
     M99
 
 if { var.entry == "" && var.legacyBase != "" }
     if { var.volt == 48 && fileexists("0:/sys/" ^ var.legacyBase ^ "/motor-48v/entry.g") }
         set var.entry = var.legacyBase ^ "/motor-48v/entry.g"
-        echo "[NeXT] board pack: legacy path " ^ var.entry
+        echo "[nxt] board pack: legacy path " ^ var.entry
     elif { var.volt == 24 && fileexists("0:/sys/" ^ var.legacyBase ^ "/motor-24v/entry.g") }
         set var.entry = var.legacyBase ^ "/motor-24v/entry.g"
-        echo "[NeXT] board pack: legacy path " ^ var.entry
+        echo "[nxt] board pack: legacy path " ^ var.entry
     elif { fileexists("0:/sys/" ^ var.legacyBase ^ "/entry.g") }
         set var.entry = var.legacyBase ^ "/entry.g"
-        echo "[NeXT] board pack: legacy path " ^ var.entry
+        echo "[nxt] board pack: legacy path " ^ var.entry
 
 if { var.entry == "" }
-    echo "[NeXT] board pack: no entry under " ^ var.base
-    M117 "NeXT board pack not found"
+    echo "[nxt] board pack: no entry under " ^ var.base
+    M117 "nxt board pack not found"
     M99
 
 if { exists(global.nxtBoardPackExpectedEntry) && global.nxtBoardPackExpectedEntry != null && global.nxtBoardPackExpectedEntry != "" && var.entry != global.nxtBoardPackExpectedEntry }
-    echo "[NeXT] board pack: resolved " ^ var.entry ^ " expected " ^ global.nxtBoardPackExpectedEntry
+    echo "[nxt] board pack: resolved " ^ var.entry ^ " expected " ^ global.nxtBoardPackExpectedEntry
 
 set global.nxtBoardPackEntry = var.entry
-M117 "NeXT board pack load"
+M117 "nxt board pack load"
 M98 P{var.entry}
-echo "[NeXT] board pack: loaded " ^ global.nxtBoardPackEntry
+echo "[nxt] board pack: loaded " ^ global.nxtBoardPackEntry
 M99

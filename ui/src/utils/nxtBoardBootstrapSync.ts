@@ -16,7 +16,7 @@ export async function syncBoardBootstrapSentinels(mode: 'auto' | 'off'): Promise
       try {
         await deleteDwcFile(NXT_BOARD_BOOTSTRAP_SKIP)
       } catch (e) {
-        console.warn('NeXT: could not remove nxt-board-bootstrap.skip', e)
+        console.warn('nxt: could not remove nxt-board-bootstrap.skip', e)
       }
     }
     return
@@ -25,7 +25,7 @@ export async function syncBoardBootstrapSentinels(mode: 'auto' | 'off'): Promise
     try {
       await deleteDwcFile(NXT_BOARD_BOOTSTRAP_REQUESTED)
     } catch (e) {
-      console.warn('NeXT: could not remove nxt-board-bootstrap.requested', e)
+      console.warn('nxt: could not remove nxt-board-bootstrap.requested', e)
     }
   }
 }

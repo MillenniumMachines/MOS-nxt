@@ -35,7 +35,7 @@
 import BaseComponent from '../base/BaseComponent.vue'
 
 /**
- * NeXT Action Confirmation Widget
+ * nxt Action Confirmation Widget
  * 
  * Displays persistent dialog interface for M291 dialogs.
  * Intercepts M291 dialogs from the DWC object model and displays them
@@ -62,7 +62,7 @@ export default BaseComponent.extend({
     },
 
     dialogTitle(): string {
-      return this.activeMessageBox?.title || 'NeXT'
+      return this.activeMessageBox?.title || 'nxt'
     },
 
     dialogButtons(): string[] {
@@ -123,9 +123,9 @@ export default BaseComponent.extend({
         // M292 P<response> where response is the button index (0-based)
         await this.sendCode(`M292 P${buttonIndex}`)
         
-        console.log(`NeXT UI: M291 dialog response sent: ${buttonIndex}`)
+        console.log(`nxt UI: M291 dialog response sent: ${buttonIndex}`)
       } catch (error) {
-        console.error('NeXT UI: Failed to send M291 dialog response:', error)
+        console.error('nxt UI: Failed to send M291 dialog response:', error)
         this.$store.dispatch('machine/showMessage', {
           type: 'error',
           message: 'Failed to send dialog response'
@@ -141,7 +141,7 @@ export default BaseComponent.extend({
         // React to message box changes
         const messageBox = mutation.payload.messageBox
         if (messageBox !== undefined) {
-          console.log('NeXT UI: Message box state changed:', messageBox)
+          console.log('nxt UI: Message box state changed:', messageBox)
         }
       }
     })

@@ -1,4 +1,4 @@
-; homeall.g — NeXT platform v1.5 (Milo v1.5)
+; homeall.g — nxt platform v1.5 (Milo v1.5)
 ; Requirements: see docs/NXT_BOARD_HOMING.md (v1.5 — Z first, then X+Y)
 
 ; homeall.g - Homes Z, then homes X and Y together using existing machine limits.

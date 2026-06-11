@@ -1,6 +1,6 @@
-# NeXT Coding Style Guide
+# nxt Coding Style Guide
 
-This document outlines the coding conventions and style guidelines to be followed in the NeXT rewrite. Consistent coding style ensures readability, maintainability, and reduces errors in the codebase.
+This document outlines the coding conventions and style guidelines to be followed in the nxt rewrite. Consistent coding style ensures readability, maintainability, and reduces errors in the codebase.
 
 ---
 
@@ -138,7 +138,7 @@ var gcode = {"G0 X" ^ var.x ^ " Y" ^ var.y}
 
 ### 8.1 Canned drilling cycles (LinuxCNC-oriented)
 
-NeXT implements milling canned cycles as RRF macros under `macros/canned/`, aligned with [LinuxCNC G-code canned cycles](https://linuxcnc.org/docs/html/gcode/g-code.html#gcode:g73) for XY drilling with Z as the hole axis. **Not supported in v1:** G91 incremental hole patterns, `L` repeat, other planes (G18/G19), cutter compensation while cycling, or tapping cycles (`G84` / `G74` — RRF rigid tap is a separate workflow). **Deferred:** `G86` (spindle stop), `G76` (lathe), `G87`/`G88` (back-bore / manual out).
+nxt implements milling canned cycles as RRF macros under `macros/canned/`, aligned with [LinuxCNC G-code canned cycles](https://linuxcnc.org/docs/html/gcode/g-code.html#gcode:g73) for XY drilling with Z as the hole axis. **Not supported in v1:** G91 incremental hole patterns, `L` repeat, other planes (G18/G19), cutter compensation while cycling, or tapping cycles (`G84` / `G74` — RRF rigid tap is a separate workflow). **Deferred:** `G86` (spindle stop), `G76` (lathe), `G87`/`G88` (back-bore / manual out).
 
 **Modal state:** `global.nxtCannedCycle` (see `nxt-vars.g`) holds sticky `Z`, `R`, `Q`, `F`, series initial Z for G98, retract mode, and optional `P` (dwell). **`G80`** clears it. Switching cycle type (e.g. `G81` → `G83`) starts fresh parameters.
 
@@ -216,7 +216,7 @@ if { !move.axes[0].homed || !move.axes[1].homed || !move.axes[2].homed }
 ## 11. Documentation and File Organization
 
 - **Documentation Location Requirement:** All documentation MUST be placed in the `docs/` folder. Do not create documentation files (README.md, etc.) outside of the documentation folder.
-- **No README Files in NeXT Structure:** Do not create README files within the NeXT structure itself (e.g., in `ui/`, `macros/`, etc.). Component documentation is fine, but it needs to go in the `docs/` folder.
+- **No README Files in nxt Structure:** Do not create README files within the nxt structure itself (e.g., in `ui/`, `macros/`, etc.). Component documentation is fine, but it needs to go in the `docs/` folder.
 - **Preserve Legacy Documentation:** Be careful not to overwrite or delete any documentation that explains how the legacy MillenniumOS system worked.
 
 ---

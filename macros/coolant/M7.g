@@ -8,7 +8,7 @@ if { !inputs[state.thisInput].active }
     M99
 
 if { !global.nxtFeatureCoolantControl || global.nxtCoolantMistID == null }
-    echo { "NeXT: Coolant Control feature is disabled or not configured, cannot enable Mist Coolant." }
+    echo { "nxt: Coolant Control feature is disabled or not configured, cannot enable Mist Coolant." }
     M99
 
 ; Wait for all movement to stop before continuing.

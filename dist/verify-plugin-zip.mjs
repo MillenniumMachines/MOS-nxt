@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * Verify a NeXT plugin ZIP has the dwc layout needed to avoid 404 / empty dwcFiles issues.
+ * Verify a nxt plugin ZIP has the dwc layout needed to avoid 404 / empty dwcFiles issues.
  *
- * Usage: node dist/verify-plugin-zip.mjs [path-to-NeXT.zip]
+ * Usage: node dist/verify-plugin-zip.mjs [path-to-nxt.zip]
  */
 import fs from 'node:fs'
 import { execSync } from 'node:child_process'
@@ -22,17 +22,17 @@ function main() {
     .split(/\r?\n/)
     .filter(Boolean)
 
-  const dwcJs = listing.filter((n) => /^dwc\/js\/NeXT\.[a-f0-9]+\.js$/.test(n))
-  const dwcCss = listing.filter((n) => /^dwc\/css\/NeXT\.[a-f0-9]+\.css$/.test(n))
-  const badNested = listing.filter((n) => /^dwc\/NeXT\/(js|css)\/NeXT\.[a-f0-9]+\.(js|css)$/.test(n))
+  const dwcJs = listing.filter((n) => /^dwc\/js\/nxt\.[a-f0-9]+\.js$/.test(n))
+  const dwcCss = listing.filter((n) => /^dwc\/css\/nxt\.[a-f0-9]+\.css$/.test(n))
+  const badNested = listing.filter((n) => /^dwc\/nxt\/(js|css)\/nxt\.[a-f0-9]+\.(js|css)$/.test(n))
   const dwcExtra = listing.filter(
     (n) =>
       /^dwc\//.test(n) &&
-      !/^dwc\/js\/NeXT\.[a-f0-9]+\.js$/.test(n) &&
-      !/^dwc\/css\/NeXT\.[a-f0-9]+\.css$/.test(n)
+      !/^dwc\/js\/nxt\.[a-f0-9]+\.js$/.test(n) &&
+      !/^dwc\/css\/nxt\.[a-f0-9]+\.css$/.test(n)
   )
   if (badNested.length > 0) {
-    console.error('\nFAIL: dwc/NeXT/js nested layout — DSF installs to www/NeXT/NeXT/js (404 at /NeXT/js/)')
+    console.error('\nFAIL: dwc/nxt/js nested layout — DSF installs to www/nxt/nxt/js (404 at /nxt/js/)')
     console.error('  Run: node dist/fix-plugin-dwc-zip-layout.cjs', zipPath)
     ok = false
   }
@@ -45,7 +45,7 @@ function main() {
     process.exit(1)
   }
 
-  console.log('\n=== NeXT plugin ZIP verification ===\n')
+  console.log('\n=== nxt plugin ZIP verification ===\n')
   console.log(`ZIP: ${zipPath}`)
   console.log(`plugin.json id: ${pluginJson.id}`)
   console.log(`plugin.json dwcVersion: ${pluginJson.dwcVersion}`)
@@ -55,7 +55,7 @@ function main() {
 
   if (dwcJs.length !== 1) {
     console.error(
-      `\nFAIL: expected exactly one dwc/js/NeXT.<hash>.js, got: ${dwcJs.join(', ') || '(none)'}`
+      `\nFAIL: expected exactly one dwc/js/nxt.<hash>.js, got: ${dwcJs.join(', ') || '(none)'}`
     )
     ok = false
   } else {
@@ -64,7 +64,7 @@ function main() {
 
   if (dwcCss.length !== 1) {
     console.error(
-      `\nFAIL: expected exactly one dwc/css/NeXT.<hash>.css, got: ${dwcCss.join(', ') || '(none)'}`
+      `\nFAIL: expected exactly one dwc/css/nxt.<hash>.css, got: ${dwcCss.join(', ') || '(none)'}`
     )
     ok = false
   } else {
@@ -79,10 +79,10 @@ function main() {
   const jsRel = dwcJs[0]?.replace(/^dwc\//, '')
   const cssRel = dwcCss[0]?.replace(/^dwc\//, '')
 
-  const httpJs = jsRel ? `NeXT/${jsRel}` : 'NeXT/js/NeXT.<hash>.js'
-  const httpCss = cssRel ? `NeXT/${cssRel}` : 'NeXT/css/NeXT.<hash>.css'
+  const httpJs = jsRel ? `nxt/${jsRel}` : 'nxt/js/nxt.<hash>.js'
+  const httpCss = cssRel ? `nxt/${cssRel}` : 'nxt/css/nxt.<hash>.css'
 
-  console.log('\n=== After install on SBC (DSF → 0:/www/NeXT/) ===\n')
+  console.log('\n=== After install on SBC (DSF → 0:/www/nxt/) ===\n')
   console.log('ZIP entries (flat dwc/):')
   console.log(`  ${dwcJs[0] || '(missing js)'}`)
   console.log(`  ${dwcCss[0] || '(missing css)'}`)
@@ -96,7 +96,7 @@ function main() {
   console.log(`  GET /${httpJs}`)
   console.log(`  GET /${httpCss}`)
   console.log('\nObject model persistence:')
-  console.log('  0:/sys/dwc-plugins.json  →  plugins.NeXT.dwcFiles[]')
+  console.log('  0:/sys/dwc-plugins.json  →  plugins.nxt.dwcFiles[]')
 
   console.log('\n=== Version skew (exact DWC match) ===\n')
   const pinPath = path.join(__dirname, '..', 'ci', 'dwc-build-ref')

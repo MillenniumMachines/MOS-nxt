@@ -1,4 +1,4 @@
-; homez.g — NeXT platform v1.6_v2 (Milo v1.6 / v2.0)
+; homez.g — nxt platform v1.6_v2 (Milo v1.6 / v2.0)
 ; Requirements: see docs/NXT_BOARD_HOMING.md (v1.6_v2 — Z reversed drive, G92 at top)
 
 ; homez.g - Homes Z.
