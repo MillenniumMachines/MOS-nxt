@@ -9,3 +9,6 @@ dist/build-version.env
 dist/nxt*.cps
 dist/nxt*_post.py
 dist/milo-v1.5-std.mch
+
+# Local-only agent tooling (not part of the repository)
+ai-coding-cache/

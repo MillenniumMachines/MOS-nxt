@@ -1,0 +1,31 @@
+---
+description: Macro editing — read order and probe helpers (macros/ only)
+globs:
+  - macros/**/*.g
+  - macros/**/*.gcode
+alwaysApply: false
+---
+
+# Macro editing (nxt)
+
+## Before broad search
+
+1. `docs/GCODE.md` or root `GCODE.md` — find M/G code → macro file
+2. `rg` under `macros/` for the code or symbol name
+
+## Line length
+
+See [gcode-line-length.mdc](gcode-line-length.mdc). Run both checkers before done.
+
+## Probe tool helpers
+
+| Macro | Role |
+|-------|------|
+| `system/nxt-probe-tool-sync.g` | M4000 probe row |
+| `system/nxt-probe-tool-ready.g` | Select T + sensor active |
+| `system/nxt-probe-sensor-wait.g` | Sensor wait only |
+
+## Do not read
+
+- Full `docs/DETAILS.md` (legacy MOS)
+- Entire `G6512.g` unless editing probe core — use targeted `rg`
