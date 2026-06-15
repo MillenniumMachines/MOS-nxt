@@ -22,6 +22,10 @@ export type NxtUserConfigDraft = {
   nxtCoolantAirID: number | null
   nxtCoolantMistID: number | null
   nxtCoolantFloodID: number | null
+  nxtCoolantMistPulseEnabled: boolean
+  nxtCoolantFloodPulseEnabled: boolean
+  nxtCoolantPulseOnSec: number
+  nxtCoolantPulseOffSec: number
   nxtPlatformProfile: string | null
   nxtBoardShortNameOverride: string | null
   nxtBoardKitKey: string | null
@@ -50,6 +54,10 @@ export const NXT_USER_VARS_PERSISTED_KEYS = [
   'nxtCoolantAirID',
   'nxtCoolantMistID',
   'nxtCoolantFloodID',
+  'nxtCoolantMistPulseEnabled',
+  'nxtCoolantFloodPulseEnabled',
+  'nxtCoolantPulseOnSec',
+  'nxtCoolantPulseOffSec',
   'nxtPlatformProfile',
   'nxtBoardShortNameOverride',
   'nxtBoardKitKey',
@@ -133,6 +141,10 @@ export function emptyConfigDraft(): NxtUserConfigDraft {
     nxtCoolantAirID: null,
     nxtCoolantMistID: null,
     nxtCoolantFloodID: null,
+    nxtCoolantMistPulseEnabled: false,
+    nxtCoolantFloodPulseEnabled: false,
+    nxtCoolantPulseOnSec: 5,
+    nxtCoolantPulseOffSec: 25,
     nxtPlatformProfile: null,
     nxtBoardShortNameOverride: null,
     nxtBoardKitKey: null,
@@ -210,6 +222,16 @@ export function snapshotConfigFromOm(globalVal: unknown): NxtUserConfigDraft {
   draft.nxtCoolantAirID = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtCoolantAirID'))
   draft.nxtCoolantMistID = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtCoolantMistID'))
   draft.nxtCoolantFloodID = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtCoolantFloodID'))
+  draft.nxtCoolantMistPulseEnabled = readConfigBool(
+    readFirmwareGlobal(globalVal, 'nxtCoolantMistPulseEnabled')
+  )
+  draft.nxtCoolantFloodPulseEnabled = readConfigBool(
+    readFirmwareGlobal(globalVal, 'nxtCoolantFloodPulseEnabled')
+  )
+  const pulseOn = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtCoolantPulseOnSec'))
+  draft.nxtCoolantPulseOnSec = pulseOn !== null && pulseOn >= 1 ? pulseOn : 5
+  const pulseOff = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtCoolantPulseOffSec'))
+  draft.nxtCoolantPulseOffSec = pulseOff !== null && pulseOff >= 1 ? pulseOff : 25
   draft.nxtPlatformProfile = readConfigString(readFirmwareGlobal(globalVal, 'nxtPlatformProfile'))
   draft.nxtBoardShortNameOverride = readConfigString(readFirmwareGlobal(globalVal, 'nxtBoardShortNameOverride'))
   draft.nxtBoardKitKey = readConfigString(readFirmwareGlobal(globalVal, 'nxtBoardKitKey'))
@@ -379,6 +401,10 @@ export function buildNxtUserVarsGcode(config: NxtUserConfigDraft): string {
     `set global.nxtCoolantAirID = ${formatPersistedNumber(config.nxtCoolantAirID)}`,
     `set global.nxtCoolantMistID = ${formatPersistedNumber(config.nxtCoolantMistID)}`,
     `set global.nxtCoolantFloodID = ${formatPersistedNumber(config.nxtCoolantFloodID)}`,
+    `set global.nxtCoolantMistPulseEnabled = ${formatPersistedBool(config.nxtCoolantMistPulseEnabled)}`,
+    `set global.nxtCoolantFloodPulseEnabled = ${formatPersistedBool(config.nxtCoolantFloodPulseEnabled)}`,
+    `set global.nxtCoolantPulseOnSec = ${Math.max(1, config.nxtCoolantPulseOnSec ?? 5)}`,
+    `set global.nxtCoolantPulseOffSec = ${Math.max(1, config.nxtCoolantPulseOffSec ?? 25)}`,
     '',
     '; --- Board pack (Configuration panel) ---',
     `; Bootstrap: ${config.nxtBoardBootstrapMode === 'auto' ? 'auto (syncs nxt-board-bootstrap.requested on Save)' : 'off'}`,

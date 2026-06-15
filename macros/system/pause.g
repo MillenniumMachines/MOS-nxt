@@ -6,6 +6,16 @@ while { iterations < min(#state.gpOut, #global.nxtPinStates) }
     if { state.gpOut[iterations] != null }
         set global.nxtPinStates[iterations] = state.gpOut[iterations].pwm
 
+; When coolant is pulsing, save operator intent (not instantaneous OFF phase)
+var nxtPulsePause = { exists(global.nxtCoolantPulseActive) && global.nxtCoolantPulseActive }
+if { var.nxtPulsePause }
+    if { global.nxtCoolantMistID != null && global.nxtCoolantMistRequested }
+        set global.nxtPinStates[global.nxtCoolantMistID] = 1
+    if { global.nxtCoolantFloodID != null && global.nxtCoolantFloodRequested }
+        set global.nxtPinStates[global.nxtCoolantFloodID] = 1
+    if { global.nxtCoolantAirID != null && global.nxtCoolantMistRequested }
+        set global.nxtPinStates[global.nxtCoolantAirID] = 1
+
 ; Raise the spindle to the top of the Z axis and
 ; then stop it, but do not move the table.
 G27 Z1

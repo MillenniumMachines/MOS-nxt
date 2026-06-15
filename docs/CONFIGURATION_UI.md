@@ -95,11 +95,18 @@ Configure GPIO pins for coolant control:
 | Air Blast Pin ID | GP Output port for air blast | `0` |
 | Mist Coolant Pin ID | GP Output port for mist coolant | `1` |
 | Flood Coolant Pin ID | GP Output port for flood coolant | `2` |
+| Pulse mist (M7) | Cycle mist output on/off; air blast stays on | off |
+| Pulse flood (M8) | Cycle flood output on/off | off |
+| Pulse ON duration | Seconds coolant output stays on per cycle | `5` |
+| Pulse OFF duration | Seconds coolant output stays off per cycle | `25` |
 
 **Usage Notes:**
 - Pin IDs correspond to RRF general purpose output ports
 - Set to `null` or leave empty if not using that coolant type
 - Used by M7, M8, M9 coolant control macros
+- Pulse timing requires `macros/system/daemon.g` (enabled by default via `global.nxtDaemonEnabled`)
+- When pulsing is enabled for a type, `M7`/`M8` turn that output on in cycles; `M9` stops pulsing immediately
+- Pause saves coolant **intent** (not instantaneous OFF phase) so resume restores pulsing correctly
 
 ## Configuration Actions
 

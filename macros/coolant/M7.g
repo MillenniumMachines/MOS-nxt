@@ -1,7 +1,7 @@
 ; M7.g: MIST ON
 ;
 ; Mist is a combination output of air and unpressurized coolant.
-; Turn on the blast air first, then turn on the coolant.
+; Turn on the blast air first, then turn on the coolant (steady or pulsed).
 
 ; Make sure this file is not executed by the secondary motion system
 if { !inputs[state.thisInput].active }
@@ -14,8 +14,5 @@ if { !global.nxtFeatureCoolantControl || global.nxtCoolantMistID == null }
 ; Wait for all movement to stop before continuing.
 M400
 
-; Turn on air if not already on
-M98 P"macros/coolant/M7.1.g"
-
-; Turn on mist
-M42 P{global.nxtCoolantMistID} S1
+set global.nxtCoolantMistRequested = true
+M98 P"nxt-coolant-pulse-arm.g"

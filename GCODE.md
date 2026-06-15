@@ -411,10 +411,14 @@ Safe spindle start/stop with acceleration waits.
 ### M7, M7.1, M8, M9: Coolant Control
 
 **Usage:**
-- `M7` - Mist coolant on
+- `M7` - Mist coolant on (air blast steady; mist pin steady or pulsed per Configuration)
 - `M7.1` - Air blast on
-- `M8` - Flood coolant on
-- `M9` - All coolant off
+- `M8` - Flood coolant on (steady or pulsed per Configuration)
+- `M9` - All coolant off (stops pulsing). `M9 R1` restores state saved on pause.
+
+**Coolant pulse (optional):** When enabled in DWC Configuration for mist and/or flood, `M7`/`M8` cycle the relevant output using `global.nxtCoolantPulseOnSec` (default **5** s) and `global.nxtCoolantPulseOffSec` (default **25** s). Mist pulsing keeps air blast on continuously. Mixed mode is supported (e.g. steady mist + pulsed flood). Requires the nxt daemon loop (`global.nxtDaemonEnabled`, `global.nxtDaemonInterval`).
+
+**Related globals:** `nxtCoolantMistPulseEnabled`, `nxtCoolantFloodPulseEnabled`, `nxtCoolantPulseOnSec`, `nxtCoolantPulseOffSec` (persisted in `nxt-user-vars.g`); runtime flags `nxtCoolantMistRequested`, `nxtCoolantFloodRequested`, `nxtCoolantPulseActive`.
 
 ---
 

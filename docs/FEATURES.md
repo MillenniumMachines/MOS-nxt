@@ -67,6 +67,7 @@ These features form the core of the new nxt system and must be implemented for t
 #### **Machine Control**
 - [x] **Spindle Control:** Core macros for safe spindle start/stop with acceleration waits (`M3.9`, `M4.9`, `M5.9`).
 - [x] **Coolant Control:** Core macros for coolant control (`M7`, `M8`, `M9`, and `M7.1`).
+- [x] **Coolant pulse:** Optional per-type pulsing for mist (`M7`) and flood (`M8`); defaults 5 s ON / 25 s OFF; configured in DWC Configuration.
 - [x] **Parking (`G27`):** A critical macro for moving the machine to a safe, known position.
 - [x] **Safety Net (ATX Power Control):** The `M80.9`/`M81.9` system for safe, operator-confirmed ATX power control.
 

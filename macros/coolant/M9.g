@@ -15,17 +15,21 @@ if { !global.nxtFeatureCoolantControl }
 ; Wait for all movement to stop before continuing.
 M400
 
-; Restore previous state if requested
 var restore = { exists(param.R) && param.R == 1 }
 
-; Configure flood
+if { !var.restore }
+    M98 P"nxt-coolant-pulse-stop.g"
+    M99
+
+; Restore coolant intent from pause snapshot (not instantaneous pulse phase)
+var floodOn = false
 if { global.nxtCoolantFloodID != null }
-    M42 P{global.nxtCoolantFloodID} S{ var.restore ? global.nxtPinStates[global.nxtCoolantFloodID] : 0 }
+    set var.floodOn = { global.nxtPinStates[global.nxtCoolantFloodID] > 0 }
 
-; Configure mist
+var mistOn = false
 if { global.nxtCoolantMistID != null }
-    M42 P{global.nxtCoolantMistID} S{ var.restore ? global.nxtPinStates[global.nxtCoolantMistID] : 0 }
+    set var.mistOn = { global.nxtPinStates[global.nxtCoolantMistID] > 0 }
 
-; Configure air blast
-if { global.nxtCoolantAirID != null }
-    M42 P{global.nxtCoolantAirID} S{ var.restore ? global.nxtPinStates[global.nxtCoolantAirID] : 0 }
+set global.nxtCoolantFloodRequested = { var.floodOn }
+set global.nxtCoolantMistRequested = { var.mistOn }
+M98 P"nxt-coolant-pulse-arm.g"
