@@ -43,6 +43,17 @@ jobs:
           chmod +x dist/check-macro-line-length.sh
           ./dist/check-macro-line-length.sh
 
+  line-endings:
+    name: LF line endings (no CRLF)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check tracked files for CR
+        run: |
+          chmod +x dist/check-line-endings.sh
+          ./dist/check-line-endings.sh
+
   dwc-build-pin:
     name: DWC build pin alignment
     runs-on: ubuntu-latest
