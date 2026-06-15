@@ -65,6 +65,19 @@ global nxtCoolantAirID = null ; Coolant Air Output Pin ID
 global nxtCoolantMistID = null ; Coolant Mist Output Pin ID
 global nxtCoolantFloodID = null ; Coolant Flood Output Pin ID
 global nxtPinStates = { vector(min(limits.gpOutPorts, 32), 0.0) } ; gpOut PWM snapshot; pause.g uses min(#gpOut, #nxtPinStates)
+global nxtCoolantMistPulseEnabled = false ; Pulse mist output when M7 is used
+global nxtCoolantFloodPulseEnabled = false ; Pulse flood output when M8 is used
+global nxtCoolantPulseOnSec = 5 ; Coolant pulse ON phase length (seconds)
+global nxtCoolantPulseOffSec = 25 ; Coolant pulse OFF phase length (seconds)
+global nxtCoolantMistRequested = false ; Runtime: M7 issued (cleared by M9)
+global nxtCoolantFloodRequested = false ; Runtime: M8 issued (cleared by M9)
+global nxtCoolantPulseActive = false ; Runtime: daemon should tick pulse phases
+global nxtCoolantPulsePhaseOn = true ; Runtime: current pulse phase (true = ON)
+global nxtCoolantPulseLastMs = 0 ; Runtime: millis() at last phase transition
+
+; --- Daemon loop (coolant pulse, plugins, user hooks) ---
+global nxtDaemonEnabled = true ; Enable macros/system/daemon.g background loop
+global nxtDaemonInterval = 250 ; Minimum milliseconds between daemon iterations
 
 ; --- Spindle Control ---
 global nxtSpindleID = null  ; Default Spindle ID

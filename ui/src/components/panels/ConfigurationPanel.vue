@@ -696,6 +696,57 @@
               </v-col>
             </v-row>
 
+            <v-row class="mt-2">
+              <v-col cols="12" md="6">
+                <v-switch
+                  :input-value="configDraft.nxtCoolantMistPulseEnabled"
+                  :label="$t('plugins.nxt.panels.configuration.coolantMistPulse')"
+                  :hint="$t('plugins.nxt.panels.configuration.coolantMistPulseHint')"
+                  persistent-hint
+                  :disabled="uiFrozen || configDraft.nxtCoolantMistID === null"
+                  @change="updateFeature('nxtCoolantMistPulseEnabled', $event)"
+                  class="mt-0"
+                />
+              </v-col>
+              <v-col cols="12" md="6">
+                <v-switch
+                  :input-value="configDraft.nxtCoolantFloodPulseEnabled"
+                  :label="$t('plugins.nxt.panels.configuration.coolantFloodPulse')"
+                  :hint="$t('plugins.nxt.panels.configuration.coolantFloodPulseHint')"
+                  persistent-hint
+                  :disabled="uiFrozen || configDraft.nxtCoolantFloodID === null"
+                  @change="updateFeature('nxtCoolantFloodPulseEnabled', $event)"
+                  class="mt-0"
+                />
+              </v-col>
+              <v-col cols="12" md="6">
+                <v-text-field
+                  :value="configDraft.nxtCoolantPulseOnSec"
+                  type="number"
+                  min="1"
+                  step="1"
+                  :label="$t('plugins.nxt.panels.configuration.coolantPulseOnSec')"
+                  :disabled="uiFrozen || !coolantPulseTimingConfigurable"
+                  @input="onConfigDraftPulseSec('nxtCoolantPulseOnSec', $event)"
+                  hint="Default 5"
+                  persistent-hint
+                />
+              </v-col>
+              <v-col cols="12" md="6">
+                <v-text-field
+                  :value="configDraft.nxtCoolantPulseOffSec"
+                  type="number"
+                  min="1"
+                  step="1"
+                  :label="$t('plugins.nxt.panels.configuration.coolantPulseOffSec')"
+                  :disabled="uiFrozen || !coolantPulseTimingConfigurable"
+                  @input="onConfigDraftPulseSec('nxtCoolantPulseOffSec', $event)"
+                  hint="Default 25"
+                  persistent-hint
+                />
+              </v-col>
+            </v-row>
+
             <!-- Feature Toggle -->
             <v-row class="mt-4">
               <v-col cols="12">
@@ -1232,6 +1283,11 @@ export default BaseComponent.extend({
       return 'Required: At least one coolant output (Air, Mist, or Flood)'
     },
 
+    coolantPulseTimingConfigurable(): boolean {
+      const d = this.configDraft
+      return d.nxtCoolantMistPulseEnabled || d.nxtCoolantFloodPulseEnabled
+    },
+
     rgbHardwareConfigured(): boolean {
       return isRgbLightHardwareConfigured({
         leds: readOmLedsFromMachineModel(this.$store.state.machine.model),
@@ -1430,6 +1486,17 @@ export default BaseComponent.extend({
       }
       ;(this.configDraft as Record<string, unknown>)[key] = v
       await this.updateVariable(String(key), v)
+    },
+
+    async onConfigDraftPulseSec(key: 'nxtCoolantPulseOnSec' | 'nxtCoolantPulseOffSec', raw: string | number | null) {
+      let v =
+        raw === '' || raw === null || raw === undefined ? null : typeof raw === 'number' ? raw : Number(raw)
+      if (v === null || !Number.isFinite(v)) {
+        return
+      }
+      v = Math.max(1, Math.round(v))
+      ;(this.configDraft as Record<string, unknown>)[key] = v
+      await this.updateVariable(key, v)
     },
 
     async loadConfiguration() {

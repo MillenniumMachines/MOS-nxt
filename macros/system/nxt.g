@@ -93,6 +93,12 @@ if { fileexists("0:/sys/nxt-user-overrides.g") }
 elif { fileexists("0:/sys/nxt-user-overrides.g.example") }
     echo "nxt: nxt-user-overrides.g not found — copy nxt-user-overrides.g.example to nxt-user-overrides.g on SD to apply overrides"
 
+; Daemon loop defaults (coolant pulse and future periodic tasks)
+if { !exists(global.nxtDaemonEnabled) }
+    global nxtDaemonEnabled = true
+if { !exists(global.nxtDaemonInterval) }
+    global nxtDaemonInterval = 250
+
 ; Final check if nxt loaded successfully
 if { global.nxtLoaded }
     M117 "nxt ready"
