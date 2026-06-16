@@ -1,0 +1,192 @@
+[
+  {
+    "id": "rect_rectilinear",
+    "origin": {
+      "x": 0,
+      "y": 0
+    },
+    "zLevels": [
+      {
+        "depth": -1,
+        "isFinishing": false
+      },
+      {
+        "depth": -2,
+        "isFinishing": false
+      }
+    ],
+    "levelCounts": [
+      89,
+      89
+    ],
+    "firstLast": [
+      {
+        "first": {
+          "x": 3,
+          "y": 4.5,
+          "z": 5,
+          "type": "rapid"
+        },
+        "last": {
+          "x": 77,
+          "y": 55.5,
+          "z": 5,
+          "type": "rapid"
+        }
+      },
+      {
+        "first": {
+          "x": 3,
+          "y": 4.5,
+          "z": 5,
+          "type": "rapid"
+        },
+        "last": {
+          "x": 77,
+          "y": 55.5,
+          "z": 5,
+          "type": "rapid"
+        }
+      }
+    ],
+    "stats": {
+      "totalDistance": 5650.1,
+      "estimatedTime": 180,
+      "roughingPasses": 2,
+      "finishingPass": false
+    }
+  },
+  {
+    "id": "rect_zigzag_finish",
+    "origin": {
+      "x": 0,
+      "y": -20
+    },
+    "zLevels": [
+      {
+        "depth": -1,
+        "isFinishing": false
+      },
+      {
+        "depth": -1.8,
+        "isFinishing": false
+      },
+      {
+        "depth": -2,
+        "isFinishing": true
+      }
+    ],
+    "levelCounts": [
+      58,
+      58,
+      58
+    ],
+    "firstLast": [
+      {
+        "first": {
+          "x": 57,
+          "y": -24.8787,
+          "z": 5,
+          "type": "rapid"
+        },
+        "last": {
+          "x": -5.6726,
+          "y": 27,
+          "z": 4,
+          "type": "rapid"
+        }
+      },
+      {
+        "first": {
+          "x": 57,
+          "y": -24.8787,
+          "z": 5,
+          "type": "rapid"
+        },
+        "last": {
+          "x": -5.6726,
+          "y": 27,
+          "z": 3.2,
+          "type": "rapid"
+        }
+      },
+      {
+        "first": {
+          "x": 57,
+          "y": -24.8787,
+          "z": 5,
+          "type": "rapid"
+        },
+        "last": {
+          "x": -5.6726,
+          "y": 27,
+          "z": 3,
+          "type": "rapid"
+        }
+      }
+    ],
+    "stats": {
+      "totalDistance": 3831.3,
+      "estimatedTime": 194,
+      "roughingPasses": 2,
+      "finishingPass": true
+    }
+  },
+  {
+    "id": "circle_spiral",
+    "origin": {
+      "x": 0,
+      "y": 0
+    },
+    "zLevels": [
+      {
+        "depth": -1,
+        "isFinishing": false
+      },
+      {
+        "depth": -2,
+        "isFinishing": false
+      }
+    ],
+    "levelCounts": [
+      437,
+      437
+    ],
+    "firstLast": [
+      {
+        "first": {
+          "x": 32,
+          "y": 0,
+          "z": 5,
+          "type": "rapid"
+        },
+        "last": {
+          "x": 2.8817,
+          "y": 1.0489,
+          "z": 4,
+          "type": "rapid"
+        }
+      },
+      {
+        "first": {
+          "x": 32,
+          "y": 0,
+          "z": 5,
+          "type": "rapid"
+        },
+        "last": {
+          "x": 2.8817,
+          "y": 1.0489,
+          "z": 3,
+          "type": "rapid"
+        }
+      }
+    ],
+    "stats": {
+      "totalDistance": 2676.7,
+      "estimatedTime": 135,
+      "roughingPasses": 2,
+      "finishingPass": false
+    }
+  }
+]
