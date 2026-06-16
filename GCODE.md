@@ -7,6 +7,7 @@ This document provides reference documentation for custom G-codes and M-codes im
 - [Probing Cycles](#probing-cycles)
 - [CAM Setup (G6511 / G6600)](#cam-setup-g6511--g6600)
 - [Utility Macros](#utility-macros)
+- [Tool definitions (M4000 / M4001)](#tool-definitions-m4000--m4001)
 - [Movement Control](#movement-control)
 - [Machine Control](#machine-control)
 
@@ -258,6 +259,16 @@ Performs a protected move with probe-aware safety checks. If a touch probe is tr
 
 ---
 
+### G37: Tool Length Probe
+
+Measures the active tool on the configured toolsetter (single **G6512** Z probe at `nxtToolSetterPos`).
+
+**Usage:** `G37`
+
+**Requirements:** `nxtToolSetterPos`, `nxtToolSetterID`, tool loaded over setter.
+
+---
+
 ## CAM Setup (G6511 / G6600)
 
 Emitted by Fusion/FreeCAD post-processors during job preamble / WCS changes.
@@ -411,6 +422,44 @@ M6523 B0 C20 Z120.5 L0.01
 ```
 
 Does not modify globals or `nxt-user-overrides.g` (report only).
+
+---
+
+## Tool definitions (M4000 / M4001)
+
+### M4000: Define Tool
+
+Registers a tool in RRF (`M563`) and stores CAM metadata in `global.mosTT` (radius, optional probe deflection, flute count/length). Used by CAM preamble and DWC Tool Library.
+
+**Usage:** `M4000 P<index> R<radius> S"description" [I<spindle>] [X] [Y] [F] [L]`
+
+**Parameters:**
+- `P`: Tool index (0 … `limits.tools−1`) — **required**
+- `R`: Cutter radius (mm) — **required**
+- `S`: Description string — **required**
+- `I`: Spindle ID (default `global.nxtSpindleID`)
+- `X`, `Y`: Touch-probe deflection (mm) for probe tools
+- `F`: Flute count; `L`: Flute length (mm)
+
+When `global.nxtAutoPersistTools` is true, rewrites `0:/sys/nxt-user-tools.g` via `nxt-user-tools-sync.g`.
+
+---
+
+### M4001: Remove Tool
+
+Removes tool index `P` from RRF and clears `mosTT` row.
+
+**Usage:** `M4001 P<index>`
+
+---
+
+### M4005: Post-Processor Version Check
+
+Compares CAM post `V"…"` string to `global.nxtVersion` (exact match).
+
+**Usage:** `M4005 V"<version>"`
+
+**Example:** `M4005 V"v0.6.0"` in job preamble.
 
 ---
 

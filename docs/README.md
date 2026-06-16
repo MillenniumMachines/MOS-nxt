@@ -6,7 +6,7 @@ All product documentation lives in **`docs/`** in this repository.
 
 | Doc | Audience |
 |-----|----------|
-| [GCODE.md](GCODE.md) | M/G-code reference |
+| [GCODE.md](../GCODE.md) | M/G-code reference |
 | [FEATURES.md](FEATURES.md) | Feature checklist / status |
 | [ROADMAP.md](ROADMAP.md) | Phases and backlog |
 | [CODE.md](CODE.md) | Macro / meta G-code style |
