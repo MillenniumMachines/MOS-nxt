@@ -4,16 +4,44 @@ This document provides reference documentation for custom G-codes and M-codes im
 
 ## Table of Contents
 
-- [Probing Cycles](#probing-cycles)
-- [CAM Setup (G6511 / G6600)](#cam-setup-g6511--g6600)
-- [Utility Macros](#utility-macros)
-- [Tool definitions (M4000 / M4001)](#tool-definitions-m4000--m4001)
-- [Movement Control](#movement-control)
-- [Machine Control](#machine-control)
+- [G-codes](#g-codes)
+  - [G27](#g27-parking)
+  - [G37](#g37-tool-length-probe)
+  - [G6500](#g6500-bore-probe) … [G6600](#g6600-workpiece-probing-gateway)
+- [M-codes](#m-codes)
+  - [M3.9 / M4.9 / M5.9](#m39-m49-m59-spindle-control)
+  - [M7 / M7.1 / M8 / M9](#m7-m71-m8-m9-coolant-control)
+  - [M80.9 / M81.9](#m809-m819-atx-power-control)
+  - [M4000](#m4000-define-tool) … [M6524](#m6524-set-rgb-work-light)
+- [Global Variables](#global-variables)
+- [Workflow Examples](#workflow-examples)
 
 ---
 
-## Probing Cycles
+## G-codes
+
+### G27: Parking
+
+Moves the machine to a safe, known parking position.
+
+RRF homing uses `0:/sys/homeall.g`, `homex.g`, `homey.g`, and `homez.g`. nxt vendors homing sources under `nxt-config/machine/<profile>/` and deploys them from the Configuration panel (not loaded at boot). See [docs/NXT_BOARD_HOMING.md](docs/NXT_BOARD_HOMING.md) for axis directions and verification.
+
+**Usage:** `G27 [X<level>] [Y<level>] [Z<level>]`
+
+**Parameters:**
+- `X|Y|Z`: Parking level (0-2), where higher levels are safer/further from workpiece
+
+---
+
+### G37: Tool Length Probe
+
+Measures the active tool on the configured toolsetter (single **G6512** Z probe at `nxtToolSetterPos`).
+
+**Usage:** `G37`
+
+**Requirements:** `nxtToolSetterPos`, `nxtToolSetterID`, tool loaded over setter.
+
+---
 
 ### G6500: Bore Probe
 
@@ -206,6 +234,22 @@ Probes one surface in X, Y, or Z to find the surface location.
 
 ---
 
+### G6511: Reference Surface Probe
+
+Emitted by Fusion/FreeCAD post-processors during job preamble / WCS changes. Probes the touch-probe reference surface when **both** touch probe and toolsetter are enabled. No-op if already probed this session unless `R1`.
+
+**Usage:** `G6511 [R1] [S0]`
+
+**Parameters:**
+- `R1`: Force re-probe (clears session skip)
+- `S0`: Non-standalone — do not switch to probe tool (nested call from `tpost.g`)
+
+**Requirements:** `nxtTouchProbeRefPos`, `nxtDeltaMachine` configured in DWC.
+
+**Results:** Sets `global.nxtRefSurfaceProbed`; Z touch in `global.nxtLastProbeResult`.
+
+---
+
 ### G6512: Single-Axis Probing (Core)
 
 Low-level single-axis probe move with compensation and averaging. Used by all probing cycles.
@@ -259,39 +303,9 @@ Performs a protected move with probe-aware safety checks. If a touch probe is tr
 
 ---
 
-### G37: Tool Length Probe
-
-Measures the active tool on the configured toolsetter (single **G6512** Z probe at `nxtToolSetterPos`).
-
-**Usage:** `G37`
-
-**Requirements:** `nxtToolSetterPos`, `nxtToolSetterID`, tool loaded over setter.
-
----
-
-## CAM Setup (G6511 / G6600)
-
-Emitted by Fusion/FreeCAD post-processors during job preamble / WCS changes.
-
-### G6511: Reference Surface Probe
-
-Probes the touch-probe reference surface when **both** touch probe and toolsetter are enabled. No-op if already probed this session unless `R1`.
-
-**Usage:** `G6511 [R1] [S0]`
-
-**Parameters:**
-- `R1`: Force re-probe (clears session skip)
-- `S0`: Non-standalone — do not switch to probe tool (nested call from `tpost.g`)
-
-**Requirements:** `nxtTouchProbeRefPos`, `nxtDeltaMachine` configured in DWC.
-
-**Results:** Sets `global.nxtRefSurfaceProbed`; Z touch in `global.nxtLastProbeResult`.
-
----
-
 ### G6600: Workpiece Probing Gateway
 
-Pauses CAM setup for operator WCS probing. Primary workflow: **DWC nxt → Probing Cycles**. On-machine menu offers vise corner (**G6520**) or handoff after DWC probing.
+Emitted by Fusion/FreeCAD post-processors during job preamble / WCS changes. Pauses CAM setup for operator WCS probing. Primary workflow: **DWC nxt → Probing Cycles**. On-machine menu offers vise corner (**G6520**) or handoff after DWC probing.
 
 **Usage:** `G6600 [W<0..8>]`
 
@@ -302,7 +316,78 @@ Pauses CAM setup for operator WCS probing. Primary workflow: **DWC nxt → Probi
 
 ---
 
-## Utility Macros
+## M-codes
+
+### M3.9, M4.9, M5.9: Spindle Control
+
+Safe spindle start/stop with acceleration waits.
+
+**Usage:**
+- `M3.9 S<rpm>` - Start spindle clockwise
+- `M4.9 S<rpm>` - Start spindle counter-clockwise
+- `M5.9` - Stop spindle
+
+---
+
+### M7, M7.1, M8, M9: Coolant Control
+
+**Usage:**
+- `M7` - Mist coolant on (air blast steady; mist pin steady or pulsed per Configuration)
+- `M7.1` - Air blast on
+- `M8` - Flood coolant on (steady or pulsed per Configuration)
+- `M9` - All coolant off (stops pulsing). `M9 R1` restores state saved on pause.
+
+**Coolant pulse (optional):** When enabled in DWC Configuration for mist and/or flood, `M7`/`M8` cycle the relevant output using `global.nxtCoolantPulseOnSec` (default **5** s) and `global.nxtCoolantPulseOffSec` (default **25** s). Mist pulsing keeps air blast on continuously. Mixed mode is supported (e.g. steady mist + pulsed flood). Requires the nxt daemon loop (`global.nxtDaemonEnabled`, `global.nxtDaemonInterval`).
+
+**Related globals:** `nxtCoolantMistPulseEnabled`, `nxtCoolantFloodPulseEnabled`, `nxtCoolantPulseOnSec`, `nxtCoolantPulseOffSec` (persisted in `nxt-user-vars.g`); runtime flags `nxtCoolantMistRequested`, `nxtCoolantFloodRequested`, `nxtCoolantPulseActive`.
+
+---
+
+### M80.9, M81.9: ATX Power Control
+
+Safe, operator-confirmed ATX power control.
+
+**Usage:**
+- `M80.9` - Power on (with confirmation)
+- `M81.9` - Power off (with confirmation)
+
+---
+
+### M4000: Define Tool
+
+Registers a tool in RRF (`M563`) and stores CAM metadata in `global.mosTT` (radius, optional probe deflection, flute count/length). Used by CAM preamble and DWC Tool Library.
+
+**Usage:** `M4000 P<index> R<radius> S"description" [I<spindle>] [X] [Y] [F] [L]`
+
+**Parameters:**
+- `P`: Tool index (0 … `limits.tools−1`) — **required**
+- `R`: Cutter radius (mm) — **required**
+- `S`: Description string — **required**
+- `I`: Spindle ID (default `global.nxtSpindleID`)
+- `X`, `Y`: Touch-probe deflection (mm) for probe tools
+- `F`: Flute count; `L`: Flute length (mm)
+
+When `global.nxtAutoPersistTools` is true, rewrites `0:/sys/nxt-user-tools.g` via `nxt-user-tools-sync.g`.
+
+---
+
+### M4001: Remove Tool
+
+Removes tool index `P` from RRF and clears `mosTT` row.
+
+**Usage:** `M4001 P<index>`
+
+---
+
+### M4005: Post-Processor Version Check
+
+Compares CAM post `V"…"` string to `global.nxtVersion` (exact match).
+
+**Usage:** `M4005 V"<version>"`
+
+**Example:** `M4005 V"v0.6.0"` in job preamble.
+
+---
 
 ### M5000: Get Machine Position
 
@@ -425,93 +510,18 @@ Does not modify globals or `nxt-user-overrides.g` (report only).
 
 ---
 
-## Tool definitions (M4000 / M4001)
+### M6524: Set RGB Work Light
 
-### M4000: Define Tool
+Sets the addressable RGB work light via **M150** when the RGB light feature is enabled.
 
-Registers a tool in RRF (`M563`) and stores CAM metadata in `global.mosTT` (radius, optional probe deflection, flute count/length). Used by CAM preamble and DWC Tool Library.
-
-**Usage:** `M4000 P<index> R<radius> S"description" [I<spindle>] [X] [Y] [F] [L]`
+**Usage:** `M6524 R<0-255> G<0-255> B<0-255>`
 
 **Parameters:**
-- `P`: Tool index (0 … `limits.tools−1`) — **required**
-- `R`: Cutter radius (mm) — **required**
-- `S`: Description string — **required**
-- `I`: Spindle ID (default `global.nxtSpindleID`)
-- `X`, `Y`: Touch-probe deflection (mm) for probe tools
-- `F`: Flute count; `L`: Flute length (mm)
+- `R`, `G`, `B`: Color components (each clamped to 0–255; default 0 if omitted)
 
-When `global.nxtAutoPersistTools` is true, rewrites `0:/sys/nxt-user-tools.g` via `nxt-user-tools-sync.g`.
+**Requirements:** `nxtFeatureRgbLight`, `nxtRgbLedIndex` configured in DWC.
 
----
-
-### M4001: Remove Tool
-
-Removes tool index `P` from RRF and clears `mosTT` row.
-
-**Usage:** `M4001 P<index>`
-
----
-
-### M4005: Post-Processor Version Check
-
-Compares CAM post `V"…"` string to `global.nxtVersion` (exact match).
-
-**Usage:** `M4005 V"<version>"`
-
-**Example:** `M4005 V"v0.6.0"` in job preamble.
-
----
-
-## Movement Control
-
-RRF homing uses `0:/sys/homeall.g`, `homex.g`, `homey.g`, and `homez.g`. nxt vendors homing sources under `nxt-config/machine/<profile>/` and deploys them from the Configuration panel (not loaded at boot). See [docs/NXT_BOARD_HOMING.md](docs/NXT_BOARD_HOMING.md) for axis directions and verification.
-
-### G27: Parking
-
-Moves the machine to a safe, known parking position.
-
-**Usage:** `G27 [X<level>] [Y<level>] [Z<level>]`
-
-**Parameters:**
-- `X|Y|Z`: Parking level (0-2), where higher levels are safer/further from workpiece
-
----
-
-## Machine Control
-
-### M3.9, M4.9, M5.9: Spindle Control
-
-Safe spindle start/stop with acceleration waits.
-
-**Usage:**
-- `M3.9 S<rpm>` - Start spindle clockwise
-- `M4.9 S<rpm>` - Start spindle counter-clockwise
-- `M5.9` - Stop spindle
-
----
-
-### M7, M7.1, M8, M9: Coolant Control
-
-**Usage:**
-- `M7` - Mist coolant on (air blast steady; mist pin steady or pulsed per Configuration)
-- `M7.1` - Air blast on
-- `M8` - Flood coolant on (steady or pulsed per Configuration)
-- `M9` - All coolant off (stops pulsing). `M9 R1` restores state saved on pause.
-
-**Coolant pulse (optional):** When enabled in DWC Configuration for mist and/or flood, `M7`/`M8` cycle the relevant output using `global.nxtCoolantPulseOnSec` (default **5** s) and `global.nxtCoolantPulseOffSec` (default **25** s). Mist pulsing keeps air blast on continuously. Mixed mode is supported (e.g. steady mist + pulsed flood). Requires the nxt daemon loop (`global.nxtDaemonEnabled`, `global.nxtDaemonInterval`).
-
-**Related globals:** `nxtCoolantMistPulseEnabled`, `nxtCoolantFloodPulseEnabled`, `nxtCoolantPulseOnSec`, `nxtCoolantPulseOffSec` (persisted in `nxt-user-vars.g`); runtime flags `nxtCoolantMistRequested`, `nxtCoolantFloodRequested`, `nxtCoolantPulseActive`.
-
----
-
-### M80.9, M81.9: ATX Power Control
-
-Safe, operator-confirmed ATX power control.
-
-**Usage:**
-- `M80.9` - Power on (with confirmation)
-- `M81.9` - Power off (with confirmation)
+**Behavior:** Issues `M150 R… G… B… P{nxtRgbLedIndex}`.
 
 ---
 
