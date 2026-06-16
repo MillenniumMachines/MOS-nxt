@@ -40,13 +40,7 @@ if { var.newTool == global.nxtProbeToolID }
     if { global.nxtFeatureTouchProbe }
         if { global.nxtTouchProbeID == null }
             abort { "tpre.g: Touch probe sensor ID (nxtTouchProbeID) is not configured" }
-        var probeReady = { false }
-        while { !var.probeReady }
-            M291 P{"Load touch probe, and trigger to proceed."} R"Touch Probe Check" S3
-            if { input != 0 }
-                abort { "tpre.g: Touch probe check cancelled by user" }
-            if { global.nxtTouchProbeID < #sensors.probes }
-                set var.probeReady = { sensors.probes[global.nxtTouchProbeID].value[0] >= sensors.probes[global.nxtTouchProbeID].threshold }
+        M98 P"nxt-probe-sensor-wait.g" A1
 else
     ; ATC: replace with pick from pocket / spindle load sequence
     M291 P{"Please install Tool " ^ var.newTool ^ " and confirm when ready."} R"Install Tool" S3

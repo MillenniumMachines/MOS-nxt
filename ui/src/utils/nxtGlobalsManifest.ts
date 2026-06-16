@@ -22,6 +22,7 @@ export const NXT_GLOBAL_MANIFEST: NxtGlobalManifestEntry[] = [
   { key: 'nxtUserVarsPresent', description: 'True after nxt-user-vars.g was loaded from SD (nxt.g)' },
   { key: 'nxtConfigPending', description: 'True when nxt-user-vars.g is missing — complete setup in Configuration UI' },
   { key: 'nxtDeltaMachine', description: 'Static datum Z (toolsetter ↔ reference)' },
+  { key: 'nxtRefSurfaceProbed', description: 'Session flag: G6511 reference surface probed' },
   { key: 'nxtProbeResults', description: 'Last probe results table (vector)' },
   { key: 'nxtToolCache', description: 'Per-tool cache (vector)' },
   { key: 'nxtLastProbeResult', description: 'Last single probe result' },

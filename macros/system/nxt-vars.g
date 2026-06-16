@@ -30,6 +30,7 @@ global nxtProbeDeflection = {0.0, 0.0} ; {X,Y} touch-probe deflection (mm) — M
 global nxtDatumToolRadius = null  ; Datum tool radius when touch probe feature is off (mm)
 global nxtProtectedMoveBackOff = null ; Protected move back-off distance (mm)
 global nxtTouchProbeRefPos = null ; Touch probe reference surface [X, Y, Z] machine coords
+global nxtRefSurfaceProbed = false ; Session flag: G6511 reference surface probed (reset each boot)
 global nxtProbeHitXY = { vector(8, 0.0) } ; Last contacts as X,Y pairs (G6512 H0..H3), machine mm — bore/boss use H0..H2
 global nxtProbeMaxSkewDeg = 5.0   ; Abort rectangle/bore skew solve if |theta| exceeds this (deg)
 

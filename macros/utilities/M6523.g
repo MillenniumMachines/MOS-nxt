@@ -56,24 +56,7 @@ if { var.useTouch }
         abort { "M6523: nxtProbeToolID not configured" }
     if { global.nxtProbeToolID < 0 || global.nxtProbeToolID >= limits.tools }
         abort { "M6523: nxtProbeToolID out of range" }
-    M98 P"nxt-probe-tool-sync.g"
-    if { state.currentTool != global.nxtProbeToolID }
-        if { state.currentTool >= 0 }
-            var nxtM6523Cur = { "M6523: Current tool T" ^ state.currentTool }
-            echo { var.nxtM6523Cur ^ ", selecting touch probe T" ^ global.nxtProbeToolID }
-        else
-            echo "M6523: No tool active — selecting touch probe T" ^ global.nxtProbeToolID
-        T{global.nxtProbeToolID}
-    var probeInstalled = false
-    if { sensors.probes[global.nxtTouchProbeID].value[0] >= sensors.probes[global.nxtTouchProbeID].threshold }
-        set var.probeInstalled = true
-    while { !var.probeInstalled }
-        M291 P"Install touch probe and press OK when the probe input is active." R"Touch Probe" S4 K{"OK", "Cancel"} F1
-        if { input != 0 }
-            abort { "M6523: Touch probe check cancelled" }
-        if { sensors.probes[global.nxtTouchProbeID].value[0] >= sensors.probes[global.nxtTouchProbeID].threshold }
-            set var.probeInstalled = true
-    echo "M6523: Touch probe installed (sensor " ^ global.nxtTouchProbeID ^ " active)"
+    M98 P"nxt-probe-tool-ready.g"
     set var.refX = { global.nxtTouchProbeRefPos[0] }
     set var.refY = { global.nxtTouchProbeRefPos[1] }
     set var.refZ = { exists(param.Z) && param.Z != null ? param.Z : global.nxtTouchProbeRefPos[2] }
