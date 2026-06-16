@@ -5,6 +5,7 @@ This document provides reference documentation for custom G-codes and M-codes im
 ## Table of Contents
 
 - [Probing Cycles](#probing-cycles)
+- [CAM Setup (G6511 / G6600)](#cam-setup-g6511--g6600)
 - [Utility Macros](#utility-macros)
 - [Movement Control](#movement-control)
 - [Machine Control](#machine-control)
@@ -254,6 +255,39 @@ Performs a protected move with probe-aware safety checks. If a touch probe is tr
 - `X|Y|Z|A`: Target coordinates (any combination allowed)
 - `I`: Probe ID to monitor (default: touch probe)
 - `F`: Optional speed override (mm/min)
+
+---
+
+## CAM Setup (G6511 / G6600)
+
+Emitted by Fusion/FreeCAD post-processors during job preamble / WCS changes.
+
+### G6511: Reference Surface Probe
+
+Probes the touch-probe reference surface when **both** touch probe and toolsetter are enabled. No-op if already probed this session unless `R1`.
+
+**Usage:** `G6511 [R1] [S0]`
+
+**Parameters:**
+- `R1`: Force re-probe (clears session skip)
+- `S0`: Non-standalone — do not switch to probe tool (nested call from `tpost.g`)
+
+**Requirements:** `nxtTouchProbeRefPos`, `nxtDeltaMachine` configured in DWC.
+
+**Results:** Sets `global.nxtRefSurfaceProbed`; Z touch in `global.nxtLastProbeResult`.
+
+---
+
+### G6600: Workpiece Probing Gateway
+
+Pauses CAM setup for operator WCS probing. Primary workflow: **DWC nxt → Probing Cycles**. On-machine menu offers vise corner (**G6520**) or handoff after DWC probing.
+
+**Usage:** `G6600 [W<0..8>]`
+
+**Parameters:**
+- `W`: 0-indexed work offset (`W0` = G54). Omitted = current workplace after `G55`/`G56` switch.
+
+**Requirements:** Touch probe enabled; uses `nxt-probe-tool-ready.g` for probe tool selection.
 
 ---
 
