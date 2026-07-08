@@ -4,7 +4,7 @@
  * This file registers the nxt plugin routes, localization, and plugin data
  * for the DuetWebControl plugin integration.
  *
- * Compatibility: `plugin.json` uses `dwcVersion: "auto"` (exact DWC version at build) and `rrfVersion: "auto-major"`. Rebuild the plugin ZIP when the host DWC version changes. Dev reference: **3.6.2** — `docs/RRF_REFERENCE.md`.
+ * Compatibility: `plugin.json` uses `dwcVersion: "auto"` (exact DWC version at build) and `rrfVersion: "auto-major"`. Rebuild the plugin ZIP when the host DWC version changes. Dev reference (branch `v0.7.0`): **3.7.0-beta.1** — `docs/RRF_REFERENCE.md`, `docs/VERSIONING.md`.
  * Building or running the plugin inside a much older or newer DWC tree can cause opaque
  * webpack/runtime errors at plugin start (e.g. `undefined is not an object (evaluating '…​.call')`)
  * if chunk loading or the plugin host API does not match.

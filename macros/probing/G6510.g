@@ -57,7 +57,7 @@ var probeRetries = { exists(param.R) ? param.R : global.nxtProbeInnerSampleCount
 
 G6512 X{var.targetCoords[0]} Y{var.targetCoords[1]} Z{var.targetCoords[2]} I{global.nxtTouchProbeID} F{var.probeFeed} R{var.probeRetries}
 
-if { #global.nxtProbeResults[var.pSlot] < 3 }
+if { global.nxtProbeResults[var.pSlot] == null || #global.nxtProbeResults[var.pSlot] < 3 }
     set global.nxtProbeResults[var.pSlot] = { vector(#move.axes + 1, 0.0) }
 
 set global.nxtProbeResults[var.pSlot][var.probeAxis] = { global.nxtLastProbeResult }

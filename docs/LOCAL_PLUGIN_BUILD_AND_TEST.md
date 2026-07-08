@@ -105,12 +105,12 @@ Add a new entry when integrating an external plugin into the main nxt build: `id
 ### Firmware and nxt baseline
 
 - Printer or dev board with nxt loaded (`M98 P"nxt.g"` in `config.g`). See [README.md](../README.md) installation steps.
-- Reference RRF for development/review: **3.6.2** — [RRF_REFERENCE.md](RRF_REFERENCE.md).
+- Reference RRF for development/review: **3.7.0-beta.1** (3.7.x line) — [RRF_REFERENCE.md](RRF_REFERENCE.md), [VERSIONING.md](VERSIONING.md).
 
 ### Reference DWC version
 
-- Pin: [ci/dwc-build-ref](../ci/dwc-build-ref) (currently `v3.6.2`).
-- Shipped plugin ZIPs set **exact** `dwcVersion` at build time; the host DWC must match (e.g. `3.6.2`, not merely “3.6.x”).
+- Pin: [ci/dwc-build-ref](../ci/dwc-build-ref) (currently `v3.7.0-beta.1` on branch `v0.7.0`).
+- Shipped plugin ZIPs set **exact** `dwcVersion` at build time; the host DWC must match (e.g. `3.7.0-beta.1`, not merely “3.7.x”).
 
 ### Tools
 

@@ -9,6 +9,9 @@
 ;   L = tolerance limit override in mm (default global.nxtProbeMaxSampleSpreadMm)
 ;   O = extra full 3-touch retry cycles when tolerance is enabled
 
+if { !inputs[state.thisInput].active }
+    M99
+
 ; --- Parameter Validation ---
 
 var axisParams = { null, null, null, null }

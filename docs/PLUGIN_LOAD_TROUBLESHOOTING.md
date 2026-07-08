@@ -4,7 +4,7 @@ This guide assumes the failure is one of:
 
 1. **404** — `nxt.<hash>.js` not on the DWC web root  
 2. **`dwcFiles`** — plugin object missing JS/CSS paths after install  
-3. **Version skew** — ZIP `dwcVersion` (e.g. **3.6.2**) does not match host DWC, or webpack modules differ between builds
+3. **Version skew** — ZIP `dwcVersion` (e.g. **3.7.0-beta.1**) does not match host DWC, or webpack modules differ between builds
 
 The error is always **webpack** failing while loading `dwc/js/nxt.*.js`, not RRF macros.
 
@@ -123,17 +123,17 @@ node dist/verify-plugin-zip.mjs dist/nxt-*.zip
 
 ## 3) Fix: version skew
 
-**Cause:** The nxt chunk expects **~45 webpack modules** from host `app.js`. If the ZIP was built with a different DWC than the printer serves (e.g. plugin built on **3.6.2** but host is **3.7.x**, or a different **3.6.x** webpack layout), a module is `undefined` → `.call` error.
+**Cause:** The nxt chunk expects **~45 webpack modules** from host `app.js`. If the ZIP was built with a different DWC than the printer serves (e.g. plugin built on **3.6.2** but host is **3.7.x**, or a different patch webpack layout), a module is `undefined` → `.call` error.
 
-**DWC version gate (first line of defence):** Shipped ZIPs now set `plugin.json` **`dwcVersion` to the exact build version** (e.g. `"3.6.2"`), not just `"3.6"`. DWC should refuse load with a clear message:
+**DWC version gate (first line of defence):** Shipped ZIPs set `plugin.json` **`dwcVersion` to the exact build version** (e.g. `"3.7.0-beta.1"`), not just `"3.7"`. DWC should refuse load with a clear message:
 
-`Plugin nxt requires incompatible DWC version (need 3.6.2, got 3.7.0)`
+`Plugin nxt requires incompatible DWC version (need 3.7.0-beta.1, got 3.6.2)`
 
 If you still only see `.call` with no version message, the host may match semver but webpack modules still differ — use the diagnose step below.
 
 **Steps:**
 
-1. Note **exact** host DWC version (footer / about / `package.json` if you have the tree), e.g. **3.6.2** or **3.7.2**.  
+1. Note **exact** host DWC version (footer / about / `package.json` if you have the tree), e.g. **3.7.0-beta.1** or **3.6.2** (on nxt `v0.6.0` line).  
 2. Inspect the ZIP you installed:
 
    ```bash
@@ -146,13 +146,13 @@ If you still only see `.call` with no version message, the host may match semver
 
    ```bash
    ./dist/ci-fetch-dwc.sh                    # optional: fetch ci/dwc-build-ref → dwc-build/
-   ./dist/verify-dwc-build-alignment.sh /path/to/DuetWebControl-3.6.2
-   ./dist/build-plugin.sh /path/to/DuetWebControl-3.6.2
+   ./dist/verify-dwc-build-alignment.sh /path/to/DuetWebControl-3.7.0-beta.1
+   ./dist/build-plugin.sh /path/to/DuetWebControl-3.7.0-beta.1
    ```
 
-   Build output prints: `Plugin ZIP requires host DWC version: 3.6.2`.
+   Build output prints: `Plugin ZIP requires host DWC version: 3.7.0-beta.1` (on branch `v0.7.0`).
 
-4. If the printer runs another **3.6.x patch** (e.g. **3.6.5**), rebuild the plugin using **that** DWC tree (update `ci/dwc-build-ref` only when intentionally moving the whole project pin).
+4. If the printer runs another **3.7.x patch**, rebuild the plugin using **that** DWC tree (update `ci/dwc-build-ref` only when intentionally moving the whole project pin).
 
 5. Confirm webpack modules (catches skew that semver hides):
 

@@ -1,7 +1,7 @@
 # nxt UI Plugin Development Guide
 
 ## Overview
-This guide explains how to develop the nxt UI plugin within the DuetWebControl workspace. The nxt UI is a Vue 2.7 plugin that integrates with Duet Web Control **v3.6.2** (pin: `ci/dwc-build-ref`; shipped ZIPs set exact `dwcVersion` at build) to provide CNC-specific functionality for RepRapFirmware.
+This guide explains how to develop the nxt UI plugin within the DuetWebControl workspace. The nxt UI is a Vue 2.7 plugin that integrates with Duet Web Control **v3.7.0-beta.1** (pin: `ci/dwc-build-ref`; shipped ZIPs set exact `dwcVersion` at build) on branch **`v0.7.0`**. See [VERSIONING.md](VERSIONING.md).
 
 > [!WARNING]
 > **NEVER** edit files within the `DuetWebControl` directory as the nxt plugin is symlinked into it already. All source code changes should be within the `MOS-nxt/ui` directory structure.
@@ -208,7 +208,7 @@ This is almost always **404**, **`dwcFiles`**, or **version skew** — see **[PL
 **Installed ZIP on a printer / SBC:**
 
 1. Rebuild and reinstall the latest `dist/nxt-*.zip` (Settings → Plugins → upload). The ZIP must include `dwc/js/nxt.*.js` (and `.css`).
-2. DWC on the machine must match the ZIP’s **`plugin.json` `dwcVersion` exactly** (e.g. `3.6.2`, not merely “3.6.x”). Run `./dist/verify-dwc-build-alignment.sh` before `./dist/build-plugin.sh`. See [PLUGIN_LOAD_TROUBLESHOOTING.md](PLUGIN_LOAD_TROUBLESHOOTING.md).
+2. DWC on the machine must match the ZIP’s **`plugin.json` `dwcVersion` exactly** (e.g. `3.7.0-beta.1`, not merely “3.7.x”). Run `./dist/verify-dwc-build-alignment.sh` before `./dist/build-plugin.sh`. See [PLUGIN_LOAD_TROUBLESHOOTING.md](PLUGIN_LOAD_TROUBLESHOOTING.md).
 3. Hard-refresh or clear site data for the DWC URL so old `nxt.<hash>.js` chunks are not cached.
 
 If the error persists, open the browser devtools → **Sources**, enable the nxt source map, and note the first stack frame outside webpack runtime (that module is the real missing/broken import).

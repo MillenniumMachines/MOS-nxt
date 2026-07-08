@@ -19,7 +19,7 @@
 ;   T: Optional override for max |skew| allowed (deg); default global.nxtProbeMaxSkewDeg
 ;
 ; Rotation (G68) is only applied when both X and Y are updated together.
-; Requires RRF with G68 (CNC / coordinate rotation). Prefer **3.6.2** (`ui/plugin.json`); G68 sign correct from **3.6.1** onward.
+; Requires RRF with G68 (CNC / coordinate rotation). Branch v0.7.0 targets **3.7.x**; G68 sign correct from **3.6.1** onward.
 ;
 ; At least one axis flag (X, Y, Z, or A) must be specified.
 

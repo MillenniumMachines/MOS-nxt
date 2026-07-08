@@ -30,6 +30,10 @@ UI copy uses the **`plugins.nxt`** prefix in templates (e.g. `$t('plugins.nxt.pa
 - Boot: `nxt.g`, `global.nxt*`, `nxt-config/` on SD
 - Release ZIP: `nxt-<version>.zip`
 
+## Release lines and RRF alignment
+
+Branch **`v0.M.0`** targets RepRapFirmware / DWC **`3.M.x`** (e.g. `v0.7.0` ↔ **3.7.x**). See [VERSIONING.md](VERSIONING.md).
+
 ## Checks
 
 ```bash

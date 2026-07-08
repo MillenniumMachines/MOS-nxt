@@ -2,7 +2,7 @@
 
 This document outlines the development roadmap for the complete rewrite of MillenniumOS as **nxt**. The primary goal is to refactor the system for simplicity, accuracy, and maintainability, starting from a clean slate.
 
-**Development repository:** [MillenniumMachines/MOS-nxt](https://github.com/MillenniumMachines/MOS-nxt) — active line on branch `v0.6.0`, pre-releases tagged `v0.6.0-beta.N`.
+**Development repository:** [MillenniumMachines/MOS-nxt](https://github.com/MillenniumMachines/MOS-nxt) — active line on branch **`v0.7.0`**, pre-releases tagged `v0.7.0-beta.N`. See [VERSIONING.md](VERSIONING.md) for branch ↔ RRF/DWC alignment (`v0.7.0` ↔ **3.7.x**).
 
 ---
 
@@ -40,7 +40,7 @@ The goal of this phase is to establish a clean and organized repository structur
 4.  **New Repository:** ✅
     *   The new directory structure lives in the MOS-nxt repository ([MillenniumMachines/MOS-nxt](https://github.com/MillenniumMachines/MOS-nxt)).
     *   This provides full control over development and refactoring without affecting legacy MillenniumOS macro sources in the old repo.
-    *   Stable releases will merge to `main`; the `v0.6.0` branch carries the current beta line.
+    *   Stable releases will merge to `main`; the **`v0.7.0`** branch carries the current beta line (RRF/DWC **3.7.x**). See [VERSIONING.md](VERSIONING.md).
 
 ---
 
@@ -179,19 +179,24 @@ This phase focuses on completing the tool change system and advanced features. *
 
 ---
 
-## v0.6.0 beta release track (in progress)
+## v0.7.0 beta release track (in progress)
 
-Pre-releases on `v0.6.0` (`v0.6.0-beta.1` …). Themes shipped in recent betas:
+Pre-releases on **`v0.7.0`** (`v0.7.0-beta.1` …). Targets **RRF / DWC 3.7.x** ([VERSIONING.md](VERSIONING.md), [RRF_3.7_MIGRATION.md](RRF_3.7_MIGRATION.md)). Themes:
 
 | Theme | Status |
 |-------|--------|
-| Strict consecutive-pair probe tolerance (`G6512`, 3 touches, default 0.0075 mm) | ✅ beta.5+ |
+| RRF 3.7 migration docs + pin bump (`ci/dwc-build-ref` → v3.7.0-beta.1) | ✅ |
+| Strict consecutive-pair probe tolerance (`G6512`, 3 touches, default 0.0075 mm) | ✅ (from v0.6 line) |
 | MOS → nxt configuration migration (`nxt-mos-import.g`, auto-detect on boot) | ✅ |
 | `auto-major` DWC/RRF compatibility in built `plugin.json` | ✅ |
 | Configuration panel save to SD via DWC upload API | ✅ |
-| CI: nxt-only checkout; DWC via read-only tarball (`ci/dwc-build-ref` → v3.6.2) | ✅ beta.6+ |
+| CI: nxt-only checkout; DWC via read-only tarball (`ci/dwc-build-ref`) | ✅ |
 
 Manual DWC install and smoke-test remain required before treating a beta as release-ready (see `.cursor/rules/release-plugin-verify.mdc`).
+
+## v0.6.0 release track (previous line)
+
+Shipped on branch `v0.6.0`; RRF/DWC **3.6.x** (`ci/dwc-build-ref` was `v3.6.2`). Superseded by **`v0.7.0`** for RRF **3.7.x** ([RRF_3.7_MIGRATION.md](RRF_3.7_MIGRATION.md)).
 
 ---
 
@@ -216,7 +221,7 @@ This phase focuses on testing, documentation, and preparing for a public release
 
 1.  **Testing:**
     *   Conduct thorough end-to-end testing of all features, with a strong focus on the accuracy and reliability of the new probing and tool change systems.
-    *   Each `v0.6.0-beta.N` tag should be validated on hardware (plugin load, Configuration save, G37 / probing echoes) before promotion.
+    *   Each `v0.7.0-beta.N` tag should be validated on hardware (plugin load, Configuration save, G37 / probing echoes) before promotion.
 
 2.  **Documentation:**
     *   Update all documentation (`README.md`, `DETAILS.md`, `UI.md`, etc.) to reflect the new architecture, features, and UI workflow.

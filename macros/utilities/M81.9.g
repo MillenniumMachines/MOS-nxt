@@ -4,6 +4,9 @@
 ;
 ; USAGE: M81.9
 
+if { !inputs[state.thisInput].active }
+    M99
+
 ; If no ATX power port is configured, exit
 if { state.atxPowerPort == null }
     M99

@@ -143,7 +143,7 @@ var actualWidth = { abs(var.vx) }
 var actualHeight = { abs(var.wy) }
 
 ; Log results to probe results table
-if { #global.nxtProbeResults[var.pSlot] < 3 }
+if { global.nxtProbeResults[var.pSlot] == null || #global.nxtProbeResults[var.pSlot] < 3 }
     set global.nxtProbeResults[var.pSlot] = { vector(#move.axes + 1, 0.0) }
 
 set global.nxtProbeResults[var.pSlot][0] = { var.calculatedCenterX }

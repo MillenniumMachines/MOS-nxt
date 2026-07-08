@@ -94,3 +94,29 @@ nxt mirrors that pattern: wrap vector() in { } on global / set / var RHS.
   multiple lines or use a var flag (see macros/system/nxt.g MOS import gate).
 
   Before commit: ./dist/check-macro-line-length.sh  (also runs in CI)
+
+8) RRF 3.7+ (branch v0.7.0)
+-----------------------------
+  See docs/RRF_3.7_MIGRATION.md and docs/VERSIONING.md.
+
+  a) Callable M/G macros (not RRF tool-change hooks): guard the primary motion
+     system at the top when the macro must not run on a secondary input
+     (RRF 3.7 move.motionSystems[]):
+       if { !inputs[state.thisInput].active }
+           M99
+     Exclude tpre.g / tfree.g / tpost.g — RRF invokes those for Tn tool changes.
+
+  b) Expression null semantics: E[n], E.f on null return null (no error).
+     Always check slot == null before #slot or subscript when the element
+     may be unset, e.g. probe results:
+       if { global.nxtProbeResults[var.pSlot] == null || #global.nxtProbeResults[var.pSlot] < 3 }
+           set global.nxtProbeResults[var.pSlot] = { vector(#move.axes + 1, 0.0) }
+
+  c) exists(E[n]) / exists(E.f) on non-array / non-object returns false
+     instead of error. Keep using exists(x) && x != null; do not rely on
+     expression errors as control flow.
+
+  d) ^ operator: array ^ array concatenates arrays in 3.7 (was string coercion).
+     nxt builds strings with ^ only; never ^ between two array values.
+
+  e) Array literals: prefer { } in nxt macros; [ ] is optional in 3.7+.

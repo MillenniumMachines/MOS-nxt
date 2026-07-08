@@ -122,7 +122,7 @@ var r1 = { sqrt((var.calculatedCenterX - var.xMx)^2 + (var.calculatedCenterY - v
 var r2 = { sqrt((var.calculatedCenterX - var.yPx)^2 + (var.calculatedCenterY - var.yPy)^2) }
 var avgDiameter = { (2 * var.r0 + 2 * var.r1 + 2 * var.r2) / 3 }
 
-if { #global.nxtProbeResults[var.pSlot] < 3 }
+if { global.nxtProbeResults[var.pSlot] == null || #global.nxtProbeResults[var.pSlot] < 3 }
     set global.nxtProbeResults[var.pSlot] = { vector(#move.axes + 1, 0.0) }
 
 set global.nxtProbeResults[var.pSlot][0] = { var.calculatedCenterX }

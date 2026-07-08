@@ -49,6 +49,23 @@ Homing macros are **not** `M98`'d at boot.
 Resolver path: `nxt-config/board/<shortName>/[motor-24v|motor-48v/]entry.g`.  
 Legacy shim (one release): `nxt-config/<platform>/boards/...` if new path missing.
 
+## Network configuration
+
+Machine packs load network settings from **`machine/<id>/entry.g`** (not board packs):
+
+1. If **`0:/sys/network.g`** exists → `M98 P"network.g"` (user override; nxt does not ship this file).
+2. Else → `M98 P"nxt-config/machine/<id>/network-default.g"` (vendored default).
+
+**`network-default.g`** (v1.5 / v1.6_v2) enables WiFi AP mode and **`M586 P0 S1`** (HTTP). On **RRF 3.7+**, HTTP is off by default — the default file satisfies DWC and nxt Configuration saves without editing root `config.g`.
+
+| Situation | Action |
+|-----------|--------|
+| Stock Milo + bootstrap + no `network.g` | No change — default applies at boot |
+| Custom **`network.g`** on SD | Audit for `M586 P0 S1` after RRF 3.7 upgrade |
+| Bootstrap skipped | HTTP must be set in `config.g`, `network.g`, or `user-config.g` |
+
+The Configuration UI does **not** deploy `network.g` (only homing via sys-deploy). See [RRF_3.7_MIGRATION.md](RRF_3.7_MIGRATION.md).
+
 ## Globals
 
 | Global | Purpose |

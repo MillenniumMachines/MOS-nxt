@@ -204,6 +204,19 @@ while { iterations < #tools }
         echo "Tool " ^ iterations ^ " has X offset > 10mm"
 ```
 
+#### ✅ CORRECT - RRF 3.7+ probe result row init (null slot before `#`):
+```gcode
+if { global.nxtProbeResults[var.pSlot] == null || #global.nxtProbeResults[var.pSlot] < 3 }
+    set global.nxtProbeResults[var.pSlot] = { vector(#move.axes + 1, 0.0) }
+```
+
+#### ✅ CORRECT - Primary motion system guard (user-callable M/G macros, RRF 3.7+):
+```gcode
+if { !inputs[state.thisInput].active }
+    M99
+```
+Do **not** use this in `tpre.g`, `tfree.g`, or `tpost.g` — RRF runs those during `Tn` tool changes.
+
 #### ❌ INCORRECT - Checking individual indexes:
 ```gcode
 ; Don't do this - assumes specific number of axes

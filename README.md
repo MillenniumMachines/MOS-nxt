@@ -46,9 +46,9 @@ The information contained here is for advanced users who want to understand furt
 
 ### Notes
 
-- You _must_ be using RRF `v3.6.0-rc.3` or above. nxt uses many 'meta gcode' features that do not exist in earlier versions.
+- You _must_ be using RRF **3.7.x** on branch **`v0.7.0`** (minimum **3.7.0-beta.1** while upstream is in beta). nxt uses meta G-code features that do not exist in earlier versions. For **3.6.x** machines, stay on nxt **`v0.6.0`** releases.
 
-**Reference firmware for development:** When reviewing or extending nxt macros and docs, treat **[RepRapFirmware 3.6.2](docs/RRF_REFERENCE.md)** as the evaluation baseline (G-code dictionary, object model, and bugfix level). See [`docs/RRF_REFERENCE.md`](docs/RRF_REFERENCE.md).
+**Reference firmware for development:** When reviewing or extending nxt on branch **`v0.7.0`**, treat **[RepRapFirmware 3.7.0-beta.1](docs/RRF_REFERENCE.md)** as the evaluation baseline. See [`docs/RRF_REFERENCE.md`](docs/RRF_REFERENCE.md) and [`docs/VERSIONING.md`](docs/VERSIONING.md).
 - nxt includes its own `daemon.g` file for repetitive tasks (VSSC is planned but not yet implemented). If you want to implement your own repetitive tasks, create a `user-daemon.g` file in the `/sys` directory, which nxt will run during its daemon loop. Do not use long-running loops inside `user-daemon.g` as this will interfere with nxt's daemon behaviour.
 
 ### RRF Config
@@ -129,13 +129,13 @@ To install the nxt plugin on your physical machine:
 
 ## DWC Plugin Development
 
-The nxt UI is a **Vue 2.7 / Vuetify 2.x** plugin for [Duet Web Control](https://github.com/Duet3D/DuetWebControl) **3.6.2+** (`dwcVersion` in [`ui/plugin.json`](ui/plugin.json)). Source lives in `ui/`.
+The nxt UI is a **Vue 2.7 / Vuetify 2.x** plugin for [Duet Web Control](https://github.com/Duet3D/DuetWebControl) **3.7.x** on branch **`v0.7.0`** (`dwcVersion` in [`ui/plugin.json`](ui/plugin.json)). See [docs/VERSIONING.md](docs/VERSIONING.md).
 
 For building and testing **additional** nxt-compatible plugins (sibling repos, catalog, plugin ZIP), see [docs/LOCAL_PLUGIN_BUILD_AND_TEST.md](docs/LOCAL_PLUGIN_BUILD_AND_TEST.md).
 
 ### Quick Start
 
-**Prerequisites:** A local clone of [DuetWebControl](https://github.com/Duet3D/DuetWebControl) on a **3.6.2-compatible** branch or tag (e.g. `3.6-dev` or `v3.6.2` when available) with `npm install` completed.
+**Prerequisites:** A local clone of [DuetWebControl](https://github.com/Duet3D/DuetWebControl) matching [`ci/dwc-build-ref`](ci/dwc-build-ref) (currently **`v3.7.0-beta.1`**) with `npm install` completed. Run `./dist/ci-fetch-dwc.sh` to fetch the pinned tree.
 
 ```powershell
 # 1. Create a directory junction (Windows) — folder name MUST match plugin.json "id"

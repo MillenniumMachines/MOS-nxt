@@ -11,7 +11,9 @@ All product documentation lives in **`docs/`** in this repository.
 | [ROADMAP.md](ROADMAP.md) | Phases and backlog |
 | [CODE.md](CODE.md) | Macro / meta G-code style |
 | [plugin-spec.md](plugin-spec.md) | Plugin contract |
-| [RRF_REFERENCE.md](RRF_REFERENCE.md) | RRF version pin |
+| [RRF_REFERENCE.md](RRF_REFERENCE.md) | RRF version pin (branch `v0.7.0` → 3.7.x) |
+| [VERSIONING.md](VERSIONING.md) | nxt `v0.M.0` branch ↔ RRF/DWC `3.M.x` |
+| [RRF_3.7_MIGRATION.md](RRF_3.7_MIGRATION.md) | Upgrading from RRF 3.6 to 3.7 with nxt |
 | [NAMING.md](NAMING.md) | Product (`nxt`), repo (`MOS-nxt`), DWC wiring |
 | [RRF_LINE_LENGTH.md](RRF_LINE_LENGTH.md) | Macro line-length limits (gates: `.cursor/rules/gcode-line-length.mdc`) |
 

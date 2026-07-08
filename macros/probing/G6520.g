@@ -85,7 +85,7 @@ var cornerX = { var.xSurface }
 var cornerY = { var.ySurface }
 var cornerZ = { var.zSurface }
 
-if { #global.nxtProbeResults[var.pSlot] < 3 }
+if { global.nxtProbeResults[var.pSlot] == null || #global.nxtProbeResults[var.pSlot] < 3 }
     set global.nxtProbeResults[var.pSlot] = { vector(#move.axes + 1, 0.0) }
 
 set global.nxtProbeResults[var.pSlot][0] = { var.cornerX }

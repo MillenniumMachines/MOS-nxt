@@ -123,7 +123,7 @@ var midpointX = { (var.xA + var.xB) / 2 }
 var midpointY = { (var.yA + var.yB) / 2 }
 
 var resultVectorSize = { #move.axes + 1 }
-if { #global.nxtProbeResults[var.pSlot] != var.resultVectorSize }
+if { global.nxtProbeResults[var.pSlot] == null || #global.nxtProbeResults[var.pSlot] != var.resultVectorSize }
     set global.nxtProbeResults[var.pSlot] = { vector(var.resultVectorSize, 0.0) }
 
 set global.nxtProbeResults[var.pSlot][0] = { var.midpointX }
