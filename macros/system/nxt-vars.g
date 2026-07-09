@@ -11,8 +11,14 @@ global nxtFeatureCoolantControl = false ; Coolant Control feature flag
 global nxtFeatureRgbLight = false       ; RGB work light (M150 addressable strip)
 global nxtFeatureFourthAxis = false     ; Fourth axis (requires MosFourthAxis DWC plugin on SD)
 
+; --- Operator / tutorial modes ---
+global nxtExpertMode = false            ; Skip confirmation dialogs when true
+global nxtTutorialMode = true           ; Echo tutorial messages during probing
+global nxtWS = ""                       ; Work-state hint for RGB daemon ("probing", "homing", …)
+
 ; --- Core Settings ---
-global nxtProbeToolID = { limits.tools - 1 } ; Probe Tool ID, always the last tool
+global nxtProbeToolID = { limits.tools - 1 } ; Touch probe and datum share this slot (T49 on 50-tool table)
+global nxtReservedFrom = { limits.tools - 1 } ; First system-reserved index; user tools 0 .. nxtReservedFrom-1
 global nxtTouchProbeID = 0             ; The ID of the touch probe sensor
 global nxtToolSetterID = 1             ; The ID of the tool setter sensor
 global nxtError = null               ; Stores the last error message
@@ -57,9 +63,76 @@ global nxtToolSetterRadius = null ; Toolsetter platen radius for large-tool mult
 global nxtToolChangeState = null   ; Tracks the current tool change state (1=tfree, 2=tfree done, 3=tpre done, 4=tpost, null=complete)
 global nxtUserToolsFilePresent = false     ; set at boot by nxt.g: nxt-user-tools.g exists on SD
 global nxtUserToolsDaemonReload = false      ; if true, daemon reloads library when 0:/sys/nxt-user-tools.reload.requested exists (see TOOLCHANGING.md)
+global nxtTTLocked = false                   ; Tool Library edit-lock (persisted via nxt-user-tools-sync.g)
 
-; --- RGB work light (M150) ---
-global nxtRgbLedIndex = 0 ; LED strip index (M150 P parameter)
+; --- RGB status LED (optional feature) -------------------------------------
+; A single status light that mirrors what the machine is doing. The daemon
+; turns the machine state into a colour a few times a second - see nxt-run-rgb.g.
+global nxtRgbLedIndex = 0 ; M6524 / Configuration UI LED index (M150 P parameter)
+
+; Work-state hint. nxt macros set this (e.g. "probing", "homing"); the daemon
+; clears it back to "" when the machine returns to idle, so a finished or
+; aborted operation can never leave the light showing the wrong thing.
+; (global nxtWS is declared above with operator / tutorial modes.)
+
+; LED strip hardware. Configured in DWC and saved to nxt-user-vars.g. The strip
+; is created on first run from these values.
+global nxtRGBStrip = 0      ; LED strip number (the E in M950 E0 / M150 E0)
+global nxtRGBPin   = null   ; data pin, e.g. "PA_10" - null until configured
+global nxtRGBType  = 1      ; M950 T: 1=RGB NeoPixel, 3=RGBW NeoPixel
+global nxtRGBCount = 1      ; number of LEDs in the strip
+global nxtRGBBri   = 255    ; brightness 0-255
+
+; Internal state for the renderer - do not edit.
+global nxtRGBReady = false  ; set true once the strip has been created
+global nxtRGBLast  = "none" ; last state rendered (so we only update on change)
+global nxtRGBLastBri = -1 ; nxt-run-rgb change-detect for the idle-dim brightness
+
+; Test override. Set this to a state name to FORCE that colour, ignoring what
+; the machine is actually doing - used by the Status tab test button and for
+; testing without probe hardware. Valid: "idle" "home" "probe" "tool" "run"
+; "paused" "error". Set back to "" to resume normal behaviour.
+global nxtRGBTest = ""
+
+; Colour map - one {R, G, B, W} per state, 0-255. Edit via the nxt Status tab.
+; (W is ignored automatically on an RGB strip, so it's safe to leave set.)
+global nxtRGBIdle  = {255, 255, 255, 255}  ; idle / ready - bright work light
+global nxtRGBHome  = {0,   0,   255, 0}    ; homing
+global nxtRGBProbe = {0,   255, 255, 0}    ; probing
+global nxtRGBTool  = {255, 150, 0,   0}    ; tool change
+global nxtRGBRun   = {255, 255, 255, 255}  ; running a job - work light
+global nxtRGBPause = {255, 255, 255, 255}  ; paused - work light
+global nxtRGBErr   = {255, 0,   0,   0}    ; error / halted
+
+; Idle RGB dimming (nxt-run-rgb.g; nxt-run-maintenance.g may engage idle mode)
+global nxtIdleActive = false          ; runtime: true while idle mode is engaged
+global nxtIdleDimBri = 40             ; RGB brightness while idle (0-255; error stays full)
+
+; --- Maintenance counters (axis travel + per-tool spindle-on life) ---
+; Accumulated by nxt-run-maintenance.g from the daemon. Persisted to 0:/sys/nxt-maintenance.g.
+global nxtFeatMaint = true                            ; master enable for maintenance tracking
+global nxtAxisTravel = { vector(#move.axes, 0.0) }    ; accumulated travel per axis (mm)
+global nxtAxisServiceAt = { vector(#move.axes, 0.0) } ; per-axis service threshold (mm); 0 = off
+global nxtToolLife = { vector(limits.tools, 0.0) }    ; accumulated spindle-on time per tool (s)
+global nxtMaintLastPos = { vector(#move.axes, 0.0) }  ; last sampled machine position per axis
+global nxtMaintLastTime = 0                           ; last sampled uptime (s) for life dt
+global nxtMaintPrimed = false                         ; false until the first sample is taken
+global nxtMaintTick = 0                               ; active-tick counter for periodic persist
+global nxtMaintPersistEvery = 60                      ; periodic-save backstop: this many ACTIVE ticks
+global nxtMaintWasActive = false                      ; tracks active->idle edge to save at burst end
+
+; Coolant / mister runtime (maintenance reminder for reservoir refill / nozzle clean)
+global nxtCoolantRuntime = 0          ; accumulated coolant-on seconds
+global nxtCoolantServiceAt = 0        ; coolant service interval (seconds); 0 = off
+
+; Idle auto-actions: dim RGB + drop E-bay fan after inactivity (nxt-run-maintenance.g)
+global nxtFeatIdleActions = true      ; master enable for idle auto-actions
+global nxtIdleAfter = 1800            ; seconds of inactivity before idle mode (default 30 min)
+global nxtIdleFanLow = 0.3            ; E-bay fan (F0) PWM while idle (0-1)
+global nxtIdleSince = 0               ; runtime: uptime(s) activity was last seen
+
+; Motor / VFD contactor relay output — reserved from coolant Configuration UI (set in board relay.g)
+global nxtRelayID = null
 
 ; --- Coolant Control ---
 global nxtCoolantAirID = null ; Coolant Air Output Pin ID

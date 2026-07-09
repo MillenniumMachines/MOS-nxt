@@ -6,8 +6,10 @@
 ; — not cutter radius or diameter. M563 updates the real tools[P] record; param.R (radius) is
 ; stored in global.mosTT for CAM/DWC. The nxt plugin merges mosTT into tool rows client-side.
 ;
-; Creates an RRF tool and links it to the default spindle (global.nxtSpindleID, or 0 if unset).
-; Stores CAM radius, optional probe deflections, and optional flute count / flute length in global.mosTT (see nxt-tooltable.g).
+; mosTT[P] = [ radius, {deflX, deflY}, fluteCount(-1), fluteLength(-1.0), tcCapable(1), tsCapable(1) ]
+;
+; USAGE: M4000 P<idx> R<radius> S"<name>" [I<spindle>] [X<deflX>] [Y<deflY>] [F<flutes>] [L<fluteLen>]
+;   [C<0|1>] [B<0|1>] [K1] — K1 required for system writes to nxtReservedFrom (probe/datum slot).
 
 ; Make sure this file is not executed by the secondary motion system
 if { !inputs[state.thisInput].active }
@@ -16,7 +18,7 @@ if { !inputs[state.thisInput].active }
 ; Belt-and-suspenders if boot skipped nxt-tooltable.g (partial SD update)
 if { !exists(global.mosTT) }
     if { !exists(global.mosET) }
-        global mosET = { 0.0, {0.0, 0.0}, -1, -1.0 }
+        global mosET = { 0.0, {0.0, 0.0}, -1, -1.0, 1, 1 }
     global mosTT = { vector(limits.tools, global.mosET) }
 
 if { !exists(param.P) || !exists(param.R) || !exists(param.S) }
@@ -29,29 +31,28 @@ if { #param.S < 1 }
 if { param.P >= limits.tools || param.P < 0 }
     abort { "Tool index must be between 0 and " ^ limits.tools-1 ^ "!" }
 
+; Reserved system slot (probe/datum at nxtProbeToolID) may ONLY be written by system macros with K1.
+if { exists(global.nxtReservedFrom) && param.P >= global.nxtReservedFrom && (!exists(param.K) || param.K != 1) }
+    abort { "Tool " ^ param.P ^ " is a reserved system slot (probe/datum). User tools must be 0-" ^ (global.nxtReservedFrom - 1) ^ "." }
+
 var spinId = { (exists(param.I)) ? param.I : (global.nxtSpindleID != null ? global.nxtSpindleID : 0) }
 
-; Check if tool is already defined and matches. If so, skip adding it.
-; This allows us to re-run a file that defines the tool that is currently
-; loaded, without unloading the tool.
-
-; Initial tool similarity check - make sure the tool is defined in both the internal
-; RRF tool table and our own mosTT table.
+; Initial tool similarity check - defined in both the RRF tool table and our mosTT table.
 var toolSame = { global.mosTT[param.P] != null && #tools > param.P && tools[param.P] != null }
 
-; Check that tool radius and spindle match
+; Radius + spindle match
 set var.toolSame = { var.toolSame && global.mosTT[param.P][0] == param.R && tools[param.P].spindle == var.spinId }
 
-; Check that tool description matches
+; Description match
 set var.toolSame = { var.toolSame && tools[param.P].name == param.S }
 
-; Check that deflection values match (probe tools only; cutting tools omit X/Y)
+; Deflection match (probe tools only; cutting tools omit X/Y)
 if { exists(param.X) }
     set var.toolSame = { var.toolSame && global.mosTT[param.P][1][0] == param.X }
 if { exists(param.Y) }
     set var.toolSame = { var.toolSame && global.mosTT[param.P][1][1] == param.Y }
 
-; Optional flute count (F) and flute length (L), stored in mosTT[P][2] and [3]; -1 = unset
+; Optional flute count (F) / flute length (L) match - stored in mosTT[P][2],[3]; -1 = unset
 if { exists(param.F) }
     if { #global.mosTT[param.P] > 2 }
         set var.toolSame = { var.toolSame && global.mosTT[param.P][2] == param.F }
@@ -63,14 +64,32 @@ if { exists(param.L) }
     else
         set var.toolSame = false
 
-; Preserve flute meta across M4000 when F/L are omitted (row is replaced from mosET below).
+; Optional tool-changer-capable flag (C) match - stored in mosTT[P][4]; default 1
+if { exists(param.C) }
+    if { #global.mosTT[param.P] > 4 }
+        set var.toolSame = { var.toolSame && global.mosTT[param.P][4] == param.C }
+    else
+        set var.toolSame = false
+if { exists(param.B) }
+    if { #global.mosTT[param.P] > 5 }
+        set var.toolSame = { var.toolSame && global.mosTT[param.P][5] == param.B }
+    else
+        set var.toolSame = false
+
+; Preserve flute + tc/ts-capable meta across M4000 when params omitted (row is replaced below).
 var preserveF = -1
 var preserveL = -1.0
+var preserveC = 1
+var preserveB = 1
 if { global.mosTT[param.P] != null }
     if { #global.mosTT[param.P] > 2 }
         set var.preserveF = global.mosTT[param.P][2]
     if { #global.mosTT[param.P] > 3 }
         set var.preserveL = global.mosTT[param.P][3]
+    if { #global.mosTT[param.P] > 4 }
+        set var.preserveC = global.mosTT[param.P][4]
+    if { #global.mosTT[param.P] > 5 }
+        set var.preserveB = global.mosTT[param.P][5]
 
 ; Definition unchanged — nothing to do (no M563). Sync SD library (captures G10 without M563).
 if { var.toolSame }
@@ -85,6 +104,13 @@ if { state.currentTool == param.P && #tools > param.P && tools[param.P] != null 
 
 ; Tool exists in RRF but is not the active tool — refresh mosTT metadata only.
 if { #tools > param.P && tools[param.P] != null }
+    ; RRF tool name only changes via M563, which RESETS offsets. Rename only when description
+    ; changed and tool is not currently loaded; capture Z length first and re-apply afterwards.
+    if { tools[param.P].name != param.S && state.currentTool != param.P }
+        var savedZ = { (#tools[param.P].offsets > 2) ? tools[param.P].offsets[2] : 0 }
+        M563 P{param.P} S{param.S} R{var.spinId}
+        G10 L1 P{param.P} Z{var.savedZ}
+
     set global.mosTT[param.P] = { global.mosET }
     set global.mosTT[param.P][0] = { param.R }
     if { exists(param.X) }
@@ -99,6 +125,14 @@ if { #tools > param.P && tools[param.P] != null }
         set global.mosTT[param.P][3] = { param.L }
     elif { var.preserveL >= 0 }
         set global.mosTT[param.P][3] = { var.preserveL }
+    if { exists(param.C) }
+        set global.mosTT[param.P][4] = { param.C }
+    else
+        set global.mosTT[param.P][4] = { var.preserveC }
+    if { exists(param.B) }
+        set global.mosTT[param.P][5] = { param.B }
+    else
+        set global.mosTT[param.P][5] = { var.preserveB }
     if { (!exists(global.nxtUserToolsLoadDepth) || global.nxtUserToolsLoadDepth < 1) && (!exists(global.nxtAutoPersistTools) || global.nxtAutoPersistTools) }
         M98 P"nxt-user-tools-sync.g"
     M99
@@ -139,6 +173,18 @@ if { exists(param.L) }
     set global.mosTT[param.P][3] = { param.L }
 elif { var.preserveL >= 0 }
     set global.mosTT[param.P][3] = { var.preserveL }
+
+; Tool-changer capable flag (C): 1 = ATC can load it, 0 = hand-load only. Default preserved.
+if { exists(param.C) }
+    set global.mosTT[param.P][4] = { param.C }
+else
+    set global.mosTT[param.P][4] = { var.preserveC }
+
+; Toolsetter-capable flag (B): 1 = toolsetter can probe its Z, 0 = must be set manually. Default preserved.
+if { exists(param.B) }
+    set global.mosTT[param.P][5] = { param.B }
+else
+    set global.mosTT[param.P][5] = { var.preserveB }
 
 ; Persist full tool library to SD (optional; disable with global nxtAutoPersistTools = false).
 ; Skip while nxt-user-tools.g is being M98-loaded (nxtUserToolsLoadDepth > 0) to avoid truncating mid-file.

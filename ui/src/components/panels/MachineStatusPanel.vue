@@ -152,6 +152,10 @@
         <v-col v-if="rgbHardwareConfigured" cols="12">
           <nxt-rgb-light-control />
         </v-col>
+
+        <v-col cols="12">
+          <nxt-maintenance-panel />
+        </v-col>
       </v-row>
     </v-card-text>
   </v-card>

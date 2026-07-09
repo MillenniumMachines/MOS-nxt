@@ -59,6 +59,16 @@
             >
               {{ preset.label }}
             </v-btn>
+            <v-btn
+              small
+              color="primary"
+              class="ma-1"
+              :disabled="controlsDisabled"
+              :loading="saving"
+              @click="saveRgbSettings"
+            >
+              {{ $t('plugins.nxt.panels.rgbLight.save') }}
+            </v-btn>
           </v-col>
         </v-row>
       </template>
@@ -97,7 +107,8 @@ export default BaseComponent.extend({
   data() {
     return {
       pickerColor: '#ffffff',
-      sending: false
+      sending: false,
+      saving: false
     }
   },
 
@@ -138,7 +149,7 @@ export default BaseComponent.extend({
     },
 
     controlsDisabled(): boolean {
-      return !this.isConnected || !this.nxtReady || this.uiFrozen || this.sending
+      return !this.isConnected || !this.nxtReady || this.uiFrozen || this.sending || this.saving
     },
 
     rgbState(): NxtRgbUiState {
@@ -244,6 +255,20 @@ export default BaseComponent.extend({
         b: preset.b,
         on: true
       })
+    },
+
+    async saveRgbSettings() {
+      if (!this.featureEnabled || this.controlsDisabled) {
+        return
+      }
+      this.saving = true
+      try {
+        await this.sendCode('M98 P"nxt/nxt-save-rgb.g"')
+      } catch (e) {
+        console.error('nxt RGB: failed to save settings', e)
+      } finally {
+        this.saving = false
+      }
     }
   }
 })

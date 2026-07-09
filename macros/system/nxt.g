@@ -38,6 +38,10 @@ if { !exists(global.mosTT) }
     M117 "nxt nxt-tooltable.g"
     M98 P"nxt-tooltable.g"
 
+; WCS probing metadata + jog probe distances (unless mos-vars.g already loaded them)
+if { !exists(global.mosOT) }
+    M98 P"nxt-probe-wcs.g"
+
 ; Load user-defined variables if they exist
 ; This MUST set already-defined globals and
 ; not define new ones as it can be loaded 
@@ -80,6 +84,11 @@ M453
 M117 "nxt nxt-boot.g"
 M98 P"nxt-boot.g"
 
+; Restore persisted maintenance counters (axis travel + tool life) when present.
+if { global.nxtLoaded && fileexists("0:/sys/nxt-maintenance.g") }
+    M117 "nxt nxt-maintenance.g"
+    M98 P"nxt-maintenance.g"
+
 ; Initialize metadata-driven plugins once boot checks pass.
 if { global.nxtLoaded && fileexists("0:/sys/nxt/plugins/nxt-plugin-init-dispatch.g") }
     M117 "nxt plugin-init"
@@ -92,6 +101,10 @@ if { fileexists("0:/sys/nxt-user-overrides.g") }
     M98 P"nxt-user-overrides.g"
 elif { fileexists("0:/sys/nxt-user-overrides.g.example") }
     echo "nxt: nxt-user-overrides.g not found — copy nxt-user-overrides.g.example to nxt-user-overrides.g on SD to apply overrides"
+
+; Persisted RGB colour map (written by nxt-save-rgb.g from Status / RGB panel).
+if { fileexists("0:/sys/nxt-rgb-colours.g") }
+    M98 P"nxt-rgb-colours.g"
 
 ; Daemon loop defaults (coolant pulse and future periodic tasks)
 if { !exists(global.nxtDaemonEnabled) }

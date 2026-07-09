@@ -18,11 +18,15 @@ var nxtMosSentinel = { fileexists("0:/sys/nxt-mos-import.requested") }
 var hasMosSource = var.nxtMosSentinel
 if { fileexists("0:/sys/mos-vars.g") || fileexists("0:/sys/mos-user-vars.g") || fileexists("0:/sys/mos.g") }
     set var.hasMosSource = true
+if { fileexists("0:/sys/mos-maintenance.g") }
+    set var.hasMosSource = true
 if { exists(global.mosSID) }
     set var.hasMosSource = true
 if { exists(global.mosFeatTouchProbe) }
     set var.hasMosSource = true
 if { exists(global.mosPTID) }
+    set var.hasMosSource = true
+if { exists(global.mosProbeToolID) }
     set var.hasMosSource = true
 if { exists(global.mosLdd) }
     set var.hasMosSource = true
@@ -37,6 +41,9 @@ if { fileexists("0:/sys/mos-vars.g") }
 if { fileexists("0:/sys/mos-user-vars.g") }
     M98 P"mos-user-vars.g"
 
+if { fileexists("0:/sys/mos-maintenance.g") }
+    M98 P"mos-maintenance.g"
+
 if { fileexists("0:/sys/nxt-user-vars.g") }
     M98 P"nxt-user-vars.g"
 
@@ -48,6 +55,12 @@ if { exists(global.mosFeatCoolantControl) }
     set global.nxtFeatureCoolantControl = { global.mosFeatCoolantControl }
 if { exists(global.mosPTID) }
     set global.nxtProbeToolID = { global.mosPTID }
+if { exists(global.mosProbeToolID) }
+    set global.nxtProbeToolID = { global.mosProbeToolID }
+
+; Normalize Jake dual-slot (probe @ 48, datum @ 49) and legacy indices → single slot at limits.tools - 1.
+set global.nxtProbeToolID = { limits.tools - 1 }
+set global.nxtReservedFrom = { limits.tools - 1 }
 if { exists(global.mosTPID) }
     set global.nxtTouchProbeID = { global.mosTPID }
 if { exists(global.mosTSID) }
@@ -94,6 +107,38 @@ if { exists(global.mosTCS) }
     else
         set global.nxtToolChangeState = null
 
+if { exists(global.mosRelayID) }
+    set global.nxtRelayID = { global.mosRelayID }
+if { exists(global.mosFeatMaint) }
+    set global.nxtFeatMaint = { global.mosFeatMaint }
+if { exists(global.mosAxisTravel) && exists(global.nxtAxisTravel) }
+    var nxtAxN = { min(#global.mosAxisTravel, #global.nxtAxisTravel) }
+    while { iterations < var.nxtAxN }
+        set global.nxtAxisTravel[iterations] = { global.mosAxisTravel[iterations] }
+if { exists(global.mosAxisServiceAt) && exists(global.nxtAxisServiceAt) }
+    var nxtSvcN = { min(#global.mosAxisServiceAt, #global.nxtAxisServiceAt) }
+    while { iterations < var.nxtSvcN }
+        set global.nxtAxisServiceAt[iterations] = { global.mosAxisServiceAt[iterations] }
+if { exists(global.mosToolLife) && exists(global.nxtToolLife) }
+    var nxtLifeN = { min(#global.mosToolLife, #global.nxtToolLife) }
+    while { iterations < var.nxtLifeN }
+        set global.nxtToolLife[iterations] = { global.mosToolLife[iterations] }
+if { exists(global.mosCoolantRuntime) }
+    set global.nxtCoolantRuntime = { global.mosCoolantRuntime }
+if { exists(global.mosCoolantServiceAt) }
+    set global.nxtCoolantServiceAt = { global.mosCoolantServiceAt }
+if { exists(global.mosFeatIdleActions) }
+    set global.nxtFeatIdleActions = { global.mosFeatIdleActions }
+if { exists(global.mosIdleAfter) }
+    set global.nxtIdleAfter = { global.mosIdleAfter }
+if { exists(global.mosIdleFanLow) }
+    set global.nxtIdleFanLow = { global.mosIdleFanLow }
+if { exists(global.mosIdleDimBri) }
+    set global.nxtIdleDimBri = { global.mosIdleDimBri }
+
+if { exists(global.nxtFeatMaint) && global.nxtFeatMaint }
+    M98 P"nxt/nxt-save-maintenance.g"
+
 var UV = "0:/sys/nxt-user-vars.g"
 
 echo >{var.UV} {"; nxt User Configuration"}
@@ -108,6 +153,7 @@ echo >>{var.UV} {"set global.nxtFeatureFourthAxis = " ^ (global.nxtFeatureFourth
 echo >>{var.UV} {""}
 echo >>{var.UV} {"; Probe tool index (datum / touch probe tool table slot)"}
 echo >>{var.UV} {"set global.nxtProbeToolID = " ^ (global.nxtProbeToolID == null ? "null" : global.nxtProbeToolID)}
+echo >>{var.UV} {"set global.nxtReservedFrom = " ^ (global.nxtReservedFrom == null ? "null" : global.nxtReservedFrom)}
 echo >>{var.UV} {"set global.nxtDeltaMachine = " ^ (global.nxtDeltaMachine == null ? "null" : global.nxtDeltaMachine)}
 echo >>{var.UV} {""}
 echo >>{var.UV} {"; Spindle Configuration"}

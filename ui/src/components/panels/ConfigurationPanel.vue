@@ -632,6 +632,9 @@
             <v-alert v-if="!coolantControlRequirementsMet" type="warning" dense outlined class="mb-4">
               <div class="text-caption">{{ coolantControlRequirementsMessage }}</div>
             </v-alert>
+            <v-alert v-if="coolantRelayReserved" type="info" dense outlined class="mb-4">
+              <div class="text-caption">{{ $t('plugins.nxt.panels.configuration.coolantRelayReserved') }}</div>
+            </v-alert>
 
             <v-row>
               <v-col cols="12" md="4">
@@ -1288,6 +1291,11 @@ export default BaseComponent.extend({
       return d.nxtCoolantMistPulseEnabled || d.nxtCoolantFloodPulseEnabled
     },
 
+    coolantRelayReserved(): boolean {
+      const relayId = readFirmwareGlobal(this.$store.state.machine.model.global, 'nxtRelayID')
+      return typeof relayId === 'number' && relayId >= 0
+    },
+
     rgbHardwareConfigured(): boolean {
       return isRgbLightHardwareConfigured({
         leds: readOmLedsFromMachineModel(this.$store.state.machine.model),
@@ -1440,7 +1448,12 @@ export default BaseComponent.extend({
       const lim = this.$store.state.machine.model.limits as { gpOutPorts?: number } | undefined
       const n = lim?.gpOutPorts
       const maxPorts = typeof n === 'number' && n > 0 ? n : 8
-      return gpOutItemsForBoard(this.resolvedBoardShortNameForPack, maxPorts)
+      const items = gpOutItemsForBoard(this.resolvedBoardShortNameForPack, maxPorts)
+      const relayId = readFirmwareGlobal(this.$store.state.machine.model.global, 'nxtRelayID')
+      if (typeof relayId === 'number' && relayId >= 0) {
+        return items.filter((item) => item.id !== relayId)
+      }
+      return items
     },
 
     nxtGlobalsSnapshotRows() {
@@ -1474,6 +1487,19 @@ export default BaseComponent.extend({
 
     async onConfigDraftSelect(key: keyof NxtUserConfigDraft, value: unknown) {
       const v = value === undefined || value === '' ? null : value
+      const coolantKeys = ['nxtCoolantAirID', 'nxtCoolantMistID', 'nxtCoolantFloodID']
+      if (coolantKeys.includes(String(key)) && v !== null) {
+        const relayId = readFirmwareGlobal(this.$store.state.machine.model.global, 'nxtRelayID')
+        if (typeof relayId === 'number' && relayId >= 0 && v === relayId) {
+          this.showStatus(
+            'Cannot assign coolant to gpOut ' +
+              relayId +
+              ' — reserved for motor/VFD relay (global.nxtRelayID).',
+            'error'
+          )
+          return
+        }
+      }
       ;(this.configDraft as Record<string, unknown>)[key] = v
       await this.updateVariable(String(key), v)
     },

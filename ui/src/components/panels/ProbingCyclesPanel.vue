@@ -43,6 +43,17 @@
           />
         </v-col>
         <v-col cols="12">
+          <v-switch
+            v-model="guidedJogMode"
+            :label="$t('plugins.nxt.panels.probingCycles.guidedJogMode')"
+            :hint="$t('plugins.nxt.panels.probingCycles.guidedJogHint')"
+            :disabled="!touchProbeEnabled"
+            persistent-hint
+            hide-details="auto"
+            class="mt-0"
+          />
+        </v-col>
+        <v-col cols="12">
           <v-select
             v-model="selectedCycle"
             :items="probingCycles"
@@ -295,6 +306,8 @@ export default BaseComponent.extend({
       rotationPolicy: 0 as number,
       wcsGcodeLabels: wcsGcode,
       selectedCycle: null as string | null,
+      guidedJogMode: false,
+      jogCapableCycles: ['G6500', 'G6501', 'G6502', 'G6503', 'G6504', 'G6505', 'G6508', 'G6510', 'G6520'],
       formValid: false,
       executing: false,
       params: {
@@ -448,9 +461,12 @@ export default BaseComponent.extend({
       return this.cycleConfigs[this.selectedCycle] || null
     },
     canExecute(): boolean {
-      return this.touchProbeEnabled && 
-             this.touchProbeSelected && 
-             this.formValid && 
+      const jogOk = this.guidedJogMode &&
+        this.selectedCycle != null &&
+        this.jogCapableCycles.includes(this.selectedCycle)
+      return this.touchProbeEnabled &&
+             this.touchProbeSelected &&
+             (jogOk || this.formValid) &&
              !this.executing &&
              this.selectedCycle !== null
     }
@@ -499,6 +515,11 @@ export default BaseComponent.extend({
     },
     buildGcode(): string {
       if (!this.selectedCycle) return ''
+
+      if (this.guidedJogMode && this.jogCapableCycles.includes(this.selectedCycle)) {
+        const wcs = this.targetWcs - 1
+        return `M5012\n${this.selectedCycle}-jog W${wcs}`
+      }
 
       let gcode = `${this.selectedCycle} U${this.targetWcs}`
       gcode += ` Q${this.rotationPolicy}`

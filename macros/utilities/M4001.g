@@ -36,6 +36,12 @@ M563 P{param.P} R-1 S"Unknown Tool"
 ; Reset tool details in zero-indexed array
 set global.mosTT[param.P] = { global.mosET }
 
+; Zero accumulated tool life so a later tool at this index does not inherit spindle time.
+if { exists(global.nxtToolLife) && param.P < #global.nxtToolLife && global.nxtToolLife[param.P] != 0 }
+    set global.nxtToolLife[param.P] = 0
+    if { exists(global.nxtFeatMaint) && global.nxtFeatMaint }
+        M98 P"nxt/nxt-save-maintenance.g"
+
 ; Rewrite persisted library if auto-persistence is enabled (same rules as M4000).
 if { (!exists(global.nxtUserToolsLoadDepth) || global.nxtUserToolsLoadDepth < 1) && (!exists(global.nxtAutoPersistTools) || global.nxtAutoPersistTools) }
     M98 P"nxt-user-tools-sync.g"

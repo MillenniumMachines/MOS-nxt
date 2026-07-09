@@ -1,0 +1,15 @@
+; nxt-maintenance.g.example — persisted maintenance counters (auto-written format)
+;
+; nxt-save-maintenance.g writes 0:/sys/nxt-maintenance.g at runtime. nxt.g loads that file at boot
+; when present. Do not copy this example to nxt-maintenance.g on SD unless you intend to seed values;
+; fresh installs use defaults from nxt-vars.g until the daemon accumulates and saves counters.
+;
+; if { exists(global.nxtAxisTravel) }
+;     set global.nxtAxisTravel[0] = 0
+;     set global.nxtAxisTravel[1] = 0
+;     set global.nxtAxisTravel[2] = 0
+;     set global.nxtFeatIdleActions = true
+;     set global.nxtIdleAfter = 1800
+;     set global.nxtIdleFanLow = 0.3
+;     set global.nxtIdleDimBri = 40
+;     set global.nxtCoolantServiceAt = 3600

@@ -28,10 +28,20 @@ echo >>{var.TP} {"    global nxtUserToolsLoadDepth = 0"}
 echo >>{var.TP} {"set global.nxtUserToolsLoadDepth = { global.nxtUserToolsLoadDepth + 1 }"}
 echo >>{var.TP} {""}
 
+; Persist the Tool Library edit-lock (self-declares on load for partial-deploy safety).
+echo >>{var.TP} {"if { !exists(global.nxtTTLocked) }"}
+echo >>{var.TP} {"    global nxtTTLocked = false"}
+echo >>{var.TP} { "set global.nxtTTLocked = " ^ global.nxtTTLocked }
+echo >>{var.TP} {""}
+
 var ti = 0
 while { var.ti < limits.tools }
+    ; Skip probe/datum slot — regenerated from config at boot (nxt-probe-tool-sync with K1).
+    if { exists(global.nxtReservedFrom) && var.ti >= global.nxtReservedFrom }
+        set var.ti = { var.ti + 1 }
+        continue
     if { var.ti < #tools && tools[var.ti] != null && tools[var.ti].name != "Unknown Tool" }
-        var line = {"M4000 P" ^ var.ti ^ " R" ^ global.mosTT[var.ti][0] ^ " S""" ^ tools[var.ti].name ^ """ }
+        var line = {"M4000 P" ^ var.ti ^ " R" ^ global.mosTT[var.ti][0] ^ " S""" ^ tools[var.ti].name ^ """" }
         if { tools[var.ti].spindle != var.defS }
             set var.line = { var.line ^ " I" ^ tools[var.ti].spindle }
         if { global.mosTT[var.ti][1][0] != 0 }
@@ -42,6 +52,10 @@ while { var.ti < limits.tools }
             set var.line = { var.line ^ " F" ^ global.mosTT[var.ti][2] }
         if { #global.mosTT[var.ti] > 3 && global.mosTT[var.ti][3] >= 0 }
             set var.line = { var.line ^ " L" ^ global.mosTT[var.ti][3] }
+        if { #global.mosTT[var.ti] > 4 && global.mosTT[var.ti][4] != 1 }
+            set var.line = { var.line ^ " C" ^ global.mosTT[var.ti][4] }
+        if { #global.mosTT[var.ti] > 5 && global.mosTT[var.ti][5] != 1 }
+            set var.line = { var.line ^ " B" ^ global.mosTT[var.ti][5] }
         echo >>{var.TP} {var.line}
 
         var g10 = {"G10 L1 P" ^ var.ti }

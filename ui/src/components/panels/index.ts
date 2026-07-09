@@ -15,6 +15,7 @@ import ProbeResultsPanel from './ProbeResultsPanel.vue'
 import ToolManagementPanel from './ToolManagementPanel.vue'
 import RgbLightControl from './RgbLightControl.vue'
 import Spindle0ControlPanel from './Spindle0ControlPanel.vue'
+import MaintenancePanel from './MaintenancePanel.vue'
 
 Vue.component('nxt-status-widget', StatusWidget)
 Vue.component('nxt-action-confirmation-widget', ActionConfirmationWidget)
@@ -25,6 +26,7 @@ Vue.component('nxt-probe-results-panel', ProbeResultsPanel)
 Vue.component('nxt-tool-management-panel', ToolManagementPanel)
 Vue.component('nxt-rgb-light-control', RgbLightControl)
 Vue.component('nxt-spindle0-control-panel', Spindle0ControlPanel)
+Vue.component('nxt-maintenance-panel', MaintenancePanel)
 
 export {
   StatusWidget,
@@ -35,5 +37,6 @@ export {
   ProbeResultsPanel,
   ToolManagementPanel,
   RgbLightControl,
-  Spindle0ControlPanel
+  Spindle0ControlPanel,
+  MaintenancePanel
 }

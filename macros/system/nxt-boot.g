@@ -31,6 +31,14 @@ if { !exists(global.nxtProbeToolID) || global.nxtProbeToolID == null }
     set global.nxtProbeToolID = { limits.tools - 1 }
     echo "[nxt] boot: nxtProbeToolID unset — defaulting to last tool index " ^ global.nxtProbeToolID
 
+if { !exists(global.nxtReservedFrom) || global.nxtReservedFrom == null }
+    set global.nxtReservedFrom = { limits.tools - 1 }
+
+; Normalize probe slot to last index (single-slot T49 model).
+if { global.nxtProbeToolID != limits.tools - 1 }
+    set global.nxtProbeToolID = { limits.tools - 1 }
+    set global.nxtReservedFrom = { limits.tools - 1 }
+
 if { global.nxtFeatureTouchProbe && (!exists(global.nxtDeltaMachine) || global.nxtDeltaMachine == null) }
     set global.nxtConfigPending = true
     set global.nxtError = "Touch probe enabled but nxtDeltaMachine is not set — calibrate static datum in Configuration"
@@ -42,6 +50,12 @@ if { global.nxtFeatureTouchProbe && (!exists(global.nxtDeltaMachine) || global.n
     M99
 
 ; --- All checks passed ---
+
+; Rebuild probe/datum tool at nxtProbeToolID (clears stale row, then nxt-probe-tool-sync with K1).
+if { exists(global.nxtProbeToolID) && global.nxtProbeToolID != null }
+    if { global.nxtProbeToolID < limits.tools }
+        M4001 P{global.nxtProbeToolID}
+        M98 P"nxt-probe-tool-sync.g"
 
 var resultVectorSize = { #move.axes + 1 }
 while { iterations < #global.nxtProbeResults }
