@@ -134,6 +134,9 @@ global nxtIdleSince = 0               ; runtime: uptime(s) activity was last see
 ; Motor / VFD contactor relay output — reserved from coolant Configuration UI (set in board relay.g)
 global nxtRelayID = null
 
+; --- RGB work light (M150) ---
+global nxtRgbLedIndex = 0 ; LED strip index (M150 P parameter)
+
 ; --- Coolant Control ---
 global nxtCoolantAirID = null ; Coolant Air Output Pin ID
 global nxtCoolantMistID = null ; Coolant Mist Output Pin ID
