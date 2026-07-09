@@ -21,8 +21,8 @@ if { !exists(param.I) }
     abort { "Must provide a distance to probe towards the target surface (I...)" }
 
 ; Increment the probe surface and point totals for status reporting
-set global.mosPRST = { global.mosPRST + 1 }
-set global.mosPRPT = { global.mosPRPT + 1 }
+set global.nxtProbeSurfaceTotal = { global.nxtProbeSurfaceTotal + 1 }
+set global.nxtProbePointTotal = { global.nxtProbePointTotal + 1 }
 
 ; Default workOffset to the current workplace number if not specified
 ; with the W parameter.
@@ -50,10 +50,10 @@ var safeZ = { global.nxtAbsPos }
 
 ; We do not apply tool radius to overtravel, because we need overtravel for
 ; Z probes as well as X/Y. Tool radius only applies for X/Y probes.
-var overtravel = { exists(param.O) ? param.O : global.mosOT }
+var overtravel = { exists(param.O) ? param.O : global.nxtOvertravel }
 
 ; Tool Radius if tool is selected
-var tR = { ((state.currentTool <= limits.tools-1 && state.currentTool >= 0) ? global.mosTT[state.currentTool][0] : 0) }
+var tR = { ((state.currentTool <= limits.tools-1 && state.currentTool >= 0) ? global.nxtTT[state.currentTool][0] : 0) }
 
 ; Set target positions
 var tPX = { param.J }
@@ -87,10 +87,10 @@ G6513 I{var.pID} P{var.probePoints} S{var.safeZ} D1
 var sAxis = { (var.probeAxis <= 1)? "X" : (var.probeAxis <= 3)? "Y" : "Z" }
 
 ; Set the axis that we probed on
-set global.mosWPSfcAxis[var.workOffset] = { var.sAxis }
+set global.nxtWPSfcAxis[var.workOffset] = { var.sAxis }
 
 ; Set surface position on relevant axis
-set global.mosWPSfcPos[var.workOffset] = { (var.probeAxis <= 1)? global.nxtAbsPos[0][0][0][0] : (var.probeAxis <= 3)? global.nxtAbsPos[0][0][0][1] : global.nxtAbsPos[0][0][0][2] }
+set global.nxtWPSfcPos[var.workOffset] = { (var.probeAxis <= 1)? global.nxtAbsPos[0][0][0][0] : (var.probeAxis <= 3)? global.nxtAbsPos[0][0][0][1] : global.nxtAbsPos[0][0][0][2] }
 
 ; Report probe results if requested
 if { !exists(param.R) || param.R != 0 }
@@ -99,8 +99,8 @@ if { !exists(param.R) || param.R != 0 }
 
 ; Set WCS if required
 if { var.probeAxis <= 1 }
-    G10 L2 P{var.wcsNumber} X{global.mosWPSfcPos[var.workOffset]}
+    G10 L2 P{var.wcsNumber} X{global.nxtWPSfcPos[var.workOffset]}
 elif { var.probeAxis <= 3 }
-    G10 L2 P{var.wcsNumber} Y{global.mosWPSfcPos[var.workOffset]}
+    G10 L2 P{var.wcsNumber} Y{global.nxtWPSfcPos[var.workOffset]}
 else
-    G10 L2 P{var.wcsNumber} Z{global.mosWPSfcPos[var.workOffset]}
+    G10 L2 P{var.wcsNumber} Z{global.nxtWPSfcPos[var.workOffset]}

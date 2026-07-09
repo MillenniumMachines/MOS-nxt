@@ -18,7 +18,7 @@ if { !exists(param.X) && !exists(param.Y) && !exists(param.Z) }
     abort { "G6512.1: Must provide a valid target position in one or more axes (X.. Y.. Z..)!" }
 
 if { !exists(global.nxtAbsPos) }
-    global mosMI = { null }
+    global nxtAbsPos = { null }
 
 ; Allow the number of retries to be overridden
 var retries = { (exists(param.R) && param.R != null) ? param.R : (sensors.probes[param.I].maxProbeCount + 1) }
@@ -37,8 +37,8 @@ G94
 ; checks.
 G69
 
-set global.mosPRRT = { var.retries }
-set global.mosPRRS = 0
+set global.nxtProbeRetryTotal = { var.retries }
+set global.nxtProbeRetryStep = 0
 
 ; Get current machine position
 M5000 P0
@@ -221,7 +221,7 @@ while { iterations <= var.retries }
     if { var.tP[2] != var.sP[2] }
         set var.tR = { var.tR && ((var.pV[2] <= sensors.probes[param.I].tolerance && iterations > 2) || (!var.errors && abs(var.cP[2] - var.tP[2]) <= sensors.probes[param.I].tolerance)) }
 
-    set global.mosPRRS = { iterations + 1 }
+    set global.nxtProbeRetryStep = { iterations + 1 }
 
     ; If we're within tolerance on all axes, we can stop probing
     ; and report the result.
@@ -233,7 +233,7 @@ while { iterations <= var.retries }
         G4 P{ ceil(sensors.probes[param.I].recoveryTime * 1000) }
 
 if { !exists(global.nxtAbsPos) }
-    global mosMI = { null }
+    global nxtAbsPos = { null }
 
 ; Save output variable.
 set global.nxtAbsPos = { var.nM }

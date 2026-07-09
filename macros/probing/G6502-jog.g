@@ -14,7 +14,7 @@ if { !inputs[state.thisInput].active }
     M99
 
 ; Display description of rectangle pocket probe if not already displayed this session
-if { global.nxtTutorialMode && !global.mosDD[6] }
+if { global.nxtTutorialMode && !global.nxtDialogDisplayed[6] }
     var nxtM291Msg1a = "This probe cycle finds the X and Y co-ordinates of the center of a rectangular pocket (recessed feature) on a workpiece "
     var nxtM291Msg1b = { var.nxtM291Msg1a ^ "by moving into the pocket and probing towards each surface." }
     M291 P{var.nxtM291Msg1b} R"nxt: Probe Rect. Pocket " T0 S2
@@ -28,7 +28,7 @@ if { global.nxtTutorialMode && !global.mosDD[6] }
     M291 P{var.nxtM291Msg3} R"nxt: Probe Rect. Pocket" T0 S4 K{"Continue", "Cancel"} F0
     if { input != 0 }
         abort { "Rectangle pocket probe aborted!" }
-    set global.mosDD[6] = true
+    set global.nxtDialogDisplayed[6] = true
 
 ; Make sure probe tool is selected
 if { global.nxtProbeToolID != state.currentTool }
@@ -44,7 +44,7 @@ var workOffset = { (exists(param.W) && param.W != null) ? param.W : move.workpla
 ; the number of the work co-ordinate system, so is 1-indexed.
 var wcsNumber = { var.workOffset + 1 }
 
-var bW = { (global.mosWPDims[var.workOffset][0] != global.mosDfltWPDims[0]) ? global.mosWPDims[var.workOffset][0] : 100 }
+var bW = { (global.nxtWPDims[var.workOffset][0] != global.nxtDfltWPDims[0]) ? global.nxtWPDims[var.workOffset][0] : 100 }
 
 M291 P{"Please enter approximate <b>pocket width</b> in mm.<br/><b>NOTE</b>: <b>Width</b> is measured along the <b>X</b> axis."} R"nxt: Probe Rect. Pocket" J1 T0 S6 F{var.bW}
 if { result != 0 }
@@ -55,7 +55,7 @@ var pocketWidth = { input }
 if { var.pocketWidth < 1 }
     abort { "Pocket width too low!" }
 
-var bL = { (global.mosWPDims[var.workOffset][1] != global.mosDfltWPDims[1]) ? global.mosWPDims[var.workOffset][1] : 100 }
+var bL = { (global.nxtWPDims[var.workOffset][1] != global.nxtDfltWPDims[1]) ? global.nxtWPDims[var.workOffset][1] : 100 }
 
 M291 P{"Please enter approximate <b>pocket length</b> in mm.<br/><b>NOTE</b>: <b>Length</b> is measured along the <b>Y</b> axis."} R"nxt: Probe Rect. Pocket" J1 T0 S6 F{var.bL}
 if { result != 0 }
@@ -68,7 +68,7 @@ if { var.pocketLength < 1 }
 
 ; Prompt for clearance distance
 var nxtM291Msg4 = "Please enter <b>clearance</b> distance in mm.<br/>This is how far away from the expected surfaces and corners we probe from, to account for any innaccuracy in the start position."
-M291 P{var.nxtM291Msg4} R"nxt: Probe Rect. Pocket" J1 T0 S6 F{global.mosCL}
+M291 P{var.nxtM291Msg4} R"nxt: Probe Rect. Pocket" J1 T0 S6 F{global.nxtClearance}
 if { result != 0 }
     abort { "Rectangle pocket probe aborted!" }
 
@@ -94,7 +94,7 @@ if { var.surfaceClearance >= var.mC }
 
 ; Prompt for overtravel distance
 var nxtM291Msg6 = "Please enter <b>overtravel</b> distance in mm.<br/>This is how far we move past the expected surfaces to account for any innaccuracy in the dimensions."
-M291 P{var.nxtM291Msg6} R"nxt: Probe Rect. Pocket" J1 T0 S6 F{global.mosOT}
+M291 P{var.nxtM291Msg6} R"nxt: Probe Rect. Pocket" J1 T0 S6 F{global.nxtOvertravel}
 if { result != 0 }
     abort { "Rectangle pocket probe aborted!" }
 
@@ -109,7 +109,7 @@ if { result != 0 }
     abort { "Rectangle pocket probe aborted!" }
 
 var nxtM291Msg8 = "Please enter the depth to probe at in mm, relative to the current location. A value of 10 will move the probe downwards 10mm before probing inwards."
-M291 P{var.nxtM291Msg8} R"nxt: Probe Rect. Pocket" J1 T0 S6 F{global.mosOT}
+M291 P{var.nxtM291Msg8} R"nxt: Probe Rect. Pocket" J1 T0 S6 F{global.nxtOvertravel}
 if { result != 0 }
     abort { "Rectangle pocket probe aborted!" }
 

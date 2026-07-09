@@ -13,7 +13,7 @@ if { !inputs[state.thisInput].active }
     M99
 
 ; Display description of bore probe if not already displayed this session
-if { global.nxtTutorialMode && !global.mosDD[2] }
+if { global.nxtTutorialMode && !global.nxtDialogDisplayed[2] }
     var nxtM291Msg1 = "This probe cycle finds the X and Y co-ordinates of the center of a circular bore (hole) in a workpiece by moving downwards into the bore and probing outwards in 3 directions."
     M291 P{var.nxtM291Msg1} R"nxt: Probe Bore" T0 S2
     var nxtM291Msg2a = "You will be asked to enter an approximate <b>bore diameter</b> and <b>overtravel distance</b>.<br/>"
@@ -27,7 +27,7 @@ if { global.nxtTutorialMode && !global.mosDD[2] }
     M291 P{var.nxtM291Msg4} R"nxt: Probe Bore" T0 S4 K{"Continue", "Cancel"} F0
     if { input != 0 }
         abort { "Bore probe aborted!" }
-    set global.mosDD[2] = true
+    set global.nxtDialogDisplayed[2] = true
 
 ; Make sure probe tool is selected
 if { global.nxtProbeToolID != state.currentTool }
@@ -50,7 +50,7 @@ var wcsNumber = { var.workOffset + 1 }
 ; after the M291 has been acknowledged.
 
 ; Prompt for bore diameter
-M291 P"Please enter approximate bore diameter in mm." R"nxt: Probe Bore" J1 T0 S6 F{(global.mosWPRad[var.workOffset] != global.mosDfltWPRad) ? global.mosWPRad[var.workOffset]*2 : 0}
+M291 P"Please enter approximate bore diameter in mm." R"nxt: Probe Bore" J1 T0 S6 F{(global.nxtWPRad[var.workOffset] != global.nxtDfltWPRad) ? global.nxtWPRad[var.workOffset]*2 : 0}
 if { result != 0 }
     abort { "Bore probe aborted!" }
 
@@ -61,7 +61,7 @@ if { var.boreDiameter < 1 }
 
 
 ; Prompt for overtravel distance
-M291 P"Please enter overtravel distance in mm." R"nxt: Probe Bore" J1 T0 S6 F{global.mosOT}
+M291 P"Please enter overtravel distance in mm." R"nxt: Probe Bore" J1 T0 S6 F{global.nxtOvertravel}
 if { result != 0 }
     abort { "Bore probe aborted!" }
 
@@ -74,7 +74,7 @@ if { result != 0 }
     abort { "Bore probe aborted!" }
 
 var nxtM291Msg5 = "Please enter the depth to probe at in mm, relative to the current location. A value of 10 will move the probe downwards 10mm before probing outwards."
-M291 P{var.nxtM291Msg5} R"nxt: Probe Bore" J1 T0 S6 F{global.mosOT}
+M291 P{var.nxtM291Msg5} R"nxt: Probe Bore" J1 T0 S6 F{global.nxtOvertravel}
 if { result != 0 }
     abort { "Bore probe aborted!" }
 

@@ -145,7 +145,7 @@
     "toolManagement": {
       "caption": "Tool Library",
       "libraryIntro": "Tools defined in the RepRapFirmware object model (configured slots, the tool in the spindle, and the configured touch probe). Magazine, job sequence, and ATC controls belong in the mos-atc plugin when installed.",
-      "persistenceHint": "Save to board runs M98 P\"nxt-user-tools-sync.g\" to rewrite /sys/nxt-user-tools.g from live tools and mosTT (including the edit-lock). After each successful M4000 or M4001, the board also runs nxt-user-tools-sync.g unless you set global nxtAutoPersistTools = false in nxt-user-vars.g. Use Reload from SD after a manual SD edit. Boot loads nxt-user-tools.g after nxt-user-vars.g.",
+      "persistenceHint": "Save to board runs M98 P\"nxt-user-tools-sync.g\" to rewrite /sys/nxt-user-tools.g from live tools and nxtTT (including the edit-lock). After each successful M4000 or M4001, the board also runs nxt-user-tools-sync.g unless you set global nxtAutoPersistTools = false in nxt-user-vars.g. Use Reload from SD after a manual SD edit. Boot loads nxt-user-tools.g after nxt-user-vars.g.",
       "saveToBoard": "Save to board",
       "reloadFromSd": "Reload from SD",
       "saveToBoardSuccess": "Ran M98 P\"nxt-user-tools-sync.g\" to persist the tool library.",

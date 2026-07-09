@@ -22,7 +22,7 @@ if { !inputs[state.thisInput].active }
     M99
 
 ; Display description of vise corner probe if not already displayed this session
-if { global.nxtTutorialMode && !global.mosDD[11] }
+if { global.nxtTutorialMode && !global.nxtDialogDisplayed[11] }
     M291 P"This probe cycle finds the X, Y and Z co-ordinates of the corner of a workpiece by probing the top surface and each of the edges that form the corner." R"nxt: Probe Vise Corner" T0 S2
     var nxtM291Msg1 = "In <b>Full</b> mode, this cycle will take 2 probe points on each edge, allowing us to calculate the position and angle of the corner and the rotation of the workpiece."
     M291 P{var.nxtM291Msg1} R"nxt: Probe Vise Corner" T0 S2
@@ -40,13 +40,13 @@ if { global.nxtTutorialMode && !global.mosDD[11] }
     M291 P{var.nxtM291Msg4} R"nxt: Probe Vise Corner" T0 S4 K{"Continue", "Cancel"} F0
     if { input != 0 }
         abort { "Vise corner probe aborted!" }
-    set global.mosDD[11] = true
+    set global.nxtDialogDisplayed[11] = true
 
 ; Make sure probe tool is selected
 if { global.nxtProbeToolID != state.currentTool }
     T T{global.nxtProbeToolID}
 
-var tR = { global.mosTT[state.currentTool][0]}
+var tR = { global.nxtTT[state.currentTool][0]}
 
 ; Default workOffset to the current workplace number if not specified
 ; with the W parameter.
@@ -71,7 +71,7 @@ var ySL  = null
 ; 0 = Full mode, 1 = Quick mode
 if { var.mode == 0 }
 
-    var sW = { (global.mosWPDims[var.workOffset][0] != null) ? global.mosWPDims[var.workOffset][0] : 100 }
+    var sW = { (global.nxtWPDims[var.workOffset][0] != null) ? global.nxtWPDims[var.workOffset][0] : 100 }
     var nxtM291Msg6 = {"Please enter approximate <b>surface length</b> along the X axis in mm.<br/><b>NOTE</b>: Along the X axis means the surface facing towards or directly away from the operator."}
     M291 P{var.nxtM291Msg6} R"nxt: Probe Vise Corner" J1 T0 S6 F{var.sW}
     if { result != 0 }
@@ -82,7 +82,7 @@ if { var.mode == 0 }
     if { var.xSL < var.tR }
         abort { "X surface length too low. Cannot probe distances smaller than the tool radius (" ^ var.tR ^ ")!"}
 
-    var sL = { (global.mosWPDims[var.workOffset][1] != null) ? global.mosWPDims[var.workOffset][1] : 100 }
+    var sL = { (global.nxtWPDims[var.workOffset][1] != null) ? global.nxtWPDims[var.workOffset][1] : 100 }
     var nxtM291Msg7 = {"Please enter approximate <b>surface length</b> along the Y axis in mm.<br/><b>NOTE</b>: Along the Y axis means the surface to the left or the right of the operator."}
     M291 P{var.nxtM291Msg7} R"nxt: Probe Vise Corner" J1 T0 S6 F{var.sL}
     if { result != 0 }
@@ -95,7 +95,7 @@ if { var.mode == 0 }
 
 ; Prompt for clearance distance
 var nxtM291Msg8 = "Please enter <b>clearance</b> distance in mm.<br/>This is how far away from the expected surfaces and corners we probe from, to account for any innaccuracy in the start position."
-M291 P{var.nxtM291Msg8} R"nxt: Probe Vise Corner" J1 T0 S6 F{global.mosCL}
+M291 P{var.nxtM291Msg8} R"nxt: Probe Vise Corner" J1 T0 S6 F{global.nxtClearance}
 if { result != 0 }
     abort { "Vise corner probe aborted!" }
 
@@ -122,7 +122,7 @@ if { var.mode == 0 }
 
 ; Prompt for overtravel distance
 var nxtM291Msg10 = "Please enter <b>overtravel</b> distance in mm.<br/>This is how far we move past the expected surface to account for any innaccuracy in the dimensions."
-M291 P{var.nxtM291Msg10} R"nxt: Probe Vise Corner" J1 T0 S6 F{global.mosOT}
+M291 P{var.nxtM291Msg10} R"nxt: Probe Vise Corner" J1 T0 S6 F{global.nxtOvertravel}
 if { result != 0 }
     abort { "Vise corner probe aborted!" }
 
@@ -136,14 +136,14 @@ if { result != 0 }
     abort { "Vise corner probe aborted!" }
 
 var nxtM291Msg12 = "Please select the corner to probe.<br/><b>NOTE</b>: These surface names are relative to an operator standing at the front of the machine."
-M291 P{var.nxtM291Msg12} R"nxt: Probe Vise Corner" T0 S4 K{global.mosCornerNames}
+M291 P{var.nxtM291Msg12} R"nxt: Probe Vise Corner" T0 S4 K{global.nxtCornerNames}
 if { result != 0 }
     abort { "Vise corner probe aborted!" }
 
 var cnr = { input }
 
 var nxtM291Msg13 = "Please enter the depth to probe at in mm, relative to the top surface of the workpiece. A value of 10 will move the probe downwards 10mm before probing inwards."
-M291 P{var.nxtM291Msg13} R"nxt: Probe Vise Corner" J1 T0 S6 F{global.mosOT}
+M291 P{var.nxtM291Msg13} R"nxt: Probe Vise Corner" J1 T0 S6 F{global.nxtOvertravel}
 if { result != 0 }
     abort { "Vise corner probe aborted!" }
 
@@ -154,7 +154,7 @@ if { var.probeDepth < 0 }
 
 ; Run the block probe cycle
 if { global.nxtTutorialMode }
-    var cN = { global.mosCornerNames[var.cnr] }
+    var cN = { global.nxtCornerNames[var.cnr] }
     var nxtM291Msg14 = {"We will now probe the top surface, then move outside the <b>" ^ var.cN ^ "</b> corner, down " ^ var.probeDepth ^ "mm, and probe each surface forming the corner." }
     M291 P{var.nxtM291Msg14} R"nxt: Probe Vise Corner" T0 S4 K{"Continue", "Cancel"} F0
     if { input != 0 }

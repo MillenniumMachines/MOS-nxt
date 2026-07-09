@@ -39,8 +39,8 @@ var workOffset = { (exists(param.W) && param.W != null) ? param.W : move.workpla
 var wcsNumber = { var.workOffset + 1 }
 
 ; Increment the probe surface and point totals for status reporting
-set global.mosPRST = { global.mosPRST + 1 }
-set global.mosPRPT = { global.mosPRPT + 3 }
+set global.nxtProbeSurfaceTotal = { global.nxtProbeSurfaceTotal + 1 }
+set global.nxtProbePointTotal = { global.nxtProbePointTotal + 3 }
 
 var pID = { global.nxtFeatureTouchProbe ? global.nxtTouchProbeID : null }
 
@@ -67,7 +67,7 @@ var safeZ = { param.L }
 ; Apply tool radius to clearance. We want to make sure
 ; the surface of the tool and the workpiece are the
 ; clearance distance apart, rather than less than that.
-var clearance = { (exists(param.T) ? param.T : global.mosCL) + ((state.currentTool <= limits.tools-1 && state.currentTool >= 0) ? global.mosTT[state.currentTool][0] : 0) }
+var clearance = { (exists(param.T) ? param.T : global.nxtClearance) + ((state.currentTool <= limits.tools-1 && state.currentTool >= 0) ? global.nxtTT[state.currentTool][0] : 0) }
 
 ; Apply tool radius to overtravel. We want to allow
 ; less movement past the expected point of contact
@@ -75,7 +75,7 @@ var clearance = { (exists(param.T) ? param.T : global.mosCL) + ((state.currentTo
 ; For big tools and low overtravel values, this value
 ; might end up being negative. This is fine, as long
 ; as the configured tool radius is accurate.
-var overtravel = { (exists(param.O) ? param.O : global.mosOT) - ((state.currentTool <= limits.tools-1 && state.currentTool >= 0) ? global.mosTT[state.currentTool][0] : 0) }
+var overtravel = { (exists(param.O) ? param.O : global.nxtOvertravel) - ((state.currentTool <= limits.tools-1 && state.currentTool >= 0) ? global.nxtTT[state.currentTool][0] : 0) }
 
 ; Commented due to memory limitations
 ; M7500 S{"Distance Modifiers adjusted for Tool Radius - Clearance=" ^ var.clearance ^ " Overtravel=" ^ var.overtravel }
@@ -154,8 +154,8 @@ var r3 = { sqrt(pow((var.pXY[2][0] - var.cX), 2) + pow((var.pXY[2][1] - var.cY),
 var avgR = { (var.r1 + var.r2 + var.r3) / 3 }
 
 ; Update global vars for correct workplace
-set global.mosWPCtrPos[var.workOffset]   = { var.cX, var.cY }
-set global.mosWPRad[var.workOffset]      = { var.avgR }
+set global.nxtWPCtrPos[var.workOffset]   = { var.cX, var.cY }
+set global.nxtWPRad[var.workOffset]      = { var.avgR }
 
 ; Confirm we are at the safe Z height
 G6550 I{var.pID} Z{var.safeZ}

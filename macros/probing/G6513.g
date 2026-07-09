@@ -68,8 +68,8 @@
 if { !inputs[state.thisInput].active }
     M99
 
-; Debug output if global.mosDebug is enabled
-if { exists(global.mosDebug) && global.mosDebug }
+; Debug output if global.nxtDebug is enabled
+if { exists(global.nxtDebug) && global.nxtDebug }
     echo { "G6513: SURFACE PROBE START" }
     echo { "    Params: I=" ^ (exists(param.I) ? param.I : "null") }
     echo { "            S=" ^ (exists(param.S) ? param.S : "null") }
@@ -127,14 +127,14 @@ if { state.currentTool >= #tools || state.currentTool < 0 }
 var pSfc = { vector(#param.P, null) }
 
 ; Calculate the tool radius and deflection values to compensate.
-var trX = { global.mosTT[state.currentTool][0] - global.mosTT[state.currentTool][1][0] }
-var trY = { global.mosTT[state.currentTool][0] - global.mosTT[state.currentTool][1][1] }
+var trX = { global.nxtTT[state.currentTool][0] - global.nxtTT[state.currentTool][1][0] }
+var trY = { global.nxtTT[state.currentTool][0] - global.nxtTT[state.currentTool][1][1] }
 
-if { exists(global.mosDebug) && global.mosDebug }
+if { exists(global.nxtDebug) && global.nxtDebug }
     echo { "G6513: SURFACE PROBE TOOL RADIUS AND DEFLECTION" }
-    echo { "    Tool Radius = " ^ global.mosTT[state.currentTool][0] }
-    echo { "    Tool Deflection X = " ^ global.mosTT[state.currentTool][1][0] }
-    echo { "    Tool Deflection Y = " ^ global.mosTT[state.currentTool][1][1] }
+    echo { "    Tool Radius = " ^ global.nxtTT[state.currentTool][0] }
+    echo { "    Tool Deflection X = " ^ global.nxtTT[state.currentTool][1][0] }
+    echo { "    Tool Deflection Y = " ^ global.nxtTT[state.currentTool][1][1] }
     echo { "    var.trX = " ^ var.trX }
     echo { "    var.trY = " ^ var.trY }
 
@@ -162,7 +162,7 @@ while { iterations < #param.P }
         M6515 X{ var.startPos[0] } Y{ var.startPos[1] } Z{ var.startPos[2] }
         M6515 X{ var.targetPos[0] } Y{ var.targetPos[1] } Z{ var.targetPos[2] }
 
-        if { exists(global.mosDebug) && global.mosDebug }
+        if { exists(global.nxtDebug) && global.nxtDebug }
             echo { "G6513: Positions valid" }
 
         ; If starting probe height is above safe height,
@@ -219,16 +219,16 @@ while { iterations < #param.P }
         set var.lastPos = { var.probedPos }
 
         ; Update the number of points probed
-        set global.mosPRPS = { global.mosPRPS + 1 }
+        set global.nxtProbePointStep = { global.nxtProbePointStep + 1 }
 
     if { var.retractAfterSurface }
         G6550 I{ param.I } Z{ var.safeZ }
 
-    if { exists(global.mosDebug) && global.mosDebug }
+    if { exists(global.nxtDebug) && global.nxtDebug }
         echo { "G6513: Finished surface" }
 
     ; Update the number of surfaces probed
-    set global.mosPRSS = { global.mosPRSS + 1 }
+    set global.nxtProbeSurfaceStep = { global.nxtProbeSurfaceStep + 1 }
 
 ; Okay, now we've probed all points and performed precalculations.
 ; We use the calculated approach and surface angles to adjust the
@@ -286,7 +286,7 @@ while { iterations < #var.pSfc }
     var dX = { var.normalVecX * var.compMagnitude }
     var dY = { var.normalVecY * var.compMagnitude }
 
-    if { exists(global.mosDebug) && global.mosDebug }
+    if { exists(global.nxtDebug) && global.nxtDebug }
         echo { "G6513: COMPENSATION SURFACE " ^ var.surfaceNo + 1 }
         echo { "    Effective Deflection = " ^ var.effectiveDeflection }
         echo { "    Approach Vector X = " ^ var.approachVecX }
@@ -312,6 +312,6 @@ while { iterations < #var.pSfc }
 ; Save the output surfaces
 set global.nxtAbsPos = { var.pSfc }
 
-if { exists(global.mosDebug) && global.mosDebug }
+if { exists(global.nxtDebug) && global.nxtDebug }
     echo { "G6513: SURFACE PROBE END" }
     echo { "    Output: " ^ global.nxtAbsPos }

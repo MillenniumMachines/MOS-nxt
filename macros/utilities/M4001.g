@@ -6,10 +6,10 @@
 if { !inputs[state.thisInput].active }
     M99
 
-if { !exists(global.mosTT) }
-    if { !exists(global.mosET) }
-        global mosET = { 0.0, {0.0, 0.0}, -1, -1.0 }
-    global mosTT = { vector(limits.tools, global.mosET) }
+if { !exists(global.nxtTT) }
+    if { !exists(global.nxtET) }
+        global nxtET = { 0.0, {0.0, 0.0}, -1, -1.0, 1, 1 }
+    global nxtTT = { vector(limits.tools, global.nxtET) }
 
 ; Read tool number to remove
 if { !exists(param.P) }
@@ -34,7 +34,7 @@ if { #tools < param.P || tools[param.P] == null }
 M563 P{param.P} R-1 S"Unknown Tool"
 
 ; Reset tool details in zero-indexed array
-set global.mosTT[param.P] = { global.mosET }
+set global.nxtTT[param.P] = { global.nxtET }
 
 ; Zero accumulated tool life so a later tool at this index does not inherit spindle time.
 if { exists(global.nxtToolLife) && param.P < #global.nxtToolLife && global.nxtToolLife[param.P] != 0 }

@@ -180,7 +180,7 @@ global nxtBoardBootstrapMode = "off" ; "off" | "auto" (Save syncs nxt-board-boot
 
 ; --- Optional magazine / ATC extension (not allocated here) ---
 ; Bay maps, job sequence vectors, and related globals are defined only when a tool changer
-; macro pack is installed on the machine. Base nxt does not create atc*. globals mosET and
-; mosTT are allocated by nxt-tooltable.g (invoked from nxt.g) when not already present from
+; macro pack is installed on the machine. Base nxt does not create atc*. globals nxtET and
+; nxtTT are allocated by nxt-tooltable.g (invoked from nxt.g) when not already present from
 ; mos-vars.g, and maintained by M4000/M4001 for post-driven tool definitions.
 ; See docs/TOOLCHANGING.md and ui/src/utils/nxtToolChangerOm.ts (OM key map).

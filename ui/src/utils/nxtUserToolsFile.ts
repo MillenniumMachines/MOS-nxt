@@ -134,9 +134,9 @@ function readMosTTFlags(
 export type BuildM4000LineOptions = {
   /** First reserved system index (probe/datum). Appends K1 when toolIndex >= this. */
   reservedFrom?: number | null
-  /** When false, omit C even if mosTT defines it (live Fusion import). */
+  /** When false, omit C even if nxtTT defines it (live Fusion import). */
   includeTc?: boolean
-  /** Explicit C/B override for panel edits; omit to read mosTT. */
+  /** Explicit C/B override for panel edits; omit to read nxtTT. */
   tcCapable?: boolean | null
   tsCapable?: boolean | null
 }
@@ -397,7 +397,7 @@ export function buildNxtUserToolsGContent(args: BuildNxtUserToolsGArgs): string 
     `; Generated: ${generatedAt}`,
     '',
     '; Load order: nxt-tooltable.g then nxt-user-vars.g then this file.',
-    '; M4000 defines M563 + mosTT; G10 L1 restores axis offsets per tool.',
+    '; M4000 defines M563 + nxtTT; G10 L1 restores axis offsets per tool.',
     '; Wrapper: nxtUserToolsLoadDepth keeps M98 load from calling sync until the file finishes.',
     ...NXT_USER_TOOLS_LOAD_DEPTH_OPEN
   ]

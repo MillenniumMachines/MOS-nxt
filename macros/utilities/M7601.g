@@ -20,63 +20,63 @@ var workOffset = { (exists(param.W) && param.W != null) ? param.W : move.workpla
 var wcsNumber = { var.workOffset + 1 }
 
 if { !global.nxtExpertMode }
-    if { global.mosWPCtrPos[var.workOffset][0] != null || global.mosWPCtrPos[var.workOffset][1] != null}
-        echo {"WCS " ^ var.wcsNumber ^ " - Probed Center Position X=" ^ global.mosWPCtrPos[var.workOffset][0] ^ " Y=" ^ global.mosWPCtrPos[var.workOffset][1] }
+    if { global.nxtWPCtrPos[var.workOffset][0] != null || global.nxtWPCtrPos[var.workOffset][1] != null}
+        echo {"WCS " ^ var.wcsNumber ^ " - Probed Center Position X=" ^ global.nxtWPCtrPos[var.workOffset][0] ^ " Y=" ^ global.nxtWPCtrPos[var.workOffset][1] }
 
-    if { global.mosWPRad[var.workOffset] != null }
-        echo {"WCS " ^ var.wcsNumber ^ " - Probed Radius=" ^ global.mosWPRad[var.workOffset] }
+    if { global.nxtWPRad[var.workOffset] != null }
+        echo {"WCS " ^ var.wcsNumber ^ " - Probed Radius=" ^ global.nxtWPRad[var.workOffset] }
 
-    if { global.mosWPCnrNum[var.workOffset] != null }
-        echo {"WCS " ^ var.wcsNumber ^ " - Probed Corner Number=" ^ global.mosWPCnrNum[var.workOffset] }
-        echo {"WCS " ^ var.wcsNumber ^ " - Probed Corner Name=" ^ global.mosCornerNames[global.mosWPCnrNum[var.workOffset]] }
+    if { global.nxtWPCnrNum[var.workOffset] != null }
+        echo {"WCS " ^ var.wcsNumber ^ " - Probed Corner Number=" ^ global.nxtWPCnrNum[var.workOffset] }
+        echo {"WCS " ^ var.wcsNumber ^ " - Probed Corner Name=" ^ global.nxtCornerNames[global.nxtWPCnrNum[var.workOffset]] }
 
-    if { global.mosWPCnrPos[var.workOffset][0] != null && global.mosWPCnrPos[var.workOffset][1] != null}
-        echo {"WCS " ^ var.wcsNumber ^ " - Probed Corner Position X=" ^ global.mosWPCnrPos[var.workOffset][0] ^ " Y=" ^ global.mosWPCnrPos[var.workOffset][1] }
+    if { global.nxtWPCnrPos[var.workOffset][0] != null && global.nxtWPCnrPos[var.workOffset][1] != null}
+        echo {"WCS " ^ var.wcsNumber ^ " - Probed Corner Position X=" ^ global.nxtWPCnrPos[var.workOffset][0] ^ " Y=" ^ global.nxtWPCnrPos[var.workOffset][1] }
 
-    if { global.mosWPCnrDeg[var.workOffset] != null }
-        echo {"WCS " ^ var.wcsNumber ^ " - Probed Corner Degrees=" ^ global.mosWPCnrDeg[var.workOffset] }
+    if { global.nxtWPCnrDeg[var.workOffset] != null }
+        echo {"WCS " ^ var.wcsNumber ^ " - Probed Corner Degrees=" ^ global.nxtWPCnrDeg[var.workOffset] }
 
-    if { global.mosWPDims[var.workOffset][0] != null || global.mosWPDims[var.workOffset][1] != null}
-        echo {"WCS " ^ var.wcsNumber ^ " - Probed Width=" ^ global.mosWPDims[var.workOffset][0] ^ " Length=" ^ global.mosWPDims[var.workOffset][1] }
+    if { global.nxtWPDims[var.workOffset][0] != null || global.nxtWPDims[var.workOffset][1] != null}
+        echo {"WCS " ^ var.wcsNumber ^ " - Probed Width=" ^ global.nxtWPDims[var.workOffset][0] ^ " Length=" ^ global.nxtWPDims[var.workOffset][1] }
 
-    if { global.mosWPDimsErr[var.workOffset][0] != null || global.mosWPDimsErr[var.workOffset][1] != null}
-        echo {"WCS " ^ var.wcsNumber ^ " - Probed Width Error=" ^ global.mosWPDimsErr[var.workOffset][0] ^ " Length Error=" ^ global.mosWPDimsErr[var.workOffset][1] }
+    if { global.nxtWPDimsErr[var.workOffset][0] != null || global.nxtWPDimsErr[var.workOffset][1] != null}
+        echo {"WCS " ^ var.wcsNumber ^ " - Probed Width Error=" ^ global.nxtWPDimsErr[var.workOffset][0] ^ " Length Error=" ^ global.nxtWPDimsErr[var.workOffset][1] }
 
-    if { global.mosWPDeg[var.workOffset] != null }
-        echo {"WCS " ^ var.wcsNumber ^ " - Probed Rotation Degrees=" ^ global.mosWPDeg[var.workOffset] }
+    if { global.nxtWPDeg[var.workOffset] != null }
+        echo {"WCS " ^ var.wcsNumber ^ " - Probed Rotation Degrees=" ^ global.nxtWPDeg[var.workOffset] }
 
-    if { global.mosWPSfcAxis[var.workOffset] != null }
-        echo {"WCS " ^ var.wcsNumber ^ " - Probed Surface Axis=" ^ global.mosWPSfcAxis[var.workOffset] }
+    if { global.nxtWPSfcAxis[var.workOffset] != null }
+        echo {"WCS " ^ var.wcsNumber ^ " - Probed Surface Axis=" ^ global.nxtWPSfcAxis[var.workOffset] }
 
-    if { global.mosWPSfcPos[var.workOffset] != null }
-        echo {"WCS " ^ var.wcsNumber ^ " - Probed Surface Position=" ^ global.mosWPSfcPos[var.workOffset] }
+    if { global.nxtWPSfcPos[var.workOffset] != null }
+        echo {"WCS " ^ var.wcsNumber ^ " - Probed Surface Position=" ^ global.nxtWPSfcPos[var.workOffset] }
 else
-    if { global.mosWPCtrPos[var.workOffset][0] != null || global.mosWPCtrPos[var.workOffset][1] != null}
-        echo { "global.mosWPCtrPos[" ^ var.workOffset ^ "]=" ^ global.mosWPCtrPos[var.workOffset] }
+    if { global.nxtWPCtrPos[var.workOffset][0] != null || global.nxtWPCtrPos[var.workOffset][1] != null}
+        echo { "global.nxtWPCtrPos[" ^ var.workOffset ^ "]=" ^ global.nxtWPCtrPos[var.workOffset] }
 
-    if { global.mosWPRad[var.workOffset] != null }
-        echo { "global.mosWPRad[" ^ var.workOffset ^ "]=" ^ global.mosWPRad[var.workOffset]}
+    if { global.nxtWPRad[var.workOffset] != null }
+        echo { "global.nxtWPRad[" ^ var.workOffset ^ "]=" ^ global.nxtWPRad[var.workOffset]}
 
-    if { global.mosWPCnrNum[var.workOffset] != null }
-        echo { "global.mosWPCnrNum[" ^ var.workOffset ^ "]=" ^ global.mosWPCnrNum[var.workOffset] }
+    if { global.nxtWPCnrNum[var.workOffset] != null }
+        echo { "global.nxtWPCnrNum[" ^ var.workOffset ^ "]=" ^ global.nxtWPCnrNum[var.workOffset] }
 
-    if { global.mosWPCnrPos[var.workOffset][0] != null && global.mosWPCnrPos[var.workOffset][1] != null}
-        echo { "global.mosWPCnrPos[" ^ var.workOffset ^ "]=" ^ global.mosWPCnrPos[var.workOffset] }
+    if { global.nxtWPCnrPos[var.workOffset][0] != null && global.nxtWPCnrPos[var.workOffset][1] != null}
+        echo { "global.nxtWPCnrPos[" ^ var.workOffset ^ "]=" ^ global.nxtWPCnrPos[var.workOffset] }
 
-    if { global.mosWPCnrDeg[var.workOffset] != null }
-        echo { "global.mosWPCnrDeg[" ^ var.workOffset ^ "]=" ^ global.mosWPCnrDeg[var.workOffset] }
+    if { global.nxtWPCnrDeg[var.workOffset] != null }
+        echo { "global.nxtWPCnrDeg[" ^ var.workOffset ^ "]=" ^ global.nxtWPCnrDeg[var.workOffset] }
 
-    if { global.mosWPDims[var.workOffset][0] != null || global.mosWPDims[var.workOffset][1] != null}
-        echo { "global.mosWPDims[" ^ var.workOffset ^ "]=" ^ global.mosWPDims[var.workOffset] }
+    if { global.nxtWPDims[var.workOffset][0] != null || global.nxtWPDims[var.workOffset][1] != null}
+        echo { "global.nxtWPDims[" ^ var.workOffset ^ "]=" ^ global.nxtWPDims[var.workOffset] }
 
-    if { global.mosWPDimsErr[var.workOffset][0] != null || global.mosWPDimsErr[var.workOffset][1] != null}
-        echo { "global.mosWPDimsErr[" ^ var.workOffset ^ "]=" ^ global.mosWPDimsErr[var.workOffset] }
+    if { global.nxtWPDimsErr[var.workOffset][0] != null || global.nxtWPDimsErr[var.workOffset][1] != null}
+        echo { "global.nxtWPDimsErr[" ^ var.workOffset ^ "]=" ^ global.nxtWPDimsErr[var.workOffset] }
 
-    if { global.mosWPDeg[var.workOffset] != null }
-        echo { "global.mosWPDeg[" ^ var.workOffset ^ "]=" ^ global.mosWPDeg[var.workOffset] }
+    if { global.nxtWPDeg[var.workOffset] != null }
+        echo { "global.nxtWPDeg[" ^ var.workOffset ^ "]=" ^ global.nxtWPDeg[var.workOffset] }
 
-    if { global.mosWPSfcAxis[var.workOffset] != null }
-        echo { "global.mosWPSfcAxis[" ^ var.workOffset ^ "]=" ^ global.mosWPSfcAxis[var.workOffset] }
+    if { global.nxtWPSfcAxis[var.workOffset] != null }
+        echo { "global.nxtWPSfcAxis[" ^ var.workOffset ^ "]=" ^ global.nxtWPSfcAxis[var.workOffset] }
 
-    if { global.mosWPSfcPos[var.workOffset] != null }
-        echo { "global.mosWPSfcPos[" ^ var.workOffset ^ "]=" ^ global.mosWPSfcPos[var.workOffset] }
+    if { global.nxtWPSfcPos[var.workOffset] != null }
+        echo { "global.nxtWPSfcPos[" ^ var.workOffset ^ "]=" ^ global.nxtWPSfcPos[var.workOffset] }

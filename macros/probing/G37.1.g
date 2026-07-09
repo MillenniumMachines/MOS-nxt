@@ -10,18 +10,18 @@ if { !inputs[state.thisInput].active }
 
 var wPN = { move.workplaceNumber + 1 }
 
-if { global.nxtTutorialMode && !global.mosDD[12] }
+if { global.nxtTutorialMode && !global.nxtDialogDisplayed[12] }
     var nxtG371Msg1 = { "The <b>Toolsetter</b> feature is disabled, so you must set the Z origin in the current WCS after each tool change.<br/>We will run a manual probe cycle to do this." }
     M291 P{var.nxtG371Msg1} R"nxt: Reset Z Origin" S2 T0
     var nxtG371Msg2 = { "You <b>MUST</b> probe the location where WCS " ^ var.wPN ^ " expects the Z origin to be.<br/>Check in your CAM program to confirm where this is!" }
     M291 P{var.nxtG371Msg2} R"nxt: Reset Z Origin" S2 T0
-    set global.mosDD[12] = true
+    set global.nxtDialogDisplayed[12] = true
 
 M291 P"Please jog the tool above your origin point in Z.<br/><b>CAUTION</b>: Remember - Jogging in RRF does <b>NOT</b> watch the probe status. Be careful!" R"nxt: Reset Z Origin" X1 Y1 Z1 T0 S3
 if { result != 0 }
     abort { "G37.1: Surface probe aborted!" }
 
-M291 P"Please enter the distance to probe towards the surface in mm." R"nxt: Reset Z Origin" J1 T0 S6 F{global.mosCL}
+M291 P"Please enter the distance to probe towards the surface in mm." R"nxt: Reset Z Origin" J1 T0 S6 F{global.nxtClearance}
 if { result != 0 }
     abort { "G37.1: Surface probe aborted!" }
 
@@ -30,7 +30,7 @@ if { var.probeDist < 0 }
     abort { "G37.1: Probe distance was negative!" }
 
 var nxtG371OtMsg = { "Please enter <b>overtravel</b> distance in mm.<br/>This is how far we move past the expected surface to account for any innaccuracy in the dimensions." }
-M291 P{var.nxtG371OtMsg} R"nxt: Reset Z Origin" J1 T0 S6 F{global.mosOT}
+M291 P{var.nxtG371OtMsg} R"nxt: Reset Z Origin" J1 T0 S6 F{global.nxtOvertravel}
 if { result != 0 }
     abort { "G37.1: Surface probe aborted!" }
 

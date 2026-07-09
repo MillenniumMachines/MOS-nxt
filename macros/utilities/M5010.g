@@ -30,38 +30,38 @@ if { mod(floor(var.reset/pow(2,0)),2) == 1 }
     ; Reset Center
     if { global.nxtTutorialMode }
         echo { "Resetting WCS " ^ var.wcsNumber ^ " probed center"}
-    set global.mosWPCtrPos[var.workOffset] = global.mosDfltWPCtrPos
+    set global.nxtWPCtrPos[var.workOffset] = global.nxtDfltWPCtrPos
 
 if { mod(floor(var.reset/pow(2,1)),2) == 1 }
     ; Reset Corner
     if { global.nxtTutorialMode }
         echo { "Resetting WCS " ^ var.wcsNumber ^ " probed corner"}
-    set global.mosWPCnrPos[var.workOffset] = global.mosDfltWPCnrPos
-    set global.mosWPCnrDeg[var.workOffset] = global.mosDfltWPCnrDeg
-    set global.mosWPCnrNum[var.workOffset] = global.mosDfltWPCnrNum
+    set global.nxtWPCnrPos[var.workOffset] = global.nxtDfltWPCnrPos
+    set global.nxtWPCnrDeg[var.workOffset] = global.nxtDfltWPCnrDeg
+    set global.nxtWPCnrNum[var.workOffset] = global.nxtDfltWPCnrNum
 
 if { mod(floor(var.reset/pow(2,2)),2) == 1}
     ; Reset Radius
     if { global.nxtTutorialMode }
         echo { "Resetting WCS " ^ var.wcsNumber ^ " probed radius"}
-    set global.mosWPRad[var.workOffset] = global.mosDfltWPRad
+    set global.nxtWPRad[var.workOffset] = global.nxtDfltWPRad
 
 if { mod(floor(var.reset/pow(2,3)),2) == 1 }
     ; Reset Surface
     if { global.nxtTutorialMode }
         echo { "Resetting WCS " ^ var.wcsNumber ^ " probed surface"}
-    set global.mosWPSfcAxis[var.workOffset] = global.mosDfltWPSfcAxis
-    set global.mosWPSfcPos[var.workOffset] = global.mosDfltWPSfcPos
+    set global.nxtWPSfcAxis[var.workOffset] = global.nxtDfltWPSfcAxis
+    set global.nxtWPSfcPos[var.workOffset] = global.nxtDfltWPSfcPos
 
 if { mod(floor(var.reset/pow(2,4)),2) == 1 }
     ; Reset Dimensions
     if { global.nxtTutorialMode }
         echo { "Resetting WCS " ^ var.wcsNumber ^ " probed dimensions"}
-    set global.mosWPDims[var.workOffset] = global.mosDfltWPDims
-    set global.mosWPDimsErr[var.workOffset] = global.mosDfltWPDimsErr
+    set global.nxtWPDims[var.workOffset] = global.nxtDfltWPDims
+    set global.nxtWPDimsErr[var.workOffset] = global.nxtDfltWPDimsErr
 
 if { mod(floor(var.reset/pow(2,5)),2) == 1 }
     ; Reset Rotation
     if { global.nxtTutorialMode }
         echo { "Resetting WCS " ^ var.wcsNumber ^ " probed rotation"}
-    set global.mosWPDeg[var.workOffset] = global.mosDfltWPDeg
+    set global.nxtWPDeg[var.workOffset] = global.nxtDfltWPDeg

@@ -39,8 +39,8 @@ var workOffset = { (exists(param.W) && param.W != null) ? param.W : move.workpla
 var wcsNumber = { var.workOffset + 1 }
 
 ; Increment the probe surface and point totals for status reporting
-set global.mosPRST = { global.mosPRST + 4 }
-set global.mosPRPT = { global.mosPRPT + 8 }
+set global.nxtProbeSurfaceTotal = { global.nxtProbeSurfaceTotal + 4 }
+set global.nxtProbePointTotal = { global.nxtProbePointTotal + 8 }
 
 var pID = { global.nxtFeatureTouchProbe ? global.nxtTouchProbeID : null }
 
@@ -88,11 +88,11 @@ var hL   = { var.fL/2 }
 ; make sure the surface of the tool and the workpiece
 ; are the clearance distance apart, rather than less
 ; than that.
-var surfaceClearance = { ((!exists(param.T) || param.T == null) ? global.mosCL : param.T) + ((state.currentTool < #tools && state.currentTool >= 0) ? global.mosTT[state.currentTool][0] : 0) }
+var surfaceClearance = { ((!exists(param.T) || param.T == null) ? global.nxtClearance : param.T) + ((state.currentTool < #tools && state.currentTool >= 0) ? global.nxtTT[state.currentTool][0] : 0) }
 
 ; Default corner clearance to the normal clearance
 ; distance, but allow it to be overridden if necessary.
-var cornerClearance = { (!exists(param.C) || param.C == null) ? ((!exists(param.T) || param.T == null) ? global.mosCL : param.T) : param.C }
+var cornerClearance = { (!exists(param.C) || param.C == null) ? ((!exists(param.T) || param.T == null) ? global.nxtClearance : param.T) : param.C }
 
 ; Apply tool radius to overtravel. We want to allow
 ; less movement past the expected point of contact
@@ -100,7 +100,7 @@ var cornerClearance = { (!exists(param.C) || param.C == null) ? ((!exists(param.
 ; For big tools and low overtravel values, this value
 ; might end up being negative. This is fine, as long
 ; as the configured tool radius is accurate.
-var overtravel = { (exists(param.O) ? param.O : global.mosOT) - ((state.currentTool < #tools && state.currentTool >= 0) ? global.mosTT[state.currentTool][0] : 0) }
+var overtravel = { (exists(param.O) ? param.O : global.nxtOvertravel) - ((state.currentTool < #tools && state.currentTool >= 0) ? global.nxtTT[state.currentTool][0] : 0) }
 
 ; Check that 2 times the clearance distance isn't
 ; higher than the width or height of the block.
@@ -171,8 +171,8 @@ if { var.dXAngleDiff > pi/2 }
     set var.dXAngleDiff = { pi - var.dXAngleDiff }
 
 ; Make sure X surfaces are suitably parallel
-if { var.dXAngleDiff > global.mosAngleTol }
-    abort { "Rectangular block surfaces on X axis are not parallel (" ^ var.dXAngleDiff ^ " > " ^ global.mosAngleTol ^ ") - this block does not appear to be square." }
+if { var.dXAngleDiff > global.nxtProbeAngleTol }
+    abort { "Rectangular block surfaces on X axis are not parallel (" ^ var.dXAngleDiff ^ " > " ^ global.nxtProbeAngleTol ^ ") - this block does not appear to be square." }
 
 ; Now we have validated that the block is square in X, we need to calculate
 ; the real center position of the block so we can probe the Y surfaces.
@@ -225,8 +225,8 @@ if { var.dYAngleDiff > pi/2 }
     set var.dYAngleDiff = { pi - var.dYAngleDiff }
 
 ; Make sure X surfaces are suitably parallel
-if { var.dYAngleDiff > global.mosAngleTol }
-    abort { "Rectangular block surfaces on Y axis are not parallel (" ^ var.dYAngleDiff ^ " > " ^ global.mosAngleTol ^ ") - this block does not appear to be square." }
+if { var.dYAngleDiff > global.nxtProbeAngleTol }
+    abort { "Rectangular block surfaces on Y axis are not parallel (" ^ var.dYAngleDiff ^ " > " ^ global.nxtProbeAngleTol ^ ") - this block does not appear to be square." }
 
 ; Okay, we have now validated that the block surfaces are square in both X and Y.
 ; But this does not mean they are square to each other, so we need to calculate
@@ -243,15 +243,15 @@ if { var.dYAngleDiff > global.mosAngleTol }
 var cornerAngleError = { abs(90 - degrees(abs(mod(var.pSfcX[0][2] - var.pSfcY[0][2], pi)))) }
 
 ; Make sure the corner angle is suitably perpendicular
-if { var.cornerAngleError > global.mosAngleTol }
-    abort { "Rectangular block corner angle is not perpendicular (" ^ var.cornerAngleError ^ " > " ^ global.mosAngleTol ^ ") - this block does not appear to be square." }
+if { var.cornerAngleError > global.nxtProbeAngleTol }
+    abort { "Rectangular block corner angle is not perpendicular (" ^ var.cornerAngleError ^ " > " ^ global.nxtProbeAngleTol ^ ") - this block does not appear to be square." }
 
 ; We report the corner angle around 90 degrees
-set global.mosWPCnrDeg[var.workOffset] = { 90 + var.cornerAngleError }
+set global.nxtWPCnrDeg[var.workOffset] = { 90 + var.cornerAngleError }
 
 ; Abort if the corner angle is greater than a certain threshold.
-if { (var.cornerAngleError > global.mosAngleTol) }
-    abort { "Rectangular block corner angle is not perpendicular (" ^ var.cornerAngleError ^ " > " ^ global.mosAngleTol ^ ") - this block does not appear to be square." }
+if { (var.cornerAngleError > global.nxtProbeAngleTol) }
+    abort { "Rectangular block corner angle is not perpendicular (" ^ var.cornerAngleError ^ " > " ^ global.nxtProbeAngleTol ^ ") - this block does not appear to be square." }
 
 ; Calculate bottom surface midpoint
 var bottomMidpoint = { (var.pSfcY[0][0][0][1] + var.pSfcY[0][0][1][1]) / 2 }
@@ -269,17 +269,17 @@ set var.sY = { (var.bottomMidpoint + var.topMidpoint) / 2 }
 ; from that.
 
 ; Set the centre of the block
-set global.mosWPCtrPos[var.workOffset] = { var.sX, var.sY }
+set global.nxtWPCtrPos[var.workOffset] = { var.sX, var.sY }
 
 ; We can now calculate the actual dimensions of the block.
 ; The dimensions are the difference between the average of each
 ; pair of points of each line.
-set global.mosWPDims[var.workOffset][0] = { abs(((var.pSfcX[0][0][0][0] + var.pSfcX[0][0][1][0]) / 2) - ((var.pSfcX[1][0][0][0] + var.pSfcX[1][0][1][0]) / 2)) }
-set global.mosWPDims[var.workOffset][1] = { abs(((var.pSfcY[0][0][0][1] + var.pSfcY[0][0][1][1]) / 2) - ((var.pSfcY[1][0][0][1] + var.pSfcY[1][0][1][1]) / 2)) }
+set global.nxtWPDims[var.workOffset][0] = { abs(((var.pSfcX[0][0][0][0] + var.pSfcX[0][0][1][0]) / 2) - ((var.pSfcX[1][0][0][0] + var.pSfcX[1][0][1][0]) / 2)) }
+set global.nxtWPDims[var.workOffset][1] = { abs(((var.pSfcY[0][0][0][1] + var.pSfcY[0][0][1][1]) / 2) - ((var.pSfcY[1][0][0][1] + var.pSfcY[1][0][1][1]) / 2)) }
 
 ; Set the global error in dimensions
 ; This can be used by other macros to configure the touch probe deflection.
-set global.mosWPDimsErr[var.workOffset] = { abs(var.fW - global.mosWPDims[var.workOffset][0]), abs(var.fL - global.mosWPDims[var.workOffset][1]) }
+set global.nxtWPDimsErr[var.workOffset] = { abs(var.fW - global.nxtWPDims[var.workOffset][0]), abs(var.fL - global.nxtWPDims[var.workOffset][1]) }
 
 ; Make sure we're at the safeZ height
 G6550 I{var.pID} Z{var.safeZ}
@@ -304,7 +304,7 @@ while { var.aR > pi/4 || var.aR < -pi/4 }
     elif { var.aR < -pi/4 }
         set var.aR = { var.aR + pi/2 }
 
-set global.mosWPDeg[var.workOffset] = { degrees(var.aR) }
+set global.nxtWPDeg[var.workOffset] = { degrees(var.aR) }
 
 ; Report probe results if requested
 if { !exists(param.R) || param.R != 0 }

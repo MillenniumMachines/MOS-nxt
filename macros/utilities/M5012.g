@@ -3,9 +3,9 @@
 
 ; Called when completing a probing sequence, resets
 ; the probe count totals and current values to 0.
-set global.mosPRRT=0
-set global.mosPRRS=0
-set global.mosPRPT=0
-set global.mosPRPS=0
-set global.mosPRST=0
-set global.mosPRSS=0
+set global.nxtProbeRetryTotal=0
+set global.nxtProbeRetryStep=0
+set global.nxtProbePointTotal=0
+set global.nxtProbePointStep=0
+set global.nxtProbeSurfaceTotal=0
+set global.nxtProbeSurfaceStep=0

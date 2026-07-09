@@ -13,10 +13,10 @@ if { !inputs[state.thisInput].active }
     M99
 
 ; Index of the zProbe entry as this requires different inputs.
-var zProbeI = { #global.mosSurfaceNames - 1 }
+var zProbeI = { #global.nxtSurfaceNames - 1 }
 
 ; Display description of surface probe if not displayed this session
-if { global.nxtTutorialMode && !global.mosDD[4] }
+if { global.nxtTutorialMode && !global.nxtDialogDisplayed[4] }
     var nxtM291Msg1 = "This operation finds the co-ordinate of a surface on a single axis. It is usually used to find the top surface of a workpiece but can be used to find X or Y positions as well."
     M291 P{var.nxtM291Msg1} R"nxt: Probe Surface" T0 S2
     M291 P"<b>CAUTION</b>: This operation will only return accurate results if the surface you are probing is perpendicular to the axis you are probing in." R"nxt: Probe Surface" T0 S2
@@ -34,7 +34,7 @@ if { global.nxtTutorialMode && !global.mosDD[4] }
     if { input != 0 }
         abort { "Surface probe aborted!" }
 
-    set global.mosDD[4] = true
+    set global.nxtDialogDisplayed[4] = true
 
 ; Make sure probe tool is selected
 if { global.nxtProbeToolID != state.currentTool }
@@ -42,7 +42,7 @@ if { global.nxtProbeToolID != state.currentTool }
 
 ; Prompt for overtravel distance
 var nxtM291Msg7 = "Please enter <b>overtravel</b> distance in mm.<br/>This is how far we move past the expected surface to account for any innaccuracy in the dimensions."
-M291 P{var.nxtM291Msg7} R"nxt: Probe Surface" J1 T0 S6 F{global.mosOT}
+M291 P{var.nxtM291Msg7} R"nxt: Probe Surface" J1 T0 S6 F{global.nxtOvertravel}
 if { result != 0 }
     abort { "Single Surface probe aborted!" }
 
@@ -58,7 +58,7 @@ if { result != 0 }
 
 ; Prompt the operator for the location of the surface
 var nxtM291Msg9 = "Please select the surface to probe.<br/><b>NOTE</b>: These surface names are relative to an operator standing at the front of the machine."
-M291 P{var.nxtM291Msg9} R"nxt: Probe Surface" T0 S4 F{var.zProbeI} K{global.mosSurfaceNames}
+M291 P{var.nxtM291Msg9} R"nxt: Probe Surface" T0 S4 F{var.zProbeI} K{global.nxtSurfaceNames}
 var probeAxis = { input }
 
 ; For Z probes, our depth is 0 but our distance is the probing depth
@@ -69,7 +69,7 @@ var isZProbe = { var.probeAxis == var.zProbeI }
 ; If this is an X/Y probe, ask for depth
 if { !var.isZProbe }
     var nxtM291Msg10 = "Please enter the depth to probe at in mm, below the current location.<br/><b>Example</b>: A value of 10 will move the probe downwards 10mm before probing outwards."
-    M291 P{var.nxtM291Msg10} R"nxt: Probe Surface" J1 T0 S6 F{global.mosOT}
+    M291 P{var.nxtM291Msg10} R"nxt: Probe Surface" J1 T0 S6 F{global.nxtOvertravel}
     if { result != 0 }
         abort { "Surface probe aborted!" }
 
@@ -78,7 +78,7 @@ if { !var.isZProbe }
     if { var.probeDepth < 0 }
         abort { "Probing depth was negative!" }
 
-M291 P"Please enter the distance to probe towards the surface in mm." R"nxt: Probe Surface" J1 T0 S6 F{global.mosCL}
+M291 P"Please enter the distance to probe towards the surface in mm." R"nxt: Probe Surface" J1 T0 S6 F{global.nxtClearance}
 if { result != 0 }
     abort { "Surface probe aborted!" }
 
@@ -89,12 +89,12 @@ if { var.probeDist < 0 }
 
 if { global.nxtTutorialMode }
     if { !var.isZProbe }
-        var nxtM291Msg11 = {"Probe will now move down <b>" ^ var.probeDepth ^ "</b> mm and probe towards the <b>" ^ global.mosSurfaceNames[var.probeAxis] ^ "</b> surface." }
+        var nxtM291Msg11 = {"Probe will now move down <b>" ^ var.probeDepth ^ "</b> mm and probe towards the <b>" ^ global.nxtSurfaceNames[var.probeAxis] ^ "</b> surface." }
         M291 P{var.nxtM291Msg11} R"nxt: Probe Surface" T0 S4 K{"Continue", "Cancel"} F0
         if { input != 0 }
             abort { "Single Surface probe aborted!" }
     else
-        M291 P{"Probe will now move towards the <b>" ^ global.mosSurfaceNames[var.probeAxis] ^ "</b> surface." } R"nxt: Probe Surface" T0 S4 K{"Continue", "Cancel"} F0
+        M291 P{"Probe will now move towards the <b>" ^ global.nxtSurfaceNames[var.probeAxis] ^ "</b> surface." } R"nxt: Probe Surface" T0 S4 K{"Continue", "Cancel"} F0
         if { input != 0 }
             abort { "Single Surface probe aborted!" }
 

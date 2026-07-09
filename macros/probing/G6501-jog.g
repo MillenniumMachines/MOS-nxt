@@ -13,7 +13,7 @@ if { !inputs[state.thisInput].active }
     M99
 
 ; Display description of boss probe if not already displayed this session
-if { global.nxtTutorialMode && !global.mosDD[3] }
+if { global.nxtTutorialMode && !global.nxtDialogDisplayed[3] }
     var nxtM291Msg1a = "This probe cycle finds the X and Y co-ordinates of the center of a circular boss (protruding feature) on a workpiece "
     var nxtM291Msg1b = { var.nxtM291Msg1a ^ "by probing towards the approximate center of the boss in 3 directions." }
     M291 P{var.nxtM291Msg1b} R"nxt: Probe Boss" T0 S2
@@ -28,7 +28,7 @@ if { global.nxtTutorialMode && !global.mosDD[3] }
     M291 P{var.nxtM291Msg4} R"nxt: Probe Boss" T0 S4 K{"Continue", "Cancel"} F0
     if { input != 0 }
         abort { "Boss probe aborted!" }
-    set global.mosDD[3] = true
+    set global.nxtDialogDisplayed[3] = true
 
 ; Make sure probe tool is selected
 if { global.nxtProbeToolID != state.currentTool }
@@ -45,7 +45,7 @@ var workOffset = { (exists(param.W) && param.W != null) ? param.W : move.workpla
 var wcsNumber = { var.workOffset + 1 }
 
 ; Prompt for boss diameter
-M291 P"Please enter approximate boss diameter in mm." R"nxt: Probe Boss" J1 T0 S6 F{(global.mosWPRad[var.workOffset] != global.mosDfltWPRad) ? global.mosWPRad[var.workOffset]*2 : 0}
+M291 P"Please enter approximate boss diameter in mm." R"nxt: Probe Boss" J1 T0 S6 F{(global.nxtWPRad[var.workOffset] != global.nxtDfltWPRad) ? global.nxtWPRad[var.workOffset]*2 : 0}
 if { result != 0 }
     abort { "Boss probe aborted!" }
 
@@ -55,7 +55,7 @@ if { var.bossDiameter < 1 }
     abort { "Boss diameter too low!" }
 
 ; Prompt for clearance distance
-M291 P"Please enter clearance distance in mm." R"nxt: Probe Boss" J1 T0 S6 F{global.mosCL}
+M291 P"Please enter clearance distance in mm." R"nxt: Probe Boss" J1 T0 S6 F{global.nxtClearance}
 if { result != 0 }
     abort { "Boss probe aborted!" }
 
@@ -64,7 +64,7 @@ if { var.clearance < 1 }
     abort { "Clearance distance too low!" }
 
 ; Prompt for overtravel distance
-M291 P"Please enter the overtravel distance in mm." R"nxt: Probe Boss" J1 T0 S6 F{global.mosOT}
+M291 P"Please enter the overtravel distance in mm." R"nxt: Probe Boss" J1 T0 S6 F{global.nxtOvertravel}
 if { result != 0 }
     abort { "Boss probe aborted!" }
 
@@ -77,7 +77,9 @@ M291 P{var.nxtM291Msg5} R"nxt: Probe Boss" X1 Y1 Z1 J1 T0 S3
 if { result != 0 }
     abort { "Boss probe aborted!" }
 
-M291 P"Please enter the depth to probe at in mm, relative to the current location. A value of 10 will move the probe downwards 10mm before probing inwards." R"nxt: Probe Boss" J1 T0 S6 F{global.mosOT}
+var nxtM291Depth = { "Please enter the depth to probe at in mm, relative to the current location." }
+var nxtM291Depth2 = { " A value of 10 will move the probe downwards 10mm before probing inwards." }
+M291 P{var.nxtM291Depth ^ var.nxtM291Depth2} R"nxt: Probe Boss" J1 T0 S6 F{global.nxtOvertravel}
 if { result != 0 }
     abort { "Boss probe aborted!" }
 

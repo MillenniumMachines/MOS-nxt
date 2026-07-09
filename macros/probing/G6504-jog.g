@@ -14,7 +14,7 @@ if { !inputs[state.thisInput].active }
     M99
 
 ; Display description of web probe if not already displayed this session
-if { global.nxtTutorialMode && !global.mosDD[6] }
+if { global.nxtTutorialMode && !global.nxtDialogDisplayed[6] }
     M291 P"This probe cycle finds the X or Y co-ordinates of the midpoint of a web (protruding feature) on a workpiece by probing towards the web surfaces from each side." R"nxt: Probe Web " T0 S2
     M291 P"You will be asked to enter an approximate <b>width</b> and optionally <b>length</b> of the web, and a <b>clearance distance</b>." R"nxt: Probe Web" T0 S2
     M291 P"These define how far the probe will move away from the starting point before moving downwards and probing back towards the relevant surfaces." R"nxt: Probe Web" T0 S2
@@ -26,7 +26,7 @@ if { global.nxtTutorialMode && !global.mosDD[6] }
     M291 P{var.nxtM291Msg2} R"nxt: Probe Web" T0 S4 K{"Continue", "Cancel"} F0
     if { input != 0 }
         abort { "Web probe aborted!" }
-    set global.mosDD[6] = true
+    set global.nxtDialogDisplayed[6] = true
 
 ; Make sure probe tool is selected
 if { global.nxtProbeToolID != state.currentTool }
@@ -57,7 +57,7 @@ var axis = { input }
 var webLetter = { (var.axis == 0) ? "X" : "Y" }
 var lengthLetter = { (var.axis == 0) ? "Y" : "X" }
 
-var bW = { (global.mosWPDims[var.workOffset][0] != null) ? global.mosWPDims[var.workOffset][0] : 100 }
+var bW = { (global.nxtWPDims[var.workOffset][0] != null) ? global.nxtWPDims[var.workOffset][0] : 100 }
 
 M291 P{"Please enter approximate <b>web width</b> in mm.<br/><b>NOTE</b>: <b>Width</b> is measured along the <b>" ^ var.webLetter ^ " axis."} R"nxt: Probe Web" J1 T0 S6 F{var.bW}
 if { result != 0 }
@@ -73,7 +73,7 @@ var webLength = { null }
 ; 0 = Full mode, 1 = Quick mode
 ; Only prompt for length if in full mode
 if { var.mode == 0 }
-    var bL = { (global.mosWPDims[var.workOffset][1] != null) ? global.mosWPDims[var.workOffset][1] : 100 }
+    var bL = { (global.nxtWPDims[var.workOffset][1] != null) ? global.nxtWPDims[var.workOffset][1] : 100 }
 
     M291 P{"Please enter approximate <b>web length</b> in mm.<br/><b>NOTE</b>: <b>Length</b> is measured along the <b>" ^ var.lengthLetter ^ "</b> axis."} R"nxt: Probe Web" J1 T0 S6 F{var.bL}
     if { result != 0 }
@@ -86,7 +86,7 @@ if { var.mode == 0 }
 
 ; Prompt for clearance distance
 var nxtM291Msg4 = "Please enter <b>clearance</b> distance in mm.<br/>This is how far away from the expected surfaces and corners we probe from, to account for any innaccuracy in the start position."
-M291 P{var.nxtM291Msg4} R"nxt: Probe Web" J1 T0 S6 F{global.mosCL}
+M291 P{var.nxtM291Msg4} R"nxt: Probe Web" J1 T0 S6 F{global.nxtClearance}
 if { result != 0 }
     abort { "Web probe aborted!" }
 
@@ -114,7 +114,7 @@ if { var.mode == 0 }
 
 ; Prompt for overtravel distance
 var nxtM291Msg6 = "Please enter <b>overtravel</b> distance in mm.<br/>This is how far we move past the expected surfaces to account for any innaccuracy in the dimensions."
-M291 P{var.nxtM291Msg6} R"nxt: Probe Web" J1 T0 S6 F{global.mosOT}
+M291 P{var.nxtM291Msg6} R"nxt: Probe Web" J1 T0 S6 F{global.nxtOvertravel}
 if { result != 0 }
     abort { "Web probe aborted!" }
 
@@ -128,7 +128,9 @@ M291 P{var.nxtM291Msg7b} R"nxt: Probe Web" X1 Y1 Z1 J1 T0 S3
 if { result != 0 }
     abort { "Web probe aborted!" }
 
-M291 P"Please enter the depth to probe at in mm, relative to the current location. A value of 10 will move the probe downwards 10mm before probing inwards." R"nxt: Probe Web" J1 T0 S6 F{global.mosOT}
+var nxtM291Depth = { "Please enter the depth to probe at in mm, relative to the current location." }
+var nxtM291Depth2 = { " A value of 10 will move the probe downwards 10mm before probing inwards." }
+M291 P{var.nxtM291Depth ^ var.nxtM291Depth2} R"nxt: Probe Web" J1 T0 S6 F{global.nxtOvertravel}
 if { result != 0 }
     abort { "Web probe aborted!" }
 

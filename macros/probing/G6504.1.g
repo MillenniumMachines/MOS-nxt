@@ -50,8 +50,8 @@ var wcsNumber = { var.workOffset + 1 }
 
 ; Increment the probe surface and point totals for status reporting
 ; If full mode is enabled, we probe at 2 points on each surface.
-set global.mosPRST = { global.mosPRST + 2 }
-set global.mosPRPT = { global.mosPRPT + (var.pFull ? 4 : 2) }
+set global.nxtProbeSurfaceTotal = { global.nxtProbeSurfaceTotal + 2 }
+set global.nxtProbePointTotal = { global.nxtProbePointTotal + (var.pFull ? 4 : 2) }
 
 var pID = { global.nxtFeatureTouchProbe ? global.nxtTouchProbeID : null }
 
@@ -92,11 +92,11 @@ var hL   = { var.fL/2 }
 ; make sure the surface of the tool and the workpiece
 ; are the clearance distance apart, rather than less
 ; than that.
-var surfaceClearance = { ((!exists(param.T) || param.T == null) ? global.mosCL : param.T) + ((state.currentTool < #tools && state.currentTool >= 0) ? global.mosTT[state.currentTool][0] : 0) }
+var surfaceClearance = { ((!exists(param.T) || param.T == null) ? global.nxtClearance : param.T) + ((state.currentTool < #tools && state.currentTool >= 0) ? global.nxtTT[state.currentTool][0] : 0) }
 
 ; Default edge clearance to the normal clearance
 ; distance, but allow it to be overridden if necessary.
-var edgeClearance = { var.pFull ? ((!exists(param.C) || param.C == null) ? ((!exists(param.T) || param.T == null) ? global.mosCL : param.T) : param.C): 0 }
+var edgeClearance = { var.pFull ? ((!exists(param.C) || param.C == null) ? ((!exists(param.T) || param.T == null) ? global.nxtClearance : param.T) : param.C): 0 }
 
 ; Apply tool radius to overtravel. We want to allow
 ; less movement past the expected point of contact
@@ -104,7 +104,7 @@ var edgeClearance = { var.pFull ? ((!exists(param.C) || param.C == null) ? ((!ex
 ; For big tools and low overtravel values, this value
 ; might end up being negative. This is fine, as long
 ; as the configured tool radius is accurate.
-var overtravel = { (exists(param.O) ? param.O : global.mosOT) - ((state.currentTool < #tools && state.currentTool >= 0) ? global.mosTT[state.currentTool][0] : 0) }
+var overtravel = { (exists(param.O) ? param.O : global.nxtOvertravel) - ((state.currentTool < #tools && state.currentTool >= 0) ? global.nxtTT[state.currentTool][0] : 0) }
 
 ; Check that 2 times the clearance distance isn't
 ; higher than the length of the web.
@@ -187,10 +187,10 @@ var pSfc = { global.nxtAbsPos }
 ; of the 2 points we probed.
 if { !var.pFull }
     ; Set the midpoint on the relevant axis
-    set global.mosWPCtrPos[var.workOffset][param.N] = { (var.pSfc[0][0][0][param.N] + var.pSfc[1][0][0][param.N]) / 2 }
+    set global.nxtWPCtrPos[var.workOffset][param.N] = { (var.pSfc[0][0][0][param.N] + var.pSfc[1][0][0][param.N]) / 2 }
 
     ; Calculate the actual probed dimension of the web
-    set global.mosWPDims[var.workOffset][param.N] = { abs(var.pSfc[0][0][0][param.N] - var.pSfc[1][0][0][param.N]) }
+    set global.nxtWPDims[var.workOffset][param.N] = { abs(var.pSfc[0][0][0][param.N] - var.pSfc[1][0][0][param.N]) }
 
 else
     ; Angle difference in radians
@@ -201,16 +201,16 @@ else
         set var.rAngleDiff = { pi - var.rAngleDiff }
 
     ; Make sure surfaces are suitably parallel
-    if { degrees(var.rAngleDiff) > global.mosAngleTol }
-        abort { "Web surfaces are not parallel (" ^ degrees(var.rAngleDiff) ^ " > " ^ global.mosAngleTol ^ ") - this web does not appear to be parallel." }
+    if { degrees(var.rAngleDiff) > global.nxtProbeAngleTol }
+        abort { "Web surfaces are not parallel (" ^ degrees(var.rAngleDiff) ^ " > " ^ global.nxtProbeAngleTol ^ ") - this web does not appear to be parallel." }
 
-    set global.mosWPCtrPos[var.workOffset][param.N] = { (var.pSfc[0][0][0][param.N] + var.pSfc[0][0][1][param.N] + var.pSfc[1][0][0][param.N] + var.pSfc[1][0][1][param.N]) / 4 }
+    set global.nxtWPCtrPos[var.workOffset][param.N] = { (var.pSfc[0][0][0][param.N] + var.pSfc[0][0][1][param.N] + var.pSfc[1][0][0][param.N] + var.pSfc[1][0][1][param.N]) / 4 }
 
 
     ; We can now calculate the dimensions of the web
     ; The dimensions are the difference between the average of each
     ; pair of points of each line.
-    set global.mosWPDims[var.workOffset][param.N] = { abs((var.pSfc[0][0][0][param.N] + var.pSfc[0][0][1][param.N]) / 2 - (var.pSfc[1][0][0][param.N] + var.pSfc[1][0][1][param.N]) / 2) }
+    set global.nxtWPDims[var.workOffset][param.N] = { abs((var.pSfc[0][0][0][param.N] + var.pSfc[0][0][1][param.N]) / 2 - (var.pSfc[1][0][0][param.N] + var.pSfc[1][0][1][param.N]) / 2) }
 
     ; Calculate the rotation of the web.
     ; After the checks above, we know the web has parallel
@@ -226,15 +226,15 @@ else
         elif { var.aR < -pi/4 }
             set var.aR = { var.aR + pi/2 }
 
-    set global.mosWPDeg[var.workOffset] = { degrees(var.aR) }
+    set global.nxtWPDeg[var.workOffset] = { degrees(var.aR) }
 
 ; Make sure we're at the safeZ height
 G6550 I{var.pID} Z{var.safeZ}
 
 ; Move to the calculated center of the web, at the original
 ; start position in the other axis.
-var cX = { (param.N == 0) ? global.mosWPCtrPos[var.workOffset][0] : var.sX }
-var cY = { (param.N == 1) ? global.mosWPCtrPos[var.workOffset][1] : var.sY }
+var cX = { (param.N == 0) ? global.nxtWPCtrPos[var.workOffset][0] : var.sX }
+var cY = { (param.N == 1) ? global.nxtWPCtrPos[var.workOffset][1] : var.sY }
 
 G6550 I{var.pID} X{(param.N == 0) ? var.cX : var.sX} Y{(param.N == 1) ? var.cY : var.sY}
 

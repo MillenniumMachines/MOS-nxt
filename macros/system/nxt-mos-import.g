@@ -47,6 +47,9 @@ if { fileexists("0:/sys/mos-maintenance.g") }
 if { fileexists("0:/sys/nxt-user-vars.g") }
     M98 P"nxt-user-vars.g"
 
+; Copy MOS data globals (mosTT, mosWPCtrPos, …) into nxt* when not already set.
+M98 P"nxt-mos-globals-align.g"
+
 if { exists(global.mosFeatTouchProbe) }
     set global.nxtFeatureTouchProbe = { global.mosFeatTouchProbe }
 if { exists(global.mosFeatToolSetter) }
@@ -135,6 +138,21 @@ if { exists(global.mosIdleFanLow) }
     set global.nxtIdleFanLow = { global.mosIdleFanLow }
 if { exists(global.mosIdleDimBri) }
     set global.nxtIdleDimBri = { global.mosIdleDimBri }
+
+if { exists(global.mosEM) }
+    set global.nxtExpertMode = { global.mosEM }
+if { exists(global.mosTM) }
+    set global.nxtTutorialMode = { global.mosTM }
+if { exists(global.mosWS) }
+    set global.nxtWS = { global.mosWS }
+if { exists(global.mosAutoPersistTools) }
+    set global.nxtAutoPersistTools = { global.mosAutoPersistTools }
+if { exists(global.mosTTLocked) }
+    set global.nxtTTLocked = { global.mosTTLocked }
+if { exists(global.mosReservedFrom) }
+    set global.nxtReservedFrom = { limits.tools - 1 }
+if { exists(global.mosFeatRGB) }
+    set global.nxtFeatureRgbLight = { global.mosFeatRGB }
 
 if { exists(global.nxtFeatMaint) && global.nxtFeatMaint }
     M98 P"nxt/nxt-save-maintenance.g"

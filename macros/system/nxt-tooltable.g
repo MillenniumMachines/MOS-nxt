@@ -1,9 +1,15 @@
-; nxt-tooltable.g — Allocate MillenniumOS-compatible tool table globals for M4000/M4001.
-; Loaded from nxt.g when mosTT is not already present (e.g. skipped if mos-vars.g ran for MOS import).
+; nxt-tooltable.g — Allocate nxt tool table globals for M4000/M4001.
+; Loaded from nxt.g when nxtTT is not already present.
 
-if { !exists(global.mosET) }
+; Legacy MOS SD may still have mosTT/mosET — nxt-mos-globals-align.g copies them first on import.
+if { exists(global.mosTT) && !exists(global.nxtTT) }
+    global nxtTT = { global.mosTT }
+if { exists(global.mosET) && !exists(global.nxtET) }
+    global nxtET = { global.mosET }
+
+if { !exists(global.nxtET) }
     ; [0]=radius, [1]={probe X/Y}, [2]=flutes (-1), [3]=flute len (-1), [4]=tcCapable (1), [5]=tsCapable (1)
-    global mosET = { 0.0, {0.0, 0.0}, -1, -1.0, 1, 1 }
+    global nxtET = { 0.0, {0.0, 0.0}, -1, -1.0, 1, 1 }
 
-if { !exists(global.mosTT) }
-    global mosTT = { vector(limits.tools, global.mosET) }
+if { !exists(global.nxtTT) }
+    global nxtTT = { vector(limits.tools, global.nxtET) }

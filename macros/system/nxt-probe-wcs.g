@@ -1,52 +1,62 @@
 ; nxt-probe-wcs.g — WCS probing metadata, manual jog distances, probe progress counters.
 ; Loaded from nxt.g when not already present (e.g. from mos-vars.g on migrated SD cards).
 
-if { exists(global.mosOT) }
+if { exists(global.nxtOvertravel) }
     M99
 
 ; Overtravel distance (mm) added to operator estimates during probing cycles.
-global mosOT = 2.0
+global nxtOvertravel = 2.0
 
 ; Clearance height (mm) for operator prompts and work-zero moves.
-global mosCL = 10.0
+global nxtClearance = 10.0
 
 ; Manual probing travel speeds (mm/min): [0]=rapid, [1]=coarse jog, [2]=fine jog (G6512.2, workzero).
-global mosMPS = { 1200, 300, 60 }
+global nxtManualProbeFeeds = { 1200, 300, 60 }
 
-; Corner name labels for M7601 reporting.
-global mosCornerNames = {"Front Left", "Front Right", "Back Right", "Back Left"}
+; Maximum angle (deg) for parallel / perpendicular surface checks.
+global nxtProbeAngleTol = 0.2
+
+; Corner / surface name labels for operator dialogs and M7601 reporting.
+global nxtCornerNames = {"Front Left", "Front Right", "Back Right", "Back Left"}
+global nxtSurfaceNames = {"Left", "Right", "Front", "Back", "Top"}
 
 ; WCS probed metadata (per workplace index).
-global mosDfltWPCtrPos = { null, null }
-global mosWPCtrPos = { vector(limits.workplaces, global.mosDfltWPCtrPos) }
-global mosDfltWPRad = null
-global mosWPRad = { vector(limits.workplaces, global.mosDfltWPRad) }
-global mosDfltWPDims = { null, null }
-global mosWPDims = { vector(limits.workplaces, global.mosDfltWPDims) }
-global mosDfltWPDimsErr = { null, null }
-global mosWPDimsErr = { vector(limits.workplaces, global.mosDfltWPDimsErr) }
-global mosDfltWPDeg = null
-global mosWPDeg = { vector(limits.workplaces, global.mosDfltWPDeg) }
-global mosDfltWPCnrNum = null
-global mosWPCnrNum = { vector(limits.workplaces, global.mosDfltWPCnrNum) }
-global mosDfltWPCnrPos = { null, null }
-global mosWPCnrPos = { vector(limits.workplaces, global.mosDfltWPCnrPos) }
-global mosDfltWPCnrDeg = null
-global mosWPCnrDeg = { vector(limits.workplaces, global.mosDfltWPCnrDeg) }
-global mosDfltWPSfcPos = null
-global mosWPSfcPos = { vector(limits.workplaces, global.mosDfltWPSfcPos) }
-global mosDfltWPSfcAxis = null
-global mosWPSfcAxis = { vector(limits.workplaces, global.mosDfltWPSfcAxis) }
+global nxtDfltWPCtrPos = { null, null }
+global nxtWPCtrPos = { vector(limits.workplaces, global.nxtDfltWPCtrPos) }
+global nxtDfltWPRad = null
+global nxtWPRad = { vector(limits.workplaces, global.nxtDfltWPRad) }
+global nxtDfltWPDims = { null, null }
+global nxtWPDims = { vector(limits.workplaces, global.nxtDfltWPDims) }
+global nxtDfltWPDimsErr = { null, null }
+global nxtWPDimsErr = { vector(limits.workplaces, global.nxtDfltWPDimsErr) }
+global nxtDfltWPDeg = null
+global nxtWPDeg = { vector(limits.workplaces, global.nxtDfltWPDeg) }
+global nxtDfltWPCnrNum = null
+global nxtWPCnrNum = { vector(limits.workplaces, global.nxtDfltWPCnrNum) }
+global nxtDfltWPCnrPos = { null, null }
+global nxtWPCnrPos = { vector(limits.workplaces, global.nxtDfltWPCnrPos) }
+global nxtDfltWPCnrDeg = null
+global nxtWPCnrDeg = { vector(limits.workplaces, global.nxtDfltWPCnrDeg) }
+global nxtDfltWPSfcPos = null
+global nxtWPSfcPos = { vector(limits.workplaces, global.nxtDfltWPSfcPos) }
+global nxtDfltWPSfcAxis = null
+global nxtWPSfcAxis = { vector(limits.workplaces, global.nxtDfltWPSfcAxis) }
 
 ; Manual probing jog distances (G6512.2).
-global mosMPDN = {"50mm", "10mm", "5mm", "1mm", "0.1mm", "0.01mm", "Finish", "Back-Off 1mm"}
-global mosMPD = { 50, 10, 5, 1, 0.1, 0.01, 0, -1 }
-global mosMPSI = 3
+global nxtManualProbeDistNames = {"50mm", "10mm", "5mm", "1mm", "0.1mm", "0.01mm", "Finish", "Back-Off 1mm"}
+global nxtManualProbeDistances = { 50, 10, 5, 1, 0.1, 0.01, 0, -1 }
+global nxtManualProbeSlowIdx = 3
+
+; Tutorial / cycle dialog shown flags (G6500-jog … G6520-jog, G37.1).
+global nxtDialogDisplayed = { vector(14, false) }
 
 ; Probe progress counters (UI + M5012 reset).
-global mosPRRS = 0
-global mosPRRT = 0
-global mosPRPS = 0
-global mosPRSS = 0
-global mosPRPT = 0
-global mosPRST = 0
+global nxtProbeRetryStep = 0
+global nxtProbeRetryTotal = 0
+global nxtProbePointStep = 0
+global nxtProbeSurfaceStep = 0
+global nxtProbePointTotal = 0
+global nxtProbeSurfaceTotal = 0
+
+; Debug logging for probing orchestrators (G6513).
+global nxtDebug = false

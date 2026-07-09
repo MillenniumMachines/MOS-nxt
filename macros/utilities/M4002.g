@@ -6,7 +6,7 @@
 if { !inputs[state.thisInput].active }
     M99
 
-if { !exists(global.mosTT) }
+if { !exists(global.nxtTT) }
     M99
 
 var prevPersist = true

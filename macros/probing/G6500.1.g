@@ -35,8 +35,8 @@ var workOffset = { (exists(param.W) && param.W != null) ? param.W : move.workpla
 var wcsNumber = { var.workOffset + 1 }
 
 ; Increment the probe surface and point totals for status reporting
-set global.mosPRST = { global.mosPRST + 1 }
-set global.mosPRPT = { global.mosPRPT + 3 }
+set global.nxtProbeSurfaceTotal = { global.nxtProbeSurfaceTotal + 1 }
+set global.nxtProbePointTotal = { global.nxtProbePointTotal + 3 }
 
 var probeId = { global.nxtFeatureTouchProbe ? global.nxtTouchProbeID : null }
 
@@ -49,7 +49,7 @@ if { global.nxtProbeToolID != state.currentTool }
 M5010 W{var.workOffset} R37
 
 ; Apply tool radius to overtravel. We want to allow less movement past the expected point of contact
-var overtravel = { (exists(param.O) ? param.O : global.mosOT) - ((state.currentTool <= limits.tools-1 && state.currentTool >= 0) ? global.mosTT[state.currentTool][0] : 0) }
+var overtravel = { (exists(param.O) ? param.O : global.nxtOvertravel) - ((state.currentTool <= limits.tools-1 && state.currentTool >= 0) ? global.nxtTT[state.currentTool][0] : 0) }
 
 ; We add the overtravel to the bore radius
 var bR = { (param.H / 2) + var.overtravel }
@@ -134,8 +134,8 @@ var r3 = { sqrt(pow((var.pXY[2][0] - var.cX), 2) + pow((var.pXY[2][1] - var.cY),
 var avgR = { (var.r1 + var.r2 + var.r3) / 3 }
 
 ; Update global vars for correct workplace
-set global.mosWPCtrPos[var.workOffset]   = { var.cX, var.cY }
-set global.mosWPRad[var.workOffset]      = { var.avgR }
+set global.nxtWPCtrPos[var.workOffset]   = { var.cX, var.cY }
+set global.nxtWPRad[var.workOffset]      = { var.avgR }
 
 ; Move to the calculated center of the bore
 G6550 I{var.probeId} X{var.cX} Y{var.cY}

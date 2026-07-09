@@ -33,13 +33,17 @@ if { var.nxtRunMosImport }
     M117 "nxt MOS import"
     M98 P"nxt-mos-import.g"
 
-; Post-processor tool table (mosTT / mosET) unless MOS vars already defined them
-if { !exists(global.mosTT) }
+; Legacy MOS globals on SD (pre-nxtTT rename) — align once per boot when needed.
+if { exists(global.mosTT) && !exists(global.nxtTT) }
+    M98 P"nxt-mos-globals-align.g"
+
+; Post-processor tool table (nxtTT / nxtET) unless already allocated
+if { !exists(global.nxtTT) }
     M117 "nxt nxt-tooltable.g"
     M98 P"nxt-tooltable.g"
 
 ; WCS probing metadata + jog probe distances (unless mos-vars.g already loaded them)
-if { !exists(global.mosOT) }
+if { !exists(global.nxtOvertravel) }
     M98 P"nxt-probe-wcs.g"
 
 ; Load user-defined variables if they exist

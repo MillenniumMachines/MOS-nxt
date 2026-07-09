@@ -28,7 +28,7 @@ if { !exists(param.P) }
 if { (!exists(param.Q) || param.Q == 0) && (!exists(param.H) || !exists(param.I)) }
     abort { "Must provide an approximate X length and Y length using H and I parameters when using full probe, Q0!" }
 
-if { !exists(param.N) || param.N < 0 || param.N >= (#global.mosCornerNames) }
+if { !exists(param.N) || param.N < 0 || param.N >= (#global.nxtCornerNames) }
     abort { "Must provide a valid corner index using the N parameter!" }
 
 if { exists(param.T) && param.T != null && param.T <= 0 }
@@ -60,7 +60,7 @@ if { global.nxtProbeToolID != state.currentTool }
 
 ; Probe the top surface of the workpiece from the current Z position
 G6510.1 R0 W{var.workOffset} H4 I{param.T} O{param.O} J{param.J} K{param.K} L{param.L}
-if { global.mosWPSfcPos[var.workOffset] == global.mosDfltWPSfcPos || global.mosWPSfcAxis[var.workOffset] != "Z" }
+if { global.nxtWPSfcPos[var.workOffset] == global.nxtDfltWPSfcPos || global.nxtWPSfcAxis[var.workOffset] != "Z" }
     abort { "G6520: Failed to probe the top surface of the workpiece!" }
 
 ; Get current machine position on Z
@@ -70,9 +70,9 @@ M5000 P1 I2
 var g6508H = { exists(param.H) ? param.H : null }
 var g6508I = { exists(param.I) ? param.I : null }
 var g6508L = { global.nxtAbsPos }
-var g6508Z = { global.mosWPSfcPos[var.workOffset] - param.P }
+var g6508Z = { global.nxtWPSfcPos[var.workOffset] - param.P }
 G6508.1 R0 W{var.workOffset} Q{param.Q} H{var.g6508H} I{var.g6508I} N{param.N} T{param.T} C{param.C} O{param.O} J{param.J} K{param.K} L{var.g6508L} Z{var.g6508Z}
-if { global.mosWPCnrNum[var.workOffset] == null }
+if { global.nxtWPCnrNum[var.workOffset] == null }
     abort { "G6520: Failed to probe the corner surface of the workpiece!" }
 
 ; Report probe results if requested

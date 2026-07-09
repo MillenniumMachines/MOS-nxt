@@ -14,7 +14,7 @@ if { !exists(param.X) && !exists(param.Y) && !exists(param.Z) }
     abort { "G6512: Must provide a valid target position in one or more axes (X.. Y.. Z..)!" }
 
 if { !exists(global.nxtAbsPos) }
-    global mosMI = { null }
+    global nxtAbsPos = { null }
 
 ; Use absolute positions in mm and feeds in mm/min
 G90
@@ -71,20 +71,20 @@ while { true }
     var vDI = 0
 
     ; Find the index of the first valid distance
-    while { iterations < #global.mosMPD }
+    while { iterations < #global.nxtManualProbeDistances }
         ; If the distance of a step is less than the distance to the target,
         ; then it is valid.
         ; If the distance is valid, then all subsequent distances are also
         ; valid.
         set var.vDI = { iterations }
-        if { global.mosMPD[iterations] < var.mag }
+        if { global.nxtManualProbeDistances[iterations] < var.mag }
             break
 
-    if { var.vDI == #global.mosMPD }
+    if { var.vDI == #global.nxtManualProbeDistances }
         abort { "G6512.2: No valid distances found!" }
 
     ; Length of valid distances
-    set var.vDC = { #global.mosMPD - var.vDI }
+    set var.vDC = { #global.nxtManualProbeDistances - var.vDI }
 
     ; Valid distance indexes and names
     set var.vD = { vector(var.vDC, 0) }
@@ -95,8 +95,8 @@ while { true }
 
     ; Append the valid distance to the list of valid distances and names
     while { iterations < var.vDC }
-        set var.vD[iterations] = { global.mosMPD[iterations + var.vDI] }
-        set var.vDN[iterations] = { global.mosMPDN[iterations + var.vDI] }
+        set var.vD[iterations] = { global.nxtManualProbeDistances[iterations + var.vDI] }
+        set var.vDN[iterations] = { global.nxtManualProbeDistNames[iterations + var.vDI] }
 
     ; Add cancel button
     set var.vDN[#var.vDN-1] = "Cancel"
@@ -121,7 +121,7 @@ while { true }
         break
 
     ; Use a lower movement speed for the smallest increments
-    var moveSpeed = { (input >= (global.mosMPSI - (#global.mosMPD - var.vDC))) ? global.mosMPS[2] : global.mosMPS[1] }
+    var moveSpeed = { (input >= (global.nxtManualProbeSlowIdx - (#global.nxtManualProbeDistances - var.vDC))) ? global.nxtManualProbeFeeds[2] : global.nxtManualProbeFeeds[1] }
 
     ; Generate the new position based on the increment chosen
     ; and move to the new position.
@@ -160,9 +160,10 @@ var bN = { sqrt(pow(var.sP[0] - var.cP[0], 2) + pow(var.sP[1] - var.cP[1], 2) + 
 ; and apply to current position.
 var bP = { 0, 0, 0 }
 
-set var.bP[0] = { var.cP[0] + ((var.sP[0] - var.cP[0]) / var.bN * ((global.mosMPBO > var.bN) ? var.bN : global.mosMPBO)) }
-set var.bP[1] = { var.cP[1] + ((var.sP[1] - var.cP[1]) / var.bN * ((global.mosMPBO > var.bN) ? var.bN : global.mosMPBO)) }
-set var.bP[2] = { var.cP[2] + ((var.sP[2] - var.cP[2]) / var.bN * ((global.mosMPBO > var.bN) ? var.bN : global.mosMPBO)) }
+    var nxtMbo = { global.nxtProtectedMoveBackOff }
+    set var.bP[0] = { var.cP[0] + ((var.sP[0] - var.cP[0]) / var.bN * ((var.nxtMbo > var.bN) ? var.bN : var.nxtMbo)) }
+    set var.bP[1] = { var.cP[1] + ((var.sP[1] - var.cP[1]) / var.bN * ((var.nxtMbo > var.bN) ? var.bN : var.nxtMbo)) }
+    set var.bP[2] = { var.cP[2] + ((var.sP[2] - var.cP[2]) / var.bN * ((var.nxtMbo > var.bN) ? var.bN : var.nxtMbo)) }
 
 G6550 X{ var.bP[0] } Y{ var.bP[1] } Z{ var.bP[2] }
 

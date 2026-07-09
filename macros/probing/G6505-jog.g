@@ -14,7 +14,7 @@ if { !inputs[state.thisInput].active }
     M99
 
 ; Display description of pocket probe if not already displayed this session
-if { global.nxtTutorialMode && !global.mosDD[6] }
+if { global.nxtTutorialMode && !global.nxtDialogDisplayed[6] }
     var nxtM291Msg1 = "This probe cycle finds the X or Y co-ordinates of the midpoint of a pocket (recessed feature) on a workpiece by probing towards the pocket surfaces from the midpoint."
     M291 P{var.nxtM291Msg1} R"nxt: Probe Pocket " T0 S2
     M291 P"You will be asked to enter an approximate <b>width</b> and optionally <b>length</b> of the pocket, and a <b>clearance distance</b>." R"nxt: Probe Pocket" T0 S2
@@ -27,7 +27,7 @@ if { global.nxtTutorialMode && !global.mosDD[6] }
     M291 P{var.nxtM291Msg3} R"nxt: Probe Pocket" T0 S4 K{"Continue", "Cancel"} F0
     if { input != 0 }
         abort { "Pocket probe aborted!" }
-    set global.mosDD[6] = true
+    set global.nxtDialogDisplayed[6] = true
 
 ; Make sure probe tool is selected
 if { global.nxtProbeToolID != state.currentTool }
@@ -60,7 +60,7 @@ var axis = { input }
 var pocketLetter = { (var.axis == 0) ? "X" : "Y" }
 var lengthLetter = { (var.axis == 0) ? "Y" : "X" }
 
-var bW = { (global.mosWPDims[var.workOffset][0] != null) ? global.mosWPDims[var.workOffset][0] : 100 }
+var bW = { (global.nxtWPDims[var.workOffset][0] != null) ? global.nxtWPDims[var.workOffset][0] : 100 }
 
 M291 P{"Please enter approximate <b>pocket width</b> in mm.<br/><b>NOTE</b>: <b>Width</b> is measured along the <b>" ^ var.pocketLetter ^ " axis."} R"nxt: Probe Pocket" J1 T0 S6 F{var.bW}
 if { result != 0 }
@@ -76,7 +76,7 @@ var pocketLength = { null }
 ; 0 = Full mode, 1 = Quick mode
 ; Only prompt for length if in full mode
 if { var.mode == 0 }
-    var bL = { (global.mosWPDims[var.workOffset][1] != null) ? global.mosWPDims[var.workOffset][1] : 100 }
+    var bL = { (global.nxtWPDims[var.workOffset][1] != null) ? global.nxtWPDims[var.workOffset][1] : 100 }
 
     M291 P{"Please enter approximate <b>pocket length</b> in mm.<br/><b>NOTE</b>: <b>Length</b> is measured along the <b>" ^ var.lengthLetter ^ "</b> axis."} R"nxt: Probe Pocket" J1 T0 S6 F{var.bL}
     if { result != 0 }
@@ -89,7 +89,7 @@ if { var.mode == 0 }
 
 ; Prompt for clearance distance
 var nxtM291Msg6 = "Please enter <b>clearance</b> distance in mm.<br/>This is how far away from the expected surfaces and corners we probe from, to account for any innaccuracy in the start position."
-M291 P{var.nxtM291Msg6} R"nxt: Probe Pocket" J1 T0 S6 F{global.mosCL}
+M291 P{var.nxtM291Msg6} R"nxt: Probe Pocket" J1 T0 S6 F{global.nxtClearance}
 if { result != 0 }
     abort { "Pocket probe aborted!" }
 
@@ -117,7 +117,7 @@ if { var.mode == 0 }
 
 ; Prompt for overtravel distance
 var nxtM291Msg8 = "Please enter <b>overtravel</b> distance in mm.<br/>This is how far we move past the expected surfaces to account for any innaccuracy in the dimensions."
-M291 P{var.nxtM291Msg8} R"nxt: Probe Pocket" J1 T0 S6 F{global.mosOT}
+M291 P{var.nxtM291Msg8} R"nxt: Probe Pocket" J1 T0 S6 F{global.nxtOvertravel}
 if { result != 0 }
     abort { "Pocket probe aborted!" }
 
@@ -132,7 +132,7 @@ if { result != 0 }
     abort { "Pocket probe aborted!" }
 
 var nxtM291Msg10 = "Please enter the depth to probe at in mm, relative to the current location. A value of 10 will move the probe downwards 10mm before probing inwards."
-M291 P{var.nxtM291Msg10} R"nxt: Probe Pocket" J1 T0 S6 F{global.mosOT}
+M291 P{var.nxtM291Msg10} R"nxt: Probe Pocket" J1 T0 S6 F{global.nxtOvertravel}
 if { result != 0 }
     abort { "Pocket probe aborted!" }
 

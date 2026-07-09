@@ -48,8 +48,8 @@ var pID = { global.nxtFeatureTouchProbe ? global.nxtTouchProbeID : null }
 var pFull = { exists(param.Q) ? param.Q == 0: false }
 
 ; Increment the probe surface and point totals for status reporting
-set global.mosPRST = { global.mosPRST + (var.pFull ? 2 : 1) }
-set global.mosPRPT = { global.mosPRPT + (var.pFull ? 4 : 2) }
+set global.nxtProbeSurfaceTotal = { global.nxtProbeSurfaceTotal + (var.pFull ? 2 : 1) }
+set global.nxtProbePointTotal = { global.nxtProbePointTotal + (var.pFull ? 4 : 2) }
 
 ; Make sure probe tool is selected
 if { global.nxtProbeToolID != state.currentTool }
@@ -93,11 +93,11 @@ var fY   = { (var.pFull) ? param.I : null }
 ; make sure the surface of the tool and the workpiece
 ; are the clearance distance apart, rather than less
 ; than that.
-var surfaceClearance = { ((!exists(param.T) || param.T == null) ? global.mosCL : param.T) + ((state.currentTool < #tools && state.currentTool >= 0) ? global.mosTT[state.currentTool][0] : 0) }
+var surfaceClearance = { ((!exists(param.T) || param.T == null) ? global.nxtClearance : param.T) + ((state.currentTool < #tools && state.currentTool >= 0) ? global.nxtTT[state.currentTool][0] : 0) }
 
 ; Default corner clearance to the normal clearance
 ; distance, but allow it to be overridden if necessary.
-var cornerClearance = { (!exists(param.C) || param.C == null) ? ((!exists(param.T) || param.T == null) ? global.mosCL : param.T) : param.C }
+var cornerClearance = { (!exists(param.C) || param.C == null) ? ((!exists(param.T) || param.T == null) ? global.nxtClearance : param.T) : param.C }
 
 ; Apply tool radius to overtravel. We want to allow
 ; less movement past the expected point of contact
@@ -105,7 +105,7 @@ var cornerClearance = { (!exists(param.C) || param.C == null) ? ((!exists(param.
 ; For big tools and low overtravel values, this value
 ; might end up being negative. This is fine, as long
 ; as the configured tool radius is accurate.
-var overtravel = { (exists(param.O) ? param.O : global.mosOT) - ((state.currentTool < #tools && state.currentTool >= 0) ? global.mosTT[state.currentTool][0] : 0) }
+var overtravel = { (exists(param.O) ? param.O : global.nxtOvertravel) - ((state.currentTool < #tools && state.currentTool >= 0) ? global.nxtTT[state.currentTool][0] : 0) }
 
 ; Check that the clearance distance isn't
 ; higher than the width or height of the block if
@@ -242,7 +242,7 @@ if { var.pFull }
     ; Angle difference. This will be different depending on which corner
     ; is being probed. We add 2pi and take the modulo of pi to make sure
     ; this stays a positive value less than pi
-    set global.mosWPCnrDeg[var.workOffset] = { degrees(mod(abs(var.rSfc1 - var.rSfc2) + 2 * pi, pi)) }
+    set global.nxtWPCnrDeg[var.workOffset] = { degrees(mod(abs(var.rSfc1 - var.rSfc2) + 2 * pi, pi)) }
 
     ; Calculate the rotation based on the length of the surface.
     ; Longer surfaces are more likely to be accurate due to the
@@ -266,7 +266,7 @@ if { var.pFull }
         elif { var.aR < -pi/4 }
             set var.aR = { var.aR + pi/2 }
 
-    set global.mosWPDeg[var.workOffset] = { degrees(var.aR) }
+    set global.nxtWPDeg[var.workOffset] = { degrees(var.aR) }
 
     ; Extract the coordinates
     var x1 = { var.pSfc1[0][0] }
@@ -334,24 +334,24 @@ if { var.pFull }
         set var.ctrX = { var.ctrX + var.cDistX }
         set var.ctrY = { var.ctrY - var.cDistY }
 
-    set global.mosWPCtrPos[var.workOffset] = { var.ctrX, var.ctrY }
+    set global.nxtWPCtrPos[var.workOffset] = { var.ctrX, var.ctrY }
 
     ; If running in full mode, operator provided approximate width and
     ; height values of the workpiece. Assign these to the global
     ; variables for the workpiece width and height.
     ; This assumes that the workpiece is rectangular.
-    set global.mosWPDims[var.workOffset] = { var.fX, var.fY }
+    set global.nxtWPDims[var.workOffset] = { var.fX, var.fY }
 
 else
     ; Assume corner angle is 90 if we only probed one point
     ; per surface.
-    set global.mosWPCnrDeg[var.workOffset] = { 90 }
+    set global.nxtWPCnrDeg[var.workOffset] = { 90 }
 
 ; Set corner position
-set global.mosWPCnrPos[var.workOffset] = { var.cX, var.cY }
+set global.nxtWPCnrPos[var.workOffset] = { var.cX, var.cY }
 
 ; Set corner number
-set global.mosWPCnrNum[var.workOffset] = { param.N }
+set global.nxtWPCnrNum[var.workOffset] = { param.N }
 
 ; Make sure we're at the safeZ height
 G6550 I{var.pID} Z{var.safeZ}
@@ -362,7 +362,7 @@ G6550 I{var.pID} X{var.cX} Y{var.cY}
 ; Report probe results if requested
 if { !exists(param.R) || param.R != 0 }
     M7601 W{var.workOffset}
-    echo { "nxt: Setting WCS " ^ var.wcsNumber ^ " X,Y origin to " ^ global.mosCornerNames[param.N] ^ " corner." }
+    echo { "nxt: Setting WCS " ^ var.wcsNumber ^ " X,Y origin to " ^ global.nxtCornerNames[param.N] ^ " corner." }
 
 ; Set WCS origin to the probed corner
 G10 L2 P{var.wcsNumber} X{var.cX} Y{var.cY}
