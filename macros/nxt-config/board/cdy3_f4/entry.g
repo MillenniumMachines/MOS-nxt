@@ -7,6 +7,7 @@ if { fileexists("0:/sys/estop.g") }
 M98 P"nxt-config/board/cdy3_f4/drives.g"
 M98 P"nxt-config/board/cdy3_f4/speed.g"
 M98 P"nxt-config/board/cdy3_f4/fans.g"
+M98 P"nxt-config/board/cdy3_f4/gpio.g"
 M98 P"nxt-config/board/cdy3_f4/spindle.g"
 if { fileexists("0:/sys/toolsetter.g") }
     M98 P"toolsetter.g"

@@ -1,7 +1,7 @@
 <template>
   <v-card class="nxt-action-widget" :class="{ 'elevation-8': hasActiveDialog }">
     <v-card-title class="py-2">
-      <v-icon left small>mdi-check-circle</v-icon>
+      <v-icon class="mr-2" size="small">mdi-check-circle</v-icon>
       Action Required
     </v-card-title>
     
@@ -18,8 +18,8 @@
             v-for="(button, index) in dialogButtons"
             :key="index"
             :color="getButtonColor(button, index)"
-            :outlined="index !== 0"
-            small
+            :variant="index !== 0 ? 'outlined' : 'flat'"
+            size="small"
             class="mr-2 mb-2"
             @click="respondToDialog(index)"
           >
@@ -32,7 +32,7 @@
 </template>
 
 <script lang="ts">
-import BaseComponent from '../base/BaseComponent.vue'
+import { defineNxtComponent } from '../base/BaseComponent.vue'
 
 /**
  * nxt Action Confirmation Widget
@@ -41,7 +41,7 @@ import BaseComponent from '../base/BaseComponent.vue'
  * Intercepts M291 dialogs from the DWC object model and displays them
  * in a non-blocking persistent panel instead of modal dialogs.
  */
-export default BaseComponent.extend({
+export default defineNxtComponent({
   name: 'NxtActionConfirmationWidget',
   
   computed: {
@@ -49,7 +49,7 @@ export default BaseComponent.extend({
      * Get active message box from DWC object model
      */
     activeMessageBox(): any {
-      const messageBox = this.$store.state.machine.model.messageBox
+      const messageBox = this.$store.state.machine.model.state.messageBox
       return messageBox && messageBox.message ? messageBox : null
     },
 
@@ -128,6 +128,7 @@ export default BaseComponent.extend({
         console.error('nxt UI: Failed to send M291 dialog response:', error)
         this.$store.dispatch('machine/showMessage', {
           type: 'error',
+          title: 'nxt',
           message: 'Failed to send dialog response'
         })
       }
@@ -135,14 +136,12 @@ export default BaseComponent.extend({
   },
 
   mounted() {
-    // Listen for message box changes from RRF object model
-    this.$store.subscribe((mutation: any) => {
-      if (mutation.type === 'machine/model/update') {
-        // React to message box changes
-        const messageBox = mutation.payload.messageBox
-        if (messageBox !== undefined) {
-          console.log('nxt UI: Message box state changed:', messageBox)
-        }
+    // Best-effort: Vuex's global mutation feed has no Pinia equivalent (see compat/dwcStore.ts
+    // subscribe()) - `activeMessageBox` already reacts to object model changes via Vue's own
+    // reactivity, so this is purely a diagnostic log, not a functional dependency
+    this.$store.subscribe(() => {
+      if (this.activeMessageBox) {
+        console.log('nxt UI: Message box state changed:', this.activeMessageBox)
       }
     })
   }

@@ -1,11 +1,11 @@
 <template>
   <v-card v-if="spindleConfigured" class="fill-height">
     <v-card-title class="py-2 font-weight-bold">
-      <v-icon left>mdi-rotate-right</v-icon>
+      <v-icon class="mr-2">mdi-rotate-right</v-icon>
       {{ $t('plugins.nxt.panels.spindleControl.caption') }}
     </v-card-title>
     <v-card-text class="pt-0">
-      <v-simple-table dense>
+      <v-table density="compact">
         <thead>
           <tr>
             <th>{{ $t('panel.spindle.spindle') }}</th>
@@ -23,46 +23,46 @@
           >
             <td>{{ spindleLabel }}</td>
             <td>
-              <v-btn v-if="spindleRunning" small block :disabled="uiFrozen" @click="spindleOff">
+              <v-btn v-if="spindleRunning" size="small" block :disabled="uiFrozen" @click="spindleOff">
                 {{ $t('panel.spindle.on') }}
               </v-btn>
-              <v-btn v-else small block :disabled="uiFrozen" @click="spindleOn">
+              <v-btn v-else size="small" block :disabled="uiFrozen" @click="spindleOn">
                 {{ $t('panel.spindle.off') }}
               </v-btn>
             </td>
             <td v-if="canReverse">
-              <v-btn-toggle v-model="direction" mandatory dense :disabled="uiFrozen">
-                <v-btn small>{{ $t('panel.spindle.forward') }}</v-btn>
-                <v-btn small>{{ $t('panel.spindle.reverse') }}</v-btn>
+              <v-btn-toggle v-model="direction" mandatory density="compact" :disabled="uiFrozen">
+                <v-btn size="small">{{ $t('panel.spindle.forward') }}</v-btn>
+                <v-btn size="small">{{ $t('panel.spindle.reverse') }}</v-btn>
               </v-btn-toggle>
             </td>
             <td>{{ spindle.current }}</td>
             <td>
               <v-combobox
-                dense
+                density="compact"
                 hide-details
                 :items="rpmPresets"
-                :value="spindle.active"
+                :model-value="spindle.active"
                 :disabled="uiFrozen"
-                @input="setActiveRpm"
+                @update:model-value="setActiveRpm"
               />
             </td>
           </tr>
         </tbody>
-      </v-simple-table>
+      </v-table>
     </v-card-text>
   </v-card>
 </template>
 
 <script lang="ts">
 // @ts-nocheck — Vue 2 + BaseComponent.extend(): tsc does not merge computeds onto `this`.
-import BaseComponent from '../base/BaseComponent.vue'
+import { defineNxtComponent } from '../base/BaseComponent.vue'
 import { Spindle, SpindleState } from '@duet3d/objectmodel'
-import store from '@/store'
+import store from '../../compat/dwcStore'
 
 const SPINDLE_INDEX = 0
 
-export default BaseComponent.extend({
+export default defineNxtComponent({
   name: 'NxtSpindle0ControlPanel',
 
   data() {

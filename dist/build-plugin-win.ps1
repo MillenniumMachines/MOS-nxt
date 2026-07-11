@@ -4,11 +4,11 @@
   PowerShell port of dist/build-plugin.sh for Windows.
 
 .PARAMETER DwcRoot
-  Path to the DuetWebControl 3.6 development tree.
+  Path to the DuetWebControl tree (3.7 Vite preferred; 3.6 webpack still supported).
   Default: ..\DuetWebControl (sibling of this repo)
 
 .EXAMPLE
-  .\dist\build-plugin-win.ps1 -DwcRoot "C:\Users\jonat\Downloads\DuetWebControl-3.6-dev\DuetWebControl-3.6-dev"
+  .\dist\build-plugin-win.ps1 -DwcRoot "C:\path\to\DuetWebControl"
 #>
 param(
   [string]$DwcRoot = "$PSScriptRoot\..\..\DuetWebControl"
@@ -32,7 +32,8 @@ git -C $Root diff-index --quiet HEAD -- 2>$null
 $dirty = if ($LASTEXITCODE -ne 0) { "-dirty" } else { "" }
 $buildVersion = ("$gitBranch-$gitSha$dirty") -replace '[^A-Za-z0-9._-]', '-'
 $outZip = "nxt-$buildVersion.zip"
-
+# DWC Vite names the ZIP from plugin.json version after %%NXT_VERSION%% substitution.
+$dwcPluginZip = "nxt-$buildVersion.zip"
 
 Write-Host "  Version   : $buildVersion"
 Write-Host "  Output    : dist\$outZip"
@@ -42,10 +43,12 @@ Write-Host "Checking RRF macro line lengths (max 200)..." -ForegroundColor Yello
 node (Join-Path $Root "dist\check-gcode-line-length.mjs")
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+$builder = (node (Join-Path $Root "dist\detect-dwc-plugin-builder.mjs") $DwcRoot).Trim()
+Write-Host "  DWC builder: $builder"
+
 # --- Cleanup ---
-Write-Host "[1/6] Cleaning previous build artifacts..." -ForegroundColor Yellow
+Write-Host "[1/5] Cleaning previous build artifacts..." -ForegroundColor Yellow
 $pluginStaged = Join-Path $DwcRoot "src\plugins\nxt"
-# If the junction exists, remove it first (we'll copy files directly for prod build)
 if (Test-Path $pluginStaged) {
   $item = Get-Item $pluginStaged -Force
   if ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) {
@@ -59,23 +62,16 @@ if (Test-Path $pluginStaged) {
 if (Test-Path (Join-Path $DwcRoot "dist")) {
   Remove-Item (Join-Path $DwcRoot "dist") -Recurse -Force
 }
-Get-ChildItem "$OutDir\nxt-*.zip","$OutDir\nxt-*.zip" -ErrorAction SilentlyContinue | Remove-Item -Force
+Get-ChildItem "$OutDir\nxt-*.zip" -ErrorAction SilentlyContinue | Remove-Item -Force
 
-# --- Stage plugin source (copy, not junction — required for prod build) ---
-Write-Host "[2/6] Staging plugin source into DWC..." -ForegroundColor Yellow
+# --- Stage plugin source (external plugin dir for Vite; not under src/plugins) ---
+Write-Host "[2/5] Staging plugin source..." -ForegroundColor Yellow
 $stagingDir = Join-Path $env:TEMP "next-plugin-build-$(Get-Random)"
 New-Item -ItemType Directory -Path $stagingDir -Force | Out-Null
-
-# Copy UI source
 Copy-Item -Path "$Root\ui\*" -Destination $stagingDir -Recurse -Force
 
-# Copy into DWC plugins as real files
-$pluginDest = Join-Path $DwcRoot "src\plugins\nxt"
-New-Item -ItemType Directory -Path $pluginDest -Force | Out-Null
-Copy-Item -Path "$stagingDir\*" -Destination $pluginDest -Recurse -Force
-
 # Stage SD files (macros)
-Write-Host "[3/6] Staging SD macro files..." -ForegroundColor Yellow
+Write-Host "[3/5] Staging SD macro files..." -ForegroundColor Yellow
 $sdSys = Join-Path $stagingDir "sd\sys"
 New-Item -ItemType Directory -Path "$sdSys\nxt" -Force | Out-Null
 
@@ -97,95 +93,102 @@ if (Test-Path $pluginsSrc) {
 }
 $configSrc = Join-Path $Root "macros\nxt-config"
 if (Test-Path $configSrc) {
-  New-Item -ItemType Directory -Path "$sdSys\nxt\config" -Force | Out-Null
-  Copy-Item -Path "$configSrc\*" -Destination "$sdSys\nxt\config" -Recurse -Force -Exclude "README.md",".gitkeep"
+  New-Item -ItemType Directory -Path "$sdSys\nxt-config" -Force | Out-Null
+  Copy-Item -Path "$configSrc\*" -Destination "$sdSys\nxt-config" -Recurse -Force -Exclude "README.md",".gitkeep"
 }
 
-# Replace version placeholder in plugin.json
 $pj = Join-Path $stagingDir "plugin.json"
 if (Test-Path $pj) {
   (Get-Content $pj -Raw) -replace '%%NXT_VERSION%%', $buildVersion | Set-Content $pj -NoNewline
 }
-# Also in DWC staged copy
-$pjDwc = Join-Path $pluginDest "plugin.json"
-if (Test-Path $pjDwc) {
-  (Get-Content $pjDwc -Raw) -replace '%%NXT_VERSION%%', $buildVersion | Set-Content $pjDwc -NoNewline
-}
-# Replace in nxt.g if present
 $nxtG = Join-Path $sdSys "nxt.g"
 if (Test-Path $nxtG) {
   (Get-Content $nxtG -Raw) -replace '%%NXT_VERSION%%', $buildVersion | Set-Content $nxtG -NoNewline
 }
 
-# --- Patch DWC build-plugin.js ---
-Write-Host "[4/6] Patching DWC build-plugin.js for split chunks..." -ForegroundColor Yellow
+node (Join-Path $Root "dist\generate-nxt-config-manifest.mjs") $Root
+
+# Webpack-only: patch chunk filter. Vite: no-op.
 $buildPluginJs = Join-Path $DwcRoot "scripts\build-plugin.js"
 $buildPluginBak = "$buildPluginJs.next-bak"
-Copy-Item $buildPluginJs $buildPluginBak -Force
-Push-Location $Root
-node "$Root\dist\patch-dwc-build-plugin-zip.cjs" $buildPluginJs
-Pop-Location
+if ($builder -eq "webpack") {
+  Write-Host "[4/5] Patching DWC webpack build-plugin.js..." -ForegroundColor Yellow
+  Copy-Item $buildPluginJs $buildPluginBak -Force
+  node "$Root\dist\patch-dwc-build-plugin-zip.cjs" $buildPluginJs
+} else {
+  Write-Host "[4/5] DWC Vite builder — skipping webpack patch" -ForegroundColor Yellow
+}
 
-# --- Run production build ---
-Write-Host "[5/6] Running DWC production build (this takes ~60s)..." -ForegroundColor Yellow
+Write-Host "[5/5] Running DWC build-plugin..." -ForegroundColor Yellow
 try {
   Push-Location $DwcRoot
-  $env:NOZIP = "1"
-  # Pass plugin ID since files are already staged under src/plugins/nxt
-  # This makes build-plugin.js use the internal path (no re-copy, no module structure breakage)
-  $buildLog = cmd /c "npm run build-plugin nxt 2>&1"
-  $buildLog | ForEach-Object { Write-Host "  $_" }
+  if (-not (Test-Path "node_modules")) {
+    npm ci
+  }
+  if ($builder -eq "webpack") {
+    npm install three@0.181.0
+  }
+  npm run build-plugin -- $stagingDir
+  if ($LASTEXITCODE -ne 0) { throw "npm run build-plugin failed ($LASTEXITCODE)" }
   Pop-Location
 } catch {
-  Write-Host "  Build warning (may be non-fatal): $_" -ForegroundColor Yellow
-  Pop-Location
+  Pop-Location -ErrorAction SilentlyContinue
+  if (Test-Path $buildPluginBak) {
+    Move-Item $buildPluginBak $buildPluginJs -Force
+  }
+  throw
 } finally {
-  # Restore original build-plugin.js
   if (Test-Path $buildPluginBak) {
     Move-Item $buildPluginBak $buildPluginJs -Force
   }
 }
 
-
-# --- Merge SD files into ZIP ---
-Write-Host "[6/6] Merging SD files into plugin ZIP..." -ForegroundColor Yellow
-$dwcDistZip = Join-Path $DwcRoot "dist\$outZip"
-if (-not (Test-Path $dwcDistZip)) {
-  # DWC names the zip nxt-<version>.zip from plugin.json id; rename to nxt-* for release artifacts
-  $found = Get-ChildItem (Join-Path $DwcRoot "dist") -Filter "nxt*.zip" -ErrorAction SilentlyContinue | Select-Object -First 1
+# Vite: ZIP next to staging; webpack: under DuetWebControl/dist/
+$builtZip = Join-Path $stagingDir $dwcPluginZip
+if (-not (Test-Path $builtZip)) {
+  $builtZip = Join-Path $DwcRoot "dist\$dwcPluginZip"
+}
+if (-not (Test-Path $builtZip)) {
+  $found = @(
+    Get-ChildItem $stagingDir -Filter "nxt*.zip" -ErrorAction SilentlyContinue
+    Get-ChildItem (Join-Path $DwcRoot "dist") -Filter "nxt*.zip" -ErrorAction SilentlyContinue
+  ) | Select-Object -First 1
   if ($found) {
-    Move-Item $found.FullName $dwcDistZip -Force
-    Write-Host "  Renamed ZIP: $($found.Name) -> $outZip"
+    $builtZip = $found.FullName
+    Write-Host "  Using unexpected ZIP name: $($found.Name)" -ForegroundColor Yellow
   } else {
-    Write-Error "No plugin ZIP found in $DwcRoot\dist\"
+    Write-Error "No plugin ZIP found in staging or $DwcRoot\dist\"
   }
 }
 
-$env:DWC_REPO_PATH = $DwcRoot
-node "$Root\dist\merge-sd-into-plugin-zip.cjs" $dwcDistZip $stagingDir
-
-# --- Copy output ---
 New-Item -ItemType Directory -Path $OutDir -Force | Out-Null
-Copy-Item $dwcDistZip (Join-Path $OutDir $outZip) -Force
+$workZip = Join-Path $OutDir $outZip
+Copy-Item $builtZip $workZip -Force
 
-# --- Cleanup ---
+$env:DWC_REPO_PATH = $DwcRoot
+node "$Root\dist\merge-sd-into-plugin-zip.cjs" $workZip $stagingDir
+node "$Root\dist\inject-plugin-dwcfiles.cjs" $workZip
+node "$Root\dist\verify-plugin-zip.mjs" $workZip
+
 Remove-Item $stagingDir -Recurse -Force -ErrorAction SilentlyContinue
-# Remove the staged plugin tree from DWC
-if (Test-Path $pluginDest) {
-  Remove-Item $pluginDest -Recurse -Force
-}
 
-# --- Restore junction for dev ---
+# Restore junction for Vite/webpack in-tree dev when imports.ts or symlink workflow is used
 Write-Host ""
 Write-Host "Restoring dev junction..." -ForegroundColor Yellow
-cmd /c mklink /J "$pluginDest" "$Root\ui" 2>&1 | Out-Null
-Write-Host "  Junction: $pluginDest -> $Root\ui"
+$pluginDest = Join-Path $DwcRoot "src\plugins\nxt"
+if (-not (Test-Path $pluginDest)) {
+  cmd /c mklink /J "$pluginDest" "$Root\ui" 2>&1 | Out-Null
+  Write-Host "  Junction: $pluginDest -> $Root\ui"
+}
+$importsTs = Join-Path $DwcRoot "src\plugins\imports.ts"
+if (Test-Path $importsTs) {
+  node "$Root\dist\regenerate-dwc-plugin-imports.cjs" $DwcRoot
+}
 
-$finalZip = Join-Path $OutDir $outZip
 Write-Host ""
 Write-Host "=== BUILD COMPLETE ===" -ForegroundColor Green
-Write-Host "  Plugin ZIP: $finalZip" -ForegroundColor Green
-Write-Host "  Size: $([math]::Round((Get-Item $finalZip).Length / 1KB)) KB" -ForegroundColor Green
+Write-Host "  Plugin ZIP: $workZip" -ForegroundColor Green
+Write-Host "  Size: $([math]::Round((Get-Item $workZip).Length / 1KB)) KB" -ForegroundColor Green
 Write-Host ""
 Write-Host "To install:" -ForegroundColor Cyan
 Write-Host "  1. Open DWC on your machine"

@@ -66,7 +66,7 @@ nxt **`G650x`** cycle macros accept **`U1`–`U9`** to select the target workpla
     *   **Startup Messages:** Immediately calls `M98 P"mos/display-startup-messages.g"` to ensure any pending startup messages are shown to the operator.
     *   **Loop Control:** Enters a `while` loop that continues as long as `global.mosDAE` (MillenniumOS Daemon Enabled) is `true`.
     *   **Interval:** Inside the loop, it pauses for `global.mosDAEUR` (Daemon Update Rate) milliseconds using `G4 P{global.mosDAEUR}`, defining the minimum interval between daemon runs.
-    *   **ArborCtl Integration:** Checks for the existence of `0:/sys/arborctl/arborctl-daemon.g` and executes it if found, allowing integration with the ArborCtl system.
+    *   **ArborCTL Integration:** Spindle polling is invoked through the nxt plugin daemon dispatcher when ArborCTL is installed as a `data.nxt` catalog plugin (`plugins/arborctl/arborctl-daemon-hook.g`). The hard-coded `arborctl-daemon.g` call was removed to avoid double-polling.
     *   **VSSC Integration:** If Variable Spindle Speed Control (VSSC) is enabled (`global.mosFeatVSSC`, `global.mosVSEnabled`, and `global.mosVSOE` are all `true`), it executes `M98 P"mos/run-vssc.g"` to manage spindle speed variations.
     *   **User-Defined Daemon:** Checks for the existence of `0:/sys/user-daemon.g` and executes it if found, providing a hook for users to add their own custom background tasks without modifying core MillenniumOS files.
 *   **Inclusion:** This macro is typically installed and managed by `mos.g` during the MillenniumOS boot process.

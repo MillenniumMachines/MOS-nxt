@@ -1,22 +1,18 @@
 /**
- * Override Components Registration
- * 
- * Central entry point for registering all UI overrides within nxt.
- * This enables nxt to customize the default DWC user interface.
+ * Override Components
+ *
+ * Central entry point for nxt's DWC UI overrides (custom dialog + CNC dashboard panel).
+ *
+ * NOT wired into ui/src/index.ts by default: under Vue 3 / Vite, DWC core binds
+ * `<MessageBoxDialog />` (App.vue) and `<CNCContainerPanel />` (layouts/builtin.vue) to their own
+ * imports at compile time, so global registration under these components' kebab-case names can no
+ * longer intercept them the way Vue 2's global component registry could - these overrides are
+ * currently inert. Exported here (not registered globally) so they're ready to wire up once DWC
+ * exposes an explicit override/registration hook for these core singletons (e.g. via the layout
+ * system's `registerLayout`).
  */
 
-import Vue from 'vue'
-
-// Import dialog override
 import MessageBoxDialog from './MessageBoxDialog.vue'
+import { CNCContainerPanel } from './panels'
 
-// Import panel and route overrides
-import './panels'
-import './routes'
-
-// Register MessageBoxDialog component override
-// This replaces DWC's built-in MessageBoxDialog with our custom version
-Vue.component('message-box-dialog', MessageBoxDialog)
-
-console.log('nxt UI: Override components loaded (dialog, panels, and routes)')
-console.log('nxt UI: MessageBoxDialog override registered - persistent dialogs enabled')
+export { MessageBoxDialog, CNCContainerPanel }

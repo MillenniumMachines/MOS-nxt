@@ -1,14 +1,12 @@
 /**
- * Base Components Registration
- * 
- * Registers base components for nxt UI
+ * Base Components
+ *
+ * BaseComponent is never rendered directly (it's the Options API mixin every nxt panel
+ * extends via `defineNxtComponent`), so it has nothing to globally register - just re-exported
+ * for convenience.
  */
 
-import Vue from 'vue'
-import BaseComponent from './BaseComponent.vue'
+import BaseComponent, { defineNxtComponent } from './BaseComponent.vue'
 
-// Register base component (though it's not typically used directly)
-Vue.component('nxt-base-component', BaseComponent)
-
-export { BaseComponent }
+export { BaseComponent, defineNxtComponent }
 export default BaseComponent

@@ -2,7 +2,7 @@
  * DWC file upload for nxt persistence files.
  * Uses the machine connector (rr_upload + CRC/retry) — not raw fetch.
  */
-import store from '@/store'
+import store from '../compat/dwcStore'
 
 export const NXT_USER_VARS_DWC_PATH = '0:/sys/nxt-user-vars.g'
 export const NXT_USER_PINMAP_DWC_PATH = '0:/sys/nxt-user-pinmap.g'

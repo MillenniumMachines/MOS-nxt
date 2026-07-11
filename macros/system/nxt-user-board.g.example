@@ -1,12 +1,10 @@
 ; nxt-user-board.g — copy to 0:/sys/nxt-user-board.g
 ; Loaded by nxt-board-pack-loader.g when nxt-board-bootstrap.requested exists.
 ; Use ONE pack entry line (uncomment the path that matches your wiring).
+; Board packs are shared; machine profile is separate (nxtPlatformProfile).
 
-; v1.5
-; M98 P"nxt-config/v1.5/boards/cdy3_f4/entry.g"
-; M98 P"nxt-config/v1.5/boards/scylla1_0_h723/motor-24v/entry.g"
-; M98 P"nxt-config/v1.5/boards/scylla1_0_h723/motor-48v/entry.g"
-; v1.6 / v2.0 (nxt baseline tree — customize on SD as needed)
-; M98 P"nxt-config/v1.6_v2/boards/cdy3_f4/entry.g"
-; M98 P"nxt-config/v1.6_v2/boards/scylla1_0_h723/motor-24v/entry.g"
-; M98 P"nxt-config/v1.6_v2/boards/scylla1_0_h723/motor-48v/entry.g"
+; Fly CDYv3
+; M98 P"nxt-config/board/cdy3_f4/entry.g"
+; Scylla 24 V / 48 V
+; M98 P"nxt-config/board/scylla1_0_h723/motor-24v/entry.g"
+; M98 P"nxt-config/board/scylla1_0_h723/motor-48v/entry.g"

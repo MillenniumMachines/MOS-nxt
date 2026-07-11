@@ -1,1 +1,0 @@
-Board kit trees for Atlas are not vendored here yet.

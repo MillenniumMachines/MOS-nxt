@@ -4,25 +4,34 @@
 </template>
 
 <script lang="ts">
-import Vue from 'vue'
-import { Axis, AxisLetter, Tool } from "@duet3d/objectmodel";
-import store from "@/store";
+import { defineComponent } from 'vue'
+import { Axis } from "@duet3d/objectmodel";
+import store from "../../compat/dwcStore";
+import { extendComponent } from "../../compat/vueCompat";
 import { readFirmwareGlobal } from "../../utils/nxtToolChangerOm";
 
 /**
  * BaseComponent - Foundation component for all nxt UI components
- * 
+ *
  * Provides common computed properties and methods for consistent
- * interaction with the DWC store and RRF object model.
+ * interaction with the DWC store (via the compat/dwcStore shim) and RRF object model.
  */
-export default Vue.extend({
+const BaseComponent = defineComponent({
   name: 'BaseComponent',
+
+  beforeCreate() {
+    // Vue 3 Options API has no Vuex-style `this.$store` injection; `defineProperty` in
+    // `beforeCreate` installs it as a getter on every instance that extends this component
+    // (see compat/dwcStore.ts for the ComponentCustomProperties augmentation that types it)
+    Object.defineProperty(this, '$store', { get: () => store, configurable: true })
+  },
+
   computed: {
     /**
      * Check if connected to a machine
      */
     isConnected(): boolean {
-      return store.getters["isConnected"]
+      return store.getters.isConnected
     },
 
     /**
@@ -146,12 +155,22 @@ export default Vue.extend({
      */
     availableProbes(): Array<{ id: number, name: string, type: number }> {
       const probes = store.state.machine.model.sensors?.probes || []
+      const typeLabel = (t: number): string => {
+        if (t === 5) return 'switch'
+        if (t === 6) return 'digital'
+        if (t === 7) return 'filtered'
+        if (t === 8) return 'analog'
+        return `type ${t}`
+      }
       return probes
-        .map((probe: any, index: number) => ({
-          id: index,
-          name: `Probe ${index}`,
-          type: probe?.type || 0
-        }))
+        .map((probe: any, index: number) => {
+          const type = probe?.type || 0
+          return {
+            id: index,
+            name: `Probe ${index} — ${typeLabel(type)} (type ${type})`,
+            type
+          }
+        })
         .filter((p: any) => p.type >= 5 && p.type <= 8)
     },
 
@@ -184,4 +203,14 @@ export default Vue.extend({
     }
   }
 })
+
+/**
+ * Replacement for the old `BaseComponent.extend({ ... })` call shape (Vue 2's `Vue.extend`).
+ * See compat/vueCompat.ts for details.
+ */
+export function defineNxtComponent(options: Record<string, any>) {
+  return extendComponent(BaseComponent, options)
+}
+
+export default BaseComponent
 </script>

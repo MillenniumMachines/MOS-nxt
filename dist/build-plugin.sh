@@ -10,14 +10,18 @@
 #
 # Output: dist/nxt-<ref>-<sha>[-dirty].zip
 #
-# Artifact cleanup runs automatically before staging and npm/webpack (not after the build).
+# Artifact cleanup runs automatically before staging and npm/Vite (not after the build).
 # --clean-only removes artifacts and exits. --clean is accepted as a no-op for backwards compatibility.
 #
+# DWC 3.7+ (Vite): npm run build-plugin <staging-dir> writes <staging-dir>/nxt-<version>.zip
+#   (flat dwc/js/nxt-<hash>.js + dwc/css/…). No webpack chunk filter patch is required.
+# DWC 3.6.x (webpack): still patches build-plugin.js and expects ZIP under DuetWebControl/dist/.
+#
 # Cleanup removes:
-#   - DuetWebControl/dist/          (webpack output: js/, css/, zips from last build)
-#   - DuetWebControl/src/plugins/nxt/  (staged plugin tree if a prior build stopped early)
-#   - DuetWebControl/node_modules/.cache/ (vue-cli / webpack cache; optional but helps stale chunks)
-#   - DuetWebControl/scripts/build-plugin.js.next-bak (leftover if a build was interrupted)
+#   - DuetWebControl/dist/          (legacy webpack output / leftover zips)
+#   - DuetWebControl/src/plugins/nxt/  (dev symlink or staged tree)
+#   - DuetWebControl/node_modules/.cache/ (vite / vue-cli cache)
+#   - DuetWebControl/scripts/build-plugin.js.next-bak (leftover if a webpack-era build was interrupted)
 #   - MOS-nxt/dist/nxt-*.zip        (previous plugin zip outputs only; other files under dist/ are kept)
 
 set -euo pipefail
@@ -41,6 +45,8 @@ for arg in "$@"; do
 done
 
 DWC_REPO_PATH="${REMAINING[0]:-${ROOT}/../DuetWebControl}"
+# Resolve to absolute so Node post-processors (jszip require) work when a relative path is passed.
+DWC_REPO_PATH="$(cd "${DWC_REPO_PATH}" && pwd)"
 
 sanitize_ref() {
   local raw="$1"
@@ -93,6 +99,10 @@ if [[ ! -d "${DWC_REPO_PATH}" ]]; then
   exit 1
 fi
 
+# DWC 3.7 Vite/rolldown needs Node ^20.19 or >=22.12 (system Node 18 fails with styleText).
+chmod +x "${ROOT}/dist/check-node-for-dwc-build.sh"
+"${ROOT}/dist/check-node-for-dwc-build.sh"
+
 chmod +x "${ROOT}/dist/verify-dwc-build-alignment.sh"
 "${ROOT}/dist/verify-dwc-build-alignment.sh" "${DWC_REPO_PATH}"
 
@@ -121,11 +131,14 @@ else
   DIRTY_SUFFIX="-dirty"
 fi
 
-# Embedded %%NXT_VERSION%% uses release line (e.g. v0.6.0); zip basename includes ref+sha for uniqueness.
+# Embedded %%NXT_VERSION%% uses release line (e.g. v0.7.0); zip basename includes ref+sha for uniqueness.
+# DWC Vite builder names the ZIP from resolved plugin.json version (%%NXT_VERSION%% → BUILD_VERSION).
 DWC_PLUGIN_ZIP="nxt-${BUILD_VERSION}.zip"
 OUT_ZIP="nxt-$(sanitize_ref "${BUILD_REF}")-${BUILD_SHA}${DIRTY_SUFFIX}.zip"
 echo "nxt plugin build: embedded version ${BUILD_VERSION} (ref ${BUILD_REF}, zip ${OUT_ZIP})"
 BUILD_PLUGIN_JS="${DWC_REPO_PATH}/scripts/build-plugin.js"
+DWC_BUILDER="$(node "${ROOT}/dist/detect-dwc-plugin-builder.mjs" "${DWC_REPO_PATH}")"
+echo "DWC plugin builder: ${DWC_BUILDER}"
 
 plugin_build_exit() {
   if [[ -f "${BUILD_PLUGIN_JS}.next-bak" ]]; then
@@ -294,60 +307,118 @@ if [[ ! -f "${BUILD_PLUGIN_JS}" ]]; then
   echo "error: ${BUILD_PLUGIN_JS} not found" >&2
   exit 1
 fi
+
+# Webpack (3.6): patch chunk filter in place (restored on EXIT).
+# Vite (3.7+): no-op unless NXT_SKIP_DWC_TYPECHECK=1 (softens vue-tsc gate for packaging smoke).
 cp "${BUILD_PLUGIN_JS}" "${BUILD_PLUGIN_JS}.next-bak"
+if [[ "${DWC_BUILDER}" == "vite" && "${NXT_SKIP_DWC_TYPECHECK:-}" == "1" ]]; then
+  echo "warning: NXT_SKIP_DWC_TYPECHECK=1 — ZIP packaging will proceed despite Vue 2/3 type errors" >&2
+fi
 node "${ROOT}/dist/patch-dwc-build-plugin-zip.cjs" "${BUILD_PLUGIN_JS}"
 
 (
   cd "${DWC_REPO_PATH}"
-  npm ci
-  npm install three@0.181.0
-  npm run build-plugin "${TMP_DIR}"
+  if [[ ! -d node_modules ]]; then
+    npm ci
+  fi
+  # three is a peer of the nxt GCode viewer panel (optional at ZIP build time).
+  if [[ "${DWC_BUILDER}" == "webpack" ]]; then
+    npm install three@0.181.0
+  elif ! node -e "require.resolve('three')" >/dev/null 2>&1; then
+    npm install three@0.181.0 --no-save
+  fi
+  # jszip is a real runtime dep of the Fusion tool import parser (fusionToolsImport/parseFusionTools.ts).
+  # Vite's plugin build root is the TMP_DIR staging tree (no node_modules of its own), so bare
+  # `import('jszip')` cannot resolve by walking up from a file under /tmp; DWC already depends on
+  # jszip (used by its own file-list ZIP handling), so link it into the staging tree instead of
+  # adding a build-only dependency.
+  if [[ "${DWC_BUILDER}" == "vite" ]]; then
+    if ! node -e "require.resolve('jszip')" >/dev/null 2>&1; then
+      npm install jszip@3.10.1 --no-save
+    fi
+  fi
 )
 
-if [[ ! -f "${DWC_REPO_PATH}/dist/${DWC_PLUGIN_ZIP}" ]]; then
-  echo "error: expected DWC plugin zip ${DWC_REPO_PATH}/dist/${DWC_PLUGIN_ZIP}" >&2
+if [[ "${DWC_BUILDER}" == "vite" ]]; then
+  NXT_JSZIP_SRC="${DWC_REPO_PATH}/node_modules/jszip"
+  if [[ -d "${NXT_JSZIP_SRC}" ]]; then
+    mkdir -p "${TMP_DIR}/node_modules"
+    ln -s "${NXT_JSZIP_SRC}" "${TMP_DIR}/node_modules/jszip"
+  fi
+fi
+
+(
+  cd "${DWC_REPO_PATH}"
+  npm run build-plugin -- "${TMP_DIR}"
+)
+
+# Vite writes ZIP next to the plugin staging dir; webpack wrote under DuetWebControl/dist/.
+BUILT_PLUGIN_ZIP=""
+if [[ -f "${TMP_DIR}/${DWC_PLUGIN_ZIP}" ]]; then
+  BUILT_PLUGIN_ZIP="${TMP_DIR}/${DWC_PLUGIN_ZIP}"
+elif [[ -f "${DWC_REPO_PATH}/dist/${DWC_PLUGIN_ZIP}" ]]; then
+  BUILT_PLUGIN_ZIP="${DWC_REPO_PATH}/dist/${DWC_PLUGIN_ZIP}"
+else
+  # Fallback: any nxt-*.zip produced in staging (version placeholder edge cases).
+  shopt -s nullglob
+  _candidates=("${TMP_DIR}"/nxt-*.zip "${DWC_REPO_PATH}/dist"/nxt-*.zip)
+  shopt -u nullglob
+  if [[ ${#_candidates[@]} -gt 0 ]]; then
+    BUILT_PLUGIN_ZIP="${_candidates[0]}"
+    echo "warning: using unexpected ZIP name ${BUILT_PLUGIN_ZIP} (expected ${DWC_PLUGIN_ZIP})" >&2
+  fi
+fi
+if [[ -z "${BUILT_PLUGIN_ZIP}" || ! -f "${BUILT_PLUGIN_ZIP}" ]]; then
+  echo "error: expected plugin zip ${DWC_PLUGIN_ZIP} under ${TMP_DIR}/ or ${DWC_REPO_PATH}/dist/" >&2
   exit 1
 fi
-mv "${DWC_REPO_PATH}/dist/${DWC_PLUGIN_ZIP}" "${DWC_REPO_PATH}/dist/${OUT_ZIP}"
 
-# build-plugin copies then deletes src/plugins/nxt; restore imports.ts so dwc dev is not left broken
-node "${ROOT}/dist/regenerate-dwc-plugin-imports.cjs" "${DWC_REPO_PATH}"
+mkdir -p "${OUT_DIR}"
+WORK_ZIP="${OUT_DIR}/${OUT_ZIP}"
+cp "${BUILT_PLUGIN_ZIP}" "${WORK_ZIP}"
 
-node "${ROOT}/dist/verify-plugin-zip.mjs" "${DWC_REPO_PATH}/dist/${OUT_ZIP}"
-
-PLUGIN_DWC_NEED="$(unzip -p "${DWC_REPO_PATH}/dist/${OUT_ZIP}" plugin.json | jq -r '.dwcVersion')"
-echo "Plugin ZIP requires host DWC version: ${PLUGIN_DWC_NEED} (exact match — see DWC Settings if load fails)"
-
-echo "Diagnosing plugin chunk host dependencies..."
-_app_js="$(ls "${DWC_REPO_PATH}"/dist/js/app.*.js 2>/dev/null | head -1)"
-if [[ -n "${_app_js}" ]] && ! node "${ROOT}/dist/diagnose-plugin-chunk.mjs" "${DWC_REPO_PATH}/dist/${OUT_ZIP}" "${_app_js}"; then
-  echo "warning: plugin chunk expects host modules missing from this DWC app.js — ZIP may fail on other DWC builds" >&2
+# Webpack-era built-in staging used imports.ts; Vite discovers builtins via virtual:dwc-builtin-plugins.
+# Only regenerate when the legacy file exists (3.6 trees / leftover checkouts).
+if [[ -f "${DWC_REPO_PATH}/src/plugins/imports.ts" ]]; then
+  node "${ROOT}/dist/regenerate-dwc-plugin-imports.cjs" "${DWC_REPO_PATH}"
 fi
 
 # DWC client only uploads zip members whose names start with "sd/" (see @duet3d/connectors
 # PollConnector.installPlugin). Re-pack sd/ from staging so M-code macros always land under 0:/sys/.
 DWC_REPO_PATH="${DWC_REPO_PATH}" node "${ROOT}/dist/merge-sd-into-plugin-zip.cjs" \
-  "${DWC_REPO_PATH}/dist/${OUT_ZIP}" \
+  "${WORK_ZIP}" \
   "${TMP_DIR}"
 
 DWC_REPO_PATH="${DWC_REPO_PATH}" node "${ROOT}/dist/inject-plugin-dwcfiles.cjs" \
-  "${DWC_REPO_PATH}/dist/${OUT_ZIP}"
+  "${WORK_ZIP}"
+
+node "${ROOT}/dist/verify-plugin-zip.mjs" "${WORK_ZIP}"
+
+PLUGIN_DWC_NEED="$(unzip -p "${WORK_ZIP}" plugin.json | jq -r '.dwcVersion')"
+echo "Plugin ZIP requires host DWC version: ${PLUGIN_DWC_NEED} (exact match — see DWC Settings if load fails)"
+
+if [[ "${DWC_BUILDER}" == "webpack" ]]; then
+  echo "Diagnosing plugin chunk host dependencies (webpack)..."
+  _app_js="$(ls "${DWC_REPO_PATH}"/dist/js/app.*.js 2>/dev/null | head -1)"
+  if [[ -n "${_app_js}" ]] && ! node "${ROOT}/dist/diagnose-plugin-chunk.mjs" "${WORK_ZIP}" "${_app_js}"; then
+    echo "warning: plugin chunk expects host modules missing from this DWC app.js — ZIP may fail on other DWC builds" >&2
+  fi
+else
+  echo "Skipping webpack chunk diagnose (DWC Vite / IIFE external plugin)."
+fi
 
 set +o pipefail
-_zip_js="$(unzip -Z1 "${DWC_REPO_PATH}/dist/${OUT_ZIP}" 'dwc/js/nxt*.js' 2>/dev/null | head -1)"
+_zip_js="$(unzip -Z1 "${WORK_ZIP}" 'dwc/js/nxt*.js' 2>/dev/null | head -1)"
 if [[ -z "${_zip_js}" ]]; then
-  _zip_js="$(unzip -Z1 "${DWC_REPO_PATH}/dist/${OUT_ZIP}" 'dwc/nxt/js/nxt*.js' 2>/dev/null | head -1)"
+  _zip_js="$(unzip -Z1 "${WORK_ZIP}" 'dwc/nxt/js/nxt*.js' 2>/dev/null | head -1)"
 fi
 set -o pipefail
 if [[ -n "${_zip_js}" ]]; then
   _tmp_js="$(mktemp --suffix=.js)"
-  unzip -p "${DWC_REPO_PATH}/dist/${OUT_ZIP}" "${_zip_js}" > "${_tmp_js}"
+  unzip -p "${WORK_ZIP}" "${_zip_js}" > "${_tmp_js}"
   node --check "${_tmp_js}"
   rm -f "${_tmp_js}"
-  echo "nxt chunk syntax check: OK"
+  echo "nxt chunk syntax check: OK (${_zip_js})"
 fi
 
-mkdir -p "${OUT_DIR}"
-cp "${DWC_REPO_PATH}/dist/${OUT_ZIP}" "${OUT_DIR}/"
-
-echo "Plugin built: ${OUT_DIR}/${OUT_ZIP}"
+echo "Plugin built: ${WORK_ZIP}"

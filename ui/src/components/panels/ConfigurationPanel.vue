@@ -1,11 +1,11 @@
 <template>
   <v-card>
     <v-card-title>
-      <v-icon left>mdi-cog</v-icon>
+      <v-icon class="mr-2">mdi-cog</v-icon>
       {{ $t('plugins.nxt.panels.configuration.caption') }}
       <v-spacer />
       <div v-if="!isConnected || !configurationUiAllowed" class="d-flex align-center">
-        <v-icon small class="mr-2" color="warning">{{ !isConnected ? 'mdi-lan-disconnect' : 'mdi-alert-circle-outline' }}</v-icon>
+        <v-icon size="small" class="mr-2" color="warning">{{ !isConnected ? 'mdi-lan-disconnect' : 'mdi-alert-circle-outline' }}</v-icon>
         <span class="text-caption">{{
           !isConnected ? $t('plugins.nxt.messages.disconnectedShort') : $t('plugins.nxt.messages.notReadyShort')
         }}</span>
@@ -13,8 +13,8 @@
     </v-card-title>
 
     <v-card-text>
-      <v-alert type="info" outlined dense class="mb-4">
-        <v-icon left small>mdi-information</v-icon>
+      <v-alert type="info" variant="outlined" density="compact" class="mb-4">
+        <v-icon class="mr-2" size="small">mdi-information</v-icon>
         Changes are saved immediately to the object model. Use "Save Configuration" to persist to nxt-user-vars.g
       </v-alert>
 
@@ -22,120 +22,375 @@
       <v-expansion-panels v-model="openPanels" multiple class="mb-4">
         <!-- Board & kit -->
         <v-expansion-panel>
-          <v-expansion-panel-header>
+          <v-expansion-panel-title>
             <div>
-              <v-icon left>mdi-circuit-board</v-icon>
+              <v-icon class="mr-2">mdi-circuit-board</v-icon>
               <strong>{{ $t('plugins.nxt.panels.configuration.boardSection') }}</strong>
               <v-spacer />
               <v-icon
                 v-if="boardProfileMismatch || scyllaVoltageMissing"
-                small
+                size="small"
                 color="warning"
                 class="mr-2"
               >mdi-alert</v-icon>
             </div>
-          </v-expansion-panel-header>
-          <v-expansion-panel-content>
-            <v-alert type="info" dense outlined class="mb-3">
+          </v-expansion-panel-title>
+          <v-expansion-panel-text>
+            <v-alert type="info" density="compact" variant="outlined" class="mb-3">
               <span class="text-caption">{{ $t('plugins.nxt.panels.configuration.boardBootstrapHint') }}</span>
             </v-alert>
-            <v-alert type="info" dense outlined class="mb-3">
+            <v-alert type="info" density="compact" variant="outlined" class="mb-3">
               <span class="text-caption">{{ $t('plugins.nxt.panels.configuration.boardLoadOrderHint') }}</span>
             </v-alert>
-            <p class="text-caption grey--text mb-2">{{ $t('plugins.nxt.panels.configuration.boardDetected') }}</p>
+            <p class="text-caption text-grey mb-2">{{ $t('plugins.nxt.panels.configuration.boardDetected') }}</p>
             <v-chip
               v-for="(b, i) in machineBoardsList"
               :key="'brd-' + i"
-              small
+              size="small"
               class="mr-2 mb-2"
-              outlined
+              variant="outlined"
             >
               [{{ i }}] {{ b.shortName || '—' }} — {{ b.name || '' }}
             </v-chip>
-            <p v-if="machineBoardsList.length === 0" class="text-caption grey--text">—</p>
+            <p v-if="machineBoardsList.length === 0" class="text-caption text-grey">—</p>
             <v-row class="mt-2">
               <v-col cols="12" md="6">
                 <v-text-field
-                  :value="primaryBoardShortName"
+                  :model-value="primaryBoardShortName"
                   :label="$t('plugins.nxt.panels.configuration.boardPrimaryShortName')"
                   readonly
-                  dense
-                  outlined
+                  density="compact"
+                  variant="outlined"
                   hide-details
                 />
               </v-col>
               <v-col cols="12" md="6">
                 <v-select
-                  :value="configDraft.nxtPlatformProfile"
+                  :model-value="configDraft.nxtPlatformProfile"
                   :items="nxtPlatformSelectItems"
-                  item-text="title"
+                  item-title="title"
                   item-value="value"
                   :label="$t('plugins.nxt.panels.configuration.boardPlatform')"
                   clearable
                   :disabled="uiFrozen"
                   hide-details
-                  @change="onPlatformProfileChange"
+                  @update:model-value="onPlatformProfileChange"
                 />
               </v-col>
             </v-row>
             <v-row>
               <v-col cols="12" md="6">
                 <v-select
-                  :value="configDraft.nxtBoardShortNameOverride != null ? String(configDraft.nxtBoardShortNameOverride) : undefined"
+                  :model-value="configDraft.nxtBoardShortNameOverride != null ? String(configDraft.nxtBoardShortNameOverride) : undefined"
                   :items="boardProfileSelectItems"
-                  item-text="title"
+                  item-title="title"
                   item-value="value"
                   :label="$t('plugins.nxt.panels.configuration.boardProfile')"
                   clearable
                   :placeholder="primaryBoardShortName && primaryBoardShortName !== '—' ? `Auto (${primaryBoardShortName})` : 'Auto (object model)'"
                   :disabled="uiFrozen || boardProfileSelectItems.length === 0"
                   hide-details
-                  @change="onBoardProfileShortNameChange"
+                  @update:model-value="onBoardProfileShortNameChange"
                 />
-                <p v-if="boardProfileSelectItems.length === 0" class="text-caption grey--text mt-1">
+                <p v-if="boardProfileSelectItems.length === 0" class="text-caption text-grey mt-1">
                   {{ $t('plugins.nxt.panels.configuration.boardNoKitsPlatform') }}
                 </p>
               </v-col>
               <v-col cols="12" md="6">
                 <v-select
                   v-if="boardNeedsMotorVoltage"
-                  :value="scyllaMotorVoltageUiValue"
+                  :model-value="scyllaMotorVoltageUiValue"
                   :items="NXT_SCYLLA_MOTOR_VOLTAGE_ITEMS"
-                  item-text="title"
+                  item-title="title"
                   item-value="value"
                   :label="$t('plugins.nxt.panels.configuration.boardMotorVoltage')"
                   :disabled="uiFrozen"
                   hide-details
-                  @change="onBoardMotorVoltageChange"
+                  @update:model-value="onBoardMotorVoltageChange"
                 />
               </v-col>
             </v-row>
             <v-row>
               <v-col cols="12" md="6">
                 <v-select
-                  :value="boardBootstrapModeUi"
+                  :model-value="boardBootstrapModeUi"
                   :items="boardBootstrapModeItems"
-                  item-text="title"
+                  item-title="title"
                   item-value="value"
                   :label="$t('plugins.nxt.panels.configuration.boardBootstrapMode')"
                   :disabled="uiFrozen"
                   hide-details
-                  @change="onBoardBootstrapModeChange"
+                  @update:model-value="onBoardBootstrapModeChange"
                 />
               </v-col>
             </v-row>
-            <v-alert v-if="boardProfileMismatch" type="warning" dense outlined class="mt-3">
+            <template v-if="isCustomPlatform">
+              <v-divider class="my-3" />
+              <p class="text-caption font-weight-medium mb-1">
+                {{ $t('plugins.nxt.panels.configuration.customTravelSection') }}
+              </p>
+              <p class="text-caption text-grey mb-2">
+                {{ $t('plugins.nxt.panels.configuration.customTravelHint') }}
+              </p>
+              <v-row>
+                <v-col cols="6" md="4">
+                  <v-text-field
+                    :model-value="configDraft.nxtCustomXMin"
+                    type="number"
+                    step="0.001"
+                    :label="$t('plugins.nxt.panels.configuration.customXMin')"
+                    :disabled="uiFrozen"
+                    hide-details
+                    @update:model-value="onConfigDraftNumber('nxtCustomXMin', $event)"
+                  />
+                </v-col>
+                <v-col cols="6" md="4">
+                  <v-text-field
+                    :model-value="configDraft.nxtCustomXMax"
+                    type="number"
+                    step="0.001"
+                    :label="$t('plugins.nxt.panels.configuration.customXMax')"
+                    :disabled="uiFrozen"
+                    hide-details
+                    @update:model-value="onConfigDraftNumber('nxtCustomXMax', $event)"
+                  />
+                </v-col>
+                <v-col cols="6" md="4">
+                  <v-text-field
+                    :model-value="configDraft.nxtCustomYMin"
+                    type="number"
+                    step="0.001"
+                    :label="$t('plugins.nxt.panels.configuration.customYMin')"
+                    :disabled="uiFrozen"
+                    hide-details
+                    @update:model-value="onConfigDraftNumber('nxtCustomYMin', $event)"
+                  />
+                </v-col>
+                <v-col cols="6" md="4">
+                  <v-text-field
+                    :model-value="configDraft.nxtCustomYMax"
+                    type="number"
+                    step="0.001"
+                    :label="$t('plugins.nxt.panels.configuration.customYMax')"
+                    :disabled="uiFrozen"
+                    hide-details
+                    @update:model-value="onConfigDraftNumber('nxtCustomYMax', $event)"
+                  />
+                </v-col>
+                <v-col cols="6" md="4">
+                  <v-text-field
+                    :model-value="configDraft.nxtCustomZMin"
+                    type="number"
+                    step="0.001"
+                    :label="$t('plugins.nxt.panels.configuration.customZMin')"
+                    :disabled="uiFrozen"
+                    hide-details
+                    @update:model-value="onConfigDraftNumber('nxtCustomZMin', $event)"
+                  />
+                </v-col>
+                <v-col cols="6" md="4">
+                  <v-text-field
+                    :model-value="configDraft.nxtCustomZMax"
+                    type="number"
+                    step="0.001"
+                    :label="$t('plugins.nxt.panels.configuration.customZMax')"
+                    :disabled="uiFrozen"
+                    hide-details
+                    @update:model-value="onConfigDraftNumber('nxtCustomZMax', $event)"
+                  />
+                </v-col>
+              </v-row>
+
+              <p class="text-caption font-weight-medium mb-1 mt-4">
+                {{ $t('plugins.nxt.panels.configuration.customEndstopsSection') }}
+              </p>
+              <p class="text-caption text-grey mb-2">
+                {{ $t('plugins.nxt.panels.configuration.customEndstopsHint') }}
+              </p>
+              <v-row v-for="axis in customAxisLetters" :key="'es-' + axis">
+                <v-col cols="12" md="6">
+                  <v-select
+                    :model-value="configDraft[customEndstopPinKey(axis)]"
+                    :items="customEndstopPinItems"
+                    item-title="title"
+                    item-value="value"
+                    :label="$t('plugins.nxt.panels.configuration.customEndstopPin', [axis])"
+                    :disabled="uiFrozen"
+                    clearable
+                    hide-details
+                    @update:model-value="onConfigDraftString(customEndstopPinKey(axis), $event)"
+                  />
+                </v-col>
+                <v-col cols="12" md="6">
+                  <v-select
+                    :model-value="configDraft[customHomeAtKey(axis)]"
+                    :items="customHomeAtItems"
+                    item-title="title"
+                    item-value="value"
+                    :label="$t('plugins.nxt.panels.configuration.customHomeAt', [axis])"
+                    :disabled="uiFrozen"
+                    clearable
+                    hide-details
+                    @update:model-value="onConfigDraftSelect(customHomeAtKey(axis), $event)"
+                  />
+                </v-col>
+              </v-row>
+
+              <p class="text-caption font-weight-medium mb-1 mt-4">
+                {{ $t('plugins.nxt.panels.configuration.customStepsSection') }}
+              </p>
+              <v-row>
+                <v-col cols="4">
+                  <v-text-field
+                    :model-value="configDraft.nxtCustomXSteps"
+                    type="number"
+                    step="0.001"
+                    :label="$t('plugins.nxt.panels.configuration.customXSteps')"
+                    :disabled="uiFrozen"
+                    hide-details
+                    @update:model-value="onConfigDraftNumber('nxtCustomXSteps', $event)"
+                  />
+                </v-col>
+                <v-col cols="4">
+                  <v-text-field
+                    :model-value="configDraft.nxtCustomYSteps"
+                    type="number"
+                    step="0.001"
+                    :label="$t('plugins.nxt.panels.configuration.customYSteps')"
+                    :disabled="uiFrozen"
+                    hide-details
+                    @update:model-value="onConfigDraftNumber('nxtCustomYSteps', $event)"
+                  />
+                </v-col>
+                <v-col cols="4">
+                  <v-text-field
+                    :model-value="configDraft.nxtCustomZSteps"
+                    type="number"
+                    step="0.001"
+                    :label="$t('plugins.nxt.panels.configuration.customZSteps')"
+                    :disabled="uiFrozen"
+                    hide-details
+                    @update:model-value="onConfigDraftNumber('nxtCustomZSteps', $event)"
+                  />
+                </v-col>
+              </v-row>
+
+              <p class="text-caption font-weight-medium mb-1 mt-4">
+                {{ $t('plugins.nxt.panels.configuration.customDrivesSection') }}
+              </p>
+              <p class="text-caption text-grey mb-2">
+                {{ $t('plugins.nxt.panels.configuration.customDrivesHint') }}
+              </p>
+              <v-row>
+                <v-col cols="4">
+                  <v-text-field
+                    :model-value="configDraft.nxtCustomXDrives"
+                    :label="$t('plugins.nxt.panels.configuration.customXDrives')"
+                    :disabled="uiFrozen"
+                    hint="e.g. 0 or 0:1"
+                    persistent-hint
+                    @update:model-value="onConfigDraftString('nxtCustomXDrives', $event)"
+                  />
+                </v-col>
+                <v-col cols="4">
+                  <v-text-field
+                    :model-value="configDraft.nxtCustomYDrives"
+                    :label="$t('plugins.nxt.panels.configuration.customYDrives')"
+                    :disabled="uiFrozen"
+                    hint="e.g. 1"
+                    persistent-hint
+                    @update:model-value="onConfigDraftString('nxtCustomYDrives', $event)"
+                  />
+                </v-col>
+                <v-col cols="4">
+                  <v-text-field
+                    :model-value="configDraft.nxtCustomZDrives"
+                    :label="$t('plugins.nxt.panels.configuration.customZDrives')"
+                    :disabled="uiFrozen"
+                    hint="e.g. 2 or 2:3"
+                    persistent-hint
+                    @update:model-value="onConfigDraftString('nxtCustomZDrives', $event)"
+                  />
+                </v-col>
+              </v-row>
+
+              <p class="text-caption font-weight-medium mb-1 mt-4">
+                {{ $t('plugins.nxt.panels.configuration.customDriveDirsSection') }}
+              </p>
+              <v-row v-if="customMappedDriveIndices.length">
+                <v-col
+                  v-for="drive in customMappedDriveIndices"
+                  :key="'dir-' + drive"
+                  cols="12"
+                  md="4"
+                >
+                  <v-select
+                    :model-value="customDriveDirValue(drive)"
+                    :items="customDriveDirItems"
+                    item-title="title"
+                    item-value="value"
+                    :label="$t('plugins.nxt.panels.configuration.customDriveDir', [drive])"
+                    :disabled="uiFrozen"
+                    hide-details
+                    @update:model-value="onCustomDriveDirChange(drive, $event)"
+                  />
+                </v-col>
+              </v-row>
+              <p v-else class="text-caption text-grey">
+                {{ $t('plugins.nxt.panels.configuration.customDriveDirsEmpty') }}
+              </p>
+
+              <p class="text-caption font-weight-medium mb-1 mt-4">
+                {{ $t('plugins.nxt.panels.configuration.customCurrentsSection') }}
+              </p>
+              <v-row>
+                <v-col cols="4">
+                  <v-text-field
+                    :model-value="configDraft.nxtCustomXCurrent"
+                    type="number"
+                    step="1"
+                    :label="$t('plugins.nxt.panels.configuration.customXCurrent')"
+                    :disabled="uiFrozen"
+                    hide-details
+                    @update:model-value="onConfigDraftNumber('nxtCustomXCurrent', $event)"
+                  />
+                </v-col>
+                <v-col cols="4">
+                  <v-text-field
+                    :model-value="configDraft.nxtCustomYCurrent"
+                    type="number"
+                    step="1"
+                    :label="$t('plugins.nxt.panels.configuration.customYCurrent')"
+                    :disabled="uiFrozen"
+                    hide-details
+                    @update:model-value="onConfigDraftNumber('nxtCustomYCurrent', $event)"
+                  />
+                </v-col>
+                <v-col cols="4">
+                  <v-text-field
+                    :model-value="configDraft.nxtCustomZCurrent"
+                    type="number"
+                    step="1"
+                    :label="$t('plugins.nxt.panels.configuration.customZCurrent')"
+                    :disabled="uiFrozen"
+                    hide-details
+                    @update:model-value="onConfigDraftNumber('nxtCustomZCurrent', $event)"
+                  />
+                </v-col>
+              </v-row>
+            </template>
+            <v-alert v-if="boardProfileMismatch" type="warning" density="compact" variant="outlined" class="mt-3">
               {{ $t('plugins.nxt.panels.configuration.boardMismatch') }}
             </v-alert>
-            <v-alert v-if="scyllaVoltageMissing" type="warning" dense outlined class="mt-3">
+            <v-alert v-if="scyllaVoltageMissing" type="warning" density="compact" variant="outlined" class="mt-3">
               {{ $t('plugins.nxt.panels.configuration.boardVoltageMissing') }}
             </v-alert>
             <v-alert
               v-for="(msg, i) in boardBootstrapWarnings"
               :key="'boot-warn-' + i"
               type="warning"
-              dense
-              outlined
+              density="compact"
+              variant="outlined"
               class="mt-3"
             >
               {{ msg }}
@@ -144,8 +399,8 @@
               v-for="(msg, i) in boardPackWarnings"
               :key="'pack-warn-' + i"
               type="warning"
-              dense
-              outlined
+              density="compact"
+              variant="outlined"
               class="mt-3"
             >
               {{ msg }}
@@ -154,18 +409,18 @@
               v-for="(msg, i) in sdConfigWarnings"
               :key="'sd-warn-' + i"
               type="warning"
-              dense
-              outlined
+              density="compact"
+              variant="outlined"
               class="mt-3"
             >
               {{ msg }}
             </v-alert>
             <v-textarea
-              :value="kitEntryPathForUi"
+              :model-value="kitEntryPathForUi"
               :label="$t('plugins.nxt.panels.configuration.boardKitEntry')"
               readonly
-              outlined
-              dense
+              variant="outlined"
+              density="compact"
               rows="2"
               class="mt-3"
               hide-details
@@ -179,7 +434,7 @@
               class="mt-3"
             >
               <p class="text-caption font-weight-medium mb-1">{{ $t('plugins.nxt.panels.configuration.boardPlatformTree') }}</p>
-              <ul class="text-caption grey--text text--darken-1 pl-4 mb-2">
+              <ul class="text-caption text-grey-darken-1 pl-4 mb-2">
                 <li v-if="selectedPlatformStructure.machineEntryPath">
                   Boot machine: {{ selectedPlatformStructure.machineEntryPath }}
                 </li>
@@ -190,37 +445,37 @@
                   Boot board: {{ p }}
                 </li>
               </ul>
-              <p class="text-caption grey--text mb-2">{{ $t('plugins.nxt.panels.configuration.boardHomingDocHint') }}</p>
+              <p class="text-caption text-grey mb-2">{{ $t('plugins.nxt.panels.configuration.boardHomingDocHint') }}</p>
             </div>
             <div class="d-flex flex-wrap mt-2" style="gap: 8px">
               <v-btn
-                small
-                outlined
+                size="small"
+                variant="outlined"
                 :disabled="!isConnected"
                 :loading="boardStateChecking"
                 @click="runBoardStateChecks"
               >
-                <v-icon small left>mdi-folder-search</v-icon>
+                <v-icon class="mr-2" size="small">mdi-folder-search</v-icon>
                 {{ $t('plugins.nxt.panels.configuration.boardCheckSd') }}
               </v-btn>
               <v-btn
-                small
-                outlined
+                size="small"
+                variant="outlined"
                 color="primary"
                 :disabled="!isConnected || uiFrozen || !canDeployPlatformSysFiles"
                 :loading="sysDeploying"
                 @click="applyPlatformSysFiles"
               >
-                <v-icon small left>mdi-file-upload</v-icon>
+                <v-icon class="mr-2" size="small">mdi-file-upload</v-icon>
                 {{ $t('plugins.nxt.panels.configuration.boardApplySysFiles') }}
               </v-btn>
-              <v-btn small outlined color="primary" :disabled="!isConnected" @click="copyBoardConfigHint">
-                <v-icon small left>mdi-content-copy</v-icon>
+              <v-btn size="small" variant="outlined" color="primary" :disabled="!isConnected" @click="copyBoardConfigHint">
+                <v-icon class="mr-2" size="small">mdi-content-copy</v-icon>
                 {{ $t('plugins.nxt.panels.configuration.boardCopySnippet') }}
               </v-btn>
               <v-btn
-                small
-                outlined
+                size="small"
+                variant="outlined"
                 :disabled="!isConnected || uiFrozen || pinmapSaving"
                 :loading="pinmapSaving"
                 @click="savePinmapStub"
@@ -228,45 +483,43 @@
                 {{ $t('plugins.nxt.panels.configuration.boardSavePinmap') }}
               </v-btn>
             </div>
-            <p class="text-caption grey--text mt-2 mb-0">{{ $t('plugins.nxt.panels.configuration.boardPinmapHint') }}</p>
-          </v-expansion-panel-content>
+            <p class="text-caption text-grey mt-2 mb-0">{{ $t('plugins.nxt.panels.configuration.boardPinmapHint') }}</p>
+          </v-expansion-panel-text>
         </v-expansion-panel>
 
         <!-- Spindle Configuration -->
         <v-expansion-panel>
-          <v-expansion-panel-header>
+          <v-expansion-panel-title>
             <div>
-              <v-icon left>mdi-fan</v-icon>
+              <v-icon class="mr-2">mdi-fan</v-icon>
               <strong>Spindle Configuration</strong>
             </div>
-          </v-expansion-panel-header>
-          <v-expansion-panel-content>
+          </v-expansion-panel-title>
+          <v-expansion-panel-text>
             <v-row>
               <v-col cols="12">
                 <v-select
-                  :value="configDraft.nxtSpindleID"
+                  :model-value="configDraft.nxtSpindleID"
                   :items="availableSpindles"
-                  item-text="name"
+                  item-title="name"
                   item-value="id"
                   label="Spindle"
                   :disabled="uiFrozen"
-                  @input="onConfigDraftSelect('nxtSpindleID', $event)"
+                  @update:model-value="onConfigDraftSelect('nxtSpindleID', $event)"
                   hint="Select configured spindle"
                   persistent-hint
                   clearable
                 >
-                  <template v-slot:item="{ item }">
-                    <v-list-item-content>
-                      <v-list-item-title>{{ item.name }}</v-list-item-title>
+                  <template v-slot:item="{ item }: { item: any }">
+                                           <v-list-item-title>{{ item.name }}</v-list-item-title>
                       <v-list-item-subtitle>ID: {{ item.id }}</v-list-item-subtitle>
-                    </v-list-item-content>
-                  </template>
-                  <template v-slot:append-outer>
-                    <v-tooltip top>
-                      <template v-slot:activator="{ on }">
+                                       </template>
+                  <template v-slot:append>
+                    <v-tooltip location="top">
+                      <template v-slot:activator="{ props }">
                         <v-btn
                           icon
-                          small
+                          size="small"
                           @mousedown="startSpindleTest"
                           @mouseup="stopSpindleTest"
                           @mouseleave="stopSpindleTest"
@@ -274,9 +527,9 @@
                           @touchend="stopSpindleTest"
                           :disabled="uiFrozen || configDraft.nxtSpindleID === null"
                           :color="spindleTesting ? 'primary' : ''"
-                          v-on="on"
+                          v-bind="props"
                         >
-                          <v-icon small>{{ spindleTesting ? 'mdi-fan' : 'mdi-test-tube' }}</v-icon>
+                          <v-icon size="small">{{ spindleTesting ? 'mdi-fan' : 'mdi-test-tube' }}</v-icon>
                         </v-btn>
                       </template>
                       <span>{{ spindleTesting ? 'Release to Stop' : 'Hold to Test Spindle' }}</span>
@@ -288,21 +541,21 @@
             <v-row>
               <v-col cols="12" md="6">
                 <v-text-field
-                  :value="configDraft.nxtSpindleAccelSec"
+                  :model-value="configDraft.nxtSpindleAccelSec"
                   label="Acceleration Time (s)"
                   type="number"
                   step="0.1"
                   :disabled="uiFrozen"
-                  @input="onConfigDraftNumber('nxtSpindleAccelSec', $event)"
+                  @update:model-value="onConfigDraftNumber('nxtSpindleAccelSec', $event)"
                   hint="Time for spindle to reach speed"
                   persistent-hint
                 >
-                  <template v-slot:append-outer>
-                    <v-tooltip top>
-                      <template v-slot:activator="{ on }">
+                  <template v-slot:append>
+                    <v-tooltip location="top">
+                      <template v-slot:activator="{ props }">
                         <v-btn
                           icon
-                          small
+                          size="small"
                           @mousedown="startAccelerationMeasurement"
                           @mouseup="stopAccelerationMeasurement"
                           @mouseleave="stopAccelerationMeasurement"
@@ -310,9 +563,9 @@
                           @touchend="stopAccelerationMeasurement"
                           :disabled="uiFrozen || configDraft.nxtSpindleID === null"
                           :color="measuringAccel ? 'primary' : ''"
-                          v-on="on"
+                          v-bind="props"
                         >
-                          <v-icon small :class="{ 'rotating-icon': measuringAccel }">
+                          <v-icon size="small" :class="{ 'rotating-icon': measuringAccel }">
                             {{ measuringAccel ? 'mdi-fan' : 'mdi-timer-play' }}
                           </v-icon>
                         </v-btn>
@@ -324,21 +577,21 @@
               </v-col>
               <v-col cols="12" md="6">
                 <v-text-field
-                  :value="configDraft.nxtSpindleDecelSec"
+                  :model-value="configDraft.nxtSpindleDecelSec"
                   label="Deceleration Time (s)"
                   type="number"
                   step="0.1"
                   :disabled="uiFrozen"
-                  @input="onConfigDraftNumber('nxtSpindleDecelSec', $event)"
+                  @update:model-value="onConfigDraftNumber('nxtSpindleDecelSec', $event)"
                   hint="Time for spindle to stop"
                   persistent-hint
                 >
-                  <template v-slot:append-outer>
-                    <v-tooltip top>
-                      <template v-slot:activator="{ on }">
+                  <template v-slot:append>
+                    <v-tooltip location="top">
+                      <template v-slot:activator="{ props }">
                         <v-btn
                           icon
-                          small
+                          size="small"
                           @mousedown="startDecelerationMeasurement"
                           @mouseup="stopDecelerationMeasurement"
                           @mouseleave="stopDecelerationMeasurement"
@@ -346,9 +599,9 @@
                           @touchend="stopDecelerationMeasurement"
                           :disabled="uiFrozen || configDraft.nxtSpindleID === null || configDraft.nxtSpindleAccelSec === null || configDraft.nxtSpindleAccelSec === undefined"
                           :color="measuringDecel ? 'primary' : ''"
-                          v-on="on"
+                          v-bind="props"
                         >
-                          <v-icon small :class="{ 'rotating-icon': measuringDecel }">
+                          <v-icon size="small" :class="{ 'rotating-icon': measuringDecel }">
                             {{ measuringDecel ? 'mdi-fan' : 'mdi-timer-stop' }}
                           </v-icon>
                         </v-btn>
@@ -359,76 +612,93 @@
                 </v-text-field>
               </v-col>
             </v-row>
-          </v-expansion-panel-content>
+          </v-expansion-panel-text>
         </v-expansion-panel>
 
         <!-- Touch Probe Configuration -->
         <v-expansion-panel>
-          <v-expansion-panel-header>
+          <v-expansion-panel-title>
             <div>
-              <v-icon left>mdi-target</v-icon>
+              <v-icon class="mr-2">mdi-target</v-icon>
               <strong>Touch Probe Configuration</strong>
               <v-spacer />
-              <v-icon v-if="touchProbeRequirementsMet" small color="success" class="mr-2">mdi-check-circle</v-icon>
-              <v-icon v-else small color="warning" class="mr-2">mdi-alert-circle</v-icon>
+              <v-icon v-if="touchProbeRequirementsMet" size="small" color="success" class="mr-2">mdi-check-circle</v-icon>
+              <v-icon v-else size="small" color="warning" class="mr-2">mdi-alert-circle</v-icon>
             </div>
-          </v-expansion-panel-header>
-          <v-expansion-panel-content>
-            <v-alert v-if="!touchProbeRequirementsMet" type="warning" dense outlined class="mb-4">
+          </v-expansion-panel-title>
+          <v-expansion-panel-text>
+            <v-alert v-if="!touchProbeRequirementsMet" type="warning" density="compact" variant="outlined" class="mb-4">
               <div class="text-caption">{{ touchProbeRequirementsMessage }}</div>
             </v-alert>
 
             <v-row>
-              <v-col cols="12">
+              <v-col cols="12" md="8">
                 <v-select
-                  :value="configDraft.nxtTouchProbeID"
-                  :items="availableProbes"
-                  item-text="name"
+                  :model-value="configDraft.nxtTouchProbeID"
+                  :items="touchProbeSelectItems"
+                  item-title="name"
                   item-value="id"
+                  item-props
                   label="Touch Probe Sensor *"
                   :disabled="uiFrozen"
-                  @input="onConfigDraftSelect('nxtTouchProbeID', $event)"
-                  hint="Required - Select configured probe"
+                  @update:model-value="onConfigDraftSelect('nxtTouchProbeID', $event)"
+                  hint="Select the Probe pin (clear to unassign). Pins used by Toolsetter are disabled."
                   persistent-hint
                   :error="configDraft.nxtTouchProbeID === null"
                   clearable
                 >
-                  <template v-slot:item="{ item }">
-                    <v-list-item-content>
-                      <v-list-item-title>{{ item.name }}</v-list-item-title>
-                      <v-list-item-subtitle>ID: {{ item.id }} | Type: {{ item.type }}</v-list-item-subtitle>
-                    </v-list-item-content>
+                  <template #selection="{ item }">
+                    <span>{{ probeSelectItemTitle(item) }}</span>
                   </template>
-                  <template v-slot:append-outer>
-                    <v-tooltip top :disabled="configDraft.nxtTouchProbeID === null">
-                      <template v-slot:activator="{ on }">
-                        <v-chip
-                          v-if="configDraft.nxtTouchProbeID !== null"
-                          small
-                          :color="touchProbeLiveColor"
-                          :disabled="!isConnected"
-                          v-on="on"
-                          @click="onTouchProbeTestClick"
-                        >
-                          <v-icon small left>{{ touchProbeLiveIcon }}</v-icon>
-                          {{ touchProbeLiveLabel }}
-                        </v-chip>
-                      </template>
-                      <span>{{ touchProbeLiveTooltip }}</span>
-                    </v-tooltip>
+                  <template #item="{ props: itemProps, item }">
+                    <v-list-item
+                      v-bind="itemProps"
+                      :disabled="probeSelectItemDisabled(item)"
+                      :title="probeSelectItemTitle(item)"
+                      :subtitle="probeItemSubtitle(probeSelectItemRaw(item))"
+                    />
                   </template>
                 </v-select>
+              </v-col>
+              <v-col cols="12" md="4" class="d-flex align-center">
+                <v-checkbox
+                  :model-value="configDraft.nxtTouchProbeInvert"
+                  label="Invert pin (active low)"
+                  :disabled="uiFrozen || configDraft.nxtTouchProbeID === null"
+                  hide-details
+                  density="compact"
+                  class="mt-0"
+                  @update:model-value="onProbeInvertChange('nxtTouchProbeInvert', $event)"
+                />
+              </v-col>
+            </v-row>
+            <v-row class="mt-1">
+              <v-col cols="12">
+                <v-alert
+                  :type="touchProbeLiveTriggered ? 'success' : 'info'"
+                  density="compact"
+                  variant="tonal"
+                  class="mb-0"
+                >
+                  <div class="d-flex align-center flex-wrap" style="gap: 8px">
+                    <v-icon size="small">{{ touchProbeLiveIcon }}</v-icon>
+                    <strong>Input test:</strong>
+                    <span>{{ touchProbeLiveLabel || 'Select a probe sensor' }}</span>
+                    <v-spacer />
+                    <span class="text-caption">{{ touchProbeLiveTooltip }}</span>
+                  </div>
+                </v-alert>
               </v-col>
             </v-row>
             <v-row>
               <v-col cols="12" md="6">
                 <v-text-field
-                  :value="configDraft.nxtProbeTipRadius"
+                  :model-value="configDraft.nxtProbeTipRadius"
                   label="Probe Tip Radius (mm) *"
                   type="number"
                   step="0.001"
                   :disabled="uiFrozen"
-                  @input="onConfigDraftNumber('nxtProbeTipRadius', $event)"
+                  @update:model-value="onConfigDraftNumber('nxtProbeTipRadius', $event)"
                   hint="Required - For horizontal compensation"
                   persistent-hint
                   :error="configDraft.nxtProbeTipRadius === null || configDraft.nxtProbeTipRadius === 0"
@@ -436,27 +706,27 @@
               </v-col>
               <v-col cols="12" md="6">
                 <v-text-field
-                  :value="configDraft.nxtProbeDeflection"
+                  :model-value="configDraft.nxtProbeDeflection"
                   label="Probe Deflection (mm) *"
                   type="number"
                   step="0.001"
                   :disabled="uiFrozen"
-                  @input="onConfigDraftNumber('nxtProbeDeflection', $event)"
+                  @update:model-value="onConfigDraftNumber('nxtProbeDeflection', $event)"
                   hint="Required - Measured deflection value (0 if not measured)"
                   persistent-hint
                   :error="configDraft.nxtProbeDeflection === null"
                 >
-                  <template v-slot:append-outer>
-                    <v-tooltip top>
-                      <template v-slot:activator="{ on }">
+                  <template v-slot:append>
+                    <v-tooltip location="top">
+                      <template v-slot:activator="{ props }">
                         <v-btn
                           icon
-                          small
+                          size="small"
                           @click="navigateToCalibration"
                           :disabled="uiFrozen"
-                          v-on="on"
+                          v-bind="props"
                         >
-                          <v-icon small>mdi-ruler</v-icon>
+                          <v-icon size="small">mdi-ruler</v-icon>
                         </v-btn>
                       </template>
                       <span>Go to Calibration</span>
@@ -465,7 +735,7 @@
                 </v-text-field>
               </v-col>
             </v-row>
-            <v-alert type="info" dense outlined class="mb-2">
+            <v-alert type="info" density="compact" variant="outlined" class="mb-2">
               <span class="text-caption">
                 Probe repeatability (G6512 sample count, pair tolerance, retries) uses defaults from
                 <code>nxt-vars.g</code>. Copy <code>nxt-user-overrides.g.example</code> to
@@ -478,10 +748,10 @@
               <v-col cols="12">
                 <v-divider class="mb-4" />
                 <v-switch
-                  :input-value="configDraft.nxtFeatureTouchProbe"
+                  :model-value="configDraft.nxtFeatureTouchProbe"
                   label="Enable Touch Probe Feature"
                   :disabled="uiFrozen || !touchProbeRequirementsMet"
-                  @change="updateFeature('nxtFeatureTouchProbe', $event)"
+                  @update:model-value="updateFeature('nxtFeatureTouchProbe', $event)"
                   :hint="touchProbeRequirementsMessage"
                   persistent-hint
                   class="mt-0"
@@ -494,71 +764,88 @@
                 </v-switch>
               </v-col>
             </v-row>
-          </v-expansion-panel-content>
+          </v-expansion-panel-text>
         </v-expansion-panel>
 
         <!-- Tool Setter Configuration -->
         <v-expansion-panel>
-          <v-expansion-panel-header>
+          <v-expansion-panel-title>
             <div>
-              <v-icon left>mdi-wrench</v-icon>
+              <v-icon class="mr-2">mdi-wrench</v-icon>
               <strong>Tool Setter Configuration</strong>
               <v-spacer />
-              <v-icon v-if="toolSetterRequirementsMet" small color="success" class="mr-2">mdi-check-circle</v-icon>
-              <v-icon v-else small color="warning" class="mr-2">mdi-alert-circle</v-icon>
+              <v-icon v-if="toolSetterRequirementsMet" size="small" color="success" class="mr-2">mdi-check-circle</v-icon>
+              <v-icon v-else size="small" color="warning" class="mr-2">mdi-alert-circle</v-icon>
             </div>
-          </v-expansion-panel-header>
-          <v-expansion-panel-content>
-            <v-alert v-if="!toolSetterRequirementsMet" type="warning" dense outlined class="mb-4">
+          </v-expansion-panel-title>
+          <v-expansion-panel-text>
+            <v-alert v-if="!toolSetterRequirementsMet" type="warning" density="compact" variant="outlined" class="mb-4">
               <div class="text-caption">{{ toolSetterRequirementsMessage }}</div>
             </v-alert>
 
             <v-row>
-              <v-col cols="12">
+              <v-col cols="12" md="8">
                 <v-select
-                  :value="configDraft.nxtToolSetterID"
-                  :items="availableProbes"
-                  item-text="name"
+                  :model-value="configDraft.nxtToolSetterID"
+                  :items="toolSetterSelectItems"
+                  item-title="name"
                   item-value="id"
+                  item-props
                   label="Tool Setter Sensor *"
                   :disabled="uiFrozen"
-                  @input="onConfigDraftSelect('nxtToolSetterID', $event)"
-                  hint="Required - Select configured probe"
+                  @update:model-value="onConfigDraftSelect('nxtToolSetterID', $event)"
+                  hint="Select the Toolsetter pin (clear to unassign). Pins used by Touch Probe are disabled."
                   persistent-hint
                   :error="configDraft.nxtToolSetterID === null"
                   clearable
                 >
-                  <template v-slot:item="{ item }">
-                    <v-list-item-content>
-                      <v-list-item-title>{{ item.name }}</v-list-item-title>
-                      <v-list-item-subtitle>ID: {{ item.id }} | Type: {{ item.type }}</v-list-item-subtitle>
-                    </v-list-item-content>
+                  <template #selection="{ item }">
+                    <span>{{ probeSelectItemTitle(item) }}</span>
                   </template>
-                  <template v-slot:append-outer>
-                    <v-tooltip top :disabled="configDraft.nxtToolSetterID === null">
-                      <template v-slot:activator="{ on }">
-                        <v-chip
-                          v-if="configDraft.nxtToolSetterID !== null"
-                          small
-                          :color="toolSetterLiveColor"
-                          :disabled="!isConnected"
-                          v-on="on"
-                          @click="onToolSetterTestClick"
-                        >
-                          <v-icon small left>{{ toolSetterLiveIcon }}</v-icon>
-                          {{ toolSetterLiveLabel }}
-                        </v-chip>
-                      </template>
-                      <span>{{ toolSetterLiveTooltip }}</span>
-                    </v-tooltip>
+                  <template #item="{ props: itemProps, item }">
+                    <v-list-item
+                      v-bind="itemProps"
+                      :disabled="probeSelectItemDisabled(item)"
+                      :title="probeSelectItemTitle(item)"
+                      :subtitle="probeItemSubtitle(probeSelectItemRaw(item))"
+                    />
                   </template>
                 </v-select>
+              </v-col>
+              <v-col cols="12" md="4" class="d-flex align-center">
+                <v-checkbox
+                  :model-value="configDraft.nxtToolSetterInvert"
+                  label="Invert pin (active low)"
+                  :disabled="uiFrozen || configDraft.nxtToolSetterID === null"
+                  hide-details
+                  density="compact"
+                  class="mt-0"
+                  @update:model-value="onProbeInvertChange('nxtToolSetterInvert', $event)"
+                />
+              </v-col>
+            </v-row>
+            <v-row class="mt-1">
+              <v-col cols="12">
+                <v-alert
+                  :type="toolSetterLiveTriggered ? 'success' : 'info'"
+                  density="compact"
+                  variant="tonal"
+                  class="mb-0"
+                >
+                  <div class="d-flex align-center flex-wrap" style="gap: 8px">
+                    <v-icon size="small">{{ toolSetterLiveIcon }}</v-icon>
+                    <strong>Input test:</strong>
+                    <span>{{ toolSetterLiveLabel || 'Select a toolsetter sensor' }}</span>
+                    <v-spacer />
+                    <span class="text-caption">{{ toolSetterLiveTooltip }}</span>
+                  </div>
+                </v-alert>
               </v-col>
             </v-row>
             <v-row>
               <v-col cols="12">
                 <v-text-field
-                  :value="formatToolSetterPos"
+                  :model-value="formatToolSetterPos"
                   label="Tool Setter Position [X, Y, Z] *"
                   readonly
                   hint="Required - Position in machine coordinates"
@@ -566,27 +853,27 @@
                   :error="!configDraft.nxtToolSetterPos || !Array.isArray(configDraft.nxtToolSetterPos) || configDraft.nxtToolSetterPos.length !== 3"
                 >
                   <template v-slot:append>
-                    <v-tooltip top>
-                      <template v-slot:activator="{ on }">
+                    <v-tooltip location="top">
+                      <template v-slot:activator="{ props }">
                         <v-btn
                           icon
-                          small
+                          size="small"
                           @click="setCurrentPositionAsToolSetter"
                           :disabled="uiFrozen || !allAxesHomed"
-                          v-on="on"
+                          v-bind="props"
                         >
-                          <v-icon small>mdi-crosshairs-gps</v-icon>
+                          <v-icon size="small">mdi-crosshairs-gps</v-icon>
                         </v-btn>
                       </template>
                       <span>Set Current Position</span>
                     </v-tooltip>
                     <v-btn
                       icon
-                      small
+                      size="small"
                       @click="showToolSetterPosDialog = true"
                       :disabled="uiFrozen"
                     >
-                      <v-icon small>mdi-pencil</v-icon>
+                      <v-icon size="small">mdi-pencil</v-icon>
                     </v-btn>
                   </template>
                 </v-text-field>
@@ -598,10 +885,10 @@
               <v-col cols="12">
                 <v-divider class="mb-4" />
                 <v-switch
-                  :input-value="configDraft.nxtFeatureToolSetter"
+                  :model-value="configDraft.nxtFeatureToolSetter"
                   label="Enable Tool Setter Feature"
                   :disabled="uiFrozen || !toolSetterRequirementsMet"
-                  @change="updateFeature('nxtFeatureToolSetter', $event)"
+                  @update:model-value="updateFeature('nxtFeatureToolSetter', $event)"
                   :hint="toolSetterRequirementsMessage"
                   persistent-hint
                   class="mt-0"
@@ -614,133 +901,215 @@
                 </v-switch>
               </v-col>
             </v-row>
-          </v-expansion-panel-content>
+          </v-expansion-panel-text>
         </v-expansion-panel>
 
         <!-- Coolant Control Configuration -->
         <v-expansion-panel>
-          <v-expansion-panel-header>
+          <v-expansion-panel-title>
             <div>
-              <v-icon left>mdi-water</v-icon>
+              <v-icon class="mr-2">mdi-water</v-icon>
               <strong>Coolant Control Configuration</strong>
               <v-spacer />
-              <v-icon v-if="coolantControlRequirementsMet" small color="success" class="mr-2">mdi-check-circle</v-icon>
-              <v-icon v-else small color="warning" class="mr-2">mdi-alert-circle</v-icon>
+              <v-icon v-if="coolantControlRequirementsMet" size="small" color="success" class="mr-2">mdi-check-circle</v-icon>
+              <v-icon v-else size="small" color="warning" class="mr-2">mdi-alert-circle</v-icon>
             </div>
-          </v-expansion-panel-header>
-          <v-expansion-panel-content>
-            <v-alert v-if="!coolantControlRequirementsMet" type="warning" dense outlined class="mb-4">
+          </v-expansion-panel-title>
+          <v-expansion-panel-text>
+            <v-alert v-if="!coolantControlRequirementsMet" type="warning" density="compact" variant="outlined" class="mb-4">
               <div class="text-caption">{{ coolantControlRequirementsMessage }}</div>
             </v-alert>
+            <v-alert v-if="coolantRelayReserved" type="info" density="compact" variant="outlined" class="mb-4">
+              <div class="text-caption">{{ $t('plugins.nxt.panels.configuration.coolantRelayReserved') }}</div>
+            </v-alert>
+            <p class="text-caption text-grey mb-2">
+              {{ $t('plugins.nxt.panels.configuration.outputGpHint') }}
+            </p>
 
             <v-row>
               <v-col cols="12" md="4">
                 <v-select
-                  :value="configDraft.nxtCoolantAirID"
-                  :items="boardKitGpOutputs"
-                  item-text="name"
+                  :model-value="configDraft.nxtRelayID"
+                  :items="gpOutItemsForRole('nxtRelayID')"
+                  item-title="name"
                   item-value="id"
+                  item-props
+                  :label="$t('plugins.nxt.panels.configuration.outputRelay')"
+                  :disabled="uiFrozen"
+                  @update:model-value="onConfigDraftSelect('nxtRelayID', $event)"
+                  :hint="$t('plugins.nxt.panels.configuration.outputGpHint')"
+                  persistent-hint
+                  clearable
+                />
+              </v-col>
+              <v-col cols="12" md="4">
+                <v-select
+                  :model-value="configDraft.nxtAux1ID"
+                  :items="gpOutItemsForRole('nxtAux1ID')"
+                  item-title="name"
+                  item-value="id"
+                  item-props
+                  :label="$t('plugins.nxt.panels.configuration.outputAux1')"
+                  :disabled="uiFrozen"
+                  @update:model-value="onConfigDraftSelect('nxtAux1ID', $event)"
+                  clearable
+                  hide-details
+                />
+              </v-col>
+              <v-col cols="12" md="4">
+                <v-select
+                  :model-value="configDraft.nxtAux2ID"
+                  :items="gpOutItemsForRole('nxtAux2ID')"
+                  item-title="name"
+                  item-value="id"
+                  item-props
+                  :label="$t('plugins.nxt.panels.configuration.outputAux2')"
+                  :disabled="uiFrozen"
+                  @update:model-value="onConfigDraftSelect('nxtAux2ID', $event)"
+                  clearable
+                  hide-details
+                />
+              </v-col>
+              <v-col cols="12" md="4">
+                <v-select
+                  :model-value="configDraft.nxtAux3ID"
+                  :items="gpOutItemsForRole('nxtAux3ID')"
+                  item-title="name"
+                  item-value="id"
+                  item-props
+                  :label="$t('plugins.nxt.panels.configuration.outputAux3')"
+                  :disabled="uiFrozen"
+                  @update:model-value="onConfigDraftSelect('nxtAux3ID', $event)"
+                  clearable
+                  hide-details
+                />
+              </v-col>
+              <v-col cols="12" md="4">
+                <v-select
+                  :model-value="configDraft.nxtCoolantAirID"
+                  :items="gpOutItemsForRole('nxtCoolantAirID')"
+                  item-title="name"
+                  item-value="id"
+                  item-props
                   label="Air Blast Output"
                   :disabled="uiFrozen"
-                  @input="onConfigDraftSelect('nxtCoolantAirID', $event)"
-                  hint="Select GP Output port"
+                  @update:model-value="onConfigDraftSelect('nxtCoolantAirID', $event)"
+                  hint="Select named output (clear to unassign)"
                   persistent-hint
                   clearable
-                >
-                  <template v-slot:item="{ item }">
-                    <v-list-item-content>
-                      <v-list-item-title>{{ item.name }}</v-list-item-title>
-                    </v-list-item-content>
-                  </template>
-                </v-select>
+                />
               </v-col>
               <v-col cols="12" md="4">
                 <v-select
-                  :value="configDraft.nxtCoolantMistID"
-                  :items="boardKitGpOutputs"
-                  item-text="name"
+                  :model-value="configDraft.nxtCoolantMistID"
+                  :items="gpOutItemsForRole('nxtCoolantMistID')"
+                  item-title="name"
                   item-value="id"
+                  item-props
                   label="Mist Coolant Output"
                   :disabled="uiFrozen"
-                  @input="onConfigDraftSelect('nxtCoolantMistID', $event)"
-                  hint="Select GP Output port"
+                  @update:model-value="onConfigDraftSelect('nxtCoolantMistID', $event)"
+                  hint="Select Mist / named output (clear to unassign)"
                   persistent-hint
                   clearable
-                >
-                  <template v-slot:item="{ item }">
-                    <v-list-item-content>
-                      <v-list-item-title>{{ item.name }}</v-list-item-title>
-                    </v-list-item-content>
-                  </template>
-                </v-select>
+                />
               </v-col>
               <v-col cols="12" md="4">
                 <v-select
-                  :value="configDraft.nxtCoolantFloodID"
-                  :items="boardKitGpOutputs"
-                  item-text="name"
+                  :model-value="configDraft.nxtCoolantFloodID"
+                  :items="gpOutItemsForRole('nxtCoolantFloodID')"
+                  item-title="name"
                   item-value="id"
-                  label="Flood Coolant Output"
+                  item-props
+                  label="Flood / Coolant Output"
                   :disabled="uiFrozen"
-                  @input="onConfigDraftSelect('nxtCoolantFloodID', $event)"
-                  hint="Select GP Output port"
+                  @update:model-value="onConfigDraftSelect('nxtCoolantFloodID', $event)"
+                  hint="Select Coolant / named output (clear to unassign)"
                   persistent-hint
                   clearable
+                />
+              </v-col>
+            </v-row>
+
+            <p class="text-caption font-weight-medium mb-1 mt-4">
+              Output test (hold to energize)
+            </p>
+            <p class="text-caption text-grey mb-2">
+              Press and hold to turn the output on with M42; release to turn it off. Use this to verify relay wiring.
+            </p>
+            <v-row dense>
+              <v-col
+                v-for="row in gpOutTestRows"
+                :key="row.key"
+                cols="6"
+                sm="4"
+                md="3"
+              >
+                <v-btn
+                  block
+                  variant="outlined"
+                  :color="gpOutTestingKey === row.key ? 'warning' : undefined"
+                  :disabled="uiFrozen || !isConnected || row.id === null"
+                  @mousedown.prevent="startGpOutTest(row.key, row.id)"
+                  @mouseup.prevent="stopGpOutTest"
+                  @mouseleave="stopGpOutTest"
+                  @touchstart.prevent="startGpOutTest(row.key, row.id)"
+                  @touchend.prevent="stopGpOutTest"
+                  @touchcancel="stopGpOutTest"
                 >
-                  <template v-slot:item="{ item }">
-                    <v-list-item-content>
-                      <v-list-item-title>{{ item.name }}</v-list-item-title>
-                    </v-list-item-content>
-                  </template>
-                </v-select>
+                  <v-icon start size="small">
+                    {{ gpOutTestingKey === row.key ? 'mdi-flash' : 'mdi-flash-outline' }}
+                  </v-icon>
+                  {{ row.label }}
+                </v-btn>
               </v-col>
             </v-row>
 
             <v-row class="mt-2">
               <v-col cols="12" md="6">
                 <v-switch
-                  :input-value="configDraft.nxtCoolantMistPulseEnabled"
+                  :model-value="configDraft.nxtCoolantMistPulseEnabled"
                   :label="$t('plugins.nxt.panels.configuration.coolantMistPulse')"
                   :hint="$t('plugins.nxt.panels.configuration.coolantMistPulseHint')"
                   persistent-hint
                   :disabled="uiFrozen || configDraft.nxtCoolantMistID === null"
-                  @change="updateFeature('nxtCoolantMistPulseEnabled', $event)"
+                  @update:model-value="updateFeature('nxtCoolantMistPulseEnabled', $event)"
                   class="mt-0"
                 />
               </v-col>
               <v-col cols="12" md="6">
                 <v-switch
-                  :input-value="configDraft.nxtCoolantFloodPulseEnabled"
+                  :model-value="configDraft.nxtCoolantFloodPulseEnabled"
                   :label="$t('plugins.nxt.panels.configuration.coolantFloodPulse')"
                   :hint="$t('plugins.nxt.panels.configuration.coolantFloodPulseHint')"
                   persistent-hint
                   :disabled="uiFrozen || configDraft.nxtCoolantFloodID === null"
-                  @change="updateFeature('nxtCoolantFloodPulseEnabled', $event)"
+                  @update:model-value="updateFeature('nxtCoolantFloodPulseEnabled', $event)"
                   class="mt-0"
                 />
               </v-col>
               <v-col cols="12" md="6">
                 <v-text-field
-                  :value="configDraft.nxtCoolantPulseOnSec"
+                  :model-value="configDraft.nxtCoolantPulseOnSec"
                   type="number"
                   min="1"
                   step="1"
                   :label="$t('plugins.nxt.panels.configuration.coolantPulseOnSec')"
                   :disabled="uiFrozen || !coolantPulseTimingConfigurable"
-                  @input="onConfigDraftPulseSec('nxtCoolantPulseOnSec', $event)"
+                  @update:model-value="onConfigDraftPulseSec('nxtCoolantPulseOnSec', $event)"
                   hint="Default 5"
                   persistent-hint
                 />
               </v-col>
               <v-col cols="12" md="6">
                 <v-text-field
-                  :value="configDraft.nxtCoolantPulseOffSec"
+                  :model-value="configDraft.nxtCoolantPulseOffSec"
                   type="number"
                   min="1"
                   step="1"
                   :label="$t('plugins.nxt.panels.configuration.coolantPulseOffSec')"
                   :disabled="uiFrozen || !coolantPulseTimingConfigurable"
-                  @input="onConfigDraftPulseSec('nxtCoolantPulseOffSec', $event)"
+                  @update:model-value="onConfigDraftPulseSec('nxtCoolantPulseOffSec', $event)"
                   hint="Default 25"
                   persistent-hint
                 />
@@ -752,10 +1121,10 @@
               <v-col cols="12">
                 <v-divider class="mb-4" />
                 <v-switch
-                  :input-value="configDraft.nxtFeatureCoolantControl"
+                  :model-value="configDraft.nxtFeatureCoolantControl"
                   label="Enable Coolant Control Feature"
                   :disabled="uiFrozen || !coolantControlRequirementsMet"
-                  @change="updateFeature('nxtFeatureCoolantControl', $event)"
+                  @update:model-value="updateFeature('nxtFeatureCoolantControl', $event)"
                   :hint="coolantControlRequirementsMessage"
                   persistent-hint
                   class="mt-0"
@@ -768,32 +1137,64 @@
                 </v-switch>
               </v-col>
             </v-row>
-          </v-expansion-panel-content>
+          </v-expansion-panel-text>
+        </v-expansion-panel>
+
+        <!-- Fourth / A axis (Scylla drive 3; MosFourthAxis for steps/homea) -->
+        <v-expansion-panel>
+          <v-expansion-panel-title>
+            <div>
+              <v-icon class="mr-2">mdi-axis-z-rotate-clockwise</v-icon>
+              <strong>Fourth Axis (A / Rotary)</strong>
+              <v-spacer />
+              <v-icon v-if="configDraft.nxtFeatureFourthAxis" size="small" color="success" class="mr-2">
+                mdi-check-circle
+              </v-icon>
+            </div>
+          </v-expansion-panel-title>
+          <v-expansion-panel-text>
+            <v-alert type="info" density="compact" variant="outlined" class="mb-3">
+              <span class="text-caption">
+                Uses firmware flag <code>global.nxtFeatureFourthAxis</code>. On Scylla, board pack
+                loads <code>axis-a.g</code> (drive 3, <code>M584 A3 R1</code>) at the next boot with
+                board bootstrap. Install MosFourthAxis for A steps / <code>homea.g</code> / calibration macros.
+              </span>
+            </v-alert>
+            <v-switch
+              :model-value="configDraft.nxtFeatureFourthAxis"
+              label="Enable Fourth Axis Feature"
+              :disabled="uiFrozen"
+              @update:model-value="updateFeature('nxtFeatureFourthAxis', $event)"
+              hint="Save Configuration, then reboot so the board pack can map A."
+              persistent-hint
+              class="mt-0"
+            />
+          </v-expansion-panel-text>
         </v-expansion-panel>
 
         <!-- RGB / Work Light Configuration -->
         <v-expansion-panel v-if="rgbHardwareConfigured">
-          <v-expansion-panel-header>
+          <v-expansion-panel-title>
             <div>
-              <v-icon left>mdi-lightbulb-on</v-icon>
+              <v-icon class="mr-2">mdi-lightbulb-on</v-icon>
               <strong>{{ $t('plugins.nxt.panels.configuration.rgbLight') }}</strong>
               <v-spacer />
-              <v-icon v-if="configDraft.nxtFeatureRgbLight" small color="success" class="mr-2">
+              <v-icon v-if="configDraft.nxtFeatureRgbLight" size="small" color="success" class="mr-2">
                 mdi-check-circle
               </v-icon>
             </div>
-          </v-expansion-panel-header>
-          <v-expansion-panel-content>
+          </v-expansion-panel-title>
+          <v-expansion-panel-text>
             <v-row>
               <v-col cols="12" md="4">
                 <v-select
-                  :value="configDraft.nxtRgbLedIndex"
+                  :model-value="configDraft.nxtRgbLedIndex"
                   :items="rgbLedSelectItems"
-                  item-text="text"
+                  item-title="text"
                   item-value="value"
                   :label="$t('plugins.nxt.panels.configuration.rgbLedIndex')"
                   :disabled="uiFrozen"
-                  @input="onConfigDraftSelect('nxtRgbLedIndex', $event)"
+                  @update:model-value="onConfigDraftSelect('nxtRgbLedIndex', $event)"
                   :hint="$t('plugins.nxt.panels.configuration.rgbLedIndexHint')"
                   persistent-hint
                 />
@@ -802,36 +1203,36 @@
             <v-row class="mt-2">
               <v-col cols="12">
                 <v-switch
-                  :input-value="configDraft.nxtFeatureRgbLight"
+                  :model-value="configDraft.nxtFeatureRgbLight"
                   :label="$t('plugins.nxt.panels.configuration.rgbFeatureEnable')"
                   :disabled="uiFrozen"
-                  @change="updateFeature('nxtFeatureRgbLight', $event)"
+                  @update:model-value="updateFeature('nxtFeatureRgbLight', $event)"
                   class="mt-0"
                 />
               </v-col>
             </v-row>
-          </v-expansion-panel-content>
+          </v-expansion-panel-text>
         </v-expansion-panel>
 
         <!-- nxt globals snapshot (read-only) -->
         <v-expansion-panel>
-          <v-expansion-panel-header>
+          <v-expansion-panel-title>
             <div>
-              <v-icon left>mdi-database-eye</v-icon>
+              <v-icon class="mr-2">mdi-database-eye</v-icon>
               <strong>{{ $t('plugins.nxt.panels.configuration.globalsSnapshotTitle') }}</strong>
             </div>
-          </v-expansion-panel-header>
-          <v-expansion-panel-content>
-            <p class="body-2 grey--text text--darken-1 mb-3">
+          </v-expansion-panel-title>
+          <v-expansion-panel-text>
+            <p class="body-2 text-grey-darken-1 mb-3">
               {{ $t('plugins.nxt.panels.configuration.globalsSnapshotIntro') }}
             </p>
             <div class="d-flex flex-wrap mb-2" style="gap: 8px">
-              <v-btn small outlined color="primary" :disabled="!isConnected" @click="copyNxtGlobalsSnapshot">
-                <v-icon small left>mdi-content-copy</v-icon>
+              <v-btn size="small" variant="outlined" color="primary" :disabled="!isConnected" @click="copyNxtGlobalsSnapshot">
+                <v-icon class="mr-2" size="small">mdi-content-copy</v-icon>
                 {{ $t('plugins.nxt.panels.configuration.globalsSnapshotCopy') }}
               </v-btn>
             </div>
-            <v-simple-table dense class="nxt-globals-snapshot-table">
+            <v-table density="compact" class="nxt-globals-snapshot-table">
               <template #default>
                 <thead>
                   <tr>
@@ -852,8 +1253,8 @@
                   </tr>
                 </tbody>
               </template>
-            </v-simple-table>
-          </v-expansion-panel-content>
+            </v-table>
+          </v-expansion-panel-text>
         </v-expansion-panel>
       </v-expansion-panels>
 
@@ -866,7 +1267,7 @@
             :disabled="uiFrozen || !configurationUiAllowed"
             :loading="saving"
           >
-            <v-icon left>mdi-content-save</v-icon>
+            <v-icon class="mr-2">mdi-content-save</v-icon>
             Save Configuration
           </v-btn>
           <v-btn
@@ -876,7 +1277,7 @@
             :disabled="uiFrozen || !configurationUiAllowed"
             :loading="loading"
           >
-            <v-icon left>mdi-refresh</v-icon>
+            <v-icon class="mr-2">mdi-refresh</v-icon>
             Reload
           </v-btn>
         </v-col>
@@ -886,9 +1287,9 @@
       <v-alert
         v-if="statusMessage"
         :type="statusType"
-        dismissible
+        closable
         class="mt-4"
-        @input="statusMessage = ''"
+        @update:model-value="statusMessage = ''"
       >
         {{ statusMessage }}
       </v-alert>
@@ -936,7 +1337,7 @@
     </v-card>
   </template>
 <script lang="ts">
-import BaseComponent from '../base/BaseComponent.vue'
+import { defineNxtComponent } from '../base/BaseComponent.vue'
 import { snapshotNxtGlobals } from '../../utils/nxtGlobalsManifest'
 import {
   NXT_PLATFORM_OPTIONS,
@@ -944,11 +1345,22 @@ import {
   nxtBoardPackRelPath,
   bundledBoardMeta,
   migrateLegacyBoardKitKey,
+  migratePlatformProfileId,
   gpOutItemsForBoard,
+  gpOutRoleLabelForId,
+  probeSelectItemsForBoard,
+  probeRoleLabelForId,
+  probePinLiteralForIndex,
+  resolveProbeM558Type,
+  buildProbeM558PinCommand,
+  NXT_GPOUT_ROLE_KEYS,
+  NXT_PROBE_ROLE_KEYS,
   platformStructureSummary,
   NXT_SCYLLA_MOTOR_VOLTAGE_ITEMS,
+  endstopPinItemsForBoard,
   type NxtPlatformId,
-  type GpOutItem
+  type GpOutItem,
+  type ProbeSelectItem
 } from '../../utils/nxtBoardManifest'
 import { deployPlatformSysFiles } from '../../utils/nxtBoardSysDeploy'
 import { nxtPlatformFromManifest } from '../../utils/nxtConfigManifestData'
@@ -969,6 +1381,13 @@ import {
   snapshotConfigFromOm,
   type NxtUserConfigDraft
 } from '../../utils/nxtUserVarsPersistence'
+import {
+  buildCustomPackFiles,
+  formatDriveDirs,
+  parseDriveDirs,
+  parseDriveList,
+  validateCustomMachineDraft
+} from '../../utils/nxtCustomPackGenerate'
 import { readFirmwareGlobal } from '../../utils/nxtToolChangerOm'
 import {
   countOmLeds,
@@ -989,7 +1408,7 @@ import {
  * Allows configuration of all nxt settings including features, spindle,
  * touch probe, tool setter, and coolant control.
  */
-export default BaseComponent.extend({
+export default defineNxtComponent({
   name: 'NxtConfigurationPanel',
 
   data() {
@@ -1011,6 +1430,8 @@ export default BaseComponent.extend({
 
       // Spindle test state
       spindleTesting: false,
+      // Coolant / relay hold-to-test (M42)
+      gpOutTestingKey: null as string | null,
 
       // Tool setter position editing
       toolSetterPosEdit: {
@@ -1283,15 +1704,66 @@ export default BaseComponent.extend({
       return 'Required: At least one coolant output (Air, Mist, or Flood)'
     },
 
+    /**
+     * True when the motor/VFD relay output is configured (draft or OM).
+     */
+    coolantRelayReserved(): boolean {
+      const draftId = this.configDraft.nxtRelayID
+      if (typeof draftId === 'number' && draftId >= 0) {
+        return true
+      }
+      const relayId = readFirmwareGlobal(this.$store.state.machine.model.global, 'nxtRelayID')
+      return typeof relayId === 'number' && relayId >= 0
+    },
+
+    isCustomPlatform(): boolean {
+      return this.configDraft.nxtPlatformProfile === 'custom'
+    },
+
+    customAxisLetters(): Array<'X' | 'Y' | 'Z'> {
+      return ['X', 'Y', 'Z']
+    },
+
+    customHomeAtItems(): Array<{ value: number; title: string }> {
+      return [
+        { value: 1, title: 'Min (home negative)' },
+        { value: 2, title: 'Max (home positive)' }
+      ]
+    },
+
+    customDriveDirItems(): Array<{ value: number; title: string }> {
+      return [
+        { value: 1, title: 'Forward (S1)' },
+        { value: 0, title: 'Reverse (S0)' }
+      ]
+    },
+
+    customEndstopPinItems(): Array<{ value: string; title: string }> {
+      return endstopPinItemsForBoard(this.resolvedBoardShortNameForPack)
+    },
+
+    customMappedDriveIndices(): number[] {
+      const d = this.configDraft
+      const all = [
+        ...parseDriveList(d.nxtCustomXDrives),
+        ...parseDriveList(d.nxtCustomYDrives),
+        ...parseDriveList(d.nxtCustomZDrives)
+      ]
+      return Array.from(new Set(all)).sort((a, b) => a - b)
+    },
+
     coolantPulseTimingConfigurable(): boolean {
       const d = this.configDraft
       return d.nxtCoolantMistPulseEnabled || d.nxtCoolantFloodPulseEnabled
     },
 
     rgbHardwareConfigured(): boolean {
+      const g = this.$store.state.machine.model.global
       return isRgbLightHardwareConfigured({
         leds: readOmLedsFromMachineModel(this.$store.state.machine.model),
-        boardShortName: this.resolvedBoardShortNameForPack
+        boardShortName: this.resolvedBoardShortNameForPack,
+        rgbPin: readFirmwareGlobal(g, 'nxtRGBPin'),
+        rgbReady: readFirmwareGlobal(g, 'nxtRGBReady')
       })
     },
 
@@ -1437,10 +1909,73 @@ export default BaseComponent.extend({
     },
 
     boardKitGpOutputs(): GpOutItem[] {
-      const lim = this.$store.state.machine.model.limits as { gpOutPorts?: number } | undefined
-      const n = lim?.gpOutPorts
-      const maxPorts = typeof n === 'number' && n > 0 ? n : 8
-      return gpOutItemsForBoard(this.resolvedBoardShortNameForPack, maxPorts)
+      return this.gpOutItemsForRole(null)
+    },
+
+    gpOutOccupancy() {
+      const d = this.configDraft
+      return {
+        nxtRelayID: d.nxtRelayID,
+        nxtAux1ID: d.nxtAux1ID,
+        nxtAux2ID: d.nxtAux2ID,
+        nxtAux3ID: d.nxtAux3ID,
+        nxtCoolantAirID: d.nxtCoolantAirID,
+        nxtCoolantMistID: d.nxtCoolantMistID,
+        nxtCoolantFloodID: d.nxtCoolantFloodID
+      }
+    },
+
+    probeOccupancy() {
+      return {
+        nxtTouchProbeID: this.configDraft.nxtTouchProbeID,
+        nxtToolSetterID: this.configDraft.nxtToolSetterID
+      }
+    },
+
+    /** All OM probe slots (unfiltered) for pinmap enrichment. */
+    omProbesForPinSelect(): Array<{ id: number; type: number }> {
+      const probes = this.$store.state.machine.model.sensors?.probes || []
+      return probes.map((probe: any, index: number) => ({
+        id: index,
+        type: typeof probe?.type === 'number' ? probe.type : 0
+      }))
+    },
+
+    touchProbeSelectItems(): ProbeSelectItem[] {
+      return probeSelectItemsForBoard(
+        this.resolvedBoardShortNameForPack,
+        this.omProbesForPinSelect,
+        this.probeOccupancy,
+        { currentRoleKey: 'nxtTouchProbeID' }
+      ).map((item) => ({
+        ...item,
+        props: { disabled: Boolean(item.disabled) }
+      })) as ProbeSelectItem[]
+    },
+
+    toolSetterSelectItems(): ProbeSelectItem[] {
+      return probeSelectItemsForBoard(
+        this.resolvedBoardShortNameForPack,
+        this.omProbesForPinSelect,
+        this.probeOccupancy,
+        { currentRoleKey: 'nxtToolSetterID' }
+      ).map((item) => ({
+        ...item,
+        props: { disabled: Boolean(item.disabled) }
+      })) as ProbeSelectItem[]
+    },
+
+    gpOutTestRows(): Array<{ key: string; label: string; id: number | null }> {
+      const d = this.configDraft
+      return [
+        { key: 'nxtRelayID', label: 'Relay', id: d.nxtRelayID },
+        { key: 'nxtAux1ID', label: 'Aux 1', id: d.nxtAux1ID },
+        { key: 'nxtAux2ID', label: 'Aux 2', id: d.nxtAux2ID },
+        { key: 'nxtAux3ID', label: 'Aux 3', id: d.nxtAux3ID },
+        { key: 'nxtCoolantAirID', label: 'Air', id: d.nxtCoolantAirID },
+        { key: 'nxtCoolantMistID', label: 'Mist', id: d.nxtCoolantMistID },
+        { key: 'nxtCoolantFloodID', label: 'Flood', id: d.nxtCoolantFloodID }
+      ]
     },
 
     nxtGlobalsSnapshotRows() {
@@ -1474,8 +2009,156 @@ export default BaseComponent.extend({
 
     async onConfigDraftSelect(key: keyof NxtUserConfigDraft, value: unknown) {
       const v = value === undefined || value === '' ? null : value
+      if (
+        (NXT_GPOUT_ROLE_KEYS as readonly string[]).includes(String(key)) &&
+        v !== null &&
+        typeof v === 'number'
+      ) {
+        const occupancy = this.gpOutOccupancy
+        for (const other of NXT_GPOUT_ROLE_KEYS) {
+          if (other === key) {
+            continue
+          }
+          if (occupancy[other] === v) {
+            const role = gpOutRoleLabelForId(v, occupancy) ?? other
+            this.showStatus(
+              (this as any).$t('plugins.nxt.panels.configuration.outputRoleConflict', {
+                id: v,
+                role
+              }),
+              'error'
+            )
+            return
+          }
+        }
+      }
+      if (
+        (NXT_PROBE_ROLE_KEYS as readonly string[]).includes(String(key)) &&
+        v !== null &&
+        typeof v === 'number'
+      ) {
+        const occupancy = this.probeOccupancy
+        for (const other of NXT_PROBE_ROLE_KEYS) {
+          if (other === key) {
+            continue
+          }
+          if (occupancy[other] === v) {
+            const role = probeRoleLabelForId(v, occupancy) ?? other
+            this.showStatus(
+              (this as any).$t('plugins.nxt.panels.configuration.outputRoleConflict', {
+                id: v,
+                role
+              }),
+              'error'
+            )
+            return
+          }
+        }
+      }
       ;(this.configDraft as Record<string, unknown>)[key] = v
       await this.updateVariable(String(key), v)
+      if (key === 'nxtTouchProbeID' && typeof v === 'number') {
+        await this.applyProbePinPolarity(v, this.configDraft.nxtTouchProbeInvert, 'touch')
+      }
+      if (key === 'nxtToolSetterID' && typeof v === 'number') {
+        await this.applyProbePinPolarity(v, this.configDraft.nxtToolSetterInvert, 'toolsetter')
+      }
+    },
+
+    gpOutItemsForRole(roleKey: (typeof NXT_GPOUT_ROLE_KEYS)[number] | null): Array<
+      GpOutItem & { props?: { disabled?: boolean } }
+    > {
+      const lim = this.$store.state.machine.model.limits as { gpOutPorts?: number } | undefined
+      const n = lim?.gpOutPorts
+      const maxPorts = typeof n === 'number' && n > 0 ? n : 8
+      return gpOutItemsForBoard(
+        this.resolvedBoardShortNameForPack,
+        maxPorts,
+        this.gpOutOccupancy,
+        { currentRoleKey: roleKey, motorVoltage: this.resolvedMotorVoltageForPack }
+      ).map((item) => ({
+        ...item,
+        props: { disabled: Boolean(item.disabled) }
+      }))
+    },
+
+    probeSelectItemRaw(
+      item: unknown
+    ): { id?: number; type?: number; disabled?: boolean; pinLabel?: string; name?: string; props?: { disabled?: boolean } } | null {
+      if (item == null || typeof item !== 'object') {
+        return null
+      }
+      const slotItem = item as {
+        raw?: { id?: number; type?: number; disabled?: boolean; pinLabel?: string; name?: string; props?: { disabled?: boolean } }
+        props?: { disabled?: boolean }
+        title?: string
+        id?: number
+        name?: string
+        type?: number
+        disabled?: boolean
+        pinLabel?: string
+      }
+      if (slotItem.raw != null && typeof slotItem.raw === 'object') {
+        return slotItem.raw
+      }
+      // Vuetify may pass the ProbeSelectItem itself as `item`.
+      if (typeof slotItem.id === 'number' && (typeof slotItem.name === 'string' || typeof slotItem.title === 'string')) {
+        return {
+          id: slotItem.id,
+          name: slotItem.name ?? slotItem.title,
+          type: slotItem.type,
+          disabled: slotItem.disabled,
+          pinLabel: slotItem.pinLabel,
+          props: slotItem.props
+        }
+      }
+      return null
+    },
+
+    probeSelectItemDisabled(item: unknown): boolean {
+      const raw = this.probeSelectItemRaw(item)
+      if (raw?.disabled) {
+        return true
+      }
+      if (item != null && typeof item === 'object') {
+        const slotItem = item as { props?: { disabled?: boolean } }
+        return Boolean(slotItem.props?.disabled)
+      }
+      return false
+    },
+
+    probeSelectItemTitle(item: unknown): string {
+      const raw = this.probeSelectItemRaw(item)
+      if (raw?.name) {
+        return raw.name
+      }
+      if (item != null && typeof item === 'object') {
+        const slotItem = item as { title?: string; name?: string }
+        if (typeof slotItem.title === 'string' && slotItem.title.length > 0) {
+          return slotItem.title
+        }
+        if (typeof slotItem.name === 'string' && slotItem.name.length > 0) {
+          return slotItem.name
+        }
+      }
+      return ''
+    },
+
+    probeItemSubtitle(raw: { id?: number; type?: number; disabled?: boolean; pinLabel?: string } | null | undefined): string {
+      if (raw == null) {
+        return ''
+      }
+      const parts: string[] = []
+      if (typeof raw.id === 'number') {
+        parts.push(`Sensor ${raw.id}`)
+      }
+      if (typeof raw.type === 'number' && raw.type > 0) {
+        parts.push(`type ${raw.type}`)
+      }
+      if (raw.disabled) {
+        parts.push('already assigned')
+      }
+      return parts.join(' · ')
     },
 
     async onConfigDraftNumber(key: keyof NxtUserConfigDraft, raw: string | number | null) {
@@ -1486,6 +2169,64 @@ export default BaseComponent.extend({
       }
       ;(this.configDraft as Record<string, unknown>)[key] = v
       await this.updateVariable(String(key), v)
+    },
+
+    customEndstopPinKey(axis: 'X' | 'Y' | 'Z'): keyof NxtUserConfigDraft {
+      return (`nxtCustom${axis}EndstopPin` as keyof NxtUserConfigDraft)
+    },
+
+    customHomeAtKey(axis: 'X' | 'Y' | 'Z'): keyof NxtUserConfigDraft {
+      return (`nxtCustom${axis}HomeAt` as keyof NxtUserConfigDraft)
+    },
+
+    customDriveDirValue(drive: number): number {
+      const found = parseDriveDirs(this.configDraft.nxtCustomDriveDirs).find((e) => e.drive === drive)
+      return found?.dir ?? 1
+    },
+
+    async onCustomDriveDirChange(drive: number, raw: unknown) {
+      const dir = raw === 0 || raw === '0' ? 0 : 1
+      const map = new Map(parseDriveDirs(this.configDraft.nxtCustomDriveDirs).map((e) => [e.drive, e.dir]))
+      map.set(drive, dir as 0 | 1)
+      for (const d of this.customMappedDriveIndices) {
+        if (!map.has(d)) map.set(d, 1)
+      }
+      const entries = Array.from(map.entries()).map(([d, s]) => ({ drive: d, dir: s as 0 | 1 }))
+      const compact = formatDriveDirs(entries)
+      this.configDraft.nxtCustomDriveDirs = compact
+      await this.updateVariable('nxtCustomDriveDirs', compact)
+    },
+
+    async onConfigDraftString(key: keyof NxtUserConfigDraft, raw: unknown) {
+      const s =
+        raw === null || raw === undefined || raw === ''
+          ? null
+          : String(raw).trim() || null
+      ;(this.configDraft as Record<string, unknown>)[key] = s
+      await this.updateVariable(String(key), s)
+      if (
+        key === 'nxtCustomXDrives' ||
+        key === 'nxtCustomYDrives' ||
+        key === 'nxtCustomZDrives'
+      ) {
+        await this.syncCustomDriveDirsWithMap()
+      }
+    },
+
+    async syncCustomDriveDirsWithMap() {
+      const mapped = this.customMappedDriveIndices
+      if (!mapped.length) {
+        this.configDraft.nxtCustomDriveDirs = null
+        await this.updateVariable('nxtCustomDriveDirs', null)
+        return
+      }
+      const existing = new Map(
+        parseDriveDirs(this.configDraft.nxtCustomDriveDirs).map((e) => [e.drive, e.dir] as const)
+      )
+      const entries = mapped.map((d: number) => ({ drive: d, dir: (existing.get(d) ?? 1) as 0 | 1 }))
+      const compact = formatDriveDirs(entries)
+      this.configDraft.nxtCustomDriveDirs = compact
+      await this.updateVariable('nxtCustomDriveDirs', compact)
     },
 
     async onConfigDraftPulseSec(key: 'nxtCoolantPulseOnSec' | 'nxtCoolantPulseOffSec', raw: string | number | null) {
@@ -1566,8 +2307,11 @@ export default BaseComponent.extend({
 
     async onPlatformProfileChange(value: NxtPlatformId | null) {
       const previous = this.configDraft.nxtPlatformProfile
-      this.configDraft.nxtPlatformProfile = value
-      await this.updateVariable('nxtPlatformProfile', value)
+      const migrated = migratePlatformProfileId(value)
+      this.configDraft.nxtPlatformProfile = migrated
+      await this.updateVariable('nxtPlatformProfile', migrated)
+      value = migrated
+
       if (value != null && value !== '' && value !== previous) {
         const plat = nxtPlatformFromManifest(value)
         if (plat?.hasCommonDeploy && plat.sysDeployFiles.length > 0) {
@@ -1604,7 +2348,30 @@ export default BaseComponent.extend({
     async runDeployPlatformSysFiles(platformId: string) {
       this.sysDeploying = true
       try {
-        const written = await deployPlatformSysFiles(platformId)
+        let options: Parameters<typeof deployPlatformSysFiles>[1]
+        if (platformId === 'custom') {
+          const errs = validateCustomMachineDraft(this.configDraft)
+          if (errs.length) {
+            this.showStatus(errs.join('; '), 'error')
+            return
+          }
+          const packFiles = buildCustomPackFiles(this.configDraft)
+          const homeNames = ['homex.g', 'homey.g', 'homez.g', 'homeall.g']
+          const generatedHomes: Record<string, string> = {}
+          const overlays: Record<string, string> = {}
+          for (const [name, body] of Object.entries(packFiles)) {
+            if (homeNames.includes(name)) {
+              generatedHomes[name] = body
+            } else {
+              overlays[name] = body
+            }
+          }
+          options = {
+            generatedContents: generatedHomes,
+            packOverlayContents: overlays
+          }
+        }
+        const written = await deployPlatformSysFiles(platformId, options)
         this.configDraft.nxtBoardSysDeployPlatform = platformId
         await this.updateVariable('nxtBoardSysDeployPlatform', platformId)
         const msg = (this as any).$t('plugins.nxt.panels.configuration.boardDeploySuccess', {
@@ -1774,6 +2541,13 @@ export default BaseComponent.extend({
         if (!this.rgbHardwareConfigured) {
           this.configDraft.nxtFeatureRgbLight = false
         }
+        if (this.isCustomPlatform) {
+          const errs = validateCustomMachineDraft(this.configDraft)
+          if (errs.length) {
+            this.showStatus(errs.join('; '), 'error')
+            return
+          }
+        }
         const bootMode = this.configDraft.nxtBoardBootstrapMode === 'auto' ? 'auto' : 'off'
         const content = buildNxtUserVarsGcode(this.configDraft)
         await uploadDwcFile(NXT_USER_VARS_DWC_PATH, content)
@@ -1782,8 +2556,28 @@ export default BaseComponent.extend({
           await this.runBoardStateChecks()
         }
 
+        let extra = ''
+        if (this.isCustomPlatform && this.isConnected) {
+          const packFiles = buildCustomPackFiles(this.configDraft)
+          const homeNames = ['homex.g', 'homey.g', 'homez.g', 'homeall.g']
+          const generatedHomes: Record<string, string> = {}
+          const overlays: Record<string, string> = {}
+          for (const [name, body] of Object.entries(packFiles)) {
+            if (homeNames.includes(name)) {
+              generatedHomes[name] = body
+            } else {
+              overlays[name] = body
+            }
+          }
+          const written = await deployPlatformSysFiles('custom', {
+            generatedContents: generatedHomes,
+            packOverlayContents: overlays
+          })
+          extra = ` Custom pack + homing updated (${written.length} files).`
+        }
+
         this.showStatus(
-          `Configuration saved to ${NXT_USER_VARS_DWC_PATH} and bootstrap files synced (${bootMode}). Reload or reboot to apply.`,
+          `Configuration saved to ${NXT_USER_VARS_DWC_PATH} and bootstrap files synced (${bootMode}).${extra} Reload or reboot to apply.`,
           'success'
         )
       } catch (error: any) {
@@ -1831,6 +2625,94 @@ export default BaseComponent.extend({
       } catch (error) {
         console.error('nxt: Spindle stop failed', error)
         this.showStatus('Failed to stop spindle', 'error')
+      }
+    },
+
+    async onProbeInvertChange(
+      key: 'nxtTouchProbeInvert' | 'nxtToolSetterInvert',
+      raw: unknown
+    ) {
+      const invert = raw === true || raw === 1
+      ;(this.configDraft as Record<string, unknown>)[key] = invert
+      await this.updateVariable(key, invert)
+      const probeId =
+        key === 'nxtTouchProbeInvert'
+          ? this.configDraft.nxtTouchProbeID
+          : this.configDraft.nxtToolSetterID
+      await this.applyProbePinPolarity(
+        probeId,
+        invert,
+        key === 'nxtTouchProbeInvert' ? 'touch' : 'toolsetter'
+      )
+    },
+
+    async applyProbePinPolarity(
+      probeId: number | null,
+      invert: boolean,
+      roleHint?: 'touch' | 'toolsetter' | null
+    ) {
+      if (probeId === null || !this.isConnected) {
+        return
+      }
+      const pin = probePinLiteralForIndex(this.resolvedBoardShortNameForPack, probeId)
+      if (pin == null) {
+        this.showStatus(
+          `Probe ${probeId}: invert saved, but no pinmap pin to apply M558`,
+          'warning'
+        )
+        return
+      }
+      const om = getProbeByIndex(this.$store.state.machine.model.sensors?.probes, probeId)
+      const omType = typeof om?.type === 'number' ? om.type : null
+      const type = resolveProbeM558Type(omType, probeId, roleHint ?? null)
+      // RRF requires P (type) on M558 — C alone fails with "Missing Z probe type number".
+      const cmd = buildProbeM558PinCommand({ probeId, pinLiteral: pin, invert, type })
+      try {
+        await this.sendCode(cmd)
+        this.showStatus(`Probe ${probeId}: ${cmd}`, 'success')
+      } catch (e) {
+        console.error('nxt: M558 pin polarity failed', e)
+        this.showStatus(`Failed to apply ${cmd}`, 'error')
+      }
+    },
+
+    async startGpOutTest(key: string, id: number | null) {
+      if (id === null || this.uiFrozen || !this.isConnected) {
+        return
+      }
+      if (this.gpOutTestingKey != null) {
+        await this.stopGpOutTest()
+      }
+      this.gpOutTestingKey = key
+      try {
+        await this.sendCode(`M42 P${id} S1`)
+        this.showStatus(`Output ${id} ON (release to turn off)`, 'info')
+      } catch (e) {
+        console.error('nxt: gpOut test start failed', e)
+        this.gpOutTestingKey = null
+        this.showStatus(`Failed to energize output ${id}`, 'error')
+      }
+    },
+
+    async stopGpOutTest() {
+      const key = this.gpOutTestingKey
+      if (key == null) {
+        return
+      }
+      this.gpOutTestingKey = null
+      const row = this.gpOutTestRows.find(
+        (r: { key: string; label: string; id: number | null }) => r.key === key
+      )
+      const id = row?.id
+      if (id == null) {
+        return
+      }
+      try {
+        await this.sendCode(`M42 P${id} S0`)
+        this.showStatus(`Output ${id} OFF`, 'success')
+      } catch (e) {
+        console.error('nxt: gpOut test stop failed', e)
+        this.showStatus(`Failed to de-energize output ${id}`, 'error')
       }
     },
 
@@ -1969,12 +2851,17 @@ export default BaseComponent.extend({
     },
 
     /**
-     * Navigate to calibration page (placeholder for future implementation)
+     * Switch to the Calibration tab on the main nxt dashboard.
      */
     navigateToCalibration() {
-      this.showStatus('Calibration page will be implemented in a future update.', 'info')
-      // TODO: Navigate to calibration page when implemented
-      // this.$router.push('/nxt/calibration')
+      try {
+        if (this.$router && this.$route?.path && !String(this.$route.path).startsWith('/nxt')) {
+          void this.$router.push({ path: '/nxt', query: { tab: 'calibration' } })
+        }
+      } catch {
+        /* ignore router errors */
+      }
+      window.dispatchEvent(new CustomEvent('nxt-goto-calibration'))
     },
 
     /**
@@ -2046,7 +2933,7 @@ export default BaseComponent.extend({
 </script>
 
 <style scoped>
-.v-expansion-panel-content >>> .v-expansion-panel-content__wrap {
+.v-expansion-panel-text :deep(.v-expansion-panel-text__wrap) {
   padding-top: 16px;
 }
 .nxt-globals-snapshot-table .nxt-globals-snapshot-value {

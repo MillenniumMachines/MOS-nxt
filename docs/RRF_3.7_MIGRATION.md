@@ -49,20 +49,25 @@ config.g → M98 P"nxt.g"
        → else: M98 P"nxt-config/machine/<profile>/network-default.g"
 ```
 
-**Vendored defaults** ([`network-default.g`](../macros/nxt-config/machine/v1.5/network-default.g) for `v1.5` and `v1.6_v2`) already include:
+**Vendored defaults** ([`network-default.g`](../macros/nxt-config/machine/v1.5/network-default.g) for `v1.5`, `v1.6`, `v2.0`, and `custom`) already include (standalone only):
 
 ```gcode
-M552 S2       ; WiFi AP mode
-M586 P0 S1    ; HTTP enabled (required on RRF 3.7+)
-M586 P1 S0    ; FTP disabled
+if { exists(sbc) }
+    M99           ; SBC: DSF owns networking — skip M552/M586
+M552 S2           ; WiFi AP mode
+M586 P0 S1        ; HTTP enabled (required on RRF 3.7+)
+M586 P1 S0        ; FTP disabled
 ```
+
+On **SBC mode**, `M552`/`M586` in `config.g` / machine packs error (networking is on the Pi via DSF). The default file detects `exists(sbc)` and returns without those codes. Configure the Pi hostname/network via DuetPi / `dsf-config.g` instead.
 
 Board packs (`cdy3_f4`, Scylla, etc.) do **not** configure network.
 
 | Install path | HTTP on 3.7? | Action |
 |--------------|--------------|--------|
-| Milo + bootstrap Auto + **no** `0:/sys/network.g` | Covered by `network-default.g` | None if machine pack loads at boot |
-| User has **`0:/sys/network.g`** on SD | Unknown — overrides default | Audit/add `M586 P0 S1` (and `M586 P2` if using HTTPS) in **your** `network.g` |
+| Milo + bootstrap Auto + **no** `0:/sys/network.g` (standalone) | Covered by `network-default.g` | None if machine pack loads at boot |
+| **SBC mode** (DSF) | Served by DSF on the Pi | `network-default.g` skips `M552`/`M586`; do not put them in `config.g` |
+| User has **`0:/sys/network.g`** on SD | Unknown — overrides default | Audit/add `M586 P0 S1` (and `M586 P2` if using HTTPS) in **your** `network.g` (standalone only) |
 | Bootstrap skipped (`nxt-board-bootstrap.skip` or never requested) | Machine pack (and `network-default.g`) not loaded | Enable HTTP in `config.g`, `network.g`, or `user-config.g` |
 | Ethernet-only (no WiFi AP) | Custom setup | Custom `network.g` with appropriate `M552`/`M586` — still need explicit `M586 P0 S1` on 3.7 |
 
@@ -156,6 +161,8 @@ RRF 3.7 prefers `[a, b, c]`; `{ }` still works.
 Shipped ZIPs set **exact** `dwcVersion` at build (`ui/plugin.json` `dwcVersion: "auto"`).
 
 - A **3.6.x-built ZIP will not load** on a **3.7.x** DWC host. See [PLUGIN_LOAD_TROUBLESHOOTING.md](PLUGIN_LOAD_TROUBLESHOOTING.md).
+- DWC **3.7** builds plugins with **Vite** (IIFE + flat `dwc/js|css`, filenames `nxt-<hash>.*`). nxt `dist/build-plugin.sh` / `release.sh` detect Vite vs webpack and no longer require the old webpack chunk-filter patch for 3.7.
+- **Build host Node:** DWC 3.7 `rolldown` requires **Node ^20.19 or ≥22.12** (22 LTS recommended). Ubuntu/system **Node 18** fails with `styleText` missing from `node:util`. Run `./dist/check-node-for-dwc-build.sh` (also invoked by `build-plugin.sh`).
 - Build on branch `v0.7.0` against the pin in [`ci/dwc-build-ref`](../ci/dwc-build-ref):
 
 ```bash
@@ -164,9 +171,15 @@ Shipped ZIPs set **exact** `dwcVersion` at build (`ui/plugin.json` `dwcVersion: 
 ./dist/build-plugin.sh ./dwc-build
 ```
 
+**UI port status:** nxt UI on `v0.7.0` uses Vue 3 / Pinia via `ui/src/compat/dwcStore.ts` and `@/plugins` registration (`registerRoute`, `registerPluginMessages`). Treat remaining Options-API / Vuetify polish as follow-ups, not a blocker for ZIP packaging.
+
 Host DWC patch must match the ZIP’s `plugin.json` `dwcVersion` **exactly** (e.g. `3.7.0-beta.1`).
 
 `rrfVersion: "auto-major"` accepts **3.7.*** RRF once the plugin matches DWC.
+
+### ArborCTL (optional sibling plugin)
+
+ArborCTL is listed in [`dist/plugins.catalog.json`](../dist/plugins.catalog.json) (`../ArborCTL`). Install the **ArborCTL** DWC ZIP (built against the same DWC 3.7 pin) so `0:/sys/plugins/arborctl/*` and `0:/sys/arborctl/` exist. Spindle polling runs via the generated daemon dispatcher — not a hard-coded call in `daemon.g`.
 
 ---
 
@@ -179,7 +192,25 @@ Host DWC patch must match the ZIP’s `plugin.json` `dwcVersion` **exactly** (e.
 | [RRF_REFERENCE.md](RRF_REFERENCE.md) | Evaluation RRF 3.7.x |
 | Probe result null guards + motion-system `M99` | ✅ in macros (see Meta G-code section above) |
 | Macro audit: `^` between arrays | Low priority grep — none found |
+| **Build Node ≥20.19 / ≥22.12** | ✅ gate: `dist/check-node-for-dwc-build.sh` (Node 18 → `styleText` failure) |
+| **DWC Vite plugin builder** | ✅ `detect-dwc-plugin-builder.mjs` + staging-dir ZIP path |
+| **Vue 3 / Pinia UI registration** | ✅ `@/plugins` + `compat/dwcStore` (not Vue 2 `@/store` / `@/routes`) |
+| **Exact `dwcVersion` ZIP** | Rebuild against pin; host must match exactly |
+| **RRF HTTP (`M586 P0 S1`)** | Required on 3.7 for DWC / config upload |
 | Hardware sign-off before release tag | Required per release gates |
+
+### 3.7 validation checklist (build + load)
+
+Use this when a local build fails or before tagging:
+
+- [ ] `which node` / `node -v` is **not** system Node 18 (`./dist/check-node-for-dwc-build.sh` exits 0)
+- [ ] Sibling DWC (or `./dwc-build`) matches `ci/dwc-build-ref` (`verify-dwc-build-alignment.sh`)
+- [ ] `node dist/check-gcode-line-length.mjs` exits 0
+- [ ] `./dist/build-plugin.sh ../DuetWebControl` exits 0 **without** `NXT_SKIP_DWC_TYPECHECK` (unless debugging packaging only)
+- [ ] ZIP `plugin.json` `dwcVersion` equals host DWC (e.g. `3.7.0-beta.1`)
+- [ ] Install ZIP → Start plugin → **Control → nxt** routes appear (Vue 3 registration)
+- [ ] Smoke: Tool Library / guided probing / RGB Save / Maintenance as applicable
+- [ ] Printer RRF is **3.7.x** with HTTP enabled
 
 ---
 
@@ -188,3 +219,4 @@ Host DWC patch must match the ZIP’s `plugin.json` `dwcVersion` **exactly** (e.
 - [VERSIONING.md](VERSIONING.md) — `v0.7.0` ↔ RRF 3.7 alignment
 - [RRF_REFERENCE.md](RRF_REFERENCE.md) — evaluation target on this branch
 - [NXT_BOARD_CONFIG.md](NXT_BOARD_CONFIG.md) — board/machine pack boot order
+- [LOCAL_PLUGIN_BUILD_AND_TEST.md](LOCAL_PLUGIN_BUILD_AND_TEST.md) — Node / Vite build layout

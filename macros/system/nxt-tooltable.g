@@ -1,9 +1,16 @@
-; nxt-tooltable.g — Allocate MillenniumOS-compatible tool table globals for M4000/M4001.
-; Loaded from nxt.g when mosTT is not already present (e.g. skipped if mos-vars.g ran for MOS import).
+; nxt-tooltable.g — Allocate nxt tool table globals for M4000/M4001.
+; Loaded from nxt.g when nxtTT is not already present.
 
-if { !exists(global.mosET) }
-    ; [0]=radius, [1]={probe X/Y deflection}, [2]=flute count (-1 unset), [3]=flute length mm (-1 unset)
-    global mosET = { 0.0, {0.0, 0.0}, -1, -1.0 }
+; Legacy MOS SD may still have mosTT/mosET — nxt-mos-globals-align.g copies them first on import.
+if { exists(global.mosTT) && !exists(global.nxtTT) }
+    global nxtTT = { global.mosTT }
+if { exists(global.mosET) && !exists(global.nxtET) }
+    global nxtET = { global.mosET }
 
-if { !exists(global.mosTT) }
-    global mosTT = { vector(limits.tools, global.mosET) }
+if { !exists(global.nxtET) }
+    ; Template for M4000 writes: [radius, {deflX,deflY}, flutes, fluteLen, tcCapable, tsCapable]
+    global nxtET = { 0.0, {0.0, 0.0}, -1, -1.0, 1, 1 }
+
+if { !exists(global.nxtTT) }
+    ; null-filled: empty slots stay null in the OM (keeps SBC global JSON under 8KB)
+    global nxtTT = { vector(limits.tools, null) }

@@ -118,6 +118,7 @@ Flags are in-memory and reset on reboot.
 
 ## Compatibility
 
-- Existing hooks (`arborctl-daemon.g`, `nxt-daemon.g`, `user-daemon.g`) remain valid.
-- Generated dispatchers add metadata-driven loading without removing legacy hooks.
+- **ArborCTL** (optional catalog plugin): spindle polling runs via `data.nxt` daemon entrypoint `plugins/arborctl/arborctl-daemon-hook.g` → `arborctl/arborctl-daemon.g`. Install the ArborCTL DWC ZIP (or stage sibling `../ArborCTL`) so entrypoints exist; `macros/system/daemon.g` no longer hard-codes a direct `arborctl-daemon.g` call (avoids double-polling).
+- Legacy standalone ArborCTL installs (no nxt) still use their own `daemon.g` → `arborctl-daemon.g`.
+- `nxt-daemon.g` and `user-daemon.g` remain valid.
 - Missing generated dispatcher files must not break core nxt startup.

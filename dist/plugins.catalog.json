@@ -11,6 +11,12 @@
       "repoPath": "../mos-atc",
       "manifestPath": "dwc-plugin/plugin.json",
       "required": false
+    },
+    {
+      "id": "ArborCTL",
+      "repoPath": "../ArborCTL",
+      "manifestPath": "dwc-plugin/plugin.json",
+      "required": false
     }
   ]
 }

@@ -1,0 +1,41 @@
+---
+description: Annotate Vue/TS callbacks for DWC vue-tsc — recurring Plugin type check failed
+globs:
+  - ui/**
+alwaysApply: true
+---
+
+# UI plugin typecheck (recurring — do this for every UI change)
+
+`./dist/build-plugin.sh` runs DWC’s **vue-tsc** on the staged plugin. Failures abort with:
+
+```text
+Plugin type check failed:
+… error TS7006: Parameter 'r' implicitly has an 'any' type.
+```
+
+This is a **recurring** failure mode when adding Configuration / panel / util UI. Treat type annotations as part of the feature, not a follow-up.
+
+## Mandatory habits in `ui/**/*.vue` and `ui/**/*.ts`
+
+1. **Annotate callback params** on `.map` / `.filter` / `.find` / `.reduce` / `.forEach` — Options API often loses inference from `this.*` under DWC `noImplicitAny`:
+
+   ```ts
+   // Bad — fails vue-tsc
+   this.gpOutTestRows.find((r) => r.key === key)
+
+   // Good
+   this.gpOutTestRows.find((r: { key: string; id: number | null }) => r.key === key)
+   ```
+
+2. **Do not** ship UI with `NXT_SKIP_DWC_TYPECHECK=1` (packaging smoke only).
+
+3. **Before claiming UI work done:** run `./dist/build-plugin.sh <DWC>` (or the same vue-tsc gate) and confirm exit 0.
+
+4. Prefer small typed helpers / explicit return types on computed arrays used in templates when callbacks keep going `any`.
+
+## Related
+
+- [docs/UI_DEVELOPMENT.md](../../docs/UI_DEVELOPMENT.md) — Plugin ZIP typecheck
+- [docs/LOCAL_PLUGIN_BUILD_AND_TEST.md](../../docs/LOCAL_PLUGIN_BUILD_AND_TEST.md) — after any `ui/` change
+- [plugin-ui-paths.mdc](plugin-ui-paths.mdc) — path + rebuild checklist

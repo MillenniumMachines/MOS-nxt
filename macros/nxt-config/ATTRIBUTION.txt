@@ -14,7 +14,7 @@ Sources:
 
 Review upstream license before redistribution; refresh vendored files when kits change.
 
-nxt on-SD layout (per platform v1.5 / v1.6_v2):
+nxt on-SD layout (per platform v1.5 / v1.6 / v2.0 / custom):
   boards/cdy3_f4/entry.g  (RRF boards[0].shortName cdy3_f4)
   boards/scylla1_0_h723/motor-24v/entry.g
   boards/scylla1_0_h723/motor-48v/entry.g

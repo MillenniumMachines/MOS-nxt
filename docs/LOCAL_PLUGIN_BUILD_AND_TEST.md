@@ -117,7 +117,7 @@ Add a new entry when integrating an external plugin into the main nxt build: `id
 | Tool | Purpose |
 |------|---------|
 | `git` | Version branches, tags, sibling repos |
-| `node` | **Node 20 LTS** recommended for DWC `npm ci` / webpack; macro checker runs on any supported Node |
+| `node` | **Node ^20.19 or ≥22.12** (Node **22 LTS** recommended) for DWC 3.7 Vite/`rolldown` `build-plugin`. System Node **18** fails with `styleText` missing from `node:util`. Macro checkers run on any supported Node. |
 | `jq` | `verify-dwc-build-alignment.sh`, manifest inspection |
 | `bash` | Build scripts |
 | `rsync` | Full `release.sh` only |
@@ -207,14 +207,27 @@ For **nxt core UI only**, follow [UI_DEVELOPMENT.md](UI_DEVELOPMENT.md) in full.
 
 ### B. Production plugin ZIP (install test)
 
-From the **MOS-nxt repo root** (builds core nxt plugin + staged nxt macros):
+From the **MOS-nxt repo root** (builds core nxt plugin + staged nxt macros). DWC **3.7+** uses the Vite external-plugin builder (`npm run build-plugin <staging-dir>` → ZIP next to staging). Scripts auto-detect Vite vs webpack.
 
 ```bash
 ./dist/verify-dwc-build-alignment.sh ../DuetWebControl
+./dist/check-node-for-dwc-build.sh   # fails early on Node 18 / styleText
 ./dist/build-plugin.sh ../DuetWebControl
 ```
 
-Output: `dist/nxt-<ref>-<sha>[-dirty].zip` (local branch builds) or `dist/nxt-<version>.zip` (tag/release resolution).
+If `which node` is still system Node 18, install Node 22 LTS (nvm/fnm/nodesource) or:
+
+```bash
+NODE_BIN=/path/to/node22 ./dist/build-plugin.sh ../DuetWebControl
+```
+
+The nxt UI on branch `v0.7.0` is already on the DWC **3.7** stack (Vue 3 / Pinia / `@/plugins` registration via `compat/dwcStore`). Prefer a normal build (no typecheck skip). `NXT_SKIP_DWC_TYPECHECK=1` remains only as an emergency packaging escape hatch.
+
+**After any `ui/` change:** run a full `./dist/build-plugin.sh` (or at least confirm the DWC Vite **vue-tsc** gate passes). Implicit `any` parameters, untyped map callbacks, and unsafe index access fail with `Plugin type check failed` and abort the ZIP. Do not treat a packaging-only skip as done for UI work.
+
+In Vue SFCs (Options API), annotate callback parameters explicitly — DWC’s check often cannot infer element types from `this.someArray.map((n) => …)`; write `(n: number) => …` instead. This is a **recurring** failure; see [.cursor/rules/ui-plugin-typecheck.mdc](../.cursor/rules/ui-plugin-typecheck.mdc).
+
+Output: `dist/nxt-<ref>-<sha>[-dirty].zip` (local branch builds) or `dist/nxt-<version>.zip` (tag/release resolution). Vite assets are `dwc/js/nxt-<hash>.js` (hyphen), not the webpack-era `nxt.<hash>.js`.
 
 Verify the ZIP before installing:
 

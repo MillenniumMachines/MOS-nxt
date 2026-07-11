@@ -146,6 +146,41 @@ while IFS= read -r plugin; do
   stop_path="$(jq -r '.data.nxt.entrypoints.stop // empty' "${manifest_abs}")"
   cancel_path="$(jq -r '.data.nxt.entrypoints.cancel // empty' "${manifest_abs}")"
 
+  # Stage entrypoint macros from sibling plugin repos (e.g. ../ArborCTL/sd/sys/...)
+  # when they are not already present in the nxt staging tree.
+  stage_entrypoint_from_repo() {
+    local event_path="$1"
+    local normalized
+    if [[ -z "${event_path}" ]]; then
+      return 0
+    fi
+    normalized="$(normalize_m98_path "${event_path}")"
+    if [[ -f "${SYS_ROOT}/${normalized}" ]]; then
+      return 0
+    fi
+    local plugin_root="${ROOT}/${repo_path}"
+    local candidates=(
+      "${plugin_root}/sd/sys/${normalized}"
+      "${plugin_root}/sd/${normalized}"
+    )
+    local src
+    for src in "${candidates[@]}"; do
+      if [[ -f "${src}" ]]; then
+        mkdir -p "$(dirname "${SYS_ROOT}/${normalized}")"
+        cp -a "${src}" "${SYS_ROOT}/${normalized}"
+        echo "staged ${plugin_id} entrypoint: ${normalized} <- ${src}"
+        return 0
+      fi
+    done
+  }
+
+  stage_entrypoint_from_repo "${init_path}"
+  stage_entrypoint_from_repo "${daemon_path}"
+  stage_entrypoint_from_repo "${pause_path}"
+  stage_entrypoint_from_repo "${resume_path}"
+  stage_entrypoint_from_repo "${stop_path}"
+  stage_entrypoint_from_repo "${cancel_path}"
+
   if [[ -z "${init_path}" ]]; then
     fail_or_warn "${failure_mode}" "missing init entrypoint for ${plugin_id}"
   else

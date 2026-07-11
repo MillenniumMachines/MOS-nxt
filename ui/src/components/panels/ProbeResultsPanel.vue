@@ -1,24 +1,24 @@
 <template>
   <v-card>
     <v-card-title class="d-flex align-center">
-      <v-icon left>mdi-table</v-icon>
+      <v-icon class="mr-2">mdi-table</v-icon>
       Probe Results Table
       <v-spacer />
       <v-btn
-        small
-        text
+        size="small"
+        variant="text"
         color="error"
         @click="clearAllResults"
         :disabled="!hasResults"
       >
-        <v-icon small left>mdi-delete-sweep</v-icon>
+        <v-icon class="mr-2" size="small">mdi-delete-sweep</v-icon>
         Clear All
       </v-btn>
     </v-card-title>
 
     <v-card-text>
-      <v-alert v-if="!touchProbeEnabled" type="info" dense outlined class="mb-4">
-        <v-icon small left>mdi-information</v-icon>
+      <v-alert v-if="!touchProbeEnabled" type="info" density="compact" variant="outlined" class="mb-4">
+        <v-icon class="mr-2" size="small">mdi-information</v-icon>
         Touch probe feature must be enabled to use probing functionality.
       </v-alert>
 
@@ -27,37 +27,37 @@
         :items="resultsTableData"
         :items-per-page="10"
         :hide-default-footer="true"
-        dense
+        density="compact"
         class="elevation-1"
-        :single-select="true"
+        select-strategy="single"
         v-model="selectedResults"
         show-select
-        item-key="index"
+        item-value="index"
       >
-        <template v-slot:item.x="{ item }">
+        <template v-slot:item.x="{ item }: { item: any }">
           {{ formatCoordinate(item.x) }}
         </template>
-        <template v-slot:item.y="{ item }">
+        <template v-slot:item.y="{ item }: { item: any }">
           {{ formatCoordinate(item.y) }}
         </template>
-        <template v-slot:item.z="{ item }">
+        <template v-slot:item.z="{ item }: { item: any }">
           {{ formatCoordinate(item.z) }}
         </template>
-        <template v-slot:item.a="{ item }">
+        <template v-slot:item.a="{ item }: { item: any }">
           {{ formatCoordinate(item.a) }}
         </template>
-        <template v-slot:item.rotation="{ item }">
+        <template v-slot:item.rotation="{ item }: { item: any }">
           {{ formatRotation(item.rotation) }}
         </template>
-        <template v-slot:item.actions="{ item }">
+        <template v-slot:item.actions="{ item }: { item: any }">
           <v-btn
-            x-small
+            size="x-small"
             icon
             color="error"
             @click="clearResult(item.index)"
             :disabled="!item.hasData"
           >
-            <v-icon x-small>mdi-delete</v-icon>
+            <v-icon size="x-small">mdi-delete</v-icon>
           </v-btn>
         </template>
       </v-data-table>
@@ -65,31 +65,33 @@
       <v-divider class="my-4" />
 
       <!-- Actions Panel -->
-      <v-card outlined>
+      <v-card variant="outlined">
         <v-card-subtitle class="pb-2">
-          <v-icon small left>mdi-cog</v-icon>
+          <v-icon class="mr-2" size="small">mdi-cog</v-icon>
           Result Actions
         </v-card-subtitle>
         <v-card-text>
-          <v-row dense>
+          <v-row density="compact">
             <!-- Push to WCS -->
             <v-col cols="12" md="6">
-              <v-card outlined>
+              <v-card variant="outlined">
                 <v-card-subtitle class="py-2">Push to WCS</v-card-subtitle>
                 <v-card-text>
                   <v-select
                     v-model="selectedWcs"
                     :items="wcsOptions"
+                    item-title="text"
+                    item-value="value"
                     label="Target WCS"
-                    dense
-                    outlined
+                    density="compact"
+                    variant="outlined"
                     hide-details
                     class="mb-2"
                   />
                   <v-checkbox
                     v-model="pushAxes.x"
                     label="X Axis"
-                    dense
+                    density="compact"
                     hide-details
                     class="my-1"
                     :disabled="!selectedResultData.x"
@@ -97,7 +99,7 @@
                   <v-checkbox
                     v-model="pushAxes.y"
                     label="Y Axis"
-                    dense
+                    density="compact"
                     hide-details
                     class="my-1"
                     :disabled="!selectedResultData.y"
@@ -105,7 +107,7 @@
                   <v-checkbox
                     v-model="pushAxes.z"
                     label="Z Axis"
-                    dense
+                    density="compact"
                     hide-details
                     class="my-1"
                     :disabled="!selectedResultData.z"
@@ -114,20 +116,20 @@
                     v-if="hasAAxis"
                     v-model="pushAxes.a"
                     label="A Axis"
-                    dense
+                    density="compact"
                     hide-details
                     class="my-1"
                     :disabled="!selectedResultData.a"
                   />
                   <v-btn
-                    small
+                    size="small"
                     block
                     color="primary"
                     @click="pushToWcs"
                     :disabled="!canPushToWcs"
                     class="mt-3"
                   >
-                    <v-icon small left>mdi-application-export</v-icon>
+                    <v-icon class="mr-2" size="small">mdi-application-export</v-icon>
                     Push to {{ wcsLabel }}
                   </v-btn>
                 </v-card-text>
@@ -136,32 +138,32 @@
 
             <!-- Average Results -->
             <v-col cols="12" md="6">
-              <v-card outlined>
+              <v-card variant="outlined">
                 <v-card-subtitle class="py-2">Average Results</v-card-subtitle>
                 <v-card-text>
                   <v-select
                     v-model="averageWithIndex"
                     :items="averageableResults"
                     label="Average With Result"
-                    dense
-                    outlined
+                    density="compact"
+                    variant="outlined"
                     hide-details
                     class="mb-2"
                   />
-                  <v-alert type="info" dense text class="mt-2 mb-3">
+                  <v-alert type="info" density="compact" variant="text" class="mt-2 mb-3">
                     <div class="text-caption">
                       Averages common axes between selected result and chosen result.
                       Result will be stored in the selected row.
                     </div>
                   </v-alert>
                   <v-btn
-                    small
+                    size="small"
                     block
                     color="secondary"
                     @click="averageResults"
                     :disabled="!canAverage"
                   >
-                    <v-icon small left>mdi-chart-bell-curve</v-icon>
+                    <v-icon class="mr-2" size="small">mdi-chart-bell-curve</v-icon>
                     Average Results
                   </v-btn>
                 </v-card-text>
@@ -175,7 +177,7 @@
 </template>
 
 <script lang="ts">
-import BaseComponent from '../base/BaseComponent.vue'
+import { defineNxtComponent } from '../base/BaseComponent.vue'
 
 interface ProbeResult {
   index: number
@@ -187,10 +189,12 @@ interface ProbeResult {
   hasData: boolean
 }
 
-export default BaseComponent.extend({
+export default defineNxtComponent({
   data() {
     return {
-      selectedResults: [] as ProbeResult[],
+      // Vuetify 3's v-data-table binds selection to an array of `item-value` values
+      // (the row's `index` field), not full row objects like Vuetify 2's v-data-table did
+      selectedResults: [] as number[],
       selectedWcs: 1,
       pushAxes: {
         x: true,
@@ -200,24 +204,24 @@ export default BaseComponent.extend({
       },
       averageWithIndex: null as number | null,
       headers: [
-        { text: '#', value: 'index', sortable: false, width: '60px' },
-        { text: 'X (mm)', value: 'x', sortable: false },
-        { text: 'Y (mm)', value: 'y', sortable: false },
-        { text: 'Z (mm)', value: 'z', sortable: false },
-        { text: 'A', value: 'a', sortable: false },
-        { text: 'Rot (°)', value: 'rotation', sortable: false },
-        { text: '', value: 'actions', sortable: false, width: '60px' }
+        { title: '#', key: 'index', sortable: false, width: '60px' },
+        { title: 'X (mm)', key: 'x', sortable: false },
+        { title: 'Y (mm)', key: 'y', sortable: false },
+        { title: 'Z (mm)', key: 'z', sortable: false },
+        { title: 'A', key: 'a', sortable: false },
+        { title: 'Rot (°)', key: 'rotation', sortable: false },
+        { title: '', key: 'actions', sortable: false, width: '60px' }
       ],
       wcsOptions: [
-        { text: 'G54 (WCS 1)', value: 1 },
-        { text: 'G55 (WCS 2)', value: 2 },
-        { text: 'G56 (WCS 3)', value: 3 },
-        { text: 'G57 (WCS 4)', value: 4 },
-        { text: 'G58 (WCS 5)', value: 5 },
-        { text: 'G59 (WCS 6)', value: 6 },
-        { text: 'G59.1 (WCS 7)', value: 7 },
-        { text: 'G59.2 (WCS 8)', value: 8 },
-        { text: 'G59.3 (WCS 9)', value: 9 }
+        { text: 'WCS1', value: 1 },
+        { text: 'WCS2', value: 2 },
+        { text: 'WCS3', value: 3 },
+        { text: 'WCS4', value: 4 },
+        { text: 'WCS5', value: 5 },
+        { text: 'WCS6', value: 6 },
+        { text: 'WCS7', value: 7 },
+        { text: 'WCS8', value: 8 },
+        { text: 'WCS9', value: 9 }
       ]
     }
   },
@@ -247,10 +251,10 @@ export default BaseComponent.extend({
       return results
     },
     hasResults(): boolean {
-      return this.resultsTableData.some(r => r.hasData)
+      return this.resultsTableData.some((r: ProbeResult) => r.hasData)
     },
     selectedResultIndex(): number | null {
-      return this.selectedResults.length > 0 ? this.selectedResults[0].index : null
+      return this.selectedResults.length > 0 ? this.selectedResults[0] : null
     },
     selectedResultData(): ProbeResult {
       if (this.selectedResultIndex === null) {
@@ -262,7 +266,7 @@ export default BaseComponent.extend({
       return this.$store.state.machine.model?.move?.axes?.length > 3
     },
     wcsLabel(): string {
-      const wcs = this.wcsOptions.find(w => w.value === this.selectedWcs)
+      const wcs = this.wcsOptions.find((w: { text: string; value: number }) => w.value === this.selectedWcs)
       return wcs ? wcs.text : 'WCS'
     },
     canPushToWcs(): boolean {
@@ -272,8 +276,8 @@ export default BaseComponent.extend({
     },
     averageableResults(): any[] {
       return this.resultsTableData
-        .filter(r => r.hasData && r.index !== this.selectedResultIndex)
-        .map(r => ({
+        .filter((r: ProbeResult) => r.hasData && r.index !== this.selectedResultIndex)
+        .map((r: ProbeResult) => ({
           text: `Result ${r.index}`,
           value: r.index
         }))
@@ -384,7 +388,7 @@ export default BaseComponent.extend({
 </script>
 
 <style scoped>
-.v-data-table >>> tbody tr.v-data-table__selected {
+.v-data-table :deep(tbody tr.v-data-table__selected) {
   background: rgba(var(--v-primary-base), 0.08) !important;
 }
 </style>

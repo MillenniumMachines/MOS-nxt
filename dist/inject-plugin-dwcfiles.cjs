@@ -3,10 +3,11 @@
  * Write dwcFiles into plugin.json for release dwc-plugins.json sync.
  *
  * DSF installs the contents of dwc/ under 0:/www/nxt/ (see DSF PLUGINS.md).
- *   ZIP dwc/js/nxt.<hash>.js  →  on disk 0:/www/nxt/js/nxt.<hash>.js
- *   Browser URL                 →  /nxt/js/nxt.<hash>.js
+ *   ZIP dwc/js/nxt.<hash>.js or nxt-<hash>.js  →  0:/www/nxt/js/...
+ *   Browser URL                                 →  /nxt/js/...
  *
  * Do NOT use dwc/nxt/js/ in the ZIP (that becomes www/nxt/nxt/js/ → 404).
+ * DWC 3.7 Vite emits nxt-<hash>.*; webpack 3.6 emitted nxt.<hash>.*.
  *
  * Usage: DWC_REPO_PATH=<dwc> node dist/inject-plugin-dwcfiles.cjs <nxt.zip>
  */
@@ -50,16 +51,24 @@ function dwcRelToServedUrl(zipEntry) {
   }
   dwcFiles.sort()
 
-  const js = dwcFiles.filter((f) => /\.js$/.test(f))
-  const css = dwcFiles.filter((f) => /\.css$/.test(f))
-  if (js.length !== 1 || css.length !== 1) {
-    console.error(`inject-plugin-dwcfiles: expected 1 js + 1 css, got js=${js.length} css=${css.length}`)
+  // Prefer runtime bundles; ignore source maps if present in the ZIP.
+  const js = dwcFiles.filter((f) => /\.js$/.test(f) && !/\.js\.map$/.test(f))
+  const css = dwcFiles.filter((f) => /\.css$/.test(f) && !/\.css\.map$/.test(f))
+  if (js.length < 1 || css.length < 1) {
+    console.error(`inject-plugin-dwcfiles: expected ≥1 js + ≥1 css, got js=${js.length} css=${css.length}`)
     dwcFiles.forEach((f) => console.error(`  ${f}`))
     process.exit(1)
   }
+  if (js.length !== 1 || css.length !== 1) {
+    console.warn(
+      `inject-plugin-dwcfiles: expected 1 js + 1 css, got js=${js.length} css=${css.length} — using first of each`
+    )
+    dwcFiles.forEach((f) => console.warn(`  ${f}`))
+  }
+  const dwcFilesFinal = [js[0], css[0]].sort()
 
   const pluginJson = JSON.parse(await zip.file('plugin.json').async('string'))
-  pluginJson.dwcFiles = dwcFiles
+  pluginJson.dwcFiles = dwcFilesFinal
   zip.file('plugin.json', JSON.stringify(pluginJson, null, 2))
 
   fs.writeFileSync(
@@ -72,7 +81,7 @@ function dwcRelToServedUrl(zipEntry) {
   )
   console.log(`inject-plugin-dwcfiles: ${path.basename(zipPath)}`)
   console.log(`  ZIP: dwc/js|css (flat)`)
-  console.log(`  dwcFiles (HTTP paths): ${JSON.stringify(dwcFiles)}`)
+  console.log(`  dwcFiles (HTTP paths): ${JSON.stringify(dwcFilesFinal)}`)
 })().catch((e) => {
   console.error(e)
   process.exit(1)

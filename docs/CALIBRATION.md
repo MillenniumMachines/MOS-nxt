@@ -89,10 +89,7 @@ Phase 5: Verification
 
 **Required Equipment:**
 - Touch probe (configured in nxt)
-- Precision reference object with known dimensions:
-  - **Recommended**: 1-2-3 block (1" × 2" × 3" = 25.4mm × 50.8mm × 76.2mm)
-  - **Alternative**: Any precision ground rectangular block with known dimensions
-  - **Minimum requirement**: Known dimensions accurate to ±0.01mm or better
+- **1-2-3 block** (1″ × 2″ × 3″ = 25.4 mm × 50.8 mm × 76.2 mm) — locked orientation: **3″ parallel to machine X**, **2″ along Y**, **1″ as height (Z)**. Same for A-axis / rotary setups.
 
 **Initial State:**
 - Machine must be mechanically assembled and motion system functional
@@ -126,26 +123,22 @@ Phase 5: Verification & Refinement
 
 ### 3.3 Phase 1: Rough Steps-per-mm Calibration (Manual)
 
-**Goal**: Get steps-per-mm accurate to within ~1-2% using manual measurement.
+**Goal**: Get steps-per-mm accurate using a dial indicator on a fixed face (8 / 16 / 24 mm travel legs).
 
-**Procedure**:
-1. Home the machine
-2. Jog to a known position and zero the work coordinate system (WCS)
-3. Command a large move (e.g., 100mm) in X axis: `G0 X100`
-4. Using calipers or dial indicator, measure the *actual* distance traveled
-5. Calculate corrected steps-per-mm:
-   ```
-   new_steps = current_steps × (commanded_distance / actual_distance)
-   ```
-6. Update firmware configuration (M92 command in config.g)
-7. Restart firmware or reload configuration
-8. Repeat for Y, Z, and any other axes
-9. Verify: commanding 100mm should now result in 99-101mm actual movement
+**Procedure** (Calibration tab → `M5014`):
+1. Secure the 1-2-3 block (**3″∥X**). Select which face you are measuring; travel is **away** from that face.
+2. Jog the indicator onto the face and **zero the dial**.
+3. For each commanded distance D ∈ {8, 16, 24} mm (optionally 3×):
+   - Machine moves away by D, then returns by D
+   - Enter dial **residual** R (+ = short of zero after return)
+   - `measured = D − R`
+4. UI classifies near-constant error → backlash vs near-proportional → steps/mm; Apply M92 / M425 as appropriate.
+5. Repeat for other axes as needed.
 
 **Why This Works**:
-- Manual measurement doesn't depend on probe deflection or backlash
-- Gets steps-per-mm "close enough" for automated methods to work
-- 1-2% accuracy is sufficient for the next phases
+- Zero → away → return isolates positioning error over known travel without depending on probe deflection
+- Multi-distance legs separate constant (backlash) from proportional (steps) error
+- Optional 3× averaging improves consistency
 
 ### 3.4 Phase 2: Precise Steps-per-mm Calibration (Automated, Dual-Dimension)
 
@@ -186,8 +179,8 @@ s_actual = s_current × (d2_actual - d1_actual) / (d2_measured - d1_measured)
 
 1. **Setup**:
    - Install touch probe
-   - Secure 1-2-3 block on machine table with known dimension oriented along X-axis
-   - For X-axis: use the 1" (25.4mm) and 2" (50.8mm) dimensions
+   - Secure 1-2-3 block with **3″ parallel to machine X**, 2″ along Y, 1″ as height (Z)
+   - For X-axis dual-dimension: use the 2″ and 3″ lengths (pair default `2x3`)
 
 2. **Measure First Dimension (25.4mm side)**:
    - Position probe above the center of the narrow side
@@ -308,7 +301,7 @@ The key insight: **Deflection is constant regardless of approach direction, but 
 
 1. **Setup**:
    - Install touch probe (T{nxtProbeToolID})
-   - Secure 1-2-3 block on machine table with X-axis dimension accessible
+   - Secure 1-2-3 block with **3″ parallel to machine X** (2″ along Y, 1″ height)
    - Jog probe to approximately 20mm from the left surface of the block
 
 2. **Repeated Probing with Alternating Directions**:
@@ -506,11 +499,45 @@ If verification reveals errors:
 
 ## 4. Implementation in nxt
 
-### 4.1 Implementation Approach
+### 4.1 Calibration tab (guided wizard)
+
+The **Calibration** tab on the main nxt dashboard (`ui/src/nxt.vue` → `CalibrationPanel.vue`) implements Option A below. Configuration’s “go to calibration” control switches to that tab (`nxt-goto-calibration` / `?tab=calibration`). Cross-link: static datum details in [TOOLSETTING.md](TOOLSETTING.md).
+
+**Phase 0 — Probe / datum setup** (when touch probe + toolsetter are enabled but `nxtTouchProbeRefPos` or `nxtDeltaMachine` is unset):
+
+1. `M5016` — datum tool → probe toolsetter → set `nxtToolSetterPos` → jog to reference surface → set `nxtTouchProbeRefPos` → `nxtDeltaMachine = Z_ref - Z_act`
+2. Park (`G27`) + `T{nxtProbeToolID}` so `tpost` / `G6511` locate the probe
+3. **Save** persists positions + delta to `nxt-user-vars.g`
+
+**Mode:** After Phase 0 is clear and the touch probe is ready, choose **Manual (1-2-3)** or **Probe**.
+
+**Manual XYZ (phases 1–5):** Assumes a **1-2-3 block** with **3″∥X, 2″∥Y, 1″∥Z**. Phase 1 (`M5014`): pick block face (travel away from that face) → zero dial on surface → away/return at **8 / 16 / 24 mm** → enter residual (`measured = commanded − residual`). Optional **3×** average per leg. UI classifies like probe mode. Phase 2 assist (`M5015`). Phase 3 scatter plot off by default.
+
+**Probe mode:** Deflection (Phase 4) must be confirmed before `G9000`. `G9000 X|Y|Z` runs 8 / 16 / 24 mm legs; each leg does **probe (hit0) → away D → probe (hit1)** three times; `measured = D − mean((hit1−hit0)·dir)`. UI classifies near-constant error → backlash (`M425`) vs near-proportional → steps (`M92`). After steps Apply, re-check deflection before Save.
+
+**A / rotary:** Shown only when both are true:
+
+1. DWC plugin **`MosFourthAxis`** is installed ([MOS Fourth Axis](https://github.com/MillenniumMachines/mos-fourth-axis) sibling pack).
+2. Object model has a visible **A** axis.
+
+| Macro | Role |
+|-------|------|
+| `M4912` | Y flatness / tilt on rotary |
+| `M4910` | Probe rotary Y center |
+| `M4807 W…` | Optional: apply stored Y center as Y0 to WCS |
+| `M4806 V…` | Apply A steps/mm (`M92 A` + `rotaryAStepsPerMm`) |
+| `M5014` | Phase 1: zero dial → away/return 8/16/24 → residual → travel globals |
+| `M5015` | Phase 2 jog → G6512 → return |
+| `M5016` | Phase 0 static datum |
+| `G9000` | Probe-mode 8/16/24: probe → away → re-probe ×3 per leg |
+
+**Save calibration:** uploads `nxt-user-vars.g` (`nxtCustom*Steps`, `nxtCustom*Backlash`, `nxtProbeDeflection`, `nxtTouchProbeRefPos`, `nxtToolSetterPos`, `nxtDeltaMachine`). On **Custom** platform, also regenerates pack overlays (`steps.g`, `drives-overlay.g` with `M425`).
+
+### 4.2 Implementation Approach
 
 Two implementation approaches are possible:
 
-#### Option A: UI-Based Calibration Wizard (Recommended)
+#### Option A: UI-Based Calibration Wizard (shipped)
 - **Advantages**:
   - User-friendly step-by-step workflow
   - Visual feedback and progress indication
@@ -519,11 +546,11 @@ Two implementation approaches are possible:
   - Can validate measurements and provide warnings
 
 - **Implementation**:
-  - Add calibration wizard to Settings panel in UI
+  - **Calibration** tab + `CalibrationPanel.vue` (phases 1–5 + gated A section)
   - UI guides user through each phase with instructions
-  - UI sends probe commands and receives results
-  - Calculations performed in UI JavaScript
-  - Final values written to nxt-user-vars.g via M-code
+  - Optional `G6512` / fourth-axis M-codes; capture `nxtLastProbeResult`
+  - Calculations in `nxtCalibrationMath.ts`
+  - Persist via user-vars (+ Custom overlays on Save)
 
 #### Option B: G-code Macro Based (Alternative)
 - **Advantages**:
@@ -538,80 +565,60 @@ Two implementation approaches are possible:
   - Executes probe commands and calculations
   - Updates nxt-user-vars.g with results
 
-### 4.2 Recommended Workflow Integration
+### 4.3 Recommended Workflow Integration
 
-**In Configuration/Settings UI:**
+**In Configuration / Calibration UI:**
 
-1. **Calibration Section**:
-   - Button: "Run Machine Calibration"
-   - Displays current calibration status (steps-per-mm, backlash, deflection values)
-   - Shows last calibration date
+1. **Calibration entry**:
+   - Configuration links to the Calibration tab
+   - Tab shows current steps/mm, backlash, and deflection from the object model
 
 2. **Calibration Wizard Flow**:
    ```
-   Step 1: Welcome & Prerequisites Check
-            - Verify machine is homed
-            - Verify touch probe is configured
-            - Prompt for reference block dimensions
-            
-   Step 2: Rough Steps-per-mm (Manual)
+   Phase 1: Rough Steps-per-mm (Manual)
             - Instructions for manual measurement
             - Input fields for measured distances
-            - Calculate and apply corrections
+            - Calculate and apply M92
             
-   Step 3: Precise Steps-per-mm (Automated)
+   Phase 2: Precise Steps-per-mm (Dual-dimension)
             - For each axis:
-              * Probe two different dimensions
-              * Calculate correction
-              * Apply M92 adjustment
+              * Probe/measure two different dimensions
+              * Optional G6512 + capture nxtLastProbeResult
+              * Calculate correction and Apply M92
               
-   Step 4: Backlash Measurement
-            - For each axis:
-              * Auto-probe from both directions
-              * Calculate backlash
-              * Apply M425 compensation
+   Phase 3: Backlash Measurement
+            - Means from +/− approaches (or captured samples)
+            * Optional scatter plot (off by default)
+            * Apply M425
               
-   Step 5: Probe Deflection
-            - For each axis:
-              * Probe known dimension
-              * Calculate deflection
-              * Update nxtProbeDeflection
+   Phase 4: Probe Deflection
+            - Probe known dimension
+            - Update nxtProbeDeflection
               
-   Step 6: Verification & Report
-            - Run verification tests
-            - Display results and accuracy metrics
-            - Save calibration data
+   Phase 5: Verification
+            - Checklist + optional M6523
+            - Save calibration (user-vars + Custom overlays)
    ```
 
 3. **Calibration Results Storage**:
-   - Append to user-config.g for persistence:
-     ```gcode
-     ; Machine Calibration Data
-     ; Last calibrated: 2024-01-15 14:32:00
-     
-     ; Steps per mm
-     M92 X100.234 Y99.876 Z400.123
-     
-     ; Backlash compensation
-     M425 X0.05 Y0.08 Z0.02
-     
-     ; Probe deflection (mm)
-     global nxtProbeDeflection = 0.025
-     ```
+   - `0:/sys/nxt-user-vars.g` for globals (`nxtCustomX/Y/Z/ASteps`, `nxtCustom*Backlash`, `nxtProbeDeflection`)
+   - Custom platform: regenerate `0:/sys/nxt-config/machine/custom/steps.g` and `drives-overlay.g` (`M92` / `M425`)
+   - A steps also kept consistent with MosFourthAxis via live `M4806`
 
-### 4.3 API Requirements
+### 4.4 API Requirements
 
 **Backend Macros Needed**:
 - Existing `G6512` (single-axis probe) - already implemented ✓
 - Existing `M5000` (machine position query) - already implemented ✓
+- MosFourthAxis (when installed): `M4912`, `M4910`, `M4807`, `M4806`
 
 **UI Integration Points**:
-- Read current calibration values from object model (move.axes[].stepsPerMm, move.axes[].backlash)
-- Execute probe commands via G-code
-- Update firmware parameters via standard M-codes (M92 for steps-per-mm, M425 for backlash)
-- Append calibration results to user-config.g file
+- Read current calibration values from object model (`move.axes[].stepsPerMm`, `move.axes[].backlash`, `rotaryAStepsPerMm`)
+- Execute probe / rotary commands via G-code
+- Update firmware parameters via `M92` / `M425` / `M4806` and `set global.nxtProbeDeflection`
+- Persist via `nxt-user-vars.g` (+ Custom pack overlays)
 
-### 4.4 Error Handling
+### 4.5 Error Handling
 
 **Common Issues & Solutions**:
 
@@ -745,10 +752,12 @@ backlash = abs(probe_result_positive - probe_result_negative)
 ```
 
 ### Reference Block Dimensions (1-2-3 Block)
-- Side 1: 1 inch = 25.4 mm
-- Side 2: 2 inches = 50.8 mm  
-- Side 3: 3 inches = 76.2 mm
+- Side 1: 1 inch = 25.4 mm — **along Z** (height)
+- Side 2: 2 inches = 50.8 mm — **along Y**
+- Side 3: 3 inches = 76.2 mm — **along X** (parallel to machine X)
 - Typical tolerance: ±0.0002 inches (±0.005 mm) or better
+
+**Locked orientation (Calibration tab):** place the block so the **3″ edge is parallel to X** for all XYZ and A-axis work.
 
 ---
 

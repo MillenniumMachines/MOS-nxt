@@ -1,5 +1,9 @@
 # nxt UI Plugin Development Guide
 
+## Before you ship any UI feature (mandatory)
+
+`./dist/build-plugin.sh` runs DWC **vue-tsc**. Untyped `.map` / `.filter` / `.find` callbacks in Options API SFCs routinely fail with `Plugin type check failed` / `TS7006: Parameter 'x' implicitly has an 'any' type`. **Annotate callback parameters when you write them** — this is a recurring build breaker. Do **not** use `NXT_SKIP_DWC_TYPECHECK=1` for real UI work. Agent rule: [.cursor/rules/ui-plugin-typecheck.mdc](../.cursor/rules/ui-plugin-typecheck.mdc).
+
 ## Overview
 This guide explains how to develop the nxt UI plugin within the DuetWebControl workspace. The nxt UI is a Vue 2.7 plugin that integrates with Duet Web Control **v3.7.0-beta.1** (pin: `ci/dwc-build-ref`; shipped ZIPs set exact `dwcVersion` at build) on branch **`v0.7.0`**. See [VERSIONING.md](VERSIONING.md).
 
@@ -185,6 +189,8 @@ DWC's plugin system expects an `index.js` or `index.ts` at the plugin root.
 2. Verify all imports are correct
 3. Check TypeScript types match RRF object model
 4. Ensure all required dependencies are installed
+
+**Plugin ZIP typecheck:** `./dist/build-plugin.sh` runs DWC’s **vue-tsc** on the staged plugin. Errors like `Parameter 'x' implicitly has an 'any' type` or unsafe index access abort with `Plugin type check failed`. After editing `ui/**/*.vue` or `ui/**/*.ts`, fix those types and rebuild **without** `NXT_SKIP_DWC_TYPECHECK=1` (that flag is packaging smoke only). In Options API SFCs, **annotate** `.map`/`.filter` callback params (e.g. `(n: number) => …`) — inference from `this.*` is often lost under DWC’s `noImplicitAny`. See [LOCAL_PLUGIN_BUILD_AND_TEST.md](LOCAL_PLUGIN_BUILD_AND_TEST.md).
 
 ### Plugin Won't Start
 

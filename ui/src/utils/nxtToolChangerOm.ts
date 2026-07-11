@@ -5,7 +5,7 @@
  * when an optional tool changer firmware pack is installed (same wire format as the legacy
  * mos-atc macro set). **Magazine / bay / job-sequence / M-code operator UI** belongs in the
  * **mos-atc** DWC plugin; this module stays in nxt as the shared OM key map and helpers
- * (e.g. legacy probe ID, `mosTT` radius) for that plugin or forks.
+ * (e.g. legacy probe ID, `nxtTT` radius) for that plugin or forks.
  *
  * See docs/TOOLCHANGING.md for RRF T/tpre/tfree/tpost and extension layout.
  *
@@ -76,31 +76,35 @@ export const NxtToolChangerOmKeys = {
   jobSeqComplete: 'atcJobSeqComplete',
   resolvedTool: 'atcResolvedTool',
   resolvedPocket: 'atcResolvedPocket',
-  /** Legacy tool table radius column (MillenniumOS-style OM); optional. */
+  /** CAM tool table metadata (`global.nxtTT`); falls back to legacy `mosTT` on migrated SD. */
+  toolTable: 'nxtTT',
+  /** @deprecated MillenniumOS OM key — use {@link toolTable} / `nxtTT`. */
   legacyToolTableRadius: 'mosTT',
   /** Legacy probe tool index in OM; optional — prefer `nxtTouchProbeID` when set. */
   legacyProbeToolIdKey: 'mosPTID'
 } as const
 
-/** `global.mosTT[toolIndex]` regardless of whether `mosTT` is an array, map, or object map. */
-export function readMosTTRow(globalVal: unknown, toolIndex: number): unknown | null {
-  const mosTT = readFirmwareGlobal(globalVal, NxtToolChangerOmKeys.legacyToolTableRadius)
-  if (mosTT == null) {
+/** `global.nxtTT[toolIndex]` (or legacy `mosTT` on migrated firmware). */
+export function readNxtTTRow(globalVal: unknown, toolIndex: number): unknown | null {
+  const nxtTT = readFirmwareGlobal(globalVal, NxtToolChangerOmKeys.toolTable)
+  const legacy = readFirmwareGlobal(globalVal, NxtToolChangerOmKeys.legacyToolTableRadius)
+  const table = nxtTT != null ? nxtTT : legacy
+  if (table == null) {
     return null
   }
-  if (mosTT instanceof Map) {
-    const row = mosTT.get(toolIndex) ?? mosTT.get(String(toolIndex))
+  if (table instanceof Map) {
+    const row = table.get(toolIndex) ?? table.get(String(toolIndex))
     return row !== undefined && row !== null ? row : null
   }
-  if (Array.isArray(mosTT)) {
-    if (toolIndex < 0 || toolIndex >= mosTT.length) {
+  if (Array.isArray(table)) {
+    if (toolIndex < 0 || toolIndex >= table.length) {
       return null
     }
-    const row = mosTT[toolIndex]
+    const row = table[toolIndex]
     return row !== undefined && row !== null ? row : null
   }
-  if (typeof mosTT === 'object') {
-    const o = mosTT as Record<string | number, unknown>
+  if (typeof table === 'object') {
+    const o = table as Record<string | number, unknown>
     const row = o[toolIndex]
     if (row !== undefined) {
       return row
@@ -109,6 +113,11 @@ export function readMosTTRow(globalVal: unknown, toolIndex: number): unknown | n
     return rs !== undefined && rs !== null ? rs : null
   }
   return null
+}
+
+/** @deprecated Use {@link readNxtTTRow}. */
+export function readMosTTRow(globalVal: unknown, toolIndex: number): unknown | null {
+  return readNxtTTRow(globalVal, toolIndex)
 }
 
 /**

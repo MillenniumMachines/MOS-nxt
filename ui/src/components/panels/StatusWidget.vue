@@ -1,7 +1,7 @@
 <template>
   <v-card class="nxt-status-widget">
     <v-card-title class="py-2">
-      <v-icon left small>mdi-information</v-icon>
+      <v-icon class="mr-2" size="small">mdi-information</v-icon>
       {{ $t('plugins.nxt.panels.status.caption') }}
     </v-card-title>
     
@@ -12,7 +12,7 @@
           <div class="status-item">
             <div class="status-label">{{ $t('plugins.nxt.panels.status.tool') }}</div>
             <div class="status-value" :class="toolStatusClass">
-              <v-icon small left>{{ toolIcon }}</v-icon>
+              <v-icon class="mr-2" size="small">{{ toolIcon }}</v-icon>
               {{ toolDisplay }}
             </div>
           </div>
@@ -23,7 +23,7 @@
           <div class="status-item">
             <div class="status-label">{{ $t('plugins.nxt.panels.status.wcs') }}</div>
             <div class="status-value">
-              <v-icon small left>mdi-axis-arrow</v-icon>
+              <v-icon class="mr-2" size="small">mdi-axis-arrow</v-icon>
               G{{ 53 + currentWorkplace }}
             </div>
           </div>
@@ -34,7 +34,7 @@
           <div class="status-item">
             <div class="status-label">{{ $t('plugins.nxt.panels.status.spindle') }}</div>
             <div class="status-value" :class="spindleStatusClass">
-              <v-icon small left>{{ spindleIcon }}</v-icon>
+              <v-icon class="mr-2" size="small">{{ spindleIcon }}</v-icon>
               {{ spindleDisplay }}
             </div>
           </div>
@@ -45,7 +45,7 @@
           <div class="status-item">
             <div class="status-label">{{ $t('plugins.nxt.panels.status.position') }}</div>
             <div class="status-value" :class="positionStatusClass">
-              <v-icon small left>{{ positionIcon }}</v-icon>
+              <v-icon class="mr-2" size="small">{{ positionIcon }}</v-icon>
               {{ positionDisplay }}
             </div>
           </div>
@@ -56,7 +56,7 @@
 </template>
 
 <script lang="ts">
-import BaseComponent from '../base/BaseComponent.vue'
+import { defineNxtComponent } from '../base/BaseComponent.vue'
 
 /**
  * nxt Status Widget
@@ -67,7 +67,7 @@ import BaseComponent from '../base/BaseComponent.vue'
  * - Spindle status
  * - Position/homing status
  */
-export default BaseComponent.extend({
+export default defineNxtComponent({
   name: 'NxtStatusWidget',
   
   computed: {
@@ -94,9 +94,9 @@ export default BaseComponent.extend({
         return 'text--secondary'
       }
       if (this.probeTool && this.currentTool.number === this.probeTool.number) {
-        return 'orange--text'
+        return 'text-orange'
       }
-      return 'primary--text'
+      return 'text-primary'
     },
 
     spindleDisplay(): string {
@@ -130,7 +130,7 @@ export default BaseComponent.extend({
       }
       
       const spindle = spindles[0]
-      return spindle.active ? 'success--text' : 'text--secondary'
+      return spindle.active ? 'text-success' : 'text--secondary'
     },
 
     positionDisplay(): string {
@@ -153,7 +153,7 @@ export default BaseComponent.extend({
     },
 
     positionStatusClass(): string {
-      return this.allAxesHomed ? 'success--text' : 'warning--text'
+      return this.allAxesHomed ? 'text-success' : 'text-warning'
     }
   }
 })

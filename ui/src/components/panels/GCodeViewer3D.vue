@@ -3,96 +3,96 @@
     <!-- Quick view controls: top-left overlay -->
     <div class="viewer-quick-views">
       <div class="btn-row">
-        <v-tooltip top>
-          <template v-slot:activator="{ on }">
+        <v-tooltip location="top">
+          <template v-slot:activator="{ props }">
             <v-btn
               icon
-              small
+              size="small"
               class="viewer-btn"
-              v-on="on"
+              v-bind="props"
               @click.stop.prevent="setTopView"
               title="Top View"
             >
-              <v-icon small>mdi-chevron-up</v-icon>
+              <v-icon size="small">mdi-chevron-up</v-icon>
             </v-btn>
           </template>
           <span>Top</span>
         </v-tooltip>
-        <v-tooltip top>
-          <template v-slot:activator="{ on }">
+        <v-tooltip location="top">
+          <template v-slot:activator="{ props }">
             <v-btn
               icon
-              small
+              size="small"
               class="viewer-btn"
-              v-on="on"
+              v-bind="props"
               @click.stop.prevent="setBottomView"
               title="Bottom View"
             >
-              <v-icon small>mdi-chevron-down</v-icon>
+              <v-icon size="small">mdi-chevron-down</v-icon>
             </v-btn>
           </template>
           <span>Bottom</span>
         </v-tooltip>
       </div>
       <div class="btn-row">
-        <v-tooltip right>
-          <template v-slot:activator="{ on }">
+        <v-tooltip location="right">
+          <template v-slot:activator="{ props }">
             <v-btn
               icon
-              small
+              size="small"
               class="viewer-btn"
-              v-on="on"
+              v-bind="props"
               @click.stop.prevent="setLeftView"
               title="Left View"
             >
-              <v-icon small>mdi-chevron-left</v-icon>
+              <v-icon size="small">mdi-chevron-left</v-icon>
             </v-btn>
           </template>
           <span>Left</span>
         </v-tooltip>
-        <v-tooltip right>
-          <template v-slot:activator="{ on }">
+        <v-tooltip location="right">
+          <template v-slot:activator="{ props }">
             <v-btn
               icon
-              small
+              size="small"
               class="viewer-btn"
-              v-on="on"
+              v-bind="props"
               @click.stop.prevent="setRightView"
               title="Right View"
             >
-              <v-icon small>mdi-chevron-right</v-icon>
+              <v-icon size="small">mdi-chevron-right</v-icon>
             </v-btn>
           </template>
           <span>Right</span>
         </v-tooltip>
       </div>
       <div class="btn-row">
-        <v-tooltip right>
-          <template v-slot:activator="{ on }">
+        <v-tooltip location="right">
+          <template v-slot:activator="{ props }">
             <v-btn
               icon
-              small
+              size="small"
               class="viewer-btn"
-              v-on="on"
+              v-bind="props"
               @click.stop.prevent="setFrontView"
               title="Front View"
             >
-              <v-icon small>mdi-arrow-collapse-left</v-icon>
+              <v-icon size="small">mdi-arrow-collapse-left</v-icon>
             </v-btn>
           </template>
           <span>Front</span>
         </v-tooltip>
-        <v-tooltip right>
-          <template v-slot:activator="{ on }">
+        <v-tooltip location="right">
+          <template v-slot:activator="{ props }">
             <v-btn
               icon
-              small
+              size="small"
               class="viewer-btn"
-              v-on="on"
+              v-bind="props"
               @click.stop.prevent="setBackView"
               title="Back View"
             >
-              <v-icon small>mdi-arrow-collapse-right</v-icon>
+              <v-icon size="small">mdi-arrow-collapse-right</v-icon>
             </v-btn>
           </template>
           <span>Back</span>
@@ -131,7 +131,7 @@
           @click="clearSelection"
           title="Clear selection"
         >
-          <v-icon small>mdi-close</v-icon>
+          <v-icon size="small">mdi-close</v-icon>
         </button>
         <button
           v-if="highlightedLines.length > 0"
@@ -139,7 +139,7 @@
           @click="copySelectedLines"
           :title="copySuccess ? 'Copied!' : 'Copy selected lines to clipboard'"
         >
-          <v-icon small>{{
+          <v-icon size="small">{{
             copySuccess ? "mdi-check" : "mdi-content-copy"
           }}</v-icon>
         </button>
@@ -177,7 +177,7 @@
 
 <script lang="ts">
 // @ts-nocheck - Vue 2 component with complex Three.js integration
-import Vue from "vue";
+import { defineComponent } from "vue";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 
@@ -187,7 +187,7 @@ interface StockMetadata {
   originOffset?: { x: number; y: number };
 }
 
-export default Vue.extend({
+export default defineComponent({
   name: "GCodeViewer3D",
 
   props: {

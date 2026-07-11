@@ -29,7 +29,7 @@ const JSZip = require(path.join(dwcRoot, 'node_modules', 'jszip'))
 
   for (const name of Object.keys(zip.files)) {
     if (zip.files[name].dir) continue
-    const nested = name.match(/^dwc\/nxt\/(js|css)\/(nxt\.[a-f0-9]+\.(js|css))$/)
+    const nested = name.match(/^dwc\/nxt\/(js|css)\/(nxt[.-][A-Za-z0-9_-]+\.(js|css))$/)
     if (!nested) continue
     const flatName = `dwc/${nested[1]}/${nested[2]}`
     if (zip.files[flatName]) {

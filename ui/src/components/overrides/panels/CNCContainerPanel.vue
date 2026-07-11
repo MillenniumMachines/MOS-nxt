@@ -1,6 +1,6 @@
 <template>
 	<div>
-		<v-row align="stretch" dense>
+		<v-row align="stretch" density="compact">
 			<!-- Status Information Panel (Left Column) -->
 			<v-col cols="12" lg="4" md="5" sm="12" order="1">
 				<v-card class="justify-center fill-height">
@@ -9,16 +9,16 @@
 					</v-card-title>
 					<v-card-text>
 						<template v-if="isConnected && visibleAxes">
-							<v-simple-table dense>
+							<v-table density="compact">
 								<template v-slot:default>
 									<tbody>
 										<!-- Workplace (WCS) -->
 										<tr>
 											<td><strong>{{ $t("plugins.nxt.panels.status.workplace") }}</strong></td>
 											<td align="right">
-												<v-tooltip top>
-													<template v-slot:activator="{ on, attrs }">
-														<v-chip v-bind="attrs" v-on="on" label outlined small class="status-chip">
+												<v-tooltip location="top">
+													<template v-slot:activator="{ props }">
+														<v-chip v-bind="props" label variant="outlined" size="small" class="status-chip">
 															<span class="pill-text">{{ currentWorkplaceGCode }}</span>
 															<v-avatar right rounded :color="currentWorkplaceColor" class="ma-0">{{ currentWorkplace+1 }}</v-avatar>
 														</v-chip>
@@ -32,9 +32,9 @@
 										<tr>
 											<td><strong>{{ $t("plugins.nxt.panels.status.tool") }}</strong></td>
 											<td align="right">
-												<v-tooltip top>
-													<template v-slot:activator="{ on, attrs }">
-														<v-chip v-bind="attrs" v-on="on" label outlined small class="status-chip">
+												<v-tooltip location="top">
+													<template v-slot:activator="{ props }">
+														<v-chip v-bind="props" label variant="outlined" size="small" class="status-chip">
 															<span class="pill-text">{{ toolNameShort || $t('plugins.nxt.panels.status.none') }}</span>
 															<v-avatar right rounded :color="toolNumber !== null ? 'green' : 'grey'" class="ma-0">{{ toolNumber !== null ? toolNumber : '—' }}</v-avatar>
 														</v-chip>
@@ -48,9 +48,9 @@
 										<tr v-if="toolRadius !== null">
 											<td><strong>{{ $t("plugins.nxt.panels.status.toolRadius") }}</strong></td>
 											<td align="right">
-												<v-chip label outlined small class="status-chip">
+												<v-chip label variant="outlined" size="small" class="status-chip">
 													<span class="pill-text">{{ $display(toolRadius, 3, "mm") }}</span>
-													<v-avatar right rounded color="primary" class="ma-0"><v-icon small>mdi-radius-outline</v-icon></v-avatar>
+													<v-avatar right rounded color="primary" class="ma-0"><v-icon size="small">mdi-radius-outline</v-icon></v-avatar>
 												</v-chip>
 											</td>
 										</tr>
@@ -59,9 +59,9 @@
 										<tr v-if="toolOffset !== null">
 											<td><strong>{{ $t("plugins.nxt.panels.status.toolOffset") }}</strong></td>
 											<td align="right">
-												<v-chip label outlined small class="status-chip">
+												<v-chip label variant="outlined" size="small" class="status-chip">
 													<span class="pill-text">{{ $display(toolOffset, 3, "mm") }}</span>
-													<v-avatar right rounded color="primary" class="ma-0"><v-icon small>mdi-arrow-expand-vertical</v-icon></v-avatar>
+													<v-avatar right rounded color="primary" class="ma-0"><v-icon size="small">mdi-arrow-expand-vertical</v-icon></v-avatar>
 												</v-chip>
 											</td>
 										</tr>
@@ -70,7 +70,7 @@
 										<tr v-if="loadedTool.role !== 'none'">
 											<td><strong>{{ $t("plugins.nxt.panels.status.toolRole") }}</strong></td>
 											<td align="right">
-												<v-chip x-small :color="loadedToolRoleColor" text-color="white" label>
+												<v-chip size="x-small" :color="loadedToolRoleColor" text-color="white" label>
 													{{ loadedToolRoleText }}
 												</v-chip>
 											</td>
@@ -80,9 +80,9 @@
 										<tr v-if="loadedTool.fluteCount !== null">
 											<td><strong>{{ $t("plugins.nxt.panels.status.toolFlutes") }}</strong></td>
 											<td align="right">
-												<v-chip label outlined small class="status-chip">
+												<v-chip label variant="outlined" size="small" class="status-chip">
 													<span class="pill-text">{{ loadedTool.fluteCount }}</span>
-													<v-avatar right rounded color="primary" class="ma-0"><v-icon small>mdi-format-list-numbered</v-icon></v-avatar>
+													<v-avatar right rounded color="primary" class="ma-0"><v-icon size="small">mdi-format-list-numbered</v-icon></v-avatar>
 												</v-chip>
 											</td>
 										</tr>
@@ -91,9 +91,9 @@
 										<tr v-if="loadedTool.fluteLengthMm !== null">
 											<td><strong>{{ $t("plugins.nxt.panels.status.toolFluteLength") }}</strong></td>
 											<td align="right">
-												<v-chip label outlined small class="status-chip">
+												<v-chip label variant="outlined" size="small" class="status-chip">
 													<span class="pill-text">{{ $display(loadedTool.fluteLengthMm, 3, "mm") }}</span>
-													<v-avatar right rounded color="primary" class="ma-0"><v-icon small>mdi-ruler</v-icon></v-avatar>
+													<v-avatar right rounded color="primary" class="ma-0"><v-icon size="small">mdi-ruler</v-icon></v-avatar>
 												</v-chip>
 											</td>
 										</tr>
@@ -102,10 +102,10 @@
 										<tr v-if="activeSpindle !== null">
 											<td><strong>{{ $t("plugins.nxt.panels.status.spindle") }}</strong></td>
 											<td align="right">
-												<v-chip label outlined small class="status-chip">
+												<v-chip label variant="outlined" size="small" class="status-chip">
 													<span class="pill-text">{{ spindleStateText }}</span>
 													<v-avatar right rounded :color="spindleStateColor" class="ma-0">
-														<v-icon small>{{ spindleStateIcon }}</v-icon>
+														<v-icon size="small">{{ spindleStateIcon }}</v-icon>
 													</v-avatar>
 												</v-chip>
 											</td>
@@ -115,9 +115,9 @@
 										<tr v-if="activeSpindle !== null && spindleRPM !== null">
 											<td><strong>{{ $t("plugins.nxt.panels.status.spindleRPM") }}</strong></td>
 											<td align="right">
-												<v-chip label outlined small class="status-chip">
+												<v-chip label variant="outlined" size="small" class="status-chip">
 													<span class="pill-text">{{ spindleRPM }} RPM</span>
-													<v-avatar right rounded color="primary" class="ma-0"><v-icon small>mdi-rotate-right</v-icon></v-avatar>
+													<v-avatar right rounded color="primary" class="ma-0"><v-icon size="small">mdi-rotate-right</v-icon></v-avatar>
 												</v-chip>
 											</td>
 										</tr>
@@ -126,10 +126,10 @@
 										<tr>
 											<td><strong>{{ $t("plugins.nxt.panels.status.touchProbe") }}</strong></td>
 											<td align="right">
-												<v-chip label outlined small class="status-chip">
+												<v-chip label variant="outlined" size="small" class="status-chip">
 													<span class="pill-text">{{ touchProbeStatusText }}</span>
 													<v-avatar right rounded :color="touchProbeStatusColor" class="ma-0">
-														<v-icon small>{{ touchProbeStatusIcon }}</v-icon>
+														<v-icon size="small">{{ touchProbeStatusIcon }}</v-icon>
 													</v-avatar>
 												</v-chip>
 											</td>
@@ -139,10 +139,10 @@
 										<tr>
 											<td><strong>{{ $t("plugins.nxt.panels.status.toolsetter") }}</strong></td>
 											<td align="right">
-												<v-chip label outlined small class="status-chip">
+												<v-chip label variant="outlined" size="small" class="status-chip">
 													<span class="pill-text">{{ toolsetterStatusText }}</span>
 													<v-avatar right rounded :color="toolsetterStatusColor" class="ma-0">
-														<v-icon small>{{ toolsetterStatusIcon }}</v-icon>
+														<v-icon size="small">{{ toolsetterStatusIcon }}</v-icon>
 													</v-avatar>
 												</v-chip>
 											</td>
@@ -152,21 +152,21 @@
 										<tr v-if="rotationCompensation !== 0">
 											<td><strong>{{ $t("plugins.nxt.panels.status.rotation") }}</strong></td>
 											<td align="right">
-												<v-chip label outlined small class="status-chip">
+												<v-chip label variant="outlined" size="small" class="status-chip">
 													<span class="pill-text">{{ $display(rotationCompensation, 3, "°") }}</span>
-													<v-avatar right rounded color="warning" class="ma-0"><v-icon small>mdi-rotate-3d-variant</v-icon></v-avatar>
+													<v-avatar right rounded color="warning" class="ma-0"><v-icon size="small">mdi-rotate-3d-variant</v-icon></v-avatar>
 												</v-chip>
 											</td>
 										</tr>
 									</tbody>
 								</template>
-							</v-simple-table>
+							</v-table>
 						</template>
 
 						<!-- Disconnected State -->
 						<template v-else>
-							<v-alert type="info" dense text>
-								<v-icon left>mdi-lan-disconnect</v-icon>
+							<v-alert type="info" density="compact" variant="text">
+								<v-icon class="mr-2">mdi-lan-disconnect</v-icon>
 								{{ $t("plugins.nxt.panels.status.disconnected") }}
 							</v-alert>
 						</template>
@@ -184,7 +184,7 @@
 								{{ toolPositionCaption }}
 							</v-card-title>
 							<v-card-text v-if="isConnected">
-								<v-simple-table dense>
+								<v-table density="compact">
 									<template v-slot:default>
 										<thead>
 											<tr>
@@ -196,18 +196,18 @@
 										<tbody>
 											<tr v-for="axis in visibleAxes" :key="axis.letter">
 												<td>
-													<v-chip small :color="axis.homed ? 'success' : 'grey'" class="px-2 white--text rounded-0">{{ axis.letter }}</v-chip>
+													<v-chip size="small" :color="axis.homed ? 'success' : 'grey'" class="px-2 text-white rounded-0">{{ axis.letter }}</v-chip>
 												</td>
 												<td align="right">{{ $display(axis.userPosition, 3, "mm") }}</td>
 												<td align="right">{{ $display(axis.machinePosition, 3, "mm") }}</td>
 											</tr>
 										</tbody>
 									</template>
-								</v-simple-table>
+								</v-table>
 							</v-card-text>
 							<v-card-text v-else>
-								<v-alert type="info" dense text>
-									<v-icon left>mdi-lan-disconnect</v-icon>
+								<v-alert type="info" density="compact" variant="text">
+									<v-icon class="mr-2">mdi-lan-disconnect</v-icon>
 									{{ $t('plugins.nxt.panels.status.disconnected') }}
 								</v-alert>
 							</v-card-text>
@@ -215,7 +215,7 @@
 					</v-col>
 
 					<!-- RGB work light -->
-					<v-col cols="12" v-if="rgbHardwareConfigured">
+					<v-col cols="12" v-if="rgbHardwareConfigured || rgbFeatureEnabled">
 						<nxt-rgb-light-control compact />
 					</v-col>
 
@@ -231,12 +231,16 @@
 
 <script lang="ts">
 // @ts-nocheck — Vue 2 + BaseComponent.extend(): tsc does not merge computeds onto `this`.
-import BaseComponent from "../../base/BaseComponent.vue";
+import { defineNxtComponent } from "../../base/BaseComponent.vue";
 import { Probe, Axis, Spindle, SpindleState } from "@duet3d/objectmodel";
-import store from "@/store";
+import store from "../../../compat/dwcStore";
 import { readFirmwareGlobal } from "../../../utils/nxtToolChangerOm";
 import { buildLoadedToolStatus } from "../../../utils/nxtLoadedToolStatus";
-import { isRgbLightHardwareConfigured, readOmLedsFromMachineModel } from "../../../utils/nxtRgbAvailability";
+import {
+	isRgbFeatureEnabled,
+	isRgbLightHardwareConfigured,
+	readOmLedsFromMachineModel
+} from "../../../utils/nxtRgbAvailability";
 
 const enum WorkplaceSet {
 	NONE,
@@ -244,7 +248,7 @@ const enum WorkplaceSet {
 	ALL
 }
 
-export default BaseComponent.extend({
+export default defineNxtComponent({
 	name: 'CNCContainerPanel',
 
 	computed: {
@@ -363,8 +367,14 @@ export default BaseComponent.extend({
 					: store.state.machine.model.boards?.[0]?.shortName ?? null;
 			return isRgbLightHardwareConfigured({
 				leds: readOmLedsFromMachineModel(store.state.machine.model),
-				boardShortName: boardShortName != null ? String(boardShortName) : null
+				boardShortName: boardShortName != null ? String(boardShortName) : null,
+				rgbPin: readFirmwareGlobal(g, 'nxtRGBPin'),
+				rgbReady: readFirmwareGlobal(g, 'nxtRGBReady')
 			});
+		},
+
+		rgbFeatureEnabled(): boolean {
+			return isRgbFeatureEnabled(store.state.machine.model.global);
 		},
 
 		// Spindle information
@@ -528,7 +538,7 @@ export default BaseComponent.extend({
 </script>
 
 <style scoped>
-.v-simple-table tbody tr td:first-child {
+.v-table tbody tr td:first-child {
 	width: 50%;
 }
 

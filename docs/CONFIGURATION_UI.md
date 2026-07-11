@@ -70,7 +70,7 @@ Select the machine platform and board pack that match your hardware. Platforms a
 
 | Control | Description |
 |---------|-------------|
-| **Platform** | e.g. `v1.5` or `v1.6_v2` — sets `global.nxtPlatformProfile` |
+| **Platform** | e.g. `v1.5`, `v1.6`, `v2.0`, or `custom` — sets `global.nxtPlatformProfile` |
 | **Board profile** | Override `global.nxtBoardShortNameOverride` or leave Auto (first board in object model) |
 | **Scylla motor voltage** | Required for Scylla packs: `24` or `48` V variant |
 | **Bootstrap mode** | **Auto** — Save creates `0:/sys/nxt-board-bootstrap.requested`. **Off** — Save removes it. |
@@ -78,7 +78,20 @@ Select the machine platform and board pack that match your hardware. Platforms a
 | **Check SD board packs** | Compares bundled manifest to `0:/sys/nxt-config/` (stale plugin warning) |
 | **Save Configuration** | Writes `nxt-user-vars.g` including `nxtBoardPackExpectedEntry` and syncs bootstrap sentinels |
 
-When you change platform, the UI may prompt to deploy homing files for that platform immediately. Homing direction requirements differ between v1.5 and v1.6_v2 — see [NXT_BOARD_HOMING.md](NXT_BOARD_HOMING.md).
+When you change platform, the UI may prompt to deploy homing files for that platform immediately. Homing direction requirements differ between v1.5 and v1.6/v2.0 — see [NXT_BOARD_HOMING.md](NXT_BOARD_HOMING.md).
+
+Platform **Custom** expands Configuration with:
+
+| Section | Globals / codes |
+|---------|-----------------|
+| Travel min/max | `nxtCustom*Min/Max` → `M208` |
+| Endstop pin + Min/Max side | `nxtCustom*EndstopPin`, `*HomeAt` → `M574` |
+| Steps/mm | `nxtCustom*Steps` → `M92` |
+| Drive map (multi-drive OK) | `nxtCustom*Drives` → `M584` overlay |
+| Drive direction | `nxtCustomDriveDirs` → `M569` |
+| Motor current (mA) | `nxtCustom*Current` → `M906` |
+
+**Save** writes `nxt-user-vars.g` and regenerates `0:/sys/nxt-config/machine/custom/` overlays plus direction-aware `0:/sys/home*.g`. Board pack files stay stock; custom overlays run after the board pack.
 
 **Reload** re-runs `M98 P"nxt-user-vars.g"` and shows warnings if bootstrap files or pack paths do not match saved intent (`nxtBoardPackExpectedEntry` vs `nxtBoardPackEntry`).
 
@@ -86,24 +99,22 @@ The **Platform bundle on SD** list shows deployable sys files and board `entry.g
 
 Pack loading vs homing deploy: [NXT_BOARD_CONFIG.md](NXT_BOARD_CONFIG.md).
 
-### 6. Coolant Control Configuration
+### 6. Coolant / output roles
 
-Configure GPIO pins for coolant control:
+Configure GPIO outputs from **named board pins** (Mist, Coolant, Relay, Aux, …):
 
-| Setting | Description | Example |
-|---------|-------------|---------|
-| Air Blast Pin ID | GP Output port for air blast | `0` |
-| Mist Coolant Pin ID | GP Output port for mist coolant | `1` |
-| Flood Coolant Pin ID | GP Output port for flood coolant | `2` |
-| Pulse mist (M7) | Cycle mist output on/off; air blast stays on | off |
-| Pulse flood (M8) | Cycle flood output on/off | off |
-| Pulse ON duration | Seconds coolant output stays on per cycle | `5` |
-| Pulse OFF duration | Seconds coolant output stays off per cycle | `25` |
+| Setting | Description | Example (Scylla) |
+|---------|-------------|------------------|
+| Relay | Motor/VFD contactor | Relay (`D.5`) |
+| Aux 1–3 | Spare aux MOSFET outputs | Aux 1 / Aux 2 |
+| Air Blast | Any free named gpOut | Aux 2 |
+| Mist Coolant | Prefer Mist pin | Mist (`A.7`) |
+| Flood / Coolant | Prefer Coolant pin | Coolant (`C.4`) |
 
 **Usage Notes:**
-- Pin IDs correspond to RRF general purpose output ports
-- Set to `null` or leave empty if not using that coolant type
-- Used by M7, M8, M9 coolant control macros
+- Dropdown labels use board pin names from `pinmap.json` (not bare `Output N`)
+- Clear a field to unassign; pins used by another role are disabled in other dropdowns
+- Coolant IDs drive M7 / M8 / M9 via `M42 P{id}`
 - Pulse timing requires `macros/system/daemon.g` (enabled by default via `global.nxtDaemonEnabled`)
 - When pulsing is enabled for a type, `M7`/`M8` turn that output on in cycles; `M9` stops pulsing immediately
 - Pause saves coolant **intent** (not instantaneous OFF phase) so resume restores pulsing correctly
@@ -295,7 +306,7 @@ To restore configuration:
 ## Related Documentation
 
 - [Board configuration & pack layout](NXT_BOARD_CONFIG.md)
-- [Homing requirements (v1.5 vs v1.6_v2)](NXT_BOARD_HOMING.md)
+- [Homing requirements (v1.5 vs v1.6 / v2.0 / custom)](NXT_BOARD_HOMING.md)
 - [UI Implementation Details](UI_IMPLEMENTATION.md)
 - [Features Overview](FEATURES.md)
 - [Development Roadmap](ROADMAP.md)

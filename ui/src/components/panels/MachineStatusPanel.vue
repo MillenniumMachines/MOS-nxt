@@ -1,11 +1,11 @@
 <template>
   <v-card>
     <v-card-title>
-      <v-icon left>mdi-information-outline</v-icon>
+      <v-icon class="mr-2">mdi-information-outline</v-icon>
       {{ $t('plugins.nxt.panels.status.caption') }}
       <v-spacer />
       <div v-if="!isConnected || !nxtReady" class="d-flex align-center">
-        <v-icon small class="mr-2" color="warning">{{ !isConnected ? 'mdi-lan-disconnect' : 'mdi-alert-circle-outline' }}</v-icon>
+        <v-icon size="small" class="mr-2" color="warning">{{ !isConnected ? 'mdi-lan-disconnect' : 'mdi-alert-circle-outline' }}</v-icon>
         <span class="text-caption">{{
           !isConnected ? $t('plugins.nxt.messages.disconnectedShort') : $t('plugins.nxt.messages.notReadyShort')
         }}</span>
@@ -16,18 +16,16 @@
       <v-row>
         <!-- nxt System Status -->
         <v-col cols="12" md="6">
-          <v-card outlined>
+          <v-card variant="outlined">
             <v-card-subtitle>nxt System</v-card-subtitle>
             <v-card-text>
-              <v-list dense>
+              <v-list density="compact">
                 <v-list-item>
-                  <v-list-item-content>
-                    <v-list-item-title>nxt loaded (firmware)</v-list-item-title>
+                                       <v-list-item-title>nxt loaded (firmware)</v-list-item-title>
                     <v-list-item-subtitle class="text-caption">
                       <code>global.nxtLoaded</code> true after successful boot
                     </v-list-item-subtitle>
-                  </v-list-item-content>
-                  <v-list-item-action>
+                                     <v-list-item-action>
                     <v-icon :color="nxtBackendReady ? 'success' : 'error'">
                       {{ nxtBackendReady ? 'mdi-check' : 'mdi-close' }}
                     </v-icon>
@@ -35,21 +33,17 @@
                 </v-list-item>
 
                 <v-list-item v-if="nxtErrorText">
-                  <v-list-item-content>
-                    <v-list-item-title class="error--text">
+                                       <v-list-item-title class="text-error">
                       Last Error: {{ nxtErrorText }}
                     </v-list-item-title>
-                  </v-list-item-content>
-                </v-list-item>
+                                   </v-list-item>
 
                 <v-list-item>
-                  <v-list-item-content>
-                    <v-list-item-title>Probe tool loaded (T{{ probeToolIdText }})</v-list-item-title>
+                                       <v-list-item-title>Probe tool loaded (T{{ probeToolIdText }})</v-list-item-title>
                     <v-list-item-subtitle class="text-caption">
                       Current tool must match <code>global.nxtProbeToolID</code> to run probing cycles
                     </v-list-item-subtitle>
-                  </v-list-item-content>
-                  <v-list-item-action>
+                                     <v-list-item-action>
                     <v-icon :color="touchProbeToolLoaded ? 'success' : 'warning'">
                       {{ touchProbeToolLoaded ? 'mdi-check-circle' : 'mdi-close-circle-outline' }}
                     </v-icon>
@@ -62,26 +56,24 @@
 
         <!-- Machine Position -->
         <v-col cols="12" md="6">
-          <v-card outlined>
+          <v-card variant="outlined">
             <v-card-subtitle>Axis Positions</v-card-subtitle>
             <v-card-text>
-              <v-list dense>
+              <v-list density="compact">
                 <v-list-item 
                   v-for="(axis, letter) in visibleAxesByLetter" 
                   :key="letter"
                 >
-                  <v-list-item-content>
-                    <v-list-item-title>
+                                       <v-list-item-title>
                       {{ letter }}: {{ formatPosition(axis.machinePosition) }}
                     </v-list-item-title>
                     <v-list-item-subtitle v-if="axis.userPosition !== axis.machinePosition">
                       Work: {{ formatPosition(axis.userPosition) }}
                     </v-list-item-subtitle>
-                  </v-list-item-content>
-                  <v-list-item-action>
+                                     <v-list-item-action>
                     <v-icon 
                       :color="axis.homed ? 'success' : 'warning'"
-                      small
+                      size="small"
                     >
                       {{ axis.homed ? 'mdi-home' : 'mdi-home-outline' }}
                     </v-icon>
@@ -94,7 +86,7 @@
 
         <!-- Feature Status -->
         <v-col cols="12">
-          <v-card outlined>
+          <v-card variant="outlined">
             <v-card-subtitle>nxt Features</v-card-subtitle>
             <v-card-text>
               <v-row>
@@ -102,7 +94,7 @@
                   <div class="feature-status">
                     <v-icon 
                       :color="globals.nxtFeatureTouchProbe ? 'success' : 'grey'"
-                      left
+                      class="mr-2"
                     >
                       mdi-target
                     </v-icon>
@@ -114,7 +106,7 @@
                   <div class="feature-status">
                     <v-icon 
                       :color="globals.nxtFeatureToolSetter ? 'success' : 'grey'"
-                      left
+                      class="mr-2"
                     >
                       mdi-wrench
                     </v-icon>
@@ -126,7 +118,7 @@
                   <div class="feature-status">
                     <v-icon 
                       :color="globals.nxtFeatureCoolantControl ? 'success' : 'grey'"
-                      left
+                      class="mr-2"
                     >
                       mdi-water
                     </v-icon>
@@ -136,8 +128,8 @@
                 <v-col cols="6" sm="4" v-if="rgbHardwareConfigured">
                   <div class="feature-status">
                     <v-icon 
-                      :color="globals.nxtFeatureRgbLight ? 'success' : 'grey'"
-                      left
+                      :color="rgbFeatureEnabled ? 'success' : 'grey'"
+                      class="mr-2"
                     >
                       mdi-lightbulb-on
                     </v-icon>
@@ -149,7 +141,7 @@
           </v-card>
         </v-col>
 
-        <v-col v-if="rgbHardwareConfigured" cols="12">
+        <v-col cols="12">
           <nxt-rgb-light-control />
         </v-col>
       </v-row>
@@ -158,17 +150,27 @@
 </template>
 
 <script lang="ts">
-import BaseComponent from '../base/BaseComponent.vue'
-import { isRgbLightHardwareConfigured, readOmLedsFromMachineModel } from '../../utils/nxtRgbAvailability'
-import store from '@/store'
+import { defineNxtComponent } from '../base/BaseComponent.vue'
+import { readFirmwareGlobal } from '../../utils/nxtToolChangerOm'
+import {
+  isRgbFeatureEnabled,
+  isRgbLightHardwareConfigured,
+  readOmLedsFromMachineModel
+} from '../../utils/nxtRgbAvailability'
+import store from '../../compat/dwcStore'
+import RgbLightControl from './RgbLightControl.vue'
 
 /**
  * nxt Machine Status Panel
  * 
  * Displays detailed machine and nxt system status information
  */
-export default BaseComponent.extend({
+export default defineNxtComponent({
   name: 'NxtMachineStatusPanel',
+
+  components: {
+    NxtRgbLightControl: RgbLightControl
+  },
 
   computed: {
     /**
@@ -213,18 +215,25 @@ export default BaseComponent.extend({
     },
 
     rgbHardwareConfigured(): boolean {
+      const g = store.state.machine.model.global
       const boards = store.state.machine.model.boards
+      const override = readFirmwareGlobal(g, 'nxtBoardShortNameOverride')
       const boardShortName =
-        this.globals.nxtBoardShortNameOverride != null &&
-        String(this.globals.nxtBoardShortNameOverride).trim().length > 0
-          ? String(this.globals.nxtBoardShortNameOverride).trim()
+        override != null && String(override).trim().length > 0
+          ? String(override).trim()
           : Array.isArray(boards) && boards[0]?.shortName
             ? String(boards[0].shortName)
             : null
       return isRgbLightHardwareConfigured({
         leds: readOmLedsFromMachineModel(store.state.machine.model),
-        boardShortName
+        boardShortName,
+        rgbPin: readFirmwareGlobal(g, 'nxtRGBPin'),
+        rgbReady: readFirmwareGlobal(g, 'nxtRGBReady')
       })
+    },
+
+    rgbFeatureEnabled(): boolean {
+      return isRgbFeatureEnabled(store.state.machine.model.global)
     }
   },
 

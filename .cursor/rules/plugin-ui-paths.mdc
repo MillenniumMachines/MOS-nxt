@@ -36,6 +36,8 @@ When changing **board/machine layout**, **SD paths**, **manifest shape**, or **C
    `rg 'nxt/config' --glob '!*.md' macros ui dist`
 3. **Confirm generated JSON** includes `machineEntryPath` on each `platforms[]` entry (partial `platforms` breaks the DWC build → `can't access property "call"` at plugin start).
 4. **Rebuild plugin** when UI or manifest changed: `./dist/build-plugin.sh <DWC>` (exit 0); ZIP must list `dwc/js/nxt.*.js`.
+   - **Do not** use `NXT_SKIP_DWC_TYPECHECK=1` for real UI work. DWC’s Vite builder runs **vue-tsc**; implicit `any` / index errors fail the build. Fix types in `ui/` before claiming the change done.
+   - **Vue SFC habit (recurring):** under DWC’s `noImplicitAny`, Options API often loses inference on `this.*` arrays. **Always annotate** `.map` / `.filter` / `.find` / `.reduce` callback params in `.vue` files (e.g. `(n: number) => …`), even when the array “should” be typed. See [ui-plugin-typecheck.mdc](ui-plugin-typecheck.mdc).
 5. **DWC dev:** symlink present; `imports.ts` must not list `nxt` without `src/plugins/nxt/` on disk.
 
 ## Plugin load error: `can't access property "call", v[ee] is undefined`
@@ -59,6 +61,7 @@ This is **webpack**, not RRF. See `dist/diagnose-plugin-chunk.mjs` for a full re
 - Configuration save fields (`nxtBoardPackExpectedEntry`, `nxtPlatformProfile`, pinmap paths)
 - New imports of manifest data or SD scan utilities
 - Moving or splitting Vue panels (keep **static** panel imports in `ui/src/index.ts` / `components/panels/index.ts` — avoid async `import()` in the plugin entry)
+- Any new/edited `.vue` / `.ts` under `ui/` — must pass DWC plugin **vue-tsc** via a normal `build-plugin.sh` (see checklist item 4)
 
 ## Release cross-check
 

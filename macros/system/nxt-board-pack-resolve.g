@@ -12,6 +12,8 @@ else
     M117 "nxt board pack no board id"
     M99
 
+if { !exists(global.nxtBoardPackShortName) }
+    global nxtBoardPackShortName = ""
 set global.nxtBoardPackShortName = var.brd
 
 var volt = null

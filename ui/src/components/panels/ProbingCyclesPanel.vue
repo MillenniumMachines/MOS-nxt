@@ -1,34 +1,36 @@
 <template>
   <v-card>
     <v-card-title class="d-flex align-center">
-      <v-icon left>mdi-crosshairs-gps</v-icon>
+      <v-icon class="mr-2">mdi-crosshairs-gps</v-icon>
       {{ $t('plugins.nxt.panels.probingCycles.title') }}
     </v-card-title>
 
     <v-card-text>
-      <v-alert v-if="!touchProbeEnabled" type="warning" dense outlined class="mb-4">
-        <v-icon small left>mdi-alert</v-icon>
+      <v-alert v-if="!touchProbeEnabled" type="warning" density="compact" variant="outlined" class="mb-4">
+        <v-icon class="mr-2" size="small">mdi-alert</v-icon>
         {{ $t('plugins.nxt.panels.probingCycles.touchProbeWarning') }}
       </v-alert>
 
-      <v-alert v-else-if="!touchProbeSelected" type="info" dense outlined class="mb-4">
-        <v-icon small left>mdi-information</v-icon>
+      <v-alert v-else-if="!touchProbeSelected" type="info" density="compact" variant="outlined" class="mb-4">
+        <v-icon class="mr-2" size="small">mdi-information</v-icon>
         {{ $t('plugins.nxt.panels.probingCycles.selectProbeTool', [probeToolId]) }}
       </v-alert>
 
-      <v-row dense class="mb-3">
+      <v-row density="compact" class="mb-3">
         <v-col cols="12" sm="6">
           <v-select
             v-model="targetWcs"
             :items="wcsOptions"
+            item-title="text"
+            item-value="value"
             :label="$t('plugins.nxt.panels.probingCycles.targetWcs')"
             :hint="$t('plugins.nxt.panels.probingCycles.wcsHint')"
-            outlined
-            dense
+            variant="outlined"
+            density="compact"
             persistent-hint
           >
             <template v-slot:prepend-inner>
-              <v-icon small>mdi-axis-arrow</v-icon>
+              <v-icon size="small">mdi-axis-arrow</v-icon>
             </template>
           </v-select>
         </v-col>
@@ -36,41 +38,57 @@
           <v-select
             v-model="rotationPolicy"
             :items="rotationPolicyOptions"
+            item-title="text"
+            item-value="value"
             :label="$t('plugins.nxt.panels.probingCycles.rotationPolicy')"
-            outlined
-            dense
+            variant="outlined"
+            density="compact"
             hide-details
+          />
+        </v-col>
+        <v-col cols="12">
+          <v-switch
+            v-model="guidedJogMode"
+            :label="$t('plugins.nxt.panels.probingCycles.guidedJogMode')"
+            :hint="$t('plugins.nxt.panels.probingCycles.guidedJogHint')"
+            :disabled="!touchProbeEnabled"
+            persistent-hint
+            hide-details="auto"
+            density="compact"
+            class="mt-0"
           />
         </v-col>
         <v-col cols="12">
           <v-select
             v-model="selectedCycle"
             :items="probingCycles"
+            item-title="text"
+            item-value="value"
             :label="$t('plugins.nxt.panels.probing.caption')"
-            outlined
-            dense
+            variant="outlined"
+            density="compact"
             hide-details
           >
             <template v-slot:prepend-inner>
-              <v-icon small>mdi-target</v-icon>
+              <v-icon size="small">mdi-target</v-icon>
             </template>
           </v-select>
         </v-col>
       </v-row>
 
       <!-- Cycle-specific parameter forms -->
-      <v-card outlined v-if="selectedCycle">
+      <v-card variant="outlined" v-if="selectedCycle">
         <v-card-subtitle class="pb-2">
-          <v-icon small left>{{ cycleConfig.icon }}</v-icon>
+          <v-icon class="mr-2" size="small">{{ cycleConfig.icon }}</v-icon>
           {{ cycleConfig.name }}
         </v-card-subtitle>
         <v-card-text>
-          <v-alert type="info" dense text class="mb-3">
+          <v-alert type="info" density="compact" variant="text" class="mb-3">
             <div class="text-caption">{{ cycleConfig.description }}</div>
           </v-alert>
 
           <v-form ref="cycleForm" v-model="formValid">
-            <v-row dense>
+            <v-row density="compact">
               <!-- Common Parameters -->
               <v-col cols="12" sm="6" md="4" v-if="cycleConfig.params.includes('D')">
                 <v-text-field
@@ -78,8 +96,8 @@
                   label="Diameter (D)"
                   suffix="mm"
                   type="number"
-                  outlined
-                  dense
+                  variant="outlined"
+                  density="compact"
                   :rules="[v => !!v || 'Required', v => v > 0 || 'Must be positive']"
                 />
               </v-col>
@@ -89,8 +107,8 @@
                   label="Width (W)"
                   suffix="mm"
                   type="number"
-                  outlined
-                  dense
+                  variant="outlined"
+                  density="compact"
                   :rules="[v => !!v || 'Required', v => v > 0 || 'Must be positive']"
                 />
               </v-col>
@@ -100,8 +118,8 @@
                   label="Height (H)"
                   suffix="mm"
                   type="number"
-                  outlined
-                  dense
+                  variant="outlined"
+                  density="compact"
                   :rules="[v => !!v || 'Required', v => v > 0 || 'Must be positive']"
                 />
               </v-col>
@@ -111,8 +129,8 @@
                   label="Depth (L)"
                   suffix="mm"
                   type="number"
-                  outlined
-                  dense
+                  variant="outlined"
+                  density="compact"
                   :rules="[v => !!v || 'Required', v => v > 0 || 'Must be positive']"
                 />
               </v-col>
@@ -122,8 +140,8 @@
                   label="Spacing (S)"
                   suffix="mm"
                   type="number"
-                  outlined
-                  dense
+                  variant="outlined"
+                  density="compact"
                   :rules="[v => !!v || 'Required', v => v > 0 || 'Must be positive']"
                 />
               </v-col>
@@ -131,9 +149,11 @@
                 <v-select
                   v-model="params.axis"
                   :items="surfaceAxisOptions"
+                  item-title="text"
+                  item-value="value"
                   label="Probe axis"
-                  outlined
-                  dense
+                  variant="outlined"
+                  density="compact"
                   :rules="[v => v != null || 'Required']"
                 />
               </v-col>
@@ -143,8 +163,8 @@
                   label="Target (machine)"
                   suffix="mm"
                   type="number"
-                  outlined
-                  dense
+                  variant="outlined"
+                  density="compact"
                   :rules="[v => v != null || 'Required']"
                 />
               </v-col>
@@ -152,9 +172,11 @@
                 <v-select
                   v-model="params.axis"
                   :items="axisOptions"
+                  item-title="text"
+                  item-value="value"
                   label="Axis (N)"
-                  outlined
-                  dense
+                  variant="outlined"
+                  density="compact"
                   :rules="[v => v != null || 'Required']"
                 />
               </v-col>
@@ -162,9 +184,11 @@
                 <v-select
                   v-model="params.direction"
                   :items="directionOptions"
+                  item-title="text"
+                  item-value="value"
                   label="Approach side (D)"
-                  outlined
-                  dense
+                  variant="outlined"
+                  density="compact"
                   :rules="[v => v != null || 'Required']"
                 />
               </v-col>
@@ -173,22 +197,22 @@
               <v-col cols="12">
                 <v-expansion-panels flat>
                   <v-expansion-panel>
-                    <v-expansion-panel-header class="px-0">
+                    <v-expansion-panel-title class="px-0">
                       <span class="text-caption">
-                        <v-icon small left>mdi-tune</v-icon>
+                        <v-icon class="mr-2" size="small">mdi-tune</v-icon>
                         {{ $t('plugins.nxt.panels.probingCycles.optionalParams') }}
                       </span>
-                    </v-expansion-panel-header>
-                    <v-expansion-panel-content>
-                      <v-row dense>
+                    </v-expansion-panel-title>
+                    <v-expansion-panel-text>
+                      <v-row density="compact">
                         <v-col cols="12" sm="6" md="4">
                           <v-text-field
                             v-model.number="params.overtravel"
                             label="Overtravel (O)"
                             suffix="mm"
                             type="number"
-                            outlined
-                            dense
+                            variant="outlined"
+                            density="compact"
                             hint="Default: 2.0mm"
                             persistent-hint
                           />
@@ -199,8 +223,8 @@
                             label="Clearance (C)"
                             suffix="mm"
                             type="number"
-                            outlined
-                            dense
+                            variant="outlined"
+                            density="compact"
                             hint="Default: 5.0mm"
                             persistent-hint
                           />
@@ -211,8 +235,8 @@
                             label="Feed Rate (F)"
                             suffix="mm/min"
                             type="number"
-                            outlined
-                            dense
+                            variant="outlined"
+                            density="compact"
                             hint="Default: probe speed"
                             persistent-hint
                           />
@@ -222,14 +246,14 @@
                             v-model.number="params.retries"
                             label="Retries (R)"
                             type="number"
-                            outlined
-                            dense
+                            variant="outlined"
+                            density="compact"
                             hint="Default: probe setting"
                             persistent-hint
                           />
                         </v-col>
                       </v-row>
-                    </v-expansion-panel-content>
+                    </v-expansion-panel-text>
                   </v-expansion-panel>
                 </v-expansion-panels>
               </v-col>
@@ -240,20 +264,20 @@
 
           <v-btn
             block
-            large
+            size="large"
             color="primary"
             @click="executeCycle"
             :disabled="!canExecute"
             :loading="executing"
           >
-            <v-icon left>mdi-play</v-icon>
+            <v-icon class="mr-2">mdi-play</v-icon>
             {{ $t('plugins.nxt.panels.probingCycles.execute', [cycleConfig.gcode]) }}
           </v-btn>
         </v-card-text>
       </v-card>
 
-      <v-alert v-else type="info" outlined class="mt-3">
-        <v-icon left>mdi-arrow-up</v-icon>
+      <v-alert v-else type="info" variant="outlined" class="mt-3">
+        <v-icon class="mr-2">mdi-arrow-up</v-icon>
         {{ $t('plugins.nxt.panels.probingCycles.selectCycle') }}
       </v-alert>
     </v-card-text>
@@ -261,7 +285,7 @@
 </template>
 
 <script lang="ts">
-import BaseComponent from '../base/BaseComponent.vue'
+import { defineNxtComponent } from '../base/BaseComponent.vue'
 
 interface CycleConfig {
   gcode: string
@@ -287,14 +311,14 @@ interface CycleParams {
   retries: number | null
 }
 
-export default BaseComponent.extend({
+export default defineNxtComponent({
   data() {
-    const wcsGcode = ['G54', 'G55', 'G56', 'G57', 'G58', 'G59', 'G59.1', 'G59.2', 'G59.3']
     return {
       targetWcs: 1,
       rotationPolicy: 0 as number,
-      wcsGcodeLabels: wcsGcode,
       selectedCycle: null as string | null,
+      guidedJogMode: false,
+      jogCapableCycles: ['G6500', 'G6501', 'G6502', 'G6503', 'G6504', 'G6505', 'G6508', 'G6510', 'G6520'],
       formValid: false,
       executing: false,
       params: {
@@ -430,9 +454,9 @@ export default BaseComponent.extend({
       return this.$store.state.machine.model?.state?.currentTool === this.probeToolId
     },
     wcsOptions(): { text: string; value: number }[] {
-      const labels = this.wcsGcodeLabels as string[]
-      return labels.map((g, i) => ({
-        text: `WCS ${i + 1} (${g})`,
+      // Labels match internal WCS numbers 1–9 (G54–G59.3 / U and M6520 W).
+      return Array.from({ length: 9 }, (_, i) => ({
+        text: `WCS${i + 1}`,
         value: i + 1
       }))
     },
@@ -448,9 +472,12 @@ export default BaseComponent.extend({
       return this.cycleConfigs[this.selectedCycle] || null
     },
     canExecute(): boolean {
-      return this.touchProbeEnabled && 
-             this.touchProbeSelected && 
-             this.formValid && 
+      const jogOk = this.guidedJogMode &&
+        this.selectedCycle != null &&
+        this.jogCapableCycles.includes(this.selectedCycle)
+      return this.touchProbeEnabled &&
+             this.touchProbeSelected &&
+             (jogOk || this.formValid) &&
              !this.executing &&
              this.selectedCycle !== null
     }
@@ -499,6 +526,11 @@ export default BaseComponent.extend({
     },
     buildGcode(): string {
       if (!this.selectedCycle) return ''
+
+      if (this.guidedJogMode && this.jogCapableCycles.includes(this.selectedCycle)) {
+        const wcs = this.targetWcs - 1
+        return `M5012\n${this.selectedCycle}-jog W${wcs}`
+      }
 
       let gcode = `${this.selectedCycle} U${this.targetWcs}`
       gcode += ` Q${this.rotationPolicy}`

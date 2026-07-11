@@ -1,11 +1,11 @@
 <template>
     <v-card class="nxt-stock-preparation-panel">
     <v-card-title>
-      <v-icon left>mdi-cube-outline</v-icon>
+      <v-icon class="mr-2">mdi-cube-outline</v-icon>
       {{ $t('plugins.nxt.panels.stockPreparation.caption') }}
       <v-spacer />
       <div v-if="!isConnected || !nxtReady" class="d-flex align-center mr-2">
-        <v-icon small class="mr-2" color="warning">{{ !isConnected ? 'mdi-lan-disconnect' : 'mdi-alert-circle-outline' }}</v-icon>
+        <v-icon size="small" class="mr-2" color="warning">{{ !isConnected ? 'mdi-lan-disconnect' : 'mdi-alert-circle-outline' }}</v-icon>
         <span class="text-caption mr-2">{{
           !isConnected ? $t('plugins.nxt.messages.disconnectedShort') : $t('plugins.nxt.messages.notReadyShort')
         }}</span>
@@ -15,7 +15,7 @@
         v-if="pendingCount > 0"
         color="warning"
         text-color="white"
-        small
+        size="small"
         class="mr-2"
         @click.stop.prevent="commitAll"
       >
@@ -32,7 +32,7 @@
     >
       <v-card>
         <v-card-title>
-          <v-icon left>mdi-cog</v-icon>
+          <v-icon class="mr-2">mdi-cog</v-icon>
           Generating Toolpath
         </v-card-title>
         <v-card-text>
@@ -40,7 +40,7 @@
             {{ generationMessage }}
           </div>
           <v-progress-linear
-            :value="generationProgress"
+            :model-value="generationProgress"
             color="primary"
             height="25"
             striped
@@ -59,7 +59,7 @@
         <v-col cols="12" lg="8">
           <v-card flat>
             <v-card-subtitle class="font-weight-bold d-flex align-center">
-              <v-icon left small>mdi-eye</v-icon>
+              <v-icon class="mr-2" size="small">mdi-eye</v-icon>
               Toolpath Preview
             </v-card-subtitle>
             <v-card-text>
@@ -101,7 +101,7 @@
                   Configure valid stock dimensions to show preview.
                 </div>
               </div>
-              <div class="text-caption mt-2 grey--text">
+              <div class="text-caption mt-2 text-grey">
                 Plan view (XY). Orange dashed = rapid, teal solid = cut. 3D preview remains disabled for plugin stability.
               </div>
             </v-card-text>
@@ -114,23 +114,23 @@
             <v-expansion-panels accordion multiple>
               <!-- Tool Configuration -->
               <v-expansion-panel>
-                <v-expansion-panel-header>
+                <v-expansion-panel-title>
                   <div>
-                    <v-icon left small>mdi-tools</v-icon>
+                    <v-icon class="mr-2" size="small">mdi-tools</v-icon>
                     Tool Configuration
                   </div>
-                </v-expansion-panel-header>
-                <v-expansion-panel-content>
+                </v-expansion-panel-title>
+                <v-expansion-panel-text>
                   <v-row>
                     <v-col cols="12">
                       <v-alert
                         v-if="!currentTool"
                         type="warning"
-                        dense
-                        outlined
+                        density="compact"
+                        variant="outlined"
                         class="mb-2"
                       >
-                        <v-icon left small>mdi-alert</v-icon>
+                        <v-icon class="mr-2" size="small">mdi-alert</v-icon>
                         No tool selected - using manual radius
                       </v-alert>
                       <div v-else class="text-body-2 mb-2">
@@ -156,21 +156,21 @@
                       />
                     </v-col>
                   </v-row>
-                </v-expansion-panel-content>
+                </v-expansion-panel-text>
               </v-expansion-panel>
 
               <!-- Stock Geometry -->
               <v-expansion-panel>
-                <v-expansion-panel-header>
+                <v-expansion-panel-title>
                   <div>
-                    <v-icon left small>mdi-cube</v-icon>
+                    <v-icon class="mr-2" size="small">mdi-cube</v-icon>
                     Stock Geometry
                   </div>
-                </v-expansion-panel-header>
-                <v-expansion-panel-content>
+                </v-expansion-panel-title>
+                <v-expansion-panel-text>
                   <v-row>
                     <v-col cols="12">
-                      <v-radio-group v-model="stockShape" row dense>
+                      <v-radio-group v-model="stockShape" row density="compact">
                         <v-radio label="Rectangular" value="rectangular" />
                         <v-radio label="Circular" value="circular" />
                       </v-radio-group>
@@ -270,13 +270,12 @@
                         :append-outer-icon="isPending('stockZ') ? 'mdi-timer-sand' : ''"
                       >
                         <template v-slot:append-outer>
-                          <v-tooltip bottom v-if="isPending('stockZ')">
-                            <template v-slot:activator="{ on, attrs }">
+                          <v-tooltip location="bottom" v-if="isPending('stockZ')">
+                            <template v-slot:activator="{ props }">
                               <v-icon
-                                v-bind="attrs"
-                                v-on="on"
+                                v-bind="props"
                                 class="mr-2"
-                                small
+                                size="small"
                                 @click.stop.prevent="applyPending('stockZ')"
                               >mdi-timer-sand</v-icon>
                             </template>
@@ -286,25 +285,25 @@
                       </v-text-field>
                     </v-col>
                     <v-col cols="12">
-                      <v-alert dense outlined type="info" class="ma-0">
+                      <v-alert density="compact" variant="outlined" type="info" class="ma-0">
                         <div class="text-caption">
                           Origin: Center (fixed for circular stock)
                         </div>
                       </v-alert>
                     </v-col>
                   </v-row>
-                </v-expansion-panel-content>
+                </v-expansion-panel-text>
               </v-expansion-panel>
 
               <!-- Facing Pattern -->
               <v-expansion-panel>
-                <v-expansion-panel-header>
+                <v-expansion-panel-title>
                   <div>
-                    <v-icon left small>mdi-axis-arrow</v-icon>
+                    <v-icon class="mr-2" size="small">mdi-axis-arrow</v-icon>
                     Facing Pattern
                   </div>
-                </v-expansion-panel-header>
-                <v-expansion-panel-content>
+                </v-expansion-panel-title>
+                <v-expansion-panel-text>
                   <v-row>
                     <v-col cols="12" md="6">
                       <v-select
@@ -331,13 +330,13 @@
                       />
                     </v-col>
                     <v-col cols="12">
-                      <v-radio-group v-model="millingDirection" row dense>
+                      <v-radio-group v-model="millingDirection" row density="compact">
                         <v-radio label="Climb Milling (Recommended)" value="climb" />
                         <v-radio label="Conventional Milling" value="conventional" />
                       </v-radio-group>
                     </v-col>
                     <v-col v-if="facingPattern === 'spiral'" cols="12">
-                      <v-radio-group v-model="spiralDirection" row dense>
+                      <v-radio-group v-model="spiralDirection" row density="compact">
                         <v-radio label="Outside-In (Recommended)" value="outside-in" />
                         <v-radio label="Inside-Out" value="inside-out" />
                       </v-radio-group>
@@ -359,28 +358,28 @@
                         :disabled="uiFrozen"
                       >
                         <template v-slot:prepend>
-                          <v-icon small>mdi-speedometer-slow</v-icon>
+                          <v-icon size="small">mdi-speedometer-slow</v-icon>
                           <span class="text-caption ml-1">Fast</span>
                         </template>
                         <template v-slot:append>
                           <span class="text-caption mr-1">Accurate</span>
-                          <v-icon small>mdi-speedometer</v-icon>
+                          <v-icon size="small">mdi-speedometer</v-icon>
                         </template>
                       </v-slider>
                     </v-col>
                   </v-row>
-                </v-expansion-panel-content>
+                </v-expansion-panel-text>
               </v-expansion-panel>
 
               <!-- Cutting Parameters -->
               <v-expansion-panel>
-                <v-expansion-panel-header>
+                <v-expansion-panel-title>
                   <div>
-                    <v-icon left small>mdi-sine-wave</v-icon>
+                    <v-icon class="mr-2" size="small">mdi-sine-wave</v-icon>
                     Cutting Parameters
                   </div>
-                </v-expansion-panel-header>
-                <v-expansion-panel-content>
+                </v-expansion-panel-title>
+                <v-expansion-panel-text>
                   <v-row>
                     <v-col cols="12" md="6">
                       <v-text-field
@@ -517,18 +516,18 @@
                       />
                     </v-col>
                   </v-row>
-                </v-expansion-panel-content>
+                </v-expansion-panel-text>
               </v-expansion-panel>
 
               <!-- Feed and Speed -->
               <v-expansion-panel>
-                <v-expansion-panel-header>
+                <v-expansion-panel-title>
                   <div>
-                    <v-icon left small>mdi-speedometer</v-icon>
+                    <v-icon class="mr-2" size="small">mdi-speedometer</v-icon>
                     Feed and Speed
                   </div>
-                </v-expansion-panel-header>
-                <v-expansion-panel-content>
+                </v-expansion-panel-title>
+                <v-expansion-panel-text>
                   <v-row>
                     <v-col cols="12" md="4">
                       <v-text-field
@@ -579,18 +578,18 @@
                       />
                     </v-col>
                   </v-row>
-                </v-expansion-panel-content>
+                </v-expansion-panel-text>
               </v-expansion-panel>
             </v-expansion-panels>
           </v-form>
 
-          <v-card outlined class="mt-4">
+          <v-card variant="outlined" class="mt-4">
             <v-card-subtitle class="font-weight-bold">
-              <v-icon left small>mdi-chart-box</v-icon>
+              <v-icon class="mr-2" size="small">mdi-chart-box</v-icon>
               Statistics
             </v-card-subtitle>
             <v-card-text>
-              <v-row dense>
+              <v-row density="compact">
                 <v-col cols="12">
                   <div class="text-caption">Roughing Passes</div>
                   <div class="text-h6">{{ statistics.roughingPasses }}</div>
@@ -612,9 +611,9 @@
           </v-card>
 
           <!-- File Management (in right column) -->
-          <v-card outlined class="mt-4">
+          <v-card variant="outlined" class="mt-4">
             <v-card-subtitle class="font-weight-bold">
-              <v-icon left small>mdi-content-save</v-icon>
+              <v-icon class="mr-2" size="small">mdi-content-save</v-icon>
               File Management
             </v-card-subtitle>
             <v-card-text>
@@ -632,7 +631,7 @@
                     :rules="[v => !!v || 'Filename required', v => /^[a-zA-Z0-9_-]+$/.test(v) || 'Invalid filename']"
                     hint="Alphanumeric, dash, and underscore only"
                     persistent-hint
-                    dense
+                    density="compact"
                   />
                 </v-col>
                 <v-col cols="12">
@@ -640,7 +639,7 @@
                     v-model="saveLocation"
                     :items="saveLocations"
                     label="Save Location"
-                    dense
+                    density="compact"
                   />
                 </v-col>
               </v-row>
@@ -653,7 +652,7 @@
                     @click="saveAsFile"
                     class="mb-2"
                   >
-                    <v-icon left>mdi-content-save</v-icon>
+                    <v-icon class="mr-2">mdi-content-save</v-icon>
                     Save as File
                   </v-btn>
                 </v-col>
@@ -664,7 +663,7 @@
                     :disabled="!filename || uiFrozen"
                     @click="runImmediately"
                   >
-                    <v-icon left>mdi-play</v-icon>
+                    <v-icon class="mr-2">mdi-play</v-icon>
                     Run Immediately
                   </v-btn>
                 </v-col>
@@ -679,7 +678,7 @@
 
 <script lang="ts">
 // @ts-nocheck - Vue 2 component with Vuex store integration
-import BaseComponent from '../base/BaseComponent.vue'
+import { defineNxtComponent } from '../base/BaseComponent.vue'
 import {
   generateToolpath,
   calculateToolpathStatistics,
@@ -689,7 +688,7 @@ import {
 import { generateGCode, validateGCodeParameters } from '../../utils/gcode'
 import { buildStockPreparationSvgPreview } from '../../utils/stockPreparationSvgPreview'
 
-export default BaseComponent.extend({
+export default defineNxtComponent({
   name: 'NxtStockPreparationPanel',
 
   data() {

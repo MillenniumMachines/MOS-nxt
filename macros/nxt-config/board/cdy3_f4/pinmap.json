@@ -1,7 +1,103 @@
 {
   "boardId": "cdy3_f4",
   "assigned": [
-    { "role": "fan_tool", "kind": "fan", "index": 0, "pin": "PA_4" }
+    {
+      "id": "fan0",
+      "label": "Fan 0",
+      "kind": "fan",
+      "index": 0,
+      "pin": "A.0",
+      "aliases": ["fan0", "fan"]
+    },
+    {
+      "id": "fan1",
+      "label": "Fan 1",
+      "kind": "fan",
+      "index": 1,
+      "pin": "A.1",
+      "aliases": ["fan1"]
+    },
+    {
+      "id": "endstop_x",
+      "label": "X endstop",
+      "kind": "endstop",
+      "axis": "X",
+      "pin": "C.7",
+      "aliases": ["xmin", "xstop"]
+    },
+    {
+      "id": "endstop_y",
+      "label": "Y endstop",
+      "kind": "endstop",
+      "axis": "Y",
+      "pin": "D.11",
+      "aliases": ["ymin", "ystop"]
+    },
+    {
+      "id": "endstop_z",
+      "label": "Z endstop",
+      "kind": "endstop",
+      "axis": "Z",
+      "pin": "B.10",
+      "aliases": ["zmin", "zstop"]
+    },
+    {
+      "id": "toolsetter",
+      "label": "Toolsetter",
+      "kind": "probe",
+      "probeIndex": 1,
+      "pin": "B.11",
+      "aliases": ["zmax", "zstopmax"]
+    },
+    {
+      "id": "spindle",
+      "label": "Spindle",
+      "kind": "spindle",
+      "pin": "E.6+!B.9",
+      "aliases": ["servo0", "laser"]
+    }
   ],
-  "free": []
+  "free": [
+    {
+      "id": "fan2",
+      "label": "Fan 2",
+      "kind": "gpout",
+      "gpOutIndex": 0,
+      "pin": "A.2",
+      "aliases": ["fan2"]
+    },
+    {
+      "id": "he0",
+      "label": "Heater 0 (E0)",
+      "kind": "gpout",
+      "gpOutIndex": 1,
+      "pin": "D.12",
+      "aliases": ["e0heat", "he0"]
+    },
+    {
+      "id": "he1",
+      "label": "Heater 1 (E1)",
+      "kind": "gpout",
+      "gpOutIndex": 2,
+      "pin": "D.13",
+      "aliases": ["e1heat", "he1"]
+    },
+    {
+      "id": "he2",
+      "label": "Heater 2 (E2)",
+      "kind": "gpout",
+      "gpOutIndex": 3,
+      "pin": "D.14",
+      "aliases": ["e2heat", "he2"]
+    },
+    {
+      "id": "probe",
+      "label": "Probe",
+      "kind": "probe",
+      "probeIndex": 0,
+      "pin": "C.2",
+      "aliases": ["probe"],
+      "note": "Requires 0:/sys/touchprobe.g (M558 K0) to appear in OM"
+    }
+  ]
 }

@@ -15,13 +15,14 @@ This document outlines the complete tool setting and Z-offsetting workflow for n
 
 ## 2. Phase 1: One-Time Static Datum Calibration
 
-This process is performed once via the UI-based configuration to establish the machine's core geometry. It is only re-run if the toolsetter or reference surface is physically moved.
+This process is performed once via the **Calibration** tab (Phase 0 → `M5016`, then park + load probe tool) to establish the machine's core geometry. It is only re-run if the toolsetter or reference surface is physically moved. See [CALIBRATION.md](CALIBRATION.md) §4 for the UI path and probe-mode calibration (`G9000`).
 
 1.  **Install Datum Tool:** The user installs a rigid, known-geometry datum tool (e.g., a gauge pin).
-2.  **Measure Toolsetter:** The system automatically probes the toolsetter with the datum tool to get the absolute machine coordinate `Z_act_datum`.
+2.  **Measure Toolsetter:** The system automatically probes the toolsetter with the datum tool to get the absolute machine coordinate `Z_act_datum` (`M5016`).
 3.  **Measure Reference Surface:** The user manually jogs the datum tool to the designated flat reference surface to get the absolute machine coordinate `Z_ref_datum`.
 4.  **Store Static Datum:** The system calculates and permanently saves the static datum:
     `nxtDeltaMachine = Z_ref_datum - Z_act_datum`
+5.  **Load touch probe:** Park (`G27`), install probe, `T{nxtProbeToolID}` so `tpost` / `G6511` establish the probe offset; **Save** writes `nxtToolSetterPos`, `nxtTouchProbeRefPos`, and `nxtDeltaMachine` to `nxt-user-vars.g`.
 
 ### UI Babystepping
 

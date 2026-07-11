@@ -58,7 +58,8 @@ if (fs.existsSync(path.join(root, 'ui/src/NeXT.vue'))) {
   fail('ui/src/NeXT.vue must not exist')
 }
 
-assertIncludes('ui/src/index.ts', "registerPluginLocalization('nxt'", 'index.ts i18n')
+assertIncludes('ui/src/index.ts', "registerPluginMessages('nxt'", 'index.ts i18n')
+assertIncludes('ui/src/index.ts', "from '@/plugins'", 'index.ts plugin API import')
 assertIncludes('ui/src/index.ts', "registerPluginData('nxt'", 'index.ts plugin data')
 assertIncludes('ui/src/index.ts', "caption: 'plugins.nxt.name'", 'index.ts route caption')
 assertIncludes('ui/src/index.ts', "const NXT_ROUTE_PATH = '/nxt'", 'index.ts route')
@@ -82,7 +83,12 @@ for (const rel of [
 
 assertIncludes('dist/release.sh', '--arg id "nxt"', 'release dwc-plugins.json id')
 assertIncludes('dist/build-plugin.sh', 'dwc/js/nxt', 'build-plugin zip layout')
+assertIncludes('dist/build-plugin.sh', 'detect-dwc-plugin-builder.mjs', 'build-plugin Vite/webpack detect')
 assertIncludes('dist/verify-plugin-zip.mjs', 'dwc/js/nxt', 'verify-plugin-zip')
+assertIncludes('dist/patch-dwc-build-plugin-zip.cjs', 'DWC Vite', 'patch handles Vite builder')
+if (!fs.existsSync(path.join(root, 'dist/detect-dwc-plugin-builder.mjs'))) {
+  fail('dist/detect-dwc-plugin-builder.mjs must exist')
+}
 
 // No stale id in UI tree
 const uiSrc = path.join(root, 'ui/src')

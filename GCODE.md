@@ -514,14 +514,15 @@ Does not modify globals or `nxt-user-overrides.g` (report only).
 
 Sets the addressable RGB work light via **M150** when the RGB light feature is enabled.
 
-**Usage:** `M6524 R<0-255> G<0-255> B<0-255>`
+**Usage:** `M6524 R<0-255> U<0-255> B<0-255>`
 
 **Parameters:**
-- `R`, `G`, `B`: Color components (each clamped to 0–255; default 0 if omitted)
+- `R`, `U`, `B`: Color components (each clamped to 0–255; default 0 if omitted).  
+  Green is **`U`**, not `G` — RRF treats `Gnnn` on the same line as a G-code (e.g. `G102`).
 
-**Requirements:** `nxtFeatureRgbLight`, `nxtRgbLedIndex` configured in DWC.
+**Requirements:** `nxtFeatureRgbLight`; strip created with `M950` (`nxtRGBPin` from board pack / daemon).
 
-**Behavior:** Issues `M150 R… G… B… P{nxtRgbLedIndex}`.
+**Behavior:** Ensures `M950` if needed, then `M150 E{nxtRGBStrip} R… U… B… W0 P255 S{nxtRGBCount} F0`.
 
 ---
 

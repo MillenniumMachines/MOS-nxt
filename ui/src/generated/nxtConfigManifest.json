@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-11T14:30:18.011Z",
+  "generatedAt": "2026-07-11T06:48:17.491Z",
   "boards": [
     {
       "shortName": "cdy3_f4",
@@ -17,13 +17,137 @@
         "boardId": "cdy3_f4",
         "assigned": [
           {
-            "role": "fan_tool",
+            "id": "fan0",
+            "label": "Fan 0",
             "kind": "fan",
             "index": 0,
-            "pin": "PA_4"
+            "pin": "A.0",
+            "aliases": [
+              "fan0",
+              "fan"
+            ]
+          },
+          {
+            "id": "fan1",
+            "label": "Fan 1",
+            "kind": "fan",
+            "index": 1,
+            "pin": "A.1",
+            "aliases": [
+              "fan1"
+            ]
+          },
+          {
+            "id": "endstop_x",
+            "label": "X endstop",
+            "kind": "endstop",
+            "axis": "X",
+            "pin": "C.7",
+            "aliases": [
+              "xmin",
+              "xstop"
+            ]
+          },
+          {
+            "id": "endstop_y",
+            "label": "Y endstop",
+            "kind": "endstop",
+            "axis": "Y",
+            "pin": "D.11",
+            "aliases": [
+              "ymin",
+              "ystop"
+            ]
+          },
+          {
+            "id": "endstop_z",
+            "label": "Z endstop",
+            "kind": "endstop",
+            "axis": "Z",
+            "pin": "B.10",
+            "aliases": [
+              "zmin",
+              "zstop"
+            ]
+          },
+          {
+            "id": "toolsetter",
+            "label": "Toolsetter",
+            "kind": "probe",
+            "probeIndex": 1,
+            "pin": "B.11",
+            "aliases": [
+              "zmax",
+              "zstopmax"
+            ]
+          },
+          {
+            "id": "spindle",
+            "label": "Spindle",
+            "kind": "spindle",
+            "pin": "E.6+!B.9",
+            "aliases": [
+              "servo0",
+              "laser"
+            ]
           }
         ],
-        "free": []
+        "free": [
+          {
+            "id": "fan2",
+            "label": "Fan 2",
+            "kind": "gpout",
+            "gpOutIndex": 0,
+            "pin": "A.2",
+            "aliases": [
+              "fan2"
+            ]
+          },
+          {
+            "id": "he0",
+            "label": "Heater 0 (E0)",
+            "kind": "gpout",
+            "gpOutIndex": 1,
+            "pin": "D.12",
+            "aliases": [
+              "e0heat",
+              "he0"
+            ]
+          },
+          {
+            "id": "he1",
+            "label": "Heater 1 (E1)",
+            "kind": "gpout",
+            "gpOutIndex": 2,
+            "pin": "D.13",
+            "aliases": [
+              "e1heat",
+              "he1"
+            ]
+          },
+          {
+            "id": "he2",
+            "label": "Heater 2 (E2)",
+            "kind": "gpout",
+            "gpOutIndex": 3,
+            "pin": "D.14",
+            "aliases": [
+              "e2heat",
+              "he2"
+            ]
+          },
+          {
+            "id": "probe",
+            "label": "Probe",
+            "kind": "probe",
+            "probeIndex": 0,
+            "pin": "C.2",
+            "aliases": [
+              "probe"
+            ],
+            "note": "Requires 0:/sys/touchprobe.g (M558 K0) to appear in OM"
+          }
+        ]
       }
     },
     {
@@ -48,31 +172,189 @@
         "boardId": "scylla1_0_h723",
         "assigned": [
           {
-            "role": "fan_tool",
-            "kind": "fan",
-            "index": 0,
-            "pin": "PA_4"
-          },
-          {
-            "role": "endstop_x",
+            "id": "endstop_x",
+            "label": "X endstop",
             "kind": "endstop",
             "axis": "X",
-            "pin": "PD_11"
+            "pin": "D.11",
+            "aliases": [
+              "xmin"
+            ]
           },
           {
-            "role": "endstop_y",
+            "id": "endstop_y",
+            "label": "Y endstop",
             "kind": "endstop",
             "axis": "Y",
-            "pin": "PD_14"
+            "pin": "D.14",
+            "aliases": [
+              "ymax"
+            ]
           },
           {
-            "role": "endstop_z",
+            "id": "endstop_z",
+            "label": "Z endstop",
             "kind": "endstop",
             "axis": "Z",
-            "pin": "PD_12"
+            "pin": "D.12",
+            "aliases": [
+              "zmax"
+            ]
+          },
+          {
+            "id": "toolsetter",
+            "label": "Toolsetter",
+            "kind": "probe",
+            "probeIndex": 1,
+            "pin": "E.7",
+            "aliases": [
+              "tool"
+            ]
+          },
+          {
+            "id": "spindle",
+            "label": "Spindle",
+            "kind": "spindle",
+            "pin": "spindlepwm+spindleen+spindledir",
+            "aliases": [
+              "spindlepwm",
+              "spindleen",
+              "spindledir"
+            ]
+          },
+          {
+            "id": "rgb_led",
+            "label": "RGB / NeoPixel header",
+            "kind": "led",
+            "role": "rgb_led",
+            "pin": "D.6",
+            "aliases": [
+              "neopixel",
+              "rgbpwm"
+            ],
+            "note": "BTT Scylla RGB header (PD_6). Plug addressable LEDs here; M950 E0 C\"neopixel\"."
+          },
+          {
+            "id": "drive_a",
+            "label": "A axis driver (4th TMC5160)",
+            "kind": "drive",
+            "axis": "A",
+            "driveIndex": 3,
+            "note": "Physical drive 3. Enable with nxtFeatureFourthAxis → axis-a.g (M584 A3 R1). Sense R already set in drives.g M569.9 P0.3."
           }
         ],
-        "free": []
+        "free": [
+          {
+            "id": "endstop_a_min",
+            "label": "A endstop (min)",
+            "kind": "endstop",
+            "axis": "A",
+            "pin": "D.15",
+            "aliases": [
+              "amin"
+            ],
+            "note": "Optional fourth axis. Firmware name amin (PD_15)."
+          },
+          {
+            "id": "endstop_a_max",
+            "label": "A endstop (max)",
+            "kind": "endstop",
+            "axis": "A",
+            "pin": "D.13",
+            "aliases": [
+              "amax"
+            ],
+            "note": "Optional fourth axis. Firmware name amax (PD_13). Stock MosFourthAxis spit-roast uses M574 A1 S1 P\"!amax\"."
+          },
+          {
+            "id": "mist",
+            "label": "Mist",
+            "kind": "gpout",
+            "gpOutIndex": 0,
+            "pin": "A.7",
+            "aliases": [
+              "mist",
+              "mistpwm"
+            ]
+          },
+          {
+            "id": "coolant",
+            "label": "Coolant",
+            "kind": "gpout",
+            "gpOutIndex": 1,
+            "pin": "C.4",
+            "aliases": [
+              "coolant",
+              "cool",
+              "coolantpwm"
+            ]
+          },
+          {
+            "id": "relay",
+            "label": "Relay",
+            "kind": "gpout",
+            "gpOutIndex": 2,
+            "pin": "D.5",
+            "aliases": [
+              "relay",
+              "relayctr"
+            ]
+          },
+          {
+            "id": "aux2",
+            "label": "Aux 2",
+            "kind": "gpout",
+            "gpOutIndex": 3,
+            "pin": "A.6",
+            "aliases": [
+              "aux2",
+              "aux2pwm"
+            ]
+          },
+          {
+            "id": "aux_spare",
+            "label": "Aux spare (Aux1 @24V / Aux0 @48V)",
+            "kind": "gpout",
+            "gpOutIndex": 4,
+            "pin": "A.5",
+            "aliases": [
+              "aux1",
+              "aux0",
+              "aux1pwm",
+              "aux0pwm"
+            ],
+            "note": "24 V pack: Aux1; 48 V pack: Aux0. Other aux is the tool fan."
+          },
+          {
+            "id": "probe",
+            "label": "Probe",
+            "kind": "probe",
+            "probeIndex": 0,
+            "pin": "E.15",
+            "aliases": [
+              "probe"
+            ],
+            "note": "Requires 0:/sys/touchprobe.g (M558 K0) to appear in OM"
+          }
+        ],
+        "fanByVoltage": {
+          "24": {
+            "id": "fan_aux0",
+            "label": "Aux 0 (tool fan)",
+            "pin": "A.4",
+            "aliases": [
+              "aux0"
+            ]
+          },
+          "48": {
+            "id": "fan_aux1",
+            "label": "Aux 1 (tool fan)",
+            "pin": "A.5",
+            "aliases": [
+              "aux1"
+            ]
+          }
+        }
       }
     }
   ],
@@ -98,6 +380,18 @@
   ],
   "machines": [
     {
+      "id": "custom",
+      "title": "Custom machine pack (nxt)",
+      "hasCommonDeploy": true,
+      "sysDeployFiles": [
+        "homeall.g",
+        "homex.g",
+        "homey.g",
+        "homez.g"
+      ],
+      "machineEntryPath": "nxt-config/machine/custom/entry.g"
+    },
+    {
       "id": "v1.5",
       "title": "Milo v1.5 board packs (nxt)",
       "hasCommonDeploy": true,
@@ -110,8 +404,8 @@
       "machineEntryPath": "nxt-config/machine/v1.5/entry.g"
     },
     {
-      "id": "v1.6_v2",
-      "title": "Milo v1.6 / v2.0 board packs (nxt)",
+      "id": "v1.6",
+      "title": "Milo v1.6 machine pack (nxt)",
       "hasCommonDeploy": true,
       "sysDeployFiles": [
         "homeall.g",
@@ -119,10 +413,54 @@
         "homey.g",
         "homez.g"
       ],
-      "machineEntryPath": "nxt-config/machine/v1.6_v2/entry.g"
+      "machineEntryPath": "nxt-config/machine/v1.6/entry.g"
+    },
+    {
+      "id": "v2.0",
+      "title": "Milo v2.0 machine pack (nxt)",
+      "hasCommonDeploy": true,
+      "sysDeployFiles": [
+        "homeall.g",
+        "homex.g",
+        "homey.g",
+        "homez.g"
+      ],
+      "machineEntryPath": "nxt-config/machine/v2.0/entry.g"
     }
   ],
   "platforms": [
+    {
+      "id": "custom",
+      "title": "Custom machine pack (nxt)",
+      "hasCommonDeploy": true,
+      "sysDeployFiles": [
+        "homeall.g",
+        "homex.g",
+        "homey.g",
+        "homez.g"
+      ],
+      "machineEntryPath": "nxt-config/machine/custom/entry.g",
+      "boards": [
+        {
+          "shortName": "cdy3_f4",
+          "variant": null,
+          "title": "Fly CDYv3",
+          "entryPath": "nxt-config/board/cdy3_f4/entry.g"
+        },
+        {
+          "shortName": "scylla1_0_h723",
+          "variant": "24v",
+          "title": "Scylla v1.0 (24v V motor)",
+          "entryPath": "nxt-config/board/scylla1_0_h723/motor-24v/entry.g"
+        },
+        {
+          "shortName": "scylla1_0_h723",
+          "variant": "48v",
+          "title": "Scylla v1.0 (48v V motor)",
+          "entryPath": "nxt-config/board/scylla1_0_h723/motor-48v/entry.g"
+        }
+      ]
+    },
     {
       "id": "v1.5",
       "title": "Milo v1.5 board packs (nxt)",
@@ -156,8 +494,8 @@
       ]
     },
     {
-      "id": "v1.6_v2",
-      "title": "Milo v1.6 / v2.0 board packs (nxt)",
+      "id": "v1.6",
+      "title": "Milo v1.6 machine pack (nxt)",
       "hasCommonDeploy": true,
       "sysDeployFiles": [
         "homeall.g",
@@ -165,7 +503,39 @@
         "homey.g",
         "homez.g"
       ],
-      "machineEntryPath": "nxt-config/machine/v1.6_v2/entry.g",
+      "machineEntryPath": "nxt-config/machine/v1.6/entry.g",
+      "boards": [
+        {
+          "shortName": "cdy3_f4",
+          "variant": null,
+          "title": "Fly CDYv3",
+          "entryPath": "nxt-config/board/cdy3_f4/entry.g"
+        },
+        {
+          "shortName": "scylla1_0_h723",
+          "variant": "24v",
+          "title": "Scylla v1.0 (24v V motor)",
+          "entryPath": "nxt-config/board/scylla1_0_h723/motor-24v/entry.g"
+        },
+        {
+          "shortName": "scylla1_0_h723",
+          "variant": "48v",
+          "title": "Scylla v1.0 (48v V motor)",
+          "entryPath": "nxt-config/board/scylla1_0_h723/motor-48v/entry.g"
+        }
+      ]
+    },
+    {
+      "id": "v2.0",
+      "title": "Milo v2.0 machine pack (nxt)",
+      "hasCommonDeploy": true,
+      "sysDeployFiles": [
+        "homeall.g",
+        "homex.g",
+        "homey.g",
+        "homez.g"
+      ],
+      "machineEntryPath": "nxt-config/machine/v2.0/entry.g",
       "boards": [
         {
           "shortName": "cdy3_f4",

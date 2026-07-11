@@ -9,12 +9,18 @@ WD="${PWD}"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 echo "Checking RRF macro line lengths (max 200)..."
 node "${ROOT}/dist/check-gcode-line-length.mjs" || exit 1
+chmod +x "${ROOT}/dist/check-node-for-dwc-build.sh"
+"${ROOT}/dist/check-node-for-dwc-build.sh"
 TMP_DIR=$(mktemp -d -t nxt-release-XXXXX)
 SYNC_CMD="rsync -a --exclude=README.md --exclude='*.gitkeep'"
 # shellcheck source=dist/resolve-build-version.sh
 source "${ROOT}/dist/resolve-build-version.sh"
 DWC_PLUGIN_ZIP="nxt-${BUILD_VERSION}.zip"
-DWC_REPO_PATH="${1:-${WD}/DuetWebControl}"
+DWC_REPO_PATH="${1:-${WD}/../DuetWebControl}"
+if [[ ! -d "${DWC_REPO_PATH}" && -d "${WD}/DuetWebControl" ]]; then
+  DWC_REPO_PATH="${WD}/DuetWebControl"
+fi
+DWC_REPO_PATH="$(cd "${DWC_REPO_PATH}" && pwd)"
 PLUGIN_ZIP="nxt-${BUILD_VERSION}.zip"
 PLUGIN_PATH="${WD}/dist/${PLUGIN_ZIP}"
 
@@ -181,16 +187,53 @@ if [[ -f "${WD}/dist/generate-plugin-dispatchers.sh" && -f "${WD}/dist/plugins.c
     bash "${WD}/dist/generate-plugin-dispatchers.sh" "${WD}/dist/plugins.catalog.json" "${TMP_DIR}/sd/sys"
 fi
 
+DWC_BUILDER="$(node "${WD}/dist/detect-dwc-plugin-builder.mjs" "${DWC_REPO_PATH}")"
+echo "DWC plugin builder: ${DWC_BUILDER}"
+
+BUILD_PLUGIN_JS="${DWC_REPO_PATH}/scripts/build-plugin.js"
+if [[ "${DWC_BUILDER}" == "webpack" ]]; then
+    cp "${BUILD_PLUGIN_JS}" "${BUILD_PLUGIN_JS}.next-bak"
+    node "${WD}/dist/patch-dwc-build-plugin-zip.cjs" "${BUILD_PLUGIN_JS}"
+fi
+
 (
     cd "${DWC_REPO_PATH}"
-    npm ci
-    npm install three@0.181.0
-    npm run build-plugin "${TMP_DIR}" || exit 1
-) || exit 1
+    if [[ ! -d node_modules ]]; then
+        npm ci
+    fi
+    if [[ "${DWC_BUILDER}" == "webpack" ]]; then
+        npm install three@0.181.0
+    elif ! node -e "require.resolve('three')" >/dev/null 2>&1; then
+        npm install three@0.181.0 --no-save
+    fi
+    npm run build-plugin -- "${TMP_DIR}" || exit 1
+) || {
+    if [[ -f "${BUILD_PLUGIN_JS}.next-bak" ]]; then
+        mv -f "${BUILD_PLUGIN_JS}.next-bak" "${BUILD_PLUGIN_JS}"
+    fi
+    exit 1
+}
 
-BUILT_PLUGIN_ZIP="${DWC_REPO_PATH}/dist/${DWC_PLUGIN_ZIP}"
-if [[ ! -f "${BUILT_PLUGIN_ZIP}" ]]; then
-    echo "error: expected DWC plugin zip ${BUILT_PLUGIN_ZIP}" >&2
+if [[ -f "${BUILD_PLUGIN_JS}.next-bak" ]]; then
+    mv -f "${BUILD_PLUGIN_JS}.next-bak" "${BUILD_PLUGIN_JS}"
+fi
+
+BUILT_PLUGIN_ZIP=""
+if [[ -f "${TMP_DIR}/${DWC_PLUGIN_ZIP}" ]]; then
+    BUILT_PLUGIN_ZIP="${TMP_DIR}/${DWC_PLUGIN_ZIP}"
+elif [[ -f "${DWC_REPO_PATH}/dist/${DWC_PLUGIN_ZIP}" ]]; then
+    BUILT_PLUGIN_ZIP="${DWC_REPO_PATH}/dist/${DWC_PLUGIN_ZIP}"
+else
+    shopt -s nullglob
+    _candidates=("${TMP_DIR}"/nxt-*.zip "${DWC_REPO_PATH}/dist"/nxt-*.zip)
+    shopt -u nullglob
+    if [[ ${#_candidates[@]} -gt 0 ]]; then
+        BUILT_PLUGIN_ZIP="${_candidates[0]}"
+        echo "warning: using unexpected ZIP name ${BUILT_PLUGIN_ZIP}" >&2
+    fi
+fi
+if [[ -z "${BUILT_PLUGIN_ZIP}" || ! -f "${BUILT_PLUGIN_ZIP}" ]]; then
+    echo "error: expected plugin zip ${DWC_PLUGIN_ZIP} under ${TMP_DIR}/ or ${DWC_REPO_PATH}/dist/" >&2
     exit 1
 fi
 

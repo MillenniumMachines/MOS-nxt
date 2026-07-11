@@ -16,3 +16,11 @@ if { fileexists("0:/sys/nxt/nxt-user-tools-reload-daemon.g") }
 ; Coolant pulse phase advance (mist / flood)
 if { exists(global.nxtCoolantPulseActive) && global.nxtCoolantPulseActive }
     M98 P"nxt-coolant-pulse-daemon.g"
+
+; RGB status LED renderer
+if { global.nxtFeatureRgbLight }
+    M98 P"nxt/nxt-run-rgb.g"
+
+; Maintenance counters (axis travel + tool life)
+if { exists(global.nxtFeatMaint) && global.nxtFeatMaint }
+    M98 P"nxt/nxt-run-maintenance.g"

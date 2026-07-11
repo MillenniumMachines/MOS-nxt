@@ -15,7 +15,8 @@ M569.9 P0.1 R0.05
 M569.9 P0.2 R0.05
 M569.9 P0.3 R0.05
 
-; Set drive mappings to relevant axes
+; Set drive mappings to relevant axes (A / drive 3: see axis-a.g when
+; global.nxtFeatureFourthAxis — keeps XYZ-only machines from getting a phantom A)
 M584 X0 Y1 Z2
 
 ; Configure microstepping, no interpolation.

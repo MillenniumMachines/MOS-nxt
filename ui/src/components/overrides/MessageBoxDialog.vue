@@ -5,10 +5,9 @@
   <div v-if="shouldShowModal">
     <!-- Standard modal dialog fallback -->
     <v-dialog 
-      :value="hasMessage" 
+      :model-value="hasMessage" 
       persistent 
       max-width="500"
-      :retain-focus="false"
     >
       <v-card>
         <v-card-title v-if="messageBox.title">
@@ -36,7 +35,8 @@
 </template>
 
 <script lang="ts">
-import Vue from 'vue'
+import { defineComponent } from 'vue'
+import store from '../../compat/dwcStore'
 import { readFirmwareGlobal } from '../../utils/nxtToolChangerOm'
 
 /**
@@ -45,8 +45,14 @@ import { readFirmwareGlobal } from '../../utils/nxtToolChangerOm'
  * When nxt firmware has booted (`nxtLoaded`), non-critical M291 traffic can stay off the
  * blocking modal (persistent UI handles it). If nxt globals are not loaded, or the message
  * looks critical, show the standard modal.
+ *
+ * NOTE: under Vue 3 / Vite, DWC's own `App.vue` binds `<MessageBoxDialog />` to its *own*
+ * imported component at compile time - global registration (`app.component('message-box-dialog', ...)`)
+ * can no longer intercept that reference the way Vue 2's global registry could. This override is
+ * therefore inert until DWC exposes an explicit override/registration hook for core singletons;
+ * kept (and disabled by default - see components/overrides/index.ts) for when that lands.
  */
-export default Vue.extend({
+export default defineComponent({
   name: 'MessageBoxDialog',
   
   computed: {
@@ -54,7 +60,7 @@ export default Vue.extend({
      * Get the current message box from the store
      */
     messageBox(): any {
-      return this.$store.state.machine.model.messageBox || {}
+      return store.state.machine.model.state.messageBox || {}
     },
 
     /**
@@ -66,7 +72,7 @@ export default Vue.extend({
 
     /** nxt macros/vars loaded and boot succeeded — safe to defer non-critical dialogs. */
     nxtFirmwareReady(): boolean {
-      const g = this.$store.state.machine.model.global
+      const g = store.state.machine.model.global
       const v = readFirmwareGlobal(g, 'nxtLoaded')
       return v === true || v === 1
     },
@@ -151,7 +157,7 @@ export default Vue.extend({
     async respondToDialog(buttonIndex: number): Promise<void> {
       try {
         // Send M292 response to the message box
-        await this.$store.dispatch('machine/sendCode', `M292 P${buttonIndex}`)
+        await store.dispatch('machine/sendCode', `M292 P${buttonIndex}`)
         console.log(`nxt UI: MessageBoxDialog response sent: ${buttonIndex}`)
       } catch (error) {
         console.error('nxt UI: Failed to send dialog response:', error)

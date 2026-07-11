@@ -14,10 +14,10 @@
     "sourceMap": true,
     "baseUrl": ".",
     "types": [
-      "webpack-env"
+      "vite/client"
     ],
     "paths": {
-      "@/*": ["../../Downloads/DuetWebControl-3.6-dev/DuetWebControl-3.6-dev/src/*"]
+      "@/*": ["../../DuetWebControl/src/*"]
     },
     "lib": [
       "esnext",
