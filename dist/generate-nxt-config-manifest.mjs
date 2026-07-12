@@ -16,7 +16,6 @@ const machineRoot = path.join(configRoot, 'machine')
 const outPath = path.join(root, 'ui', 'src', 'generated', 'nxtConfigManifest.json')
 
 const BOARD_TITLE_OVERRIDE = {
-  cdy3_f4: 'Fly CDYv3',
   scylla1_0_h723: 'Scylla v1.0'
 }
 

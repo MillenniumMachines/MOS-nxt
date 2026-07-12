@@ -61,7 +61,9 @@ M586 P1 S0        ; FTP disabled
 
 On **SBC mode**, `M552`/`M586` in `config.g` / machine packs error (networking is on the Pi via DSF). The default file detects `exists(sbc)` and returns without those codes. Configure the Pi hostname/network via DuetPi / `dsf-config.g` instead.
 
-Board packs (`cdy3_f4`, Scylla, etc.) do **not** configure network.
+Machine packs also skip **`M550`** (machine name) when `exists(sbc)` — put display name / hostname changes in **`dsf-config.g`** (or raspi-config), not in `general.g`.
+
+Board packs (Scylla, etc.) do **not** configure network. Fly CDYv3 packs are not shipped on the RRF 3.7 line.
 
 | Install path | HTTP on 3.7? | Action |
 |--------------|--------------|--------|
@@ -103,6 +105,7 @@ else
 | IAP file updates (Duet 3) | Required | Upload new IAP bins to SD |
 | PanelDue ≥ 3.7.0 | Low for CNC-only DWC users | Upgrade PanelDue if attached |
 | Duet 2 dropped | nxt targets Duet 3 CNC | Out of support |
+| Fly CDYv3 (`cdy3_f4`) dropped | Not supported on RRF 3.7 | Select Scylla 24/48 V; re-save board in Configuration |
 | Duet 3 Mini: multi motion systems removed | Low | Note only unless your config uses it |
 | M408 withdrawn | None | nxt does not use M408 |
 

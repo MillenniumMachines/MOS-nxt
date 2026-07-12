@@ -27,6 +27,7 @@ global nxtTouchProbeInvert = true
 global nxtToolSetterInvert = false
 global nxtError = null               ; Stores the last error message
 global nxtLoaded = false              ; Tracks if nxt has loaded successfully
+global nxtBootOk = false              ; Boot checks passed; nxt.g sets nxtLoaded after overrides
 global nxtUserVarsPresent = false     ; true after nxt-user-vars.g is loaded from SD (set in nxt.g)
 global nxtConfigPending = false       ; true when nxt-user-vars.g missing — use DWC Configuration + Save
 
@@ -50,7 +51,7 @@ global nxtProbeMaxSkewDeg = 5.0   ; Abort rectangle/bore skew solve if |theta| e
 
 ; --- Probe repeatability (G6512; all canned cycles use G6512) ---
 ; Defaults below. Plugin installs 0:/sys/nxt-user-overrides.g.example on SD; copy to nxt-user-overrides.g
-; to enable (nxt.g loads only nxt-user-overrides.g, last in the boot sequence). Not in Configuration UI.
+; to enable (nxt.g loads only nxt-user-overrides.g last, then sets nxtLoaded). Not in Configuration UI.
 ;   nxtProbeInnerSampleCount — inner sample count when tolerance disabled (limit = 0); ignored when limit > 0 (G6512 uses 3 touches).
 ;   nxtProbeMaxSampleSpreadMm — max consecutive-pair deviation (mm) between the 3 touches; both pairs must pass. Set 0 to disable.
 ;   nxtProbeSampleOuterRetries — how many *additional* full 3-touch blocks after a failed tolerance check

@@ -8,16 +8,16 @@ RRF-Configs (Milo v1.5):
 
 Sources:
 - milo-v1.5/common/general.g, movement.g, network-default.g
-- milo-v1.5/ldo-kit-fly-cdyv3/*.g
 - milo-v1.5/ldo-kit-scylla-v1.0-24v/*.g (full kit; 48 V tree copies 24 V except speed.g)
 - milo-v1.5/ldo-kit-scylla-v1.0-48v/speed.g
 
 Review upstream license before redistribution; refresh vendored files when kits change.
 
 nxt on-SD layout (per platform v1.5 / v1.6 / v2.0 / custom):
-  boards/cdy3_f4/entry.g  (RRF boards[0].shortName cdy3_f4)
   boards/scylla1_0_h723/motor-24v/entry.g
   boards/scylla1_0_h723/motor-48v/entry.g
   common/  (shared fragments + homing macros for sys deploy)
+
+Fly CDYv3 (cdy3_f4) packs were removed for RRF 3.7 — that board is not supported on this line.
 
 See docs/NXT_BOARD_CONFIG.md for loader order and adding boards.

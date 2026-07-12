@@ -1,20 +1,15 @@
 ; drives-overlay.g — Custom M569 / M584 / M906 after board pack
-; Repo stub applies from globals when set. Configuration Save may overwrite
-; this file on SD with literal commands (hybrid persistence).
+; Repo stub: apply numeric overrides from globals when set.
+; Configuration Save overwrites this file on SD with literal commands
+; (hybrid persistence) — prefer that for M584 drive maps.
+;
+; Do NOT expand nxtCustom*Drives strings into M584 here: empty/unset values
+; become M584 X… with no driver ID ("M584: expected driver ID"). Save writes
+; literal M584 X0 Y1 Z2 (etc.) when the Custom drive map is configured.
 
-; --- M569 drive directions from nxtCustomDriveDirs ("0:1,1:1,2:0") ---
+; --- M569 drive directions from nxtCustomDriveDirs ---
 ; Parsing compact maps in RRF is awkward; prefer Save-generated literals.
 ; Stub: no-op for dirs unless file was regenerated on Save.
-
-; --- M584 axis map ---
-var nxtHaveMap = false
-if { exists(global.nxtCustomXDrives) && global.nxtCustomXDrives != null }
-    if { exists(global.nxtCustomYDrives) && global.nxtCustomYDrives != null }
-        if { exists(global.nxtCustomZDrives) && global.nxtCustomZDrives != null }
-            set var.nxtHaveMap = true
-
-if { var.nxtHaveMap }
-    M584 X{global.nxtCustomXDrives} Y{global.nxtCustomYDrives} Z{global.nxtCustomZDrives}
 
 ; --- M906 currents ---
 var nxtHaveCur = false

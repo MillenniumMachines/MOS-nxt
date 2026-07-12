@@ -211,15 +211,27 @@
                 <v-col cols="12" md="6">
                   <v-select
                     :model-value="configDraft[customEndstopPinKey(axis)]"
-                    :items="customEndstopPinItems"
+                    :items="customEndstopPinItemsForAxis(axis)"
                     item-title="title"
                     item-value="value"
+                    item-props
                     :label="$t('plugins.nxt.panels.configuration.customEndstopPin', [axis])"
                     :disabled="uiFrozen"
                     clearable
                     hide-details
                     @update:model-value="onConfigDraftString(customEndstopPinKey(axis), $event)"
-                  />
+                  >
+                    <template #selection="{ item }">
+                      <span>{{ endstopSelectItemTitle(item) }}</span>
+                    </template>
+                    <template #item="{ props: itemProps, item }">
+                      <v-list-item
+                        v-bind="itemProps"
+                        :disabled="endstopSelectItemDisabled(item)"
+                        :title="endstopSelectItemTitle(item)"
+                      />
+                    </template>
+                  </v-select>
                 </v-col>
                 <v-col cols="12" md="6">
                   <v-select
@@ -739,7 +751,7 @@
               <span class="text-caption">
                 Probe repeatability (G6512 sample count, pair tolerance, retries) uses defaults from
                 <code>nxt-vars.g</code>. Copy <code>nxt-user-overrides.g.example</code> to
-                <code>0:/sys/nxt-user-overrides.g</code> to override (loaded last in <code>nxt.g</code>).
+                <code>0:/sys/nxt-user-overrides.g</code> to override (loaded last in <code>nxt.g</code> before <code>nxtLoaded</code>).
               </span>
             </v-alert>
 
@@ -1355,12 +1367,15 @@ import {
   buildProbeM558PinCommand,
   NXT_GPOUT_ROLE_KEYS,
   NXT_PROBE_ROLE_KEYS,
+  NXT_CUSTOM_ENDSTOP_ROLE_KEYS,
   platformStructureSummary,
   NXT_SCYLLA_MOTOR_VOLTAGE_ITEMS,
   endstopPinItemsForBoard,
   type NxtPlatformId,
   type GpOutItem,
-  type ProbeSelectItem
+  type ProbeSelectItem,
+  type NxtCustomEndstopRoleKey,
+  type EndstopPinSelectItem
 } from '../../utils/nxtBoardManifest'
 import { deployPlatformSysFiles } from '../../utils/nxtBoardSysDeploy'
 import { nxtPlatformFromManifest } from '../../utils/nxtConfigManifestData'
@@ -1738,8 +1753,13 @@ export default defineNxtComponent({
       ]
     },
 
-    customEndstopPinItems(): Array<{ value: string; title: string }> {
-      return endstopPinItemsForBoard(this.resolvedBoardShortNameForPack)
+    customEndstopOccupancy() {
+      const d = this.configDraft
+      return {
+        nxtCustomXEndstopPin: d.nxtCustomXEndstopPin,
+        nxtCustomYEndstopPin: d.nxtCustomYEndstopPin,
+        nxtCustomZEndstopPin: d.nxtCustomZEndstopPin
+      }
     },
 
     customMappedDriveIndices(): number[] {
@@ -2173,6 +2193,85 @@ export default defineNxtComponent({
 
     customEndstopPinKey(axis: 'X' | 'Y' | 'Z'): keyof NxtUserConfigDraft {
       return (`nxtCustom${axis}EndstopPin` as keyof NxtUserConfigDraft)
+    },
+
+    customEndstopRoleKey(axis: 'X' | 'Y' | 'Z'): NxtCustomEndstopRoleKey {
+      return `nxtCustom${axis}EndstopPin` as NxtCustomEndstopRoleKey
+    },
+
+    customEndstopPinItemsForAxis(
+      axis: 'X' | 'Y' | 'Z'
+    ): Array<EndstopPinSelectItem & { props?: { disabled?: boolean } }> {
+      const roleKey = this.customEndstopRoleKey(axis)
+      if (!(NXT_CUSTOM_ENDSTOP_ROLE_KEYS as readonly string[]).includes(roleKey)) {
+        return []
+      }
+      return endstopPinItemsForBoard(
+        this.resolvedBoardShortNameForPack,
+        this.customEndstopOccupancy,
+        { currentRoleKey: roleKey }
+      ).map((item: EndstopPinSelectItem) => ({
+        ...item,
+        props: { disabled: Boolean(item.disabled) }
+      }))
+    },
+
+    endstopSelectItemRaw(
+      item: unknown
+    ): { value?: string; title?: string; disabled?: boolean; pinLabel?: string; props?: { disabled?: boolean } } | null {
+      if (item == null || typeof item !== 'object') {
+        return null
+      }
+      const slotItem = item as {
+        raw?: { value?: string; title?: string; disabled?: boolean; pinLabel?: string; props?: { disabled?: boolean } }
+        props?: { disabled?: boolean }
+        title?: string
+        value?: string
+        disabled?: boolean
+        pinLabel?: string
+      }
+      if (slotItem.raw != null && typeof slotItem.raw === 'object') {
+        return slotItem.raw
+      }
+      if (typeof slotItem.value === 'string' && (typeof slotItem.title === 'string' || typeof slotItem.pinLabel === 'string')) {
+        return {
+          value: slotItem.value,
+          title: slotItem.title,
+          disabled: slotItem.disabled,
+          pinLabel: slotItem.pinLabel,
+          props: slotItem.props
+        }
+      }
+      return null
+    },
+
+    endstopSelectItemDisabled(item: unknown): boolean {
+      const raw = this.endstopSelectItemRaw(item)
+      if (raw?.disabled) {
+        return true
+      }
+      if (item != null && typeof item === 'object') {
+        const slotItem = item as { props?: { disabled?: boolean } }
+        return Boolean(slotItem.props?.disabled)
+      }
+      return false
+    },
+
+    endstopSelectItemTitle(item: unknown): string {
+      const raw = this.endstopSelectItemRaw(item)
+      if (raw?.title) {
+        return raw.title
+      }
+      if (raw?.pinLabel && raw?.value) {
+        return `${raw.pinLabel} (${raw.value})`
+      }
+      if (item != null && typeof item === 'object') {
+        const slotItem = item as { title?: string }
+        if (typeof slotItem.title === 'string' && slotItem.title.length > 0) {
+          return slotItem.title
+        }
+      }
+      return ''
     },
 
     customHomeAtKey(axis: 'X' | 'Y' | 'Z'): keyof NxtUserConfigDraft {

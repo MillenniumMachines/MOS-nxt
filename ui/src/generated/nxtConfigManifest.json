@@ -1,155 +1,6 @@
 {
-  "generatedAt": "2026-07-11T06:48:17.491Z",
+  "generatedAt": "2026-07-12T15:02:19.940Z",
   "boards": [
-    {
-      "shortName": "cdy3_f4",
-      "title": "Fly CDYv3",
-      "variant": "single",
-      "entries": [
-        {
-          "shortName": "cdy3_f4",
-          "variant": null,
-          "title": "Fly CDYv3",
-          "entryPath": "nxt-config/board/cdy3_f4/entry.g"
-        }
-      ],
-      "pinmap": {
-        "boardId": "cdy3_f4",
-        "assigned": [
-          {
-            "id": "fan0",
-            "label": "Fan 0",
-            "kind": "fan",
-            "index": 0,
-            "pin": "A.0",
-            "aliases": [
-              "fan0",
-              "fan"
-            ]
-          },
-          {
-            "id": "fan1",
-            "label": "Fan 1",
-            "kind": "fan",
-            "index": 1,
-            "pin": "A.1",
-            "aliases": [
-              "fan1"
-            ]
-          },
-          {
-            "id": "endstop_x",
-            "label": "X endstop",
-            "kind": "endstop",
-            "axis": "X",
-            "pin": "C.7",
-            "aliases": [
-              "xmin",
-              "xstop"
-            ]
-          },
-          {
-            "id": "endstop_y",
-            "label": "Y endstop",
-            "kind": "endstop",
-            "axis": "Y",
-            "pin": "D.11",
-            "aliases": [
-              "ymin",
-              "ystop"
-            ]
-          },
-          {
-            "id": "endstop_z",
-            "label": "Z endstop",
-            "kind": "endstop",
-            "axis": "Z",
-            "pin": "B.10",
-            "aliases": [
-              "zmin",
-              "zstop"
-            ]
-          },
-          {
-            "id": "toolsetter",
-            "label": "Toolsetter",
-            "kind": "probe",
-            "probeIndex": 1,
-            "pin": "B.11",
-            "aliases": [
-              "zmax",
-              "zstopmax"
-            ]
-          },
-          {
-            "id": "spindle",
-            "label": "Spindle",
-            "kind": "spindle",
-            "pin": "E.6+!B.9",
-            "aliases": [
-              "servo0",
-              "laser"
-            ]
-          }
-        ],
-        "free": [
-          {
-            "id": "fan2",
-            "label": "Fan 2",
-            "kind": "gpout",
-            "gpOutIndex": 0,
-            "pin": "A.2",
-            "aliases": [
-              "fan2"
-            ]
-          },
-          {
-            "id": "he0",
-            "label": "Heater 0 (E0)",
-            "kind": "gpout",
-            "gpOutIndex": 1,
-            "pin": "D.12",
-            "aliases": [
-              "e0heat",
-              "he0"
-            ]
-          },
-          {
-            "id": "he1",
-            "label": "Heater 1 (E1)",
-            "kind": "gpout",
-            "gpOutIndex": 2,
-            "pin": "D.13",
-            "aliases": [
-              "e1heat",
-              "he1"
-            ]
-          },
-          {
-            "id": "he2",
-            "label": "Heater 2 (E2)",
-            "kind": "gpout",
-            "gpOutIndex": 3,
-            "pin": "D.14",
-            "aliases": [
-              "e2heat",
-              "he2"
-            ]
-          },
-          {
-            "id": "probe",
-            "label": "Probe",
-            "kind": "probe",
-            "probeIndex": 0,
-            "pin": "C.2",
-            "aliases": [
-              "probe"
-            ],
-            "note": "Requires 0:/sys/touchprobe.g (M558 K0) to appear in OM"
-          }
-        ]
-      }
-    },
     {
       "shortName": "scylla1_0_h723",
       "title": "Scylla v1.0",
@@ -172,8 +23,8 @@
         "boardId": "scylla1_0_h723",
         "assigned": [
           {
-            "id": "endstop_x",
-            "label": "X endstop",
+            "id": "endstop_x_min",
+            "label": "xmin",
             "kind": "endstop",
             "axis": "X",
             "pin": "D.11",
@@ -182,18 +33,19 @@
             ]
           },
           {
-            "id": "endstop_y",
-            "label": "Y endstop",
+            "id": "endstop_y_max",
+            "label": "ymax",
             "kind": "endstop",
             "axis": "Y",
             "pin": "D.14",
             "aliases": [
               "ymax"
-            ]
+            ],
+            "note": "nxt/Milo: PD_14 labeled ymax (Team Gloomy also lists ymin)."
           },
           {
-            "id": "endstop_z",
-            "label": "Z endstop",
+            "id": "endstop_z_max",
+            "label": "zmax",
             "kind": "endstop",
             "axis": "Z",
             "pin": "D.12",
@@ -245,8 +97,41 @@
         ],
         "free": [
           {
+            "id": "endstop_x_max",
+            "label": "xmax",
+            "kind": "endstop",
+            "axis": "X",
+            "pin": "C.6",
+            "aliases": [
+              "xmax"
+            ],
+            "note": "Firmware name xmax (PC_6)."
+          },
+          {
+            "id": "endstop_y_min",
+            "label": "ymin",
+            "kind": "endstop",
+            "axis": "Y",
+            "pin": "A.8",
+            "aliases": [
+              "ymin"
+            ],
+            "note": "Firmware name ymin (PA_8)."
+          },
+          {
+            "id": "endstop_z_min",
+            "label": "zmin",
+            "kind": "endstop",
+            "axis": "Z",
+            "pin": "C.7",
+            "aliases": [
+              "zmin"
+            ],
+            "note": "Firmware name zmin (PC_7)."
+          },
+          {
             "id": "endstop_a_min",
-            "label": "A endstop (min)",
+            "label": "amin",
             "kind": "endstop",
             "axis": "A",
             "pin": "D.15",
@@ -257,14 +142,14 @@
           },
           {
             "id": "endstop_a_max",
-            "label": "A endstop (max)",
+            "label": "amax",
             "kind": "endstop",
             "axis": "A",
             "pin": "D.13",
             "aliases": [
               "amax"
             ],
-            "note": "Optional fourth axis. Firmware name amax (PD_13). Stock MosFourthAxis spit-roast uses M574 A1 S1 P\"!amax\"."
+            "note": "Optional fourth axis. Firmware name amax (PD_13). Default M574 uses P\"amax\" (no invert); add ! only for active-low switches."
           },
           {
             "id": "mist",
@@ -360,12 +245,6 @@
   ],
   "boardEntries": [
     {
-      "shortName": "cdy3_f4",
-      "variant": null,
-      "title": "Fly CDYv3",
-      "entryPath": "nxt-config/board/cdy3_f4/entry.g"
-    },
-    {
       "shortName": "scylla1_0_h723",
       "variant": "24v",
       "title": "Scylla v1.0 (24v V motor)",
@@ -442,12 +321,6 @@
       "machineEntryPath": "nxt-config/machine/custom/entry.g",
       "boards": [
         {
-          "shortName": "cdy3_f4",
-          "variant": null,
-          "title": "Fly CDYv3",
-          "entryPath": "nxt-config/board/cdy3_f4/entry.g"
-        },
-        {
           "shortName": "scylla1_0_h723",
           "variant": "24v",
           "title": "Scylla v1.0 (24v V motor)",
@@ -473,12 +346,6 @@
       ],
       "machineEntryPath": "nxt-config/machine/v1.5/entry.g",
       "boards": [
-        {
-          "shortName": "cdy3_f4",
-          "variant": null,
-          "title": "Fly CDYv3",
-          "entryPath": "nxt-config/board/cdy3_f4/entry.g"
-        },
         {
           "shortName": "scylla1_0_h723",
           "variant": "24v",
@@ -506,12 +373,6 @@
       "machineEntryPath": "nxt-config/machine/v1.6/entry.g",
       "boards": [
         {
-          "shortName": "cdy3_f4",
-          "variant": null,
-          "title": "Fly CDYv3",
-          "entryPath": "nxt-config/board/cdy3_f4/entry.g"
-        },
-        {
           "shortName": "scylla1_0_h723",
           "variant": "24v",
           "title": "Scylla v1.0 (24v V motor)",
@@ -537,12 +398,6 @@
       ],
       "machineEntryPath": "nxt-config/machine/v2.0/entry.g",
       "boards": [
-        {
-          "shortName": "cdy3_f4",
-          "variant": null,
-          "title": "Fly CDYv3",
-          "entryPath": "nxt-config/board/cdy3_f4/entry.g"
-        },
         {
           "shortName": "scylla1_0_h723",
           "variant": "24v",

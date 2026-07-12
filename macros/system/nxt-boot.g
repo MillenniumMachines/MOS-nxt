@@ -1,8 +1,10 @@
 ; nxt-boot.g
 ; Performs critical sanity checks before allowing nxt to load.
 ; CNC mode: meta conditions use { }, not ( ) — see macros/system/RRF_META.txt section 6.
+; Does NOT set global.nxtLoaded — nxt.g sets that after nxt-user-overrides.g.
 
 set global.nxtLoaded = false
+set global.nxtBootOk = false
 set global.nxtError = null
 
 ; 1. Confirm RRF is in CNC mode (nxt.g runs M453 immediately before this file).
@@ -21,7 +23,7 @@ if { exists(global.nxtUserVarsPresent) && !global.nxtUserVarsPresent }
     var resultVectorSize = { #move.axes + 1 }
     while { iterations < #global.nxtProbeResults }
         set global.nxtProbeResults[iterations] = { vector(var.resultVectorSize, 0.0) }
-    set global.nxtLoaded = true
+    set global.nxtBootOk = true
     echo "nxt: configuration pending — complete setup in DWC Configuration panel and Save nxt-user-vars.g"
     M99
 
@@ -45,7 +47,7 @@ if { global.nxtFeatureTouchProbe && (!exists(global.nxtDeltaMachine) || global.n
     var resultVectorSize = { #move.axes + 1 }
     while { iterations < #global.nxtProbeResults }
         set global.nxtProbeResults[iterations] = { vector(var.resultVectorSize, 0.0) }
-    set global.nxtLoaded = true
+    set global.nxtBootOk = true
     echo "nxt: configuration incomplete (touch probe datum missing) — use DWC Configuration panel"
     M99
 
@@ -62,4 +64,4 @@ while { iterations < #global.nxtProbeResults }
     set global.nxtProbeResults[iterations] = { vector(var.resultVectorSize, 0.0) }
 
 set global.nxtConfigPending = false
-set global.nxtLoaded = true
+set global.nxtBootOk = true

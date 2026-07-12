@@ -25,7 +25,6 @@ export type NxtBundledBoardMeta = {
 }
 
 const BOARD_TITLE_OVERRIDE: Record<string, string> = {
-  cdy3_f4: 'Fly CDYv3',
   scylla1_0_h723: 'Scylla v1.0'
 }
 
@@ -165,7 +164,7 @@ export function nxtKitEntryPath(
 
 /** @deprecated */
 export const NXT_KIT_ENTRY_PATH: Record<NxtBoardKitKey, string | null> = {
-  fly_cdyv3: nxtKitEntryPath('v1.5', 'fly_cdyv3'),
+  fly_cdyv3: null,
   scylla_24: nxtKitEntryPath('v1.5', 'scylla_24'),
   scylla_48: nxtKitEntryPath('v1.5', 'scylla_48')
 }
@@ -483,25 +482,86 @@ export const NXT_PROBE_ROLE_KEYS = ['nxtTouchProbeID', 'nxtToolSetterID'] as con
 
 export type NxtProbeRoleKey = (typeof NXT_PROBE_ROLE_KEYS)[number]
 
-/** Endstop / GPIO pin options from board pinmap for Custom M574 remapping. */
+/** Keys that share the Custom endstop pin pool (mutual exclusion). */
+export const NXT_CUSTOM_ENDSTOP_ROLE_KEYS = [
+  'nxtCustomXEndstopPin',
+  'nxtCustomYEndstopPin',
+  'nxtCustomZEndstopPin'
+] as const
+
+export type NxtCustomEndstopRoleKey = (typeof NXT_CUSTOM_ENDSTOP_ROLE_KEYS)[number]
+
+export type CustomEndstopRoleOccupancy = {
+  nxtCustomXEndstopPin?: string | null
+  nxtCustomYEndstopPin?: string | null
+  nxtCustomZEndstopPin?: string | null
+}
+
+export type EndstopPinSelectItem = {
+  value: string
+  title: string
+  disabled?: boolean
+  pinLabel?: string
+}
+
+const CUSTOM_ENDSTOP_ROLE_LABELS: Array<{ key: keyof CustomEndstopRoleOccupancy; label: string }> = [
+  { key: 'nxtCustomXEndstopPin', label: 'X' },
+  { key: 'nxtCustomYEndstopPin', label: 'Y' },
+  { key: 'nxtCustomZEndstopPin', label: 'Z' }
+]
+
+export function customEndstopRoleLabelForPin(
+  pin: string,
+  occupancy: CustomEndstopRoleOccupancy | null | undefined
+): string | null {
+  if (occupancy == null || !pin) {
+    return null
+  }
+  const labels: string[] = []
+  for (const { key, label } of CUSTOM_ENDSTOP_ROLE_LABELS) {
+    const owned = occupancy[key]
+    if (owned != null && String(owned).trim() === pin) {
+      labels.push(label)
+    }
+  }
+  return labels.length ? labels.join(', ') : null
+}
+
+/** Endstop pin options from board pinmap for Custom M574 remapping. */
 export function endstopPinItemsForBoard(
-  boardShortName: string | null | undefined
-): Array<{ value: string; title: string }> {
+  boardShortName: string | null | undefined,
+  occupancy?: CustomEndstopRoleOccupancy | null,
+  options?: { currentRoleKey?: NxtCustomEndstopRoleKey | null }
+): EndstopPinSelectItem[] {
   const pack = nxtBoardPackFromManifest(boardShortName)
-  const entries = [...(pack?.pinmap?.assigned ?? []), ...(pack?.pinmap?.free ?? [])]
-  const byPin = new Map<string, string>()
+  const entries = [...(pack?.pinmap?.assigned ?? []), ...(pack?.pinmap?.free ?? [])].filter(
+    (p) => p.kind === 'endstop'
+  )
+  const currentKey = options?.currentRoleKey ?? null
+  const currentPin =
+    currentKey != null && occupancy != null ? occupancy[currentKey] ?? null : null
+  const currentPinNorm =
+    currentPin != null && String(currentPin).trim().length > 0
+      ? String(currentPin).trim()
+      : null
+
+  const byPin = new Map<string, EndstopPinSelectItem>()
   for (const p of entries) {
     if (p.pin == null || !String(p.pin).trim()) continue
     const pin = String(p.pin).trim()
-    const label = p.label ?? p.aliases?.[0] ?? pin
-    const kind = p.kind ? ` · ${p.kind}` : ''
-    if (!byPin.has(pin) || p.kind === 'endstop') {
-      byPin.set(pin, `${label} (${pin})${kind}`)
-    }
+    const assignment = (p.aliases?.[0] ?? p.label ?? pin).trim()
+    const role = customEndstopRoleLabelForPin(pin, occupancy)
+    const ownedByOther = role != null && pin !== currentPinNorm
+    const base = formatPinSelectName(assignment, pin)
+    byPin.set(pin, {
+      value: pin,
+      title: ownedByOther ? `${base} — used by ${role}` : base,
+      pinLabel: assignment,
+      disabled: ownedByOther
+    })
   }
-  return Array.from(byPin.entries())
-    .map(([value, title]) => ({ value, title }))
-    .sort((a, b) => a.title.localeCompare(b.title))
+
+  return Array.from(byPin.values()).sort((a, b) => a.title.localeCompare(b.title))
 }
 
 /** @deprecated Use gpOutItemsForBoard */
@@ -516,8 +576,9 @@ export function migrateLegacyBoardKitKey(
   if (kit == null || kit === ('' as any)) {
     return null
   }
+  // Fly CDYv3 is not supported on RRF 3.7 — treat as unset so the UI re-prompts.
   if (kit === 'fly_cdyv3') {
-    return { shortName: 'cdy3_f4', motorVoltage: null }
+    return null
   }
   if (kit === 'scylla_24') {
     return { shortName: 'scylla1_0_h723', motorVoltage: 24 }
@@ -531,9 +592,6 @@ export function migrateLegacyBoardKitKey(
 /** @deprecated */
 export function suggestKitKeyFromBoardShortName(shortName: string | null | undefined): NxtBoardKitKey | null {
   const s = suggestBundledBoardShortName(shortName)
-  if (s === 'cdy3_f4') {
-    return 'fly_cdyv3'
-  }
   if (s === 'scylla1_0_h723') {
     return 'scylla_24'
   }

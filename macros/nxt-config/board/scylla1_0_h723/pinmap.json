@@ -2,24 +2,25 @@
   "boardId": "scylla1_0_h723",
   "assigned": [
     {
-      "id": "endstop_x",
-      "label": "X endstop",
+      "id": "endstop_x_min",
+      "label": "xmin",
       "kind": "endstop",
       "axis": "X",
       "pin": "D.11",
       "aliases": ["xmin"]
     },
     {
-      "id": "endstop_y",
-      "label": "Y endstop",
+      "id": "endstop_y_max",
+      "label": "ymax",
       "kind": "endstop",
       "axis": "Y",
       "pin": "D.14",
-      "aliases": ["ymax"]
+      "aliases": ["ymax"],
+      "note": "nxt/Milo: PD_14 labeled ymax (Team Gloomy also lists ymin)."
     },
     {
-      "id": "endstop_z",
-      "label": "Z endstop",
+      "id": "endstop_z_max",
+      "label": "zmax",
       "kind": "endstop",
       "axis": "Z",
       "pin": "D.12",
@@ -60,8 +61,35 @@
   ],
   "free": [
     {
+      "id": "endstop_x_max",
+      "label": "xmax",
+      "kind": "endstop",
+      "axis": "X",
+      "pin": "C.6",
+      "aliases": ["xmax"],
+      "note": "Firmware name xmax (PC_6)."
+    },
+    {
+      "id": "endstop_y_min",
+      "label": "ymin",
+      "kind": "endstop",
+      "axis": "Y",
+      "pin": "A.8",
+      "aliases": ["ymin"],
+      "note": "Firmware name ymin (PA_8)."
+    },
+    {
+      "id": "endstop_z_min",
+      "label": "zmin",
+      "kind": "endstop",
+      "axis": "Z",
+      "pin": "C.7",
+      "aliases": ["zmin"],
+      "note": "Firmware name zmin (PC_7)."
+    },
+    {
       "id": "endstop_a_min",
-      "label": "A endstop (min)",
+      "label": "amin",
       "kind": "endstop",
       "axis": "A",
       "pin": "D.15",
@@ -70,12 +98,12 @@
     },
     {
       "id": "endstop_a_max",
-      "label": "A endstop (max)",
+      "label": "amax",
       "kind": "endstop",
       "axis": "A",
       "pin": "D.13",
       "aliases": ["amax"],
-      "note": "Optional fourth axis. Firmware name amax (PD_13). Stock MosFourthAxis spit-roast uses M574 A1 S1 P\"!amax\"."
+      "note": "Optional fourth axis. Firmware name amax (PD_13). Default M574 uses P\"amax\" (no invert); add ! only for active-low switches."
     },
     {
       "id": "mist",

@@ -218,7 +218,7 @@ On the machine, configuration lives on the SD card as **`0:/sys/nxt-user-vars.g`
 - If the file is missing at boot, nxt still loads (`global.nxtConfigPending = true`) so this panel is available — review settings and **Save** to create the file
 - Survives machine restarts
 - Can be edited manually on the SD card if needed
-- **Probe repeatability** (G6512 sample count, pair tolerance, retries) is **not** in `nxt-user-vars.g` — defaults live in **`nxt-vars.g`**. The plugin ships **`0:/sys/nxt-user-overrides.g.example`** on SD; copy it to **`nxt-user-overrides.g`** to enable overrides. Only **`nxt-user-overrides.g`** is loaded (never the `.example` file), and only **last** in `nxt.g` after board pack and boot.
+- **Probe repeatability** (G6512 sample count, pair tolerance, retries) is **not** in `nxt-user-vars.g` — defaults live in **`nxt-vars.g`**. The plugin ships **`0:/sys/nxt-user-overrides.g.example`** on SD; copy it to **`nxt-user-overrides.g`** to enable overrides. Only **`nxt-user-overrides.g`** is loaded (never the `.example` file), and only **last** in `nxt.g` before **`global.nxtLoaded`** is set (after board pack, boot checks, plugins, and RGB).
 
 ### Configuration Flow
 ```

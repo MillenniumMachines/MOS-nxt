@@ -20,8 +20,8 @@ M350 A32 I0
 M906 A3500 I100
 M917 A90
 
-; Homing endstop: stock MosFourthAxis uses amax header as A1 (active low).
-; Change to P"!amin" if your switch is on the min header instead.
-M574 A1 S1 P"!amax"
+; Homing endstop: amax header as A1 (no invert — Scylla endstops are active high by default).
+; Use P"!amax" / P"!amin" only if your switch is active-low; P"amin" if on the min header.
+M574 A1 S1 P"amax"
 
-echo "[nxt] board Scylla: A axis mapped (drive 3, endstop !amax)"
+echo "[nxt] board Scylla: A axis mapped (drive 3, endstop amax)"

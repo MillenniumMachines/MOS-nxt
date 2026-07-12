@@ -73,9 +73,12 @@ export function buildCustomDrivesOverlayG(config: NxtUserConfigDraft): string {
   const xd = config.nxtCustomXDrives
   const yd = config.nxtCustomYDrives
   const zd = config.nxtCustomZDrives
-  if (xd && yd && zd) {
+  const xDrives = parseDriveList(xd)
+  const yDrives = parseDriveList(yd)
+  const zDrives = parseDriveList(zd)
+  if (xDrives.length && yDrives.length && zDrives.length) {
     lines.push('; M584 axis map')
-    lines.push(`M584 X${xd} Y${yd} Z${zd}`)
+    lines.push(`M584 X${formatDriveList(xDrives)} Y${formatDriveList(yDrives)} Z${formatDriveList(zDrives)}`)
     lines.push('')
   }
 

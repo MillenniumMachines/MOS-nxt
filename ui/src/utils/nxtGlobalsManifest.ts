@@ -22,6 +22,7 @@ export const NXT_GLOBAL_MANIFEST: NxtGlobalManifestEntry[] = [
   { key: 'nxtToolSetterInvert', description: 'Toolsetter pin active-low invert (M558 C"!…")' },
   { key: 'nxtError', description: 'Last nxt error message' },
   { key: 'nxtLoaded', description: 'nxt boot completed successfully' },
+  { key: 'nxtBootOk', description: 'Boot checks passed; nxtLoaded set after nxt-user-overrides.g' },
   { key: 'nxtUserVarsPresent', description: 'True after nxt-user-vars.g was loaded from SD (nxt.g)' },
   { key: 'nxtConfigPending', description: 'True when nxt-user-vars.g is missing — complete setup in Configuration UI' },
   { key: 'nxtDeltaMachine', description: 'Static datum Z (toolsetter ↔ reference)' },

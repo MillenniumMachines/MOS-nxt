@@ -7,7 +7,7 @@ nxt ships vendored **board packs** (controller pins, drives, fans) and **machine
 ```
 nxt-config/
   board/
-    <shortName>/              RRF boards[].shortName (e.g. cdy3_f4, scylla1_0_h723)
+    <shortName>/              RRF boards[].shortName (e.g. scylla1_0_h723)
       entry.g                 Board load chain
       pinmap.json             Named pins + free pins for UI assignment
       endstops.g, drives.g, fans.g, spindle.g, …
@@ -27,10 +27,12 @@ Build-time manifest: `dist/generate-nxt-config-manifest.mjs` → `ui/src/generat
 
 | Machine | Homing deploy | Boards (shared) |
 |---------|---------------|-----------------|
-| `v1.5` | Y → max, Z steps 1600 | `cdy3_f4`, `scylla1_0_h723` 24/48 V |
+| `v1.5` | Y → max, Z steps 1600 | `scylla1_0_h723` 24/48 V |
 | `v1.6` | Y → min (Y0), Z steps 800 | same board tree |
 | `v2.0` | Same as v1.6 for now (diverge when hardware differs) | same board tree |
 | `custom` | Generated home*.g from endstop Min/Max; full Custom editor (`nxtCustom*`) | same board tree |
+
+**RRF 3.7:** Fly CDYv3 (`cdy3_f4`) is **not** supported and is not shipped. Use Scylla packs only.
 
 **Custom platform:** Configuration edits travel, endstop pins/sides, steps/mm, drive map, `M569` directions, and `M906` currents. Values persist in `nxt-user-vars.g`; Save also regenerates `machine/custom/` overlays and deploys direction-aware `home*.g`. Overlays run **after** the board pack (board files stay stock).
 
@@ -48,7 +50,7 @@ Homing macros are **not** `M98`'d at boot.
 ## Boot order (firmware)
 
 1. `config.g` → `M98 P"nxt.g"`.
-2. `nxt.g` → `nxt-vars.g` → … → `nxt-user-vars.g` → **`nxt-board-pack-loader.g`** → `nxt-boot.g` → …
+2. `nxt.g` → `nxt-vars.g` → … → `nxt-user-vars.g` → **`nxt-board-pack-loader.g`** → `nxt-boot.g` (sets `nxtBootOk`) → plugins / RGB → **`nxt-user-overrides.g`** → **`nxtLoaded`**.
 3. Loader: `nxt-board-pack-resolve.g` → board entry → `machine/<nxtPlatformProfile>/entry.g` → optional `nxt-user-pinmap.g`.
 
 Resolver path: `nxt-config/board/<shortName>/[motor-24v|motor-48v/]entry.g`.  
@@ -96,7 +98,7 @@ Machine must exist on SD: `0:/sys/nxt-config/machine/<id>/OVERVIEW.txt`.
 
 Each board ships `pinmap.json` (`assigned` + `free`) with human-readable labels from RRF pin names (e.g. Scylla `mist`, `coolant`, `relay`, `aux0`–`aux2`, `probe`, `tool`).
 
-Configuration dropdowns list **free** named pins (Mist, Coolant, Relay, Aux, Fan 2 / heaters on CDYv3, Probe, Toolsetter). Pins already assigned to another role are shown **disabled**. Clear a select to unassign.
+Configuration dropdowns list **free** named pins (Mist, Coolant, Relay, Aux, Probe, Toolsetter). Pins already assigned to another role are shown **disabled**. Clear a select to unassign.
 
 Board packs create matching `M950 J…` ports in `gpio.g` (and Scylla `motor-*/gpio-aux.g`) so Mist/Coolant/Relay/Aux map to stable gpOut indices for `M42`.
 
@@ -111,7 +113,9 @@ Board packs create matching `M950 J…` ports in `gpio.g` (and Scylla `motor-*/g
 
 **Enable:** Configuration → **Fourth Axis (A / Rotary)** → enable `nxtFeatureFourthAxis` → **Save**, then reboot with board bootstrap. MOS import may also set the flag from `mosFAE`.
 
-**Still from MosFourthAxis:** steps/° (`M92 A` / `M4806`), soft limits, speeds, and `homea.g`. If you also `M98` `rotary-plugin-config.g`, remove duplicate `M584 A` / `M574 A` / `M569 P3` lines from that file so they are not applied twice.
+**MosFourthAxis on boot:** When the feature flag is on, [`nxt.g`](../macros/system/nxt.g) soft-loads (with `fileexists`) `0:/sys/mos-fourth-axis.g`, or else `plugins/mos-fourth-axis/mos-fourth-axis-init.g` + `M4800` if present. Missing macros only `echo` a warning — boot continues.
+
+**Still from MosFourthAxis:** steps/° (`M92 A` / `M4806`), soft limits, speeds, and `homea.g`. Do **not** also `M98` `rotary-plugin-config.g` when Scylla `axis-a.g` already mapped A (duplicate `M584` / `M574` / `M569`).
 
 ## Adding hardware
 

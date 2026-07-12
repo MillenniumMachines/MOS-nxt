@@ -84,31 +84,51 @@ else
 
 if { !exists(global.nxtLoaded) }
     global nxtLoaded = false
+if { !exists(global.nxtBootOk) }
+    global nxtBootOk = false
 
 ; CNC mode before boot checks (board pack may also M453; safe to repeat)
 M453
 
-; Run boot-time sanity checks
+; Run boot-time sanity checks (sets nxtBootOk; does not set nxtLoaded)
 M117 "nxt nxt-boot.g"
 M98 P"nxt-boot.g"
 
 ; Restore persisted maintenance counters (axis travel + tool life) when present.
-if { global.nxtLoaded && fileexists("0:/sys/nxt-maintenance.g") }
+if { global.nxtBootOk && fileexists("0:/sys/nxt-maintenance.g") }
     M117 "nxt nxt-maintenance.g"
     M98 P"nxt-maintenance.g"
 
 ; Initialize metadata-driven plugins once boot checks pass.
-if { global.nxtLoaded && fileexists("0:/sys/nxt/plugins/nxt-plugin-init-dispatch.g") }
+if { global.nxtBootOk && fileexists("0:/sys/nxt/plugins/nxt-plugin-init-dispatch.g") }
     M117 "nxt plugin-init"
     M98 P"nxt/plugins/nxt-plugin-init-dispatch.g"
 
-; Optional user overrides last — wins over nxt-vars, nxt-user-vars, board pack, and tool table.
-; Shipped template: 0:/sys/nxt-user-overrides.g.example (never loaded). Active file only:
-if { fileexists("0:/sys/nxt-user-overrides.g") }
-    M117 "nxt nxt-user-overrides.g"
-    M98 P"nxt-user-overrides.g"
-elif { fileexists("0:/sys/nxt-user-overrides.g.example") }
-    echo "nxt: nxt-user-overrides.g not found — copy nxt-user-overrides.g.example to nxt-user-overrides.g on SD to apply overrides"
+; MosFourthAxis (optional sibling plugin) — only when feature on and files present.
+; Prefer 0:/sys/mos-fourth-axis.g (init + M4800). Else init under plugins/ + M4800.
+var nxtFaOn = false
+if { exists(global.nxtFeatureFourthAxis) }
+    if { global.nxtFeatureFourthAxis == true || global.nxtFeatureFourthAxis == 1 }
+        set var.nxtFaOn = true
+
+if { var.nxtFaOn }
+    if { fileexists("0:/sys/mos-fourth-axis.g") }
+        M117 "nxt mos-fourth-axis"
+        M98 P"mos-fourth-axis.g"
+    elif { fileexists("0:/sys/plugins/mos-fourth-axis/mos-fourth-axis-init.g") }
+        M117 "nxt mos-fourth-axis-init"
+        M98 P"plugins/mos-fourth-axis/mos-fourth-axis-init.g"
+        if { fileexists("0:/sys/M4800.g") }
+            M4800
+    elif { fileexists("0:/plugins/mos-fourth-axis/mos-fourth-axis-init.g") }
+        M117 "nxt mos-fourth-axis-init"
+        M98 P"0:/plugins/mos-fourth-axis/mos-fourth-axis-init.g"
+        if { fileexists("0:/sys/M4800.g") }
+            M4800
+    else
+        echo "nxt: nxtFeatureFourthAxis on but MosFourthAxis macros missing on SD"
+
+; Do not M98 rotary-plugin-config.g here — Scylla axis-a.g already maps A; avoid duplicate M584/M574.
 
 ; Persisted RGB colour map (written by nxt-save-rgb.g from Status / RGB panel).
 if { fileexists("0:/sys/nxt-rgb-colours.g") }
@@ -148,8 +168,17 @@ if { !exists(global.nxtDaemonEnabled) }
 if { !exists(global.nxtDaemonInterval) }
     global nxtDaemonInterval = 250
 
-; Final check if nxt loaded successfully
-if { global.nxtLoaded }
+; Optional user overrides last — wins over everything above; then nxtLoaded is set.
+; Shipped template: 0:/sys/nxt-user-overrides.g.example (never loaded). Active file only:
+if { fileexists("0:/sys/nxt-user-overrides.g") }
+    M117 "nxt nxt-user-overrides.g"
+    M98 P"nxt-user-overrides.g"
+elif { fileexists("0:/sys/nxt-user-overrides.g.example") }
+    echo "nxt: nxt-user-overrides.g not found — copy nxt-user-overrides.g.example to nxt-user-overrides.g on SD to apply overrides"
+
+; Flag loaded only after overrides (and the rest of boot) have run.
+if { global.nxtBootOk }
+    set global.nxtLoaded = true
     M117 "nxt ready"
     echo "nxt v" ^ global.nxtVersion ^ " loaded successfully."
 else

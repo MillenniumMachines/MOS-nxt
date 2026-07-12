@@ -1,7 +1,8 @@
 ; nxt-user-overrides.g.example — shipped on SD by the nxt plugin (this file is NOT loaded).
 ; To enable overrides: copy this file to 0:/sys/nxt-user-overrides.g (same folder).
-; nxt.g loads only nxt-user-overrides.g, last in the boot sequence (after board pack, boot, plugins).
-; Use set global.* lines (not global declarations). Reboot or M98 P"nxt-user-overrides.g" to apply.
+; nxt.g loads only nxt-user-overrides.g last before setting global.nxtLoaded
+; (after board pack, boot checks, plugins, RGB). Use set global.* lines (not global declarations).
+; Reboot or M98 P"nxt.g" to apply.
 
 ; Defaults in nxt-vars.g: inner=3, max spread=0.0075 mm, outer retries=1
 ; set global.nxtProbeInnerSampleCount = 3
