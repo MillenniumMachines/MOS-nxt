@@ -208,6 +208,27 @@ fi
     elif ! node -e "require.resolve('three')" >/dev/null 2>&1; then
         npm install three@0.181.0 --no-save
     fi
+    # jszip: Fusion .tools import (parseFusionTools.ts). Vite resolves from staging dir only.
+    if [[ "${DWC_BUILDER}" == "vite" ]]; then
+        if ! node -e "require.resolve('jszip')" >/dev/null 2>&1; then
+            npm install jszip@3.10.1 --no-save
+        fi
+    fi
+)
+
+if [[ "${DWC_BUILDER}" == "vite" ]]; then
+    NXT_JSZIP_SRC="${DWC_REPO_PATH}/node_modules/jszip"
+    if [[ -d "${NXT_JSZIP_SRC}" ]]; then
+        mkdir -p "${TMP_DIR}/node_modules"
+        ln -sfn "${NXT_JSZIP_SRC}" "${TMP_DIR}/node_modules/jszip"
+    else
+        echo "error: jszip not found under ${DWC_REPO_PATH}/node_modules (Fusion import build dep)" >&2
+        exit 1
+    fi
+fi
+
+(
+    cd "${DWC_REPO_PATH}"
     npm run build-plugin -- "${TMP_DIR}" || exit 1
 ) || {
     if [[ -f "${BUILD_PLUGIN_JS}.next-bak" ]]; then

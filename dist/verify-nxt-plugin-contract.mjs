@@ -82,6 +82,7 @@ for (const rel of [
 }
 
 assertIncludes('dist/release.sh', '--arg id "nxt"', 'release dwc-plugins.json id')
+assertIncludes('dist/release.sh', 'node_modules/jszip', 'release Vite jszip symlink for Fusion import')
 assertIncludes('dist/build-plugin.sh', 'dwc/js/nxt', 'build-plugin zip layout')
 assertIncludes('dist/build-plugin.sh', 'detect-dwc-plugin-builder.mjs', 'build-plugin Vite/webpack detect')
 assertIncludes('dist/verify-plugin-zip.mjs', 'dwc/js/nxt', 'verify-plugin-zip')
