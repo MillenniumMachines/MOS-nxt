@@ -84,14 +84,18 @@ Platform **Custom** expands Configuration with:
 
 | Section | Globals / codes |
 |---------|-----------------|
-| Travel min/max | `nxtCustom*Min/Max` → `M208` |
-| Endstop pin + Min/Max side | `nxtCustom*EndstopPin`, `*HomeAt` → `M574` |
+| Travel min/max (XYZ required; A optional) | `nxtCustom*Min/Max` → `M208` |
+| Endstop pin(s) + Min/Max side | `nxtCustom*EndstopPin` (`pin` or `pin1+pin2`), `*HomeAt` → `M574` |
 | Steps/mm | `nxtCustom*Steps` → `M92` |
 | Drive map (multi-drive OK) | `nxtCustom*Drives` → `M584` overlay |
 | Drive direction | `nxtCustomDriveDirs` → `M569` |
 | Motor current (mA) | `nxtCustom*Current` → `M906` |
 
-**Save** writes `nxt-user-vars.g` and regenerates `0:/sys/nxt-config/machine/custom/` overlays plus direction-aware `0:/sys/home*.g`. Board pack files stay stock; custom overlays run after the board pack.
+**Save** writes `nxt-user-vars.g` and regenerates overlays under **`0:/sys/nxt-user-custom/`** (not in the plugin ZIP — survives reinstall) plus direction-aware `0:/sys/home*.g` (including `homea.g` when A is fully configured). Stock `machine/custom/*.g` stubs only `M98` those user files when present. Board pack files stay stock; custom overlays run after the board pack.
+
+If you previously saved overlays only under `0:/sys/nxt-config/machine/custom/`, open Configuration and **Save** once after upgrading so files are rewritten to `nxt-user-custom/`.
+
+**A axis (optional):** Same field set as XYZ. Leave A blank, or complete min/max, home side, endstop pin(s), drives, steps, and current. Multi-pin endstops use ordered chips stored as `pin1+pin2` for `M574 P"…"`.
 
 **Reload** re-runs `M98 P"nxt-user-vars.g"` and shows warnings if bootstrap files or pack paths do not match saved intent (`nxtBoardPackExpectedEntry` vs `nxtBoardPackEntry`).
 
@@ -123,7 +127,9 @@ Configure GPIO outputs from **named board pins** (Mist, Coolant, Relay, Aux, …
 
 ### Save Configuration
 
-The **"Save Configuration"** button writes the full generated contents to **`/sys/nxt-user-vars.g`** (HTTP path for **`rr_upload`**, same on-board file as `0:/sys/nxt-user-vars.g`) in a single **`rr_upload`** POST with a raw body per the RRF HTTP API. That **replaces** the file each time, avoiding growth from line-by-line `echo` G-code.
+The **"Save Configuration"** button goes through **`persistNxtUserConfig`** ([`ui/src/utils/nxtUserConfigPersist.ts`](../ui/src/utils/nxtUserConfigPersist.ts)): full replace of **`/sys/nxt-user-vars.g`**, idempotent bootstrap + `nxt-custom.requested` sync, one `ensureCustomGlobals` when Custom, and Custom pack/homing deploy when Platform=Custom.
+
+**Calibration Save** and **Apply platform sys (Custom)** use the same helper so sentinels stay consistent (Calibration no longer writes user-vars alone without bootstrap/custom sync).
 
 Runtime values are still updated immediately via `set global.*` when you change fields; use **Save Configuration** when you want those values persisted across reboots in `nxt-user-vars.g`.
 
@@ -219,6 +225,8 @@ On the machine, configuration lives on the SD card as **`0:/sys/nxt-user-vars.g`
 - Survives machine restarts
 - Can be edited manually on the SD card if needed
 - **Probe repeatability** (G6512 sample count, pair tolerance, retries) is **not** in `nxt-user-vars.g` — defaults live in **`nxt-vars.g`**. The plugin ships **`0:/sys/nxt-user-overrides.g.example`** on SD; copy it to **`nxt-user-overrides.g`** to enable overrides. Only **`nxt-user-overrides.g`** is loaded (never the `.example` file), and only **last** in `nxt.g` before **`global.nxtLoaded`** is set (after board pack, boot checks, plugins, and RGB).
+
+**Custom globals:** Declared in **`nxt-custom-globals.g`** (`if { !exists }` → `null`) from `nxt.g` before user-vars. Saved **`nxt-user-vars.g`** only **`set`**s non-null Custom values. See [OM_GLOBAL_SIZE.md](OM_GLOBAL_SIZE.md).
 
 ### Configuration Flow
 ```

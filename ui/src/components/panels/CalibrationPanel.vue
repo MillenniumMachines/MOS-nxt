@@ -618,16 +618,13 @@ import {
   cmdM4807ApplyY0
 } from '../../utils/nxtRotaryCalibration'
 import {
-  buildNxtUserVarsGcode,
   snapshotConfigFromOm,
   readConfigVector,
   readConfigNumber,
   readConfigBool,
   type NxtUserConfigDraft
 } from '../../utils/nxtUserVarsPersistence'
-import { buildCustomPackFiles } from '../../utils/nxtCustomPackGenerate'
-import { deployPlatformSysFiles } from '../../utils/nxtBoardSysDeploy'
-import { NXT_USER_VARS_DWC_PATH, uploadDwcFile } from '../../utils/nxtFileUpload'
+import { persistNxtUserConfig } from '../../utils/nxtUserConfigPersist'
 
 type AxisLetter = 'X' | 'Y' | 'Z' | 'A'
 
@@ -1230,23 +1227,16 @@ export default defineNxtComponent({
       try {
         const draft = snapshotConfigFromOm(this.$store.state.machine.model.global)
         this.mergePendingIntoDraft(draft)
-        const content = buildNxtUserVarsGcode(draft)
-        await uploadDwcFile(NXT_USER_VARS_DWC_PATH, content)
-        if (this.isCustomPlatform) {
-          const packFiles = buildCustomPackFiles(draft)
-          const homeNames = ['homex.g', 'homey.g', 'homez.g', 'homeall.g']
-          const generatedHomes: Record<string, string> = {}
-          const overlays: Record<string, string> = {}
-          for (const [name, body] of Object.entries(packFiles)) {
-            if (homeNames.includes(name)) generatedHomes[name] = body
-            else overlays[name] = body
-          }
-          await deployPlatformSysFiles('custom', {
-            generatedContents: generatedHomes,
-            packOverlayContents: overlays
-          })
-        }
-        this.show('Calibration saved to nxt-user-vars.g' + (this.isCustomPlatform ? ' + custom overlays' : ''), 'success')
+        const result = await persistNxtUserConfig(draft, {
+          sendCode: (c) => this.sendCode(c),
+          isConnected: this.isConnected,
+          deployCustomPack: this.isCustomPlatform
+        })
+        this.show(
+          'Calibration saved to nxt-user-vars.g' +
+            (result.customDeployed.length > 0 ? ' + custom overlays' : ''),
+          'success'
+        )
       } catch (e: any) {
         this.show(e?.message ?? 'Save failed', 'error')
       } finally {

@@ -42,29 +42,20 @@ global nxtDatumToolRadius = null  ; Datum tool radius when touch probe feature i
 global nxtProtectedMoveBackOff = null ; Protected move back-off distance (mm)
 global nxtTouchProbeRefPos = null ; Touch probe reference surface [X, Y, Z] machine coords
 global nxtRefSurfaceProbed = false ; Session flag: G6511 reference surface probed (reset each boot)
-; G9000 calibration travel test (session only — not persisted to user-vars)
-global nxtCalTravelCmd = { vector(3, 0.0) } ; Commanded distances [8, 16, 24]
-global nxtCalTravelMeas = { vector(3, 0.0) } ; Measured travel per leg
-global nxtCalTravelAxis = null ; Axis letter last tested ("X"|"Y"|"Z")
-global nxtProbeHitXY = { vector(8, 0.0) } ; Last contacts as X,Y pairs (G6512 H0..H3), machine mm — bore/boss use H0..H2
+; G9000 / M5014 calibration travel — allocated on first use (OM ~8KB budget)
+global nxtCalTravelCmd = null
+global nxtCalTravelMeas = null
+global nxtCalTravelAxis = null
+; G6512 H-slot contacts — allocated on first H= write (OM ~8KB budget)
+global nxtProbeHitXY = null
 global nxtProbeMaxSkewDeg = 5.0   ; Abort rectangle/bore skew solve if |theta| exceeds this (deg)
 
 ; --- Probe repeatability (G6512; all canned cycles use G6512) ---
-; Defaults below. Plugin installs 0:/sys/nxt-user-overrides.g.example on SD; copy to nxt-user-overrides.g
-; to enable (nxt.g loads only nxt-user-overrides.g last, then sets nxtLoaded). Not in Configuration UI.
-;   nxtProbeInnerSampleCount — inner sample count when tolerance disabled (limit = 0); ignored when limit > 0 (G6512 uses 3 touches).
-;   nxtProbeMaxSampleSpreadMm — max consecutive-pair deviation (mm) between the 3 touches; both pairs must pass. Set 0 to disable.
-;   nxtProbeSampleOuterRetries — how many *additional* full 3-touch blocks after a failed tolerance check
-;                                (total cycles = 1 + this). 1 = one retry after the first attempt.
+; Defaults below. Optional touch/toolsetter-specific keys: declare+set in nxt-user-overrides.g
+; (see nxt-user-overrides.g.example). Not in Configuration UI.
 global nxtProbeInnerSampleCount = 3
 global nxtProbeMaxSampleSpreadMm = 0.0075
 global nxtProbeSampleOuterRetries = 1
-global nxtTouchProbeInnerSampleCount = 3 ; Touch probe specific G6512 inner sample count
-global nxtTouchProbeMaxSampleSpreadMm = 0.0075 ; Touch probe consecutive-pair spread limit (mm), 0 disables
-global nxtTouchProbeSampleOuterRetries = 1 ; Touch probe extra 3-touch retry cycles
-global nxtToolSetterInnerSampleCount = 3 ; Toolsetter specific G6512 inner sample count (tpost enforces min 2)
-global nxtToolSetterMaxSampleSpreadMm = 0.0075 ; Toolsetter consecutive-pair spread limit (mm), 0 disables
-global nxtToolSetterSampleOuterRetries = 1 ; Toolsetter extra 3-touch retry cycles
 
 global nxtToolSetterPos = null     ; Toolsetter position vector [X, Y, Z]
 global nxtToolSetterProbeTravelMm = 80.0 ; Downward travel from toolsetter Z used for tool-length probing
@@ -176,48 +167,15 @@ global nxtCannedRetractMode = 98   ; G98 initial plane / G99 R plane — set by 
 global nxtCannedZi = 0              ; scratch: Z axis index (set by nxt-canned-zindex.g)
 
 ; --- Board / platform selection (UI + pack loader) ---
-; Custom-platform keys stay declared so legacy nxt-user-vars.g `set global.nxtCustom* = null`
-; lines still boot. OM headroom comes mainly from null-filled nxtTT (see nxt-tooltable.g).
+; Custom-platform keys: nxt-custom-globals.g when Custom is active (sentinel / overlays).
+; Deprecated nxtBoardKitKey / nxtScyllaMotorVoltage: not declared here (OM budget); migrate in UI/resolvers.
 global nxtPlatformProfile = null   ; platform id = nxt-config/machine/<id>/ directory name
-global nxtBoardKitKey = null       ; legacy UI key; optional — prefer shortName + nxtBoardMotorVoltage
 global nxtBoardShortNameOverride = null ; RRF boards[0].shortName override for pack resolution, or null
 global nxtBoardMotorVoltage = null ; 24 | 48 | null (motor-24v / motor-48v board packs)
-global nxtScyllaMotorVoltage = null ; deprecated — use nxtBoardMotorVoltage
 global nxtBoardPackEntry = null    ; last resolved entry path at boot (telemetry)
 global nxtBoardPackExpectedEntry = null ; saved expected entry path (Configuration Save)
 global nxtBoardSysDeployPlatform = null ; platform whose home*.g were last deployed to 0:/sys/
 global nxtBoardBootstrapMode = "off" ; "off" | "auto" (Save syncs nxt-board-bootstrap.requested)
-
-; Custom platform (when nxtPlatformProfile == "custom") — Configuration UI
-global nxtCustomXMin = null
-global nxtCustomXMax = null
-global nxtCustomYMin = null
-global nxtCustomYMax = null
-global nxtCustomZMin = null
-global nxtCustomZMax = null
-global nxtCustomXSteps = null
-global nxtCustomYSteps = null
-global nxtCustomZSteps = null
-global nxtCustomASteps = null
-global nxtCustomXHomeAt = null
-global nxtCustomYHomeAt = null
-global nxtCustomZHomeAt = null
-global nxtCustomXEndstopPin = null
-global nxtCustomYEndstopPin = null
-global nxtCustomZEndstopPin = null
-global nxtCustomXDrives = null
-global nxtCustomYDrives = null
-global nxtCustomZDrives = null
-global nxtCustomXCurrent = null
-global nxtCustomYCurrent = null
-global nxtCustomZCurrent = null
-; Compact M569 map: "0:1,1:1,2:0" (drive:direction)
-global nxtCustomDriveDirs = null
-; Backlash compensation (M425) — Custom overlay
-global nxtCustomXBacklash = null
-global nxtCustomYBacklash = null
-global nxtCustomZBacklash = null
-global nxtCustomABacklash = null
 
 ; --- Optional magazine / ATC extension (not allocated here) ---
 ; Bay maps, job sequence vectors, and related globals are defined only when a tool changer

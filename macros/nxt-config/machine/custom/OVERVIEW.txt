@@ -4,16 +4,18 @@ User-defined motion via Configuration when Platform = Custom.
 
 Settings (hybrid persistence):
 - Globals in 0:/sys/nxt-user-vars.g (nxtCustom* travel, steps, endstops, drives, currents, M569 dirs)
-- On Save, overlays are written under 0:/sys/nxt-config/machine/custom/
+- On Save, overlays are written under 0:/sys/nxt-user-custom/
   (drives-overlay.g, endstops.g, steps.g, limits.g) and home*.g are deployed to 0:/sys/
+- Stock machine/custom/*.g stubs only M98 the user overlays when present (ZIP-safe)
 
 Boot (after board pack): entry.g loads drives-overlay → limits → steps → endstops.
 
 1. nxt Configuration: Platform Custom, set travel / endstops / steps / drives / currents.
-2. Bootstrap Auto, Save (writes user-vars + regenerates pack overlays + home*.g).
+2. Bootstrap Auto, Save (writes user-vars + regenerates nxt-user-custom + home*.g).
 3. Optionally create 0:/sys/nxt-board-bootstrap.skip to hard-disable pack load.
 4. For motor-variant boards: nxtBoardMotorVoltage = 24 or 48 in nxt-user-vars.g.
 
 Homing direction follows endstop location (min → negative, max → positive).
+Optional A axis: complete A fields to generate homea.g and call it from homeall.
 
 See docs/NXT_BOARD_CONFIG.md, docs/NXT_BOARD_HOMING.md, docs/CONFIGURATION_UI.md.

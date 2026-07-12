@@ -7,6 +7,8 @@ import store from '../compat/dwcStore'
 export const NXT_USER_VARS_DWC_PATH = '0:/sys/nxt-user-vars.g'
 export const NXT_USER_PINMAP_DWC_PATH = '0:/sys/nxt-user-pinmap.g'
 export const NXT_USER_TOOLS_DWC_PATH = '0:/sys/nxt-user-tools.g'
+/** Present when Platform=Custom — nxt.g loads nxt-custom-globals.g before user-vars. */
+export const NXT_CUSTOM_REQUESTED_PATH = '0:/sys/nxt-custom.requested'
 export const NXT_BOARD_BOOTSTRAP_REQUESTED = '0:/sys/nxt-board-bootstrap.requested'
 export const NXT_BOARD_BOOTSTRAP_SKIP = '0:/sys/nxt-board-bootstrap.skip'
 

@@ -9,14 +9,17 @@ export type CustomHomingInput = {
   xHomeAt: CustomHomeAt
   yHomeAt: CustomHomeAt
   zHomeAt: CustomHomeAt
+  /** When set with includeA, generate homea.g and call it from homeall. */
+  aHomeAt?: CustomHomeAt | null
+  includeA?: boolean
 }
 
-function axisLetter(i: 0 | 1 | 2): 'X' | 'Y' | 'Z' {
-  return i === 0 ? 'X' : i === 1 ? 'Y' : 'Z'
+function axisLetter(i: 0 | 1 | 2 | 3): 'X' | 'Y' | 'Z' | 'A' {
+  return i === 0 ? 'X' : i === 1 ? 'Y' : i === 2 ? 'Z' : 'A'
 }
 
 /** Signed first-pass travel expression toward the endstop. */
-function homeTravelExpr(axis: 0 | 1 | 2, homeAt: CustomHomeAt): string {
+function homeTravelExpr(axis: 0 | 1 | 2 | 3, homeAt: CustomHomeAt): string {
   const a = `move.axes[${axis}]`
   const span = `(${a}.max - ${a}.min + 5)`
   return homeAt === 1 ? `-{${span}}` : `{${span}}`
@@ -30,7 +33,7 @@ function slowHomeExpr(homeAt: CustomHomeAt): string {
   return homeAt === 1 ? '{-5*2}' : '{5*2}'
 }
 
-function g92Line(axis: 0 | 1 | 2, homeAt: CustomHomeAt): string {
+function g92Line(axis: 0 | 1 | 2 | 3, homeAt: CustomHomeAt): string {
   const L = axisLetter(axis)
   const a = `move.axes[${axis}]`
   const pos = homeAt === 1 ? `${a}.min` : `${a}.max`
@@ -38,7 +41,6 @@ function g92Line(axis: 0 | 1 | 2, homeAt: CustomHomeAt): string {
 }
 
 function raiseZSafe(): string {
-  // Prefer max for clearance when Z homes to max; min when Z homes to min use max still if possible.
   return `G53 G0 Z{move.axes[2].max}`
 }
 
@@ -131,10 +133,37 @@ export function buildCustomHomezG(input: CustomHomingInput): string {
   ].join('\n')
 }
 
+export function buildCustomHomeaG(input: CustomHomingInput): string {
+  const ha = input.aHomeAt ?? 1
+  return [
+    '; homea.g — nxt platform custom (generated)',
+    '; Direction from nxtCustomAHomeAt (1=min, 2=max).',
+    '',
+    'G91',
+    'G21',
+    'G94',
+    '',
+    raiseZSafe(),
+    '',
+    `G53 G1 H1 A${homeTravelExpr(3, ha)} F{1800}`,
+    '',
+    'if { #sensors.endstops > 3 }',
+    '    if { ! sensors.endstops[3].triggered }',
+    '        abort {"A endstop not triggered after full axis travel. Check motor and endstop!"}',
+    '',
+    `G53 G1 H2 A${backoffExpr(ha)}`,
+    '',
+    `G53 G1 H1 A${slowHomeExpr(ha)} F{180}`,
+    '',
+    g92Line(3, ha),
+    ''
+  ].join('\n')
+}
+
 export function buildCustomHomeallG(input: CustomHomingInput): string {
   const xHa = input.xHomeAt
   const yHa = input.yHomeAt
-  return [
+  const lines = [
     '; homeall.g — nxt platform custom (generated)',
     '; Homes Z, then X and Y together. Directions from nxtCustom*HomeAt.',
     '',
@@ -158,16 +187,26 @@ export function buildCustomHomeallG(input: CustomHomingInput): string {
     g92Line(0, xHa),
     g92Line(1, yHa),
     ''
-  ].join('\n')
+  ]
+  if (input.includeA && input.aHomeAt != null) {
+    lines.push('if { fileexists("0:/sys/homea.g") }')
+    lines.push('    M98 P"homea.g"')
+    lines.push('')
+  }
+  return lines.join('\n')
 }
 
 export function buildAllCustomHomingFiles(input: CustomHomingInput): Record<string, string> {
-  return {
+  const out: Record<string, string> = {
     'homex.g': buildCustomHomexG(input),
     'homey.g': buildCustomHomeyG(input),
     'homez.g': buildCustomHomezG(input),
     'homeall.g': buildCustomHomeallG(input)
   }
+  if (input.includeA && input.aHomeAt != null) {
+    out['homea.g'] = buildCustomHomeaG(input)
+  }
+  return out
 }
 
 export function homeAtFromDraft(value: number | null | undefined, fallback: CustomHomeAt): CustomHomeAt {

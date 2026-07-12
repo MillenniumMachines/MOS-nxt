@@ -199,6 +199,28 @@
                     @update:model-value="onConfigDraftNumber('nxtCustomZMax', $event)"
                   />
                 </v-col>
+                <v-col cols="6" md="4">
+                  <v-text-field
+                    :model-value="configDraft.nxtCustomAMin"
+                    type="number"
+                    step="0.001"
+                    :label="$t('plugins.nxt.panels.configuration.customAMin')"
+                    :disabled="uiFrozen"
+                    hide-details
+                    @update:model-value="onConfigDraftNumber('nxtCustomAMin', $event)"
+                  />
+                </v-col>
+                <v-col cols="6" md="4">
+                  <v-text-field
+                    :model-value="configDraft.nxtCustomAMax"
+                    type="number"
+                    step="0.001"
+                    :label="$t('plugins.nxt.panels.configuration.customAMax')"
+                    :disabled="uiFrozen"
+                    hide-details
+                    @update:model-value="onConfigDraftNumber('nxtCustomAMax', $event)"
+                  />
+                </v-col>
               </v-row>
 
               <p class="text-caption font-weight-medium mb-1 mt-4">
@@ -210,16 +232,19 @@
               <v-row v-for="axis in customAxisLetters" :key="'es-' + axis">
                 <v-col cols="12" md="6">
                   <v-select
-                    :model-value="configDraft[customEndstopPinKey(axis)]"
+                    :model-value="customEndstopPinList(axis)"
                     :items="customEndstopPinItemsForAxis(axis)"
                     item-title="title"
                     item-value="value"
                     item-props
+                    multiple
+                    chips
+                    closable-chips
                     :label="$t('plugins.nxt.panels.configuration.customEndstopPin', [axis])"
                     :disabled="uiFrozen"
                     clearable
                     hide-details
-                    @update:model-value="onConfigDraftString(customEndstopPinKey(axis), $event)"
+                    @update:model-value="onCustomEndstopPinList(axis, $event)"
                   >
                     <template #selection="{ item }">
                       <span>{{ endstopSelectItemTitle(item) }}</span>
@@ -252,7 +277,7 @@
                 {{ $t('plugins.nxt.panels.configuration.customStepsSection') }}
               </p>
               <v-row>
-                <v-col cols="4">
+                <v-col cols="6" md="3">
                   <v-text-field
                     :model-value="configDraft.nxtCustomXSteps"
                     type="number"
@@ -263,7 +288,7 @@
                     @update:model-value="onConfigDraftNumber('nxtCustomXSteps', $event)"
                   />
                 </v-col>
-                <v-col cols="4">
+                <v-col cols="6" md="3">
                   <v-text-field
                     :model-value="configDraft.nxtCustomYSteps"
                     type="number"
@@ -274,7 +299,7 @@
                     @update:model-value="onConfigDraftNumber('nxtCustomYSteps', $event)"
                   />
                 </v-col>
-                <v-col cols="4">
+                <v-col cols="6" md="3">
                   <v-text-field
                     :model-value="configDraft.nxtCustomZSteps"
                     type="number"
@@ -283,6 +308,17 @@
                     :disabled="uiFrozen"
                     hide-details
                     @update:model-value="onConfigDraftNumber('nxtCustomZSteps', $event)"
+                  />
+                </v-col>
+                <v-col cols="6" md="3">
+                  <v-text-field
+                    :model-value="configDraft.nxtCustomASteps"
+                    type="number"
+                    step="0.001"
+                    :label="$t('plugins.nxt.panels.configuration.customASteps')"
+                    :disabled="uiFrozen"
+                    hide-details
+                    @update:model-value="onConfigDraftNumber('nxtCustomASteps', $event)"
                   />
                 </v-col>
               </v-row>
@@ -294,7 +330,7 @@
                 {{ $t('plugins.nxt.panels.configuration.customDrivesHint') }}
               </p>
               <v-row>
-                <v-col cols="4">
+                <v-col cols="6" md="3">
                   <v-text-field
                     :model-value="configDraft.nxtCustomXDrives"
                     :label="$t('plugins.nxt.panels.configuration.customXDrives')"
@@ -304,7 +340,7 @@
                     @update:model-value="onConfigDraftString('nxtCustomXDrives', $event)"
                   />
                 </v-col>
-                <v-col cols="4">
+                <v-col cols="6" md="3">
                   <v-text-field
                     :model-value="configDraft.nxtCustomYDrives"
                     :label="$t('plugins.nxt.panels.configuration.customYDrives')"
@@ -314,7 +350,7 @@
                     @update:model-value="onConfigDraftString('nxtCustomYDrives', $event)"
                   />
                 </v-col>
-                <v-col cols="4">
+                <v-col cols="6" md="3">
                   <v-text-field
                     :model-value="configDraft.nxtCustomZDrives"
                     :label="$t('plugins.nxt.panels.configuration.customZDrives')"
@@ -322,6 +358,16 @@
                     hint="e.g. 2 or 2:3"
                     persistent-hint
                     @update:model-value="onConfigDraftString('nxtCustomZDrives', $event)"
+                  />
+                </v-col>
+                <v-col cols="6" md="3">
+                  <v-text-field
+                    :model-value="configDraft.nxtCustomADrives"
+                    :label="$t('plugins.nxt.panels.configuration.customADrives')"
+                    :disabled="uiFrozen"
+                    hint="e.g. 3"
+                    persistent-hint
+                    @update:model-value="onConfigDraftString('nxtCustomADrives', $event)"
                   />
                 </v-col>
               </v-row>
@@ -356,7 +402,7 @@
                 {{ $t('plugins.nxt.panels.configuration.customCurrentsSection') }}
               </p>
               <v-row>
-                <v-col cols="4">
+                <v-col cols="6" md="3">
                   <v-text-field
                     :model-value="configDraft.nxtCustomXCurrent"
                     type="number"
@@ -367,7 +413,7 @@
                     @update:model-value="onConfigDraftNumber('nxtCustomXCurrent', $event)"
                   />
                 </v-col>
-                <v-col cols="4">
+                <v-col cols="6" md="3">
                   <v-text-field
                     :model-value="configDraft.nxtCustomYCurrent"
                     type="number"
@@ -378,7 +424,7 @@
                     @update:model-value="onConfigDraftNumber('nxtCustomYCurrent', $event)"
                   />
                 </v-col>
-                <v-col cols="4">
+                <v-col cols="6" md="3">
                   <v-text-field
                     :model-value="configDraft.nxtCustomZCurrent"
                     type="number"
@@ -387,6 +433,17 @@
                     :disabled="uiFrozen"
                     hide-details
                     @update:model-value="onConfigDraftNumber('nxtCustomZCurrent', $event)"
+                  />
+                </v-col>
+                <v-col cols="6" md="3">
+                  <v-text-field
+                    :model-value="configDraft.nxtCustomACurrent"
+                    type="number"
+                    step="1"
+                    :label="$t('plugins.nxt.panels.configuration.customACurrent')"
+                    :disabled="uiFrozen"
+                    hide-details
+                    @update:model-value="onConfigDraftNumber('nxtCustomACurrent', $event)"
                   />
                 </v-col>
               </v-row>
@@ -1169,7 +1226,9 @@
               <span class="text-caption">
                 Uses firmware flag <code>global.nxtFeatureFourthAxis</code>. On Scylla, board pack
                 loads <code>axis-a.g</code> (drive 3, <code>M584 A3 R1</code>) at the next boot with
-                board bootstrap. Install MosFourthAxis for A steps / <code>homea.g</code> / calibration macros.
+                board bootstrap. On Custom, configure A travel / endstops / drives in the Custom
+                section (optional); Save writes <code>homea.g</code> when A is complete.
+                Install MosFourthAxis for shared A calibration macros if needed.
               </span>
             </v-alert>
             <v-switch
@@ -1384,23 +1443,23 @@ import {
   NXT_USER_PINMAP_DWC_PATH,
   uploadDwcFile
 } from '../../utils/nxtFileUpload'
-import { syncBoardBootstrapSentinels } from '../../utils/nxtBoardBootstrapSync'
 import { scanNxtConfigOnSd, formatSdScanWarnings } from '../../utils/nxtConfigSdScan'
 import { reconcileBoardState } from '../../utils/nxtBoardStateReconcile'
 import {
   buildInitialConfigDraft,
-  buildNxtUserVarsGcode,
   emptyConfigDraft,
   nxtConfigPendingInOm,
   nxtUserVarsPresentInOm,
   snapshotConfigFromOm,
   type NxtUserConfigDraft
 } from '../../utils/nxtUserVarsPersistence'
+import { ensureCustomGlobals, persistNxtUserConfig } from '../../utils/nxtUserConfigPersist'
 import {
-  buildCustomPackFiles,
   formatDriveDirs,
+  formatEndstopPinList,
   parseDriveDirs,
   parseDriveList,
+  parseEndstopPinList,
   validateCustomMachineDraft
 } from '../../utils/nxtCustomPackGenerate'
 import { readFirmwareGlobal } from '../../utils/nxtToolChangerOm'
@@ -1735,8 +1794,8 @@ export default defineNxtComponent({
       return this.configDraft.nxtPlatformProfile === 'custom'
     },
 
-    customAxisLetters(): Array<'X' | 'Y' | 'Z'> {
-      return ['X', 'Y', 'Z']
+    customAxisLetters(): Array<'X' | 'Y' | 'Z' | 'A'> {
+      return ['X', 'Y', 'Z', 'A']
     },
 
     customHomeAtItems(): Array<{ value: number; title: string }> {
@@ -1758,7 +1817,8 @@ export default defineNxtComponent({
       return {
         nxtCustomXEndstopPin: d.nxtCustomXEndstopPin,
         nxtCustomYEndstopPin: d.nxtCustomYEndstopPin,
-        nxtCustomZEndstopPin: d.nxtCustomZEndstopPin
+        nxtCustomZEndstopPin: d.nxtCustomZEndstopPin,
+        nxtCustomAEndstopPin: d.nxtCustomAEndstopPin
       }
     },
 
@@ -1767,7 +1827,8 @@ export default defineNxtComponent({
       const all = [
         ...parseDriveList(d.nxtCustomXDrives),
         ...parseDriveList(d.nxtCustomYDrives),
-        ...parseDriveList(d.nxtCustomZDrives)
+        ...parseDriveList(d.nxtCustomZDrives),
+        ...parseDriveList(d.nxtCustomADrives)
       ]
       return Array.from(new Set(all)).sort((a, b) => a - b)
     },
@@ -2191,16 +2252,25 @@ export default defineNxtComponent({
       await this.updateVariable(String(key), v)
     },
 
-    customEndstopPinKey(axis: 'X' | 'Y' | 'Z'): keyof NxtUserConfigDraft {
+    customEndstopPinKey(axis: 'X' | 'Y' | 'Z' | 'A'): keyof NxtUserConfigDraft {
       return (`nxtCustom${axis}EndstopPin` as keyof NxtUserConfigDraft)
     },
 
-    customEndstopRoleKey(axis: 'X' | 'Y' | 'Z'): NxtCustomEndstopRoleKey {
+    customEndstopRoleKey(axis: 'X' | 'Y' | 'Z' | 'A'): NxtCustomEndstopRoleKey {
       return `nxtCustom${axis}EndstopPin` as NxtCustomEndstopRoleKey
     },
 
+    customEndstopPinList(axis: 'X' | 'Y' | 'Z' | 'A'): string[] {
+      return parseEndstopPinList(this.configDraft[this.customEndstopPinKey(axis)] as string | null)
+    },
+
+    async onCustomEndstopPinList(axis: 'X' | 'Y' | 'Z' | 'A', raw: string[] | null) {
+      const joined = formatEndstopPinList(Array.isArray(raw) ? raw : [])
+      await this.onConfigDraftString(this.customEndstopPinKey(axis), joined)
+    },
+
     customEndstopPinItemsForAxis(
-      axis: 'X' | 'Y' | 'Z'
+      axis: 'X' | 'Y' | 'Z' | 'A'
     ): Array<EndstopPinSelectItem & { props?: { disabled?: boolean } }> {
       const roleKey = this.customEndstopRoleKey(axis)
       if (!(NXT_CUSTOM_ENDSTOP_ROLE_KEYS as readonly string[]).includes(roleKey)) {
@@ -2274,7 +2344,7 @@ export default defineNxtComponent({
       return ''
     },
 
-    customHomeAtKey(axis: 'X' | 'Y' | 'Z'): keyof NxtUserConfigDraft {
+    customHomeAtKey(axis: 'X' | 'Y' | 'Z' | 'A'): keyof NxtUserConfigDraft {
       return (`nxtCustom${axis}HomeAt` as keyof NxtUserConfigDraft)
     },
 
@@ -2306,7 +2376,8 @@ export default defineNxtComponent({
       if (
         key === 'nxtCustomXDrives' ||
         key === 'nxtCustomYDrives' ||
-        key === 'nxtCustomZDrives'
+        key === 'nxtCustomZDrives' ||
+        key === 'nxtCustomADrives'
       ) {
         await this.syncCustomDriveDirsWithMap()
       }
@@ -2447,32 +2518,29 @@ export default defineNxtComponent({
     async runDeployPlatformSysFiles(platformId: string) {
       this.sysDeploying = true
       try {
-        let options: Parameters<typeof deployPlatformSysFiles>[1]
+        let written: string[]
         if (platformId === 'custom') {
           const errs = validateCustomMachineDraft(this.configDraft)
           if (errs.length) {
             this.showStatus(errs.join('; '), 'error')
             return
           }
-          const packFiles = buildCustomPackFiles(this.configDraft)
-          const homeNames = ['homex.g', 'homey.g', 'homez.g', 'homeall.g']
-          const generatedHomes: Record<string, string> = {}
-          const overlays: Record<string, string> = {}
-          for (const [name, body] of Object.entries(packFiles)) {
-            if (homeNames.includes(name)) {
-              generatedHomes[name] = body
-            } else {
-              overlays[name] = body
-            }
-          }
-          options = {
-            generatedContents: generatedHomes,
-            packOverlayContents: overlays
-          }
+          const result = await persistNxtUserConfig(this.configDraft, {
+            uploadUserVars: false,
+            syncBootstrap: false,
+            syncCustomRequested: true,
+            ensureCustomGlobals: true,
+            deployCustomPack: true,
+            sendCode: (c) => this.sendCode(c),
+            isConnected: this.isConnected
+          })
+          written = result.customDeployed
+          this.configDraft.nxtBoardSysDeployPlatform = 'custom'
+        } else {
+          written = await deployPlatformSysFiles(platformId)
+          this.configDraft.nxtBoardSysDeployPlatform = platformId
+          await this.updateVariable('nxtBoardSysDeployPlatform', platformId)
         }
-        const written = await deployPlatformSysFiles(platformId, options)
-        this.configDraft.nxtBoardSysDeployPlatform = platformId
-        await this.updateVariable('nxtBoardSysDeployPlatform', platformId)
         const msg = (this as any).$t('plugins.nxt.panels.configuration.boardDeploySuccess', {
           count: written.length
         })
@@ -2615,6 +2683,20 @@ export default defineNxtComponent({
      */
     async updateVariable(key: string, value: any) {
       try {
+        if (String(key).startsWith('nxtCustom')) {
+          await ensureCustomGlobals((c) => this.sendCode(c))
+        }
+        // Deprecated kit key may be absent from OM (not in nxt-vars.g) — skip clearing.
+        if (
+          key === 'nxtBoardKitKey' &&
+          (value === null || value === undefined || value === '')
+        ) {
+          await this.sendCode(
+            'if { exists(global.nxtBoardKitKey) }\n    set global.nxtBoardKitKey = null'
+          )
+          console.log(`nxt: Updated ${key} to ${value}`)
+          return
+        }
         // Handle null values
         if (value === null || value === undefined || value === '') {
           await this.sendCode(`set global.${key} = null`)
@@ -2647,36 +2729,20 @@ export default defineNxtComponent({
             return
           }
         }
-        const bootMode = this.configDraft.nxtBoardBootstrapMode === 'auto' ? 'auto' : 'off'
-        const content = buildNxtUserVarsGcode(this.configDraft)
-        await uploadDwcFile(NXT_USER_VARS_DWC_PATH, content)
+        const result = await persistNxtUserConfig(this.configDraft, {
+          sendCode: (c) => this.sendCode(c),
+          isConnected: this.isConnected,
+          deployCustomPack: this.isCustomPlatform && this.isConnected
+        })
         if (this.isConnected) {
-          await syncBoardBootstrapSentinels(bootMode)
           await this.runBoardStateChecks()
         }
-
-        let extra = ''
-        if (this.isCustomPlatform && this.isConnected) {
-          const packFiles = buildCustomPackFiles(this.configDraft)
-          const homeNames = ['homex.g', 'homey.g', 'homez.g', 'homeall.g']
-          const generatedHomes: Record<string, string> = {}
-          const overlays: Record<string, string> = {}
-          for (const [name, body] of Object.entries(packFiles)) {
-            if (homeNames.includes(name)) {
-              generatedHomes[name] = body
-            } else {
-              overlays[name] = body
-            }
-          }
-          const written = await deployPlatformSysFiles('custom', {
-            generatedContents: generatedHomes,
-            packOverlayContents: overlays
-          })
-          extra = ` Custom pack + homing updated (${written.length} files).`
-        }
-
+        const extra =
+          result.customDeployed.length > 0
+            ? ` Custom pack + homing updated (${result.customDeployed.length} files).`
+            : ''
         this.showStatus(
-          `Configuration saved to ${NXT_USER_VARS_DWC_PATH} and bootstrap files synced (${bootMode}).${extra} Reload or reboot to apply.`,
+          `Configuration saved to ${result.userVarsPath} and bootstrap files synced (${result.bootMode}).${extra} Reload or reboot to apply.`,
           'success'
         )
       } catch (error: any) {

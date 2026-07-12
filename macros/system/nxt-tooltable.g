@@ -1,7 +1,8 @@
 ; nxt-tooltable.g — Allocate nxt tool table globals for M4000/M4001.
 ; Loaded from nxt.g when nxtTT is not already present.
+; Sole owner of mosTT/mosET → nxtTT/nxtET (align does not copy TT).
 
-; Legacy MOS SD may still have mosTT/mosET — nxt-mos-globals-align.g copies them first on import.
+; Legacy MOS SD may still have mosTT/mosET after import loads mos-vars.g.
 if { exists(global.mosTT) && !exists(global.nxtTT) }
     global nxtTT = { global.mosTT }
 if { exists(global.mosET) && !exists(global.nxtET) }

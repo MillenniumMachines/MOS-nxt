@@ -61,6 +61,13 @@ if { result != 0 }
 M5000 P0
 var startPos = { global.nxtAbsPos }
 
+if { !exists(global.nxtCalTravelCmd) || global.nxtCalTravelCmd == null }
+    global nxtCalTravelCmd = { vector(3, 0.0) }
+if { !exists(global.nxtCalTravelMeas) || global.nxtCalTravelMeas == null }
+    global nxtCalTravelMeas = { vector(3, 0.0) }
+if { !exists(global.nxtCalTravelAxis) }
+    global nxtCalTravelAxis = null
+
 set global.nxtCalTravelCmd[0] = 8
 set global.nxtCalTravelCmd[1] = 16
 set global.nxtCalTravelCmd[2] = 24

@@ -1,16 +1,21 @@
 ; nxt-daemon.g
 ; nxt plugin host hook called by system/daemon.g
 
-; Discover and initialize plugins that are not loaded yet.
-if { fileexists("0:/sys/nxt/plugins/nxt-plugin-init-dispatch.g") }
-    M98 P"nxt/plugins/nxt-plugin-init-dispatch.g"
+; Discover and initialize plugins once (boot usually already set nxtPluginsInited).
+if { exists(global.nxtDaemonHookPluginInit) && global.nxtDaemonHookPluginInit }
+    if { !exists(global.nxtPluginsInited) || !global.nxtPluginsInited }
+        M98 P"nxt/plugins/nxt-plugin-init-dispatch.g"
+        if { !exists(global.nxtPluginsInited) }
+            global nxtPluginsInited = true
+        else
+            set global.nxtPluginsInited = true
 
 ; Run periodic daemon entrypoints for loaded plugins.
-if { fileexists("0:/sys/nxt/plugins/nxt-plugin-daemon-dispatch.g") }
+if { exists(global.nxtDaemonHookPluginDaemon) && global.nxtDaemonHookPluginDaemon }
     M98 P"nxt/plugins/nxt-plugin-daemon-dispatch.g"
 
 ; Optional: reload persisted tool definitions when 0:/sys/nxt-user-tools.reload.requested exists
-if { fileexists("0:/sys/nxt/nxt-user-tools-reload-daemon.g") }
+if { exists(global.nxtDaemonHookToolsReload) && global.nxtDaemonHookToolsReload }
     M98 P"nxt/nxt-user-tools-reload-daemon.g"
 
 ; Coolant pulse phase advance (mist / flood)

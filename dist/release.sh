@@ -9,6 +9,8 @@ WD="${PWD}"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 echo "Checking RRF macro line lengths (max 200)..."
 node "${ROOT}/dist/check-gcode-line-length.mjs" || exit 1
+echo "Checking OM global size budget hygiene..."
+node "${ROOT}/dist/check-om-global-budget.mjs" || exit 1
 chmod +x "${ROOT}/dist/check-node-for-dwc-build.sh"
 "${ROOT}/dist/check-node-for-dwc-build.sh"
 TMP_DIR=$(mktemp -d -t nxt-release-XXXXX)

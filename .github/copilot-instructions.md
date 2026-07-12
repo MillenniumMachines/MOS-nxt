@@ -57,6 +57,7 @@
 - **Meta G-Code**: Leverage RRF's extended language features (variables, conditionals, loops)
 - **Documentation**: https://docs.duet3d.com/User_manual/Reference/Gcode_meta_commands
 - **Line length (hard stop):** No `macros/**/*.g` line may exceed **200 characters** (non-comment lines). RRF reports `GCode command too long` and aborts startup — `nxt.g` never sets `global.nxtLoaded`. Split long `if`/`echo`/`abort`/`M291` into `var` steps. Run `node dist/check-gcode-line-length.mjs` before any plugin build or macro PR; fix all failures. See [`docs/RRF_LINE_LENGTH.md`](../docs/RRF_LINE_LENGTH.md). **Never** commit macro changes that fail this check.
+- **Global OM size (hard stop):** SBC/DWC rejects oversized `key=global` (~8 KiB). Boot overlay: `nxt-vars` → `nxt-custom-globals` (`if !exists`) → `nxt-user-vars` (`set`) → … → **`nxt-user-overrides` last**. Do not put `nxtCustom*` in `nxt-vars.g`; do not pre-fill `nxtProbeResults` at boot; keep `nxtTT` null-filled. Run `node dist/check-om-global-budget.mjs` after vars/boot/Custom/persistence edits. See [`docs/OM_GLOBAL_SIZE.md`](../docs/OM_GLOBAL_SIZE.md).
 
 ### Coding Conventions
 **ALL coding conventions, style requirements, and technical standards are documented in `docs/CODE.md`. Read this file completely before making any code changes.**

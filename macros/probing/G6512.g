@@ -221,6 +221,8 @@ if { var.toleranceOk == false }
 set global.nxtLastProbeResult = { round(var.finalSumUm / var.finalCount) / 1000 }
 
 if { exists(param.H) && param.H != null && var.finalHitN > 0 }
+    if { !exists(global.nxtProbeHitXY) || global.nxtProbeHitXY == null }
+        global nxtProbeHitXY = { vector(8, 0.0) }
     set global.nxtProbeHitXY[2 * param.H] = { var.finalHitX / var.finalHitN }
     set global.nxtProbeHitXY[2 * param.H + 1] = { var.finalHitY / var.finalHitN }
 

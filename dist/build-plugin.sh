@@ -119,6 +119,8 @@ fi
 
 echo "Checking RRF macro line lengths (max 200)..."
 node "${ROOT}/dist/check-gcode-line-length.mjs" || exit 1
+echo "Checking OM global size budget hygiene..."
+node "${ROOT}/dist/check-om-global-budget.mjs" || exit 1
 
 TMP_DIR="$(mktemp -d -t next-plugin-build-XXXXX)"
 

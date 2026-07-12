@@ -44,7 +44,7 @@ nxt **`G650x`** cycle macros accept **`U1`–`U9`** to select the target workpla
 *   **Arguments:** None.
 *   **How it works:**
     *   **CNC Mode Check:** Verifies that the machine is operating in "CNC" mode (`state.machineMode`). If not, it sets `global.mosErr` and aborts, as MillenniumOS is designed for CNC operations.
-    *   **Z-Axis Configuration Check:** Aborts if the Z-axis is configured with positive coordinates (expects Z max as 0 and Z min as a negative number).
+    *   **Z-Axis Configuration Check:** Aborts if Z min is not strictly less than Z max (no usable travel). Machine origin may place Z max at 0 (Milo packs) or elsewhere (Custom); macros always treat `.max` as up / safe and `.min` as down.
     *   **Probe Tool Initialization:** Removes any existing probe tool (`M4001 P{global.mosPTID}`) to ensure a clean slate for its redefinition.
     *   **Touch Probe Validation:** If `global.mosFeatTouchProbe` is enabled, it checks for the existence and validity of `global.mosTPID`, `global.mosTPRP`, `global.mosTPR`, and `global.mosTPD`. If any are missing, it sets `global.mosErr` and aborts. It then defines the "Touch Probe" tool using `M4000`.
     *   **Datum Tool Validation:** If `global.mosFeatTouchProbe` is *not* enabled, it checks for `global.mosDTR` (Datum Tool Radius) and defines the "Datum Tool" using `M4000`.

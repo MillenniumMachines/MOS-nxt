@@ -17,6 +17,10 @@ alwaysApply: false
 
 See [gcode-line-length.mdc](gcode-line-length.mdc). Run both checkers before done.
 
+## Global OM size
+
+See [om-global-size.mdc](om-global-size.mdc). When editing `nxt-vars.g`, `nxt-boot.g`, tool table, or Custom persistence, run `node dist/check-om-global-budget.mjs`.
+
 ## Probe tool helpers
 
 | Macro | Role |

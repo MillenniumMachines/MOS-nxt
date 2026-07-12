@@ -34,7 +34,9 @@ Build-time manifest: `dist/generate-nxt-config-manifest.mjs` → `ui/src/generat
 
 **RRF 3.7:** Fly CDYv3 (`cdy3_f4`) is **not** supported and is not shipped. Use Scylla packs only.
 
-**Custom platform:** Configuration edits travel, endstop pins/sides, steps/mm, drive map, `M569` directions, and `M906` currents. Values persist in `nxt-user-vars.g`; Save also regenerates `machine/custom/` overlays and deploys direction-aware `home*.g`. Overlays run **after** the board pack (board files stay stock).
+**Custom platform:** Configuration edits travel (XYZ required; A optional but complete when used), multi-pin endstops, steps/mm, drive map, `M569` directions, and `M906` currents. Values persist in `nxt-user-vars.g`; Save regenerates overlays under **`0:/sys/nxt-user-custom/`** (install-safe; not overwritten by the plugin ZIP) and deploys direction-aware `home*.g` (including `homea.g` when A is set). Stock `machine/custom/` stubs `M98` those user files. Overlays run **after** the board pack (board files stay stock). After upgrading from an older build that wrote overlays into `nxt-config/machine/custom/`, Save once to migrate.
+
+Keep the SBC `global` OM under ~8KB — see [OM_GLOBAL_SIZE.md](OM_GLOBAL_SIZE.md).
 
 **Homing:** [NXT_BOARD_HOMING.md](NXT_BOARD_HOMING.md)
 
@@ -50,8 +52,12 @@ Homing macros are **not** `M98`'d at boot.
 ## Boot order (firmware)
 
 1. `config.g` → `M98 P"nxt.g"`.
-2. `nxt.g` → `nxt-vars.g` → … → `nxt-user-vars.g` → **`nxt-board-pack-loader.g`** → `nxt-boot.g` (sets `nxtBootOk`) → plugins / RGB → **`nxt-user-overrides.g`** → **`nxtLoaded`**.
+2. `nxt.g` → `nxt-vars.g` → gated **`nxt-custom-globals.g`** → optional MOS import (nested skips double custom/user-vars load) → **`nxt-tooltable.g`** → **`nxt-probe-wcs.g`** (if `!nxtWPCtrPos`) → align WCS/OT → **`nxt-user-vars.g`** → **`nxt-board-pack-loader.g`** → tools → **`nxt-boot.g`** (probe sync only; sets `nxtBootOk`) → plugin-init once → RGB colours + single `M950` → **`nxt-user-overrides.g` (last)** → **`nxtLoaded`**.
 3. Loader: `nxt-board-pack-resolve.g` → board entry → `machine/<nxtPlatformProfile>/entry.g` → optional `nxt-user-pinmap.g`.
+
+Board `rgb.g` sets pin/strip/type only; `nxt.g` owns the post-colour `M950`. Daemon caches plugin hook paths and runs plugin-init at most once (`nxtPluginsInited`).
+
+Configuration / Calibration Save and Custom Apply share `persistNxtUserConfig` (bootstrap + custom sentinels idempotent).
 
 Resolver path: `nxt-config/board/<shortName>/[motor-24v|motor-48v/]entry.g`.  
 Legacy shim (one release): `nxt-config/<platform>/boards/...` if new path missing.

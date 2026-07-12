@@ -48,6 +48,8 @@ export type NxtUserConfigDraft = {
   nxtCustomYMax: number | null
   nxtCustomZMin: number | null
   nxtCustomZMax: number | null
+  nxtCustomAMin: number | null
+  nxtCustomAMax: number | null
   nxtCustomXSteps: number | null
   nxtCustomYSteps: number | null
   nxtCustomZSteps: number | null
@@ -55,15 +57,19 @@ export type NxtUserConfigDraft = {
   nxtCustomXHomeAt: number | null
   nxtCustomYHomeAt: number | null
   nxtCustomZHomeAt: number | null
+  nxtCustomAHomeAt: number | null
   nxtCustomXEndstopPin: string | null
   nxtCustomYEndstopPin: string | null
   nxtCustomZEndstopPin: string | null
+  nxtCustomAEndstopPin: string | null
   nxtCustomXDrives: string | null
   nxtCustomYDrives: string | null
   nxtCustomZDrives: string | null
+  nxtCustomADrives: string | null
   nxtCustomXCurrent: number | null
   nxtCustomYCurrent: number | null
   nxtCustomZCurrent: number | null
+  nxtCustomACurrent: number | null
   nxtCustomDriveDirs: string | null
   nxtCustomXBacklash: number | null
   nxtCustomYBacklash: number | null
@@ -115,6 +121,8 @@ export const NXT_USER_VARS_PERSISTED_KEYS = [
   'nxtCustomYMax',
   'nxtCustomZMin',
   'nxtCustomZMax',
+  'nxtCustomAMin',
+  'nxtCustomAMax',
   'nxtCustomXSteps',
   'nxtCustomYSteps',
   'nxtCustomZSteps',
@@ -122,15 +130,19 @@ export const NXT_USER_VARS_PERSISTED_KEYS = [
   'nxtCustomXHomeAt',
   'nxtCustomYHomeAt',
   'nxtCustomZHomeAt',
+  'nxtCustomAHomeAt',
   'nxtCustomXEndstopPin',
   'nxtCustomYEndstopPin',
   'nxtCustomZEndstopPin',
+  'nxtCustomAEndstopPin',
   'nxtCustomXDrives',
   'nxtCustomYDrives',
   'nxtCustomZDrives',
+  'nxtCustomADrives',
   'nxtCustomXCurrent',
   'nxtCustomYCurrent',
   'nxtCustomZCurrent',
+  'nxtCustomACurrent',
   'nxtCustomDriveDirs',
   'nxtCustomXBacklash',
   'nxtCustomYBacklash',
@@ -237,6 +249,8 @@ export function emptyConfigDraft(): NxtUserConfigDraft {
     nxtCustomYMax: null,
     nxtCustomZMin: null,
     nxtCustomZMax: null,
+    nxtCustomAMin: null,
+    nxtCustomAMax: null,
     nxtCustomXSteps: null,
     nxtCustomYSteps: null,
     nxtCustomZSteps: null,
@@ -244,15 +258,19 @@ export function emptyConfigDraft(): NxtUserConfigDraft {
     nxtCustomXHomeAt: null,
     nxtCustomYHomeAt: null,
     nxtCustomZHomeAt: null,
+    nxtCustomAHomeAt: null,
     nxtCustomXEndstopPin: null,
     nxtCustomYEndstopPin: null,
     nxtCustomZEndstopPin: null,
+    nxtCustomAEndstopPin: null,
     nxtCustomXDrives: null,
     nxtCustomYDrives: null,
     nxtCustomZDrives: null,
+    nxtCustomADrives: null,
     nxtCustomXCurrent: null,
     nxtCustomYCurrent: null,
     nxtCustomZCurrent: null,
+    nxtCustomACurrent: null,
     nxtCustomDriveDirs: null,
     nxtCustomXBacklash: null,
     nxtCustomYBacklash: null,
@@ -372,6 +390,8 @@ export function snapshotConfigFromOm(globalVal: unknown): NxtUserConfigDraft {
   draft.nxtCustomYMax = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtCustomYMax'))
   draft.nxtCustomZMin = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtCustomZMin'))
   draft.nxtCustomZMax = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtCustomZMax'))
+  draft.nxtCustomAMin = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtCustomAMin'))
+  draft.nxtCustomAMax = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtCustomAMax'))
   draft.nxtCustomXSteps = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtCustomXSteps'))
   draft.nxtCustomYSteps = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtCustomYSteps'))
   draft.nxtCustomZSteps = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtCustomZSteps'))
@@ -379,15 +399,19 @@ export function snapshotConfigFromOm(globalVal: unknown): NxtUserConfigDraft {
   draft.nxtCustomXHomeAt = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtCustomXHomeAt'))
   draft.nxtCustomYHomeAt = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtCustomYHomeAt'))
   draft.nxtCustomZHomeAt = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtCustomZHomeAt'))
+  draft.nxtCustomAHomeAt = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtCustomAHomeAt'))
   draft.nxtCustomXEndstopPin = readConfigString(readFirmwareGlobal(globalVal, 'nxtCustomXEndstopPin'))
   draft.nxtCustomYEndstopPin = readConfigString(readFirmwareGlobal(globalVal, 'nxtCustomYEndstopPin'))
   draft.nxtCustomZEndstopPin = readConfigString(readFirmwareGlobal(globalVal, 'nxtCustomZEndstopPin'))
+  draft.nxtCustomAEndstopPin = readConfigString(readFirmwareGlobal(globalVal, 'nxtCustomAEndstopPin'))
   draft.nxtCustomXDrives = readConfigString(readFirmwareGlobal(globalVal, 'nxtCustomXDrives'))
   draft.nxtCustomYDrives = readConfigString(readFirmwareGlobal(globalVal, 'nxtCustomYDrives'))
   draft.nxtCustomZDrives = readConfigString(readFirmwareGlobal(globalVal, 'nxtCustomZDrives'))
+  draft.nxtCustomADrives = readConfigString(readFirmwareGlobal(globalVal, 'nxtCustomADrives'))
   draft.nxtCustomXCurrent = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtCustomXCurrent'))
   draft.nxtCustomYCurrent = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtCustomYCurrent'))
   draft.nxtCustomZCurrent = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtCustomZCurrent'))
+  draft.nxtCustomACurrent = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtCustomACurrent'))
   draft.nxtCustomDriveDirs = readConfigString(readFirmwareGlobal(globalVal, 'nxtCustomDriveDirs'))
   draft.nxtCustomXBacklash = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtCustomXBacklash'))
   draft.nxtCustomYBacklash = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtCustomYBacklash'))
@@ -599,6 +623,8 @@ export function buildNxtUserVarsGcode(config: NxtUserConfigDraft): string {
     ['nxtCustomYMax', config.nxtCustomYMax],
     ['nxtCustomZMin', config.nxtCustomZMin],
     ['nxtCustomZMax', config.nxtCustomZMax],
+    ['nxtCustomAMin', config.nxtCustomAMin],
+    ['nxtCustomAMax', config.nxtCustomAMax],
     ['nxtCustomXSteps', config.nxtCustomXSteps],
     ['nxtCustomYSteps', config.nxtCustomYSteps],
     ['nxtCustomZSteps', config.nxtCustomZSteps],
@@ -606,30 +632,37 @@ export function buildNxtUserVarsGcode(config: NxtUserConfigDraft): string {
     ['nxtCustomXHomeAt', config.nxtCustomXHomeAt],
     ['nxtCustomYHomeAt', config.nxtCustomYHomeAt],
     ['nxtCustomZHomeAt', config.nxtCustomZHomeAt],
+    ['nxtCustomAHomeAt', config.nxtCustomAHomeAt],
     ['nxtCustomXEndstopPin', config.nxtCustomXEndstopPin],
     ['nxtCustomYEndstopPin', config.nxtCustomYEndstopPin],
     ['nxtCustomZEndstopPin', config.nxtCustomZEndstopPin],
+    ['nxtCustomAEndstopPin', config.nxtCustomAEndstopPin],
     ['nxtCustomXDrives', config.nxtCustomXDrives],
     ['nxtCustomYDrives', config.nxtCustomYDrives],
     ['nxtCustomZDrives', config.nxtCustomZDrives],
+    ['nxtCustomADrives', config.nxtCustomADrives],
     ['nxtCustomXCurrent', config.nxtCustomXCurrent],
     ['nxtCustomYCurrent', config.nxtCustomYCurrent],
     ['nxtCustomZCurrent', config.nxtCustomZCurrent],
+    ['nxtCustomACurrent', config.nxtCustomACurrent],
     ['nxtCustomDriveDirs', config.nxtCustomDriveDirs],
     ['nxtCustomXBacklash', config.nxtCustomXBacklash],
     ['nxtCustomYBacklash', config.nxtCustomYBacklash],
     ['nxtCustomZBacklash', config.nxtCustomZBacklash],
     ['nxtCustomABacklash', config.nxtCustomABacklash]
   ]
-  const customLines = customPairs
-    .filter(([, v]) => v != null && v !== '')
-    .map(([k, v]) =>
+  const customLines: string[] = []
+  for (const [k, v] of customPairs) {
+    if (v == null || v === '') continue
+    // Declare happens in nxt.g via nxt-custom-globals.g — user-vars only overlays with set.
+    customLines.push(
       typeof v === 'number'
         ? `set global.${k} = ${formatPersistedNumber(v)}`
         : `set global.${k} = ${formatPersistedString(v as string)}`
     )
+  }
   if (customLines.length) {
-    lines.push('', '; Custom platform (only non-null values — keeps OM global under SBC 8KB)')
+    lines.push('', '; Custom platform (set overlay — declared in nxt-custom-globals.g at boot)')
     lines.push(...customLines)
   }
 

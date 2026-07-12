@@ -43,6 +43,15 @@ jobs:
           chmod +x dist/check-macro-line-length.sh
           ./dist/check-macro-line-length.sh
 
+  om-global-budget:
+    name: OM global size budget (~8KB)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check OM global hygiene
+        run: node dist/check-om-global-budget.mjs
+
   line-endings:
     name: LF line endings (no CRLF)
     runs-on: ubuntu-latest

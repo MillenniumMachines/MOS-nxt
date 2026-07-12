@@ -28,6 +28,6 @@ while { var.i < #global.nxtRGBCol }
     echo >>{var.f} { var.line }
     set var.i = { var.i + 1 }
 
-echo >>{var.f} { "    set global.nxtRGBReady = false" }
+; Do not force nxtRGBReady=false — strip params already updated above; nxt.g / daemon M950 as needed.
 
 echo { "nxt: RGB settings saved. They will persist across reboots." }

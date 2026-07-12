@@ -1,0 +1,49 @@
+---
+description: Hard stop — keep RRF global OM under ~8KB (SBC SPI / DWC d99vno)
+alwaysApply: true
+---
+
+# Object model `global` size budget (hard stop)
+
+RRF/DSF discards oversized `key=global` responses (~**8 KiB** with DWC flags `d99vno`):
+
+`Cannot store excessively long object model response … key global`
+
+DWC always polls the **whole** `global` key; plugins cannot split it. Headroom comes only from smaller globals.
+
+## Boot overlay order (mandatory)
+
+1. `nxt-vars.g` — lean core defaults  
+2. `nxt-custom-globals.g` — only when Custom (`nxt-custom.requested` / overlays); `if { !exists }` → null  
+3. Optional MOS import (nested: no double custom-globals / mid user-vars) → tooltable (owns `mosTT→nxtTT`) → probe-wcs if `!nxtWPCtrPos` → align WCS/OT  
+4. `nxt-user-vars.g` — operator `set` overlay (omit unset keys)  
+5. … board / tools / boot / plugin-init once / single RGB `M950` …  
+6. **`nxt-user-overrides.g` last** → then `nxtLoaded`
+
+UI Save paths (Configuration, Calibration, Custom Apply) must use `persistNxtUserConfig` so sentinels stay aligned.
+
+## Rules for every agent (mandatory)
+
+1. **Do not** add `global nxtCustom*` to [`nxt-vars.g`](../../macros/system/nxt-vars.g). Declare in [`nxt-custom-globals.g`](../../macros/system/nxt-custom-globals.g) with `if { !exists }`.
+2. **Do not** pre-fill `nxtProbeResults` in `nxt-boot.g`. Leave slots `null` until a cycle writes them.
+3. **Do not** allocate `nxtTT` with a filled template — use `vector(limits.tools, null)`.
+4. **Do not** persist `set global.<optional> = null` in generated `nxt-user-vars.g`. Omit unset keys; declares belong in boot, not Save.
+5. **Do not** add many small related globals when one packed vector works (e.g. `nxtRGBCol`).
+6. **Warn / avoid** loading both `mosTT` and `nxtTT`.
+7. **Do not** gate `nxt-probe-wcs.g` on `nxtOvertravel` — use `!exists(global.nxtWPCtrPos)`.
+8. **Before** claiming vars/boot/Custom/persistence work is done, run: `node dist/check-om-global-budget.mjs` — must exit 0.
+9. Read [docs/OM_GLOBAL_SIZE.md](../../docs/OM_GLOBAL_SIZE.md).
+
+## Patterns
+
+```gcode
+; ❌ BAD — Custom declares in nxt-vars.g
+global nxtCustomAHomeAt = null
+
+; ✅ GOOD — nxt-custom-globals.g
+if { !exists(global.nxtCustomAHomeAt) }
+    global nxtCustomAHomeAt = null
+
+; ✅ GOOD — nxt-user-vars.g overlay only
+set global.nxtCustomAHomeAt = 1
+```

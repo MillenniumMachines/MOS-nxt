@@ -602,7 +602,7 @@ Two implementation approaches are possible:
 
 3. **Calibration Results Storage**:
    - `0:/sys/nxt-user-vars.g` for globals (`nxtCustomX/Y/Z/ASteps`, `nxtCustom*Backlash`, `nxtProbeDeflection`)
-   - Custom platform: regenerate `0:/sys/nxt-config/machine/custom/steps.g` and `drives-overlay.g` (`M92` / `M425`)
+   - Custom platform: regenerate `0:/sys/nxt-user-custom/steps.g` and `drives-overlay.g` (`M92` / `M425`)
    - A steps also kept consistent with MosFourthAxis via live `M4806`
 
 ### 4.4 API Requirements

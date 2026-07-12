@@ -39,14 +39,14 @@ sequenceDiagram
 | **v1.6** | Y | Toward **min (Y0)** | `M574 Y1` via `endstop-y.g` | — | — |
 | **v1.6** | Z | Toward **max** (top) | `M574 Z2` | `M569 P2 S1`, `M92 Z800` | `G92 Z{move.axes[2].max}` |
 | **v2.0** | X/Y/Z | Same as v1.6 (identical pack content for now) | same | same | same |
-| **custom** | X/Y/Z | Direction from `nxtCustom*HomeAt` (1=min→neg, 2=max→pos) | `nxtCustom*` → `M208` / `M574` / overlay | `M92` / `M584` / `M569` / `M906` via overlay | `G92` to min or max per axis |
+| **custom** | X/Y/Z (+A optional) | Direction from `nxtCustom*HomeAt` (1=min→neg, 2=max→pos) | `nxtCustom*` → `M208` / `M574` / overlay in `0:/sys/nxt-user-custom/` | `M92` / `M584` / `M569` / `M906` via overlay | `G92` to min or max per axis; `homea.g` when A configured |
 
 Source files:
 
 - v1.5: `macros/nxt-config/machine/v1.5/home*.g`
 - v1.6: `macros/nxt-config/machine/v1.6/home*.g`
 - v2.0: `macros/nxt-config/machine/v2.0/home*.g`
-- custom: `macros/nxt-config/machine/custom/home*.g`
+- custom: generated `0:/sys/home*.g` on Save; stock stubs under `macros/nxt-config/machine/custom/`
 
 Legacy id `v1.6_v2` still loads the v1.6 pack at boot (one-release alias).
 

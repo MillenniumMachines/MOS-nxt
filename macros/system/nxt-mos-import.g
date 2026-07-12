@@ -44,10 +44,21 @@ if { fileexists("0:/sys/mos-user-vars.g") }
 if { fileexists("0:/sys/mos-maintenance.g") }
     M98 P"mos-maintenance.g"
 
-if { fileexists("0:/sys/nxt-user-vars.g") }
-    M98 P"nxt-user-vars.g"
+; Standalone import (M98 this file alone): declare Custom keys + load prior user-vars.
+; Nested from nxt.g (nxtVarsLoaded): skip — nxt.g already declared Custom and will
+; load nxt-user-vars.g once after this macro writes the new file.
+var nxtImportFromBoot = { exists(global.nxtVarsLoaded) && global.nxtVarsLoaded }
+if { !var.nxtImportFromBoot }
+    var nxtMosNeedCustom = { fileexists("0:/sys/nxt-custom.requested") }
+    if { !var.nxtMosNeedCustom }
+        set var.nxtMosNeedCustom = { fileexists("0:/sys/nxt-user-custom/limits.g") }
+    if { var.nxtMosNeedCustom }
+        M98 P"nxt-custom-globals.g"
+    if { fileexists("0:/sys/nxt-user-vars.g") }
+        M98 P"nxt-user-vars.g"
 
-; Copy MOS data globals (mosTT, mosWPCtrPos, …) into nxt* when not already set.
+; Copy MOS probing/WCS data into nxt* when targets exist (WP pack may come later in nxt.g).
+; Tool table copy is owned by nxt-tooltable.g.
 M98 P"nxt-mos-globals-align.g"
 
 if { exists(global.mosFeatTouchProbe) }
@@ -265,6 +276,8 @@ echo >>{var.UV} {"set global.nxtCustomYMin = " ^ (global.nxtCustomYMin == null ?
 echo >>{var.UV} {"set global.nxtCustomYMax = " ^ (global.nxtCustomYMax == null ? "null" : global.nxtCustomYMax)}
 echo >>{var.UV} {"set global.nxtCustomZMin = " ^ (global.nxtCustomZMin == null ? "null" : global.nxtCustomZMin)}
 echo >>{var.UV} {"set global.nxtCustomZMax = " ^ (global.nxtCustomZMax == null ? "null" : global.nxtCustomZMax)}
+echo >>{var.UV} {"set global.nxtCustomAMin = " ^ (global.nxtCustomAMin == null ? "null" : global.nxtCustomAMin)}
+echo >>{var.UV} {"set global.nxtCustomAMax = " ^ (global.nxtCustomAMax == null ? "null" : global.nxtCustomAMax)}
 echo >>{var.UV} {"set global.nxtCustomXSteps = " ^ (global.nxtCustomXSteps == null ? "null" : global.nxtCustomXSteps)}
 echo >>{var.UV} {"set global.nxtCustomYSteps = " ^ (global.nxtCustomYSteps == null ? "null" : global.nxtCustomYSteps)}
 echo >>{var.UV} {"set global.nxtCustomZSteps = " ^ (global.nxtCustomZSteps == null ? "null" : global.nxtCustomZSteps)}
@@ -272,6 +285,7 @@ echo >>{var.UV} {"set global.nxtCustomASteps = " ^ (global.nxtCustomASteps == nu
 echo >>{var.UV} {"set global.nxtCustomXHomeAt = " ^ (global.nxtCustomXHomeAt == null ? "null" : global.nxtCustomXHomeAt)}
 echo >>{var.UV} {"set global.nxtCustomYHomeAt = " ^ (global.nxtCustomYHomeAt == null ? "null" : global.nxtCustomYHomeAt)}
 echo >>{var.UV} {"set global.nxtCustomZHomeAt = " ^ (global.nxtCustomZHomeAt == null ? "null" : global.nxtCustomZHomeAt)}
+echo >>{var.UV} {"set global.nxtCustomAHomeAt = " ^ (global.nxtCustomAHomeAt == null ? "null" : global.nxtCustomAHomeAt)}
 if { global.nxtCustomXEndstopPin == null }
     echo >>{var.UV} {"set global.nxtCustomXEndstopPin = null"}
 else
@@ -284,6 +298,10 @@ if { global.nxtCustomZEndstopPin == null }
     echo >>{var.UV} {"set global.nxtCustomZEndstopPin = null"}
 else
     echo >>{var.UV} {"set global.nxtCustomZEndstopPin = "" ^ global.nxtCustomZEndstopPin ^ """}
+if { global.nxtCustomAEndstopPin == null }
+    echo >>{var.UV} {"set global.nxtCustomAEndstopPin = null"}
+else
+    echo >>{var.UV} {"set global.nxtCustomAEndstopPin = "" ^ global.nxtCustomAEndstopPin ^ """}
 if { global.nxtCustomXDrives == null }
     echo >>{var.UV} {"set global.nxtCustomXDrives = null"}
 else
@@ -296,9 +314,14 @@ if { global.nxtCustomZDrives == null }
     echo >>{var.UV} {"set global.nxtCustomZDrives = null"}
 else
     echo >>{var.UV} {"set global.nxtCustomZDrives = "" ^ global.nxtCustomZDrives ^ """}
+if { global.nxtCustomADrives == null }
+    echo >>{var.UV} {"set global.nxtCustomADrives = null"}
+else
+    echo >>{var.UV} {"set global.nxtCustomADrives = "" ^ global.nxtCustomADrives ^ """}
 echo >>{var.UV} {"set global.nxtCustomXCurrent = " ^ (global.nxtCustomXCurrent == null ? "null" : global.nxtCustomXCurrent)}
 echo >>{var.UV} {"set global.nxtCustomYCurrent = " ^ (global.nxtCustomYCurrent == null ? "null" : global.nxtCustomYCurrent)}
 echo >>{var.UV} {"set global.nxtCustomZCurrent = " ^ (global.nxtCustomZCurrent == null ? "null" : global.nxtCustomZCurrent)}
+echo >>{var.UV} {"set global.nxtCustomACurrent = " ^ (global.nxtCustomACurrent == null ? "null" : global.nxtCustomACurrent)}
 if { global.nxtCustomDriveDirs == null }
     echo >>{var.UV} {"set global.nxtCustomDriveDirs = null"}
 else

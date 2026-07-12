@@ -58,6 +58,13 @@ var approach0 = { global.nxtAbsPos }
 ; Overshoot past the surface for G6512 target
 var overshoot = { 30 }
 
+if { !exists(global.nxtCalTravelCmd) || global.nxtCalTravelCmd == null }
+    global nxtCalTravelCmd = { vector(3, 0.0) }
+if { !exists(global.nxtCalTravelMeas) || global.nxtCalTravelMeas == null }
+    global nxtCalTravelMeas = { vector(3, 0.0) }
+if { !exists(global.nxtCalTravelAxis) }
+    global nxtCalTravelAxis = null
+
 set global.nxtCalTravelCmd[0] = 8
 set global.nxtCalTravelCmd[1] = 16
 set global.nxtCalTravelCmd[2] = 24

@@ -12,17 +12,16 @@ if { state.machineMode != "CNC" }
     set global.nxtError = "Machine mode must be CNC (M453)"
     M99
 
-; 2. Confirm Z-axis is configured correctly (max=0, min=negative)
-if { move.axes[2].max > 0 || move.axes[2].min >= 0 }
-    set global.nxtError = "Z-axis must have max=0 and min<=0"
+; 2. Confirm Z has usable travel. Macros retract to .max and dive toward .min;
+;    absolute origin (max==0) is preferred for Milo packs but not required for Custom.
+if { move.axes[2].min >= move.axes[2].max }
+    set global.nxtError = "Z-axis min must be less than max"
     M99
 
 ; 3. When nxt-user-vars.g is missing, allow DWC Configuration setup (deferred strict checks)
 if { exists(global.nxtUserVarsPresent) && !global.nxtUserVarsPresent }
     set global.nxtConfigPending = true
-    var resultVectorSize = { #move.axes + 1 }
-    while { iterations < #global.nxtProbeResults }
-        set global.nxtProbeResults[iterations] = { vector(var.resultVectorSize, 0.0) }
+    ; Leave nxtProbeResults rows null until a cycle writes them (OM global ~8KB budget).
     set global.nxtBootOk = true
     echo "nxt: configuration pending — complete setup in DWC Configuration panel and Save nxt-user-vars.g"
     M99
@@ -44,24 +43,17 @@ if { global.nxtProbeToolID != limits.tools - 1 }
 if { global.nxtFeatureTouchProbe && (!exists(global.nxtDeltaMachine) || global.nxtDeltaMachine == null) }
     set global.nxtConfigPending = true
     set global.nxtError = "Touch probe enabled but nxtDeltaMachine is not set — calibrate static datum in Configuration"
-    var resultVectorSize = { #move.axes + 1 }
-    while { iterations < #global.nxtProbeResults }
-        set global.nxtProbeResults[iterations] = { vector(var.resultVectorSize, 0.0) }
     set global.nxtBootOk = true
     echo "nxt: configuration incomplete (touch probe datum missing) — use DWC Configuration panel"
     M99
 
 ; --- All checks passed ---
 
-; Rebuild probe/datum tool at nxtProbeToolID (clears stale row, then nxt-probe-tool-sync with K1).
+; Ensure probe/datum tool row matches config (M4000 early-exits when unchanged; no M4001 wipe).
 if { exists(global.nxtProbeToolID) && global.nxtProbeToolID != null }
     if { global.nxtProbeToolID < limits.tools }
-        M4001 P{global.nxtProbeToolID}
         M98 P"nxt-probe-tool-sync.g"
 
-var resultVectorSize = { #move.axes + 1 }
-while { iterations < #global.nxtProbeResults }
-    set global.nxtProbeResults[iterations] = { vector(var.resultVectorSize, 0.0) }
-
+; Probe result rows stay null until written (see probing macros / M6521).
 set global.nxtConfigPending = false
 set global.nxtBootOk = true

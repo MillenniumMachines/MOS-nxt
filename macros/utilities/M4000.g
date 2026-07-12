@@ -97,16 +97,23 @@ if { var.rowLen > 4 }
 if { var.rowLen > 5 }
     set var.preserveB = global.nxtTT[param.P][5]
 
-; Definition unchanged — nothing to do (no M563). Sync SD library (captures G10 without M563).
+; Definition unchanged — nothing to do (no M563, no SD rewrite).
 if { var.toolSame }
-    if { (!exists(global.nxtUserToolsLoadDepth) || global.nxtUserToolsLoadDepth < 1) && (!exists(global.nxtAutoPersistTools) || global.nxtAutoPersistTools) }
-        M98 P"nxt-user-tools-sync.g"
     M99
 
 ; Same tool already selected (e.g. T1 active, job preamble M4000 P1 on re-run).
 ; M563 clears probed Z offsets — skip it entirely.
 if { state.currentTool == param.P && #tools > param.P && tools[param.P] != null }
     M99
+
+; Persist full tool library to SD unless loading library, auto-persist off, or K1 system write.
+var nxtDoToolsSync = true
+if { exists(global.nxtUserToolsLoadDepth) && global.nxtUserToolsLoadDepth >= 1 }
+    set var.nxtDoToolsSync = false
+if { exists(global.nxtAutoPersistTools) && !global.nxtAutoPersistTools }
+    set var.nxtDoToolsSync = false
+if { exists(param.K) && param.K == 1 }
+    set var.nxtDoToolsSync = false
 
 ; Tool exists in RRF but is not the active tool — refresh nxtTT metadata only.
 if { #tools > param.P && tools[param.P] != null }
@@ -139,7 +146,7 @@ if { #tools > param.P && tools[param.P] != null }
         set global.nxtTT[param.P][5] = { param.B }
     else
         set global.nxtTT[param.P][5] = { var.preserveB }
-    if { (!exists(global.nxtUserToolsLoadDepth) || global.nxtUserToolsLoadDepth < 1) && (!exists(global.nxtAutoPersistTools) || global.nxtAutoPersistTools) }
+    if { var.nxtDoToolsSync }
         M98 P"nxt-user-tools-sync.g"
     M99
 
@@ -193,6 +200,6 @@ else
     set global.nxtTT[param.P][5] = { var.preserveB }
 
 ; Persist full tool library to SD (optional; disable with global nxtAutoPersistTools = false).
-; Skip while nxt-user-tools.g is being M98-loaded (nxtUserToolsLoadDepth > 0) to avoid truncating mid-file.
-if { (!exists(global.nxtUserToolsLoadDepth) || global.nxtUserToolsLoadDepth < 1) && (!exists(global.nxtAutoPersistTools) || global.nxtAutoPersistTools) }
+; Skip while loading library, and skip K1 probe/datum system writes (not in user-tools file).
+if { var.nxtDoToolsSync }
     M98 P"nxt-user-tools-sync.g"

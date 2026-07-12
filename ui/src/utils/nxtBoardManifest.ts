@@ -486,7 +486,8 @@ export type NxtProbeRoleKey = (typeof NXT_PROBE_ROLE_KEYS)[number]
 export const NXT_CUSTOM_ENDSTOP_ROLE_KEYS = [
   'nxtCustomXEndstopPin',
   'nxtCustomYEndstopPin',
-  'nxtCustomZEndstopPin'
+  'nxtCustomZEndstopPin',
+  'nxtCustomAEndstopPin'
 ] as const
 
 export type NxtCustomEndstopRoleKey = (typeof NXT_CUSTOM_ENDSTOP_ROLE_KEYS)[number]
@@ -495,6 +496,7 @@ export type CustomEndstopRoleOccupancy = {
   nxtCustomXEndstopPin?: string | null
   nxtCustomYEndstopPin?: string | null
   nxtCustomZEndstopPin?: string | null
+  nxtCustomAEndstopPin?: string | null
 }
 
 export type EndstopPinSelectItem = {
@@ -507,8 +509,18 @@ export type EndstopPinSelectItem = {
 const CUSTOM_ENDSTOP_ROLE_LABELS: Array<{ key: keyof CustomEndstopRoleOccupancy; label: string }> = [
   { key: 'nxtCustomXEndstopPin', label: 'X' },
   { key: 'nxtCustomYEndstopPin', label: 'Y' },
-  { key: 'nxtCustomZEndstopPin', label: 'Z' }
+  { key: 'nxtCustomZEndstopPin', label: 'Z' },
+  { key: 'nxtCustomAEndstopPin', label: 'A' }
 ]
+
+/** Split "+" joined endstop pin lists (dual homing). */
+export function parseCustomEndstopPins(raw: string | null | undefined): string[] {
+  if (raw == null || !String(raw).trim()) return []
+  return String(raw)
+    .split('+')
+    .map((s) => s.replace(/"/g, '').trim())
+    .filter((s) => s.length > 0)
+}
 
 export function customEndstopRoleLabelForPin(
   pin: string,
@@ -520,7 +532,8 @@ export function customEndstopRoleLabelForPin(
   const labels: string[] = []
   for (const { key, label } of CUSTOM_ENDSTOP_ROLE_LABELS) {
     const owned = occupancy[key]
-    if (owned != null && String(owned).trim() === pin) {
+    const pins = parseCustomEndstopPins(owned)
+    if (pins.includes(pin)) {
       labels.push(label)
     }
   }
@@ -538,12 +551,10 @@ export function endstopPinItemsForBoard(
     (p) => p.kind === 'endstop'
   )
   const currentKey = options?.currentRoleKey ?? null
-  const currentPin =
-    currentKey != null && occupancy != null ? occupancy[currentKey] ?? null : null
-  const currentPinNorm =
-    currentPin != null && String(currentPin).trim().length > 0
-      ? String(currentPin).trim()
-      : null
+  const currentPins =
+    currentKey != null && occupancy != null
+      ? parseCustomEndstopPins(occupancy[currentKey] ?? null)
+      : []
 
   const byPin = new Map<string, EndstopPinSelectItem>()
   for (const p of entries) {
@@ -551,7 +562,7 @@ export function endstopPinItemsForBoard(
     const pin = String(p.pin).trim()
     const assignment = (p.aliases?.[0] ?? p.label ?? pin).trim()
     const role = customEndstopRoleLabelForPin(pin, occupancy)
-    const ownedByOther = role != null && pin !== currentPinNorm
+    const ownedByOther = role != null && !currentPins.includes(pin)
     const base = formatPinSelectName(assignment, pin)
     byPin.set(pin, {
       value: pin,

@@ -44,6 +44,9 @@ jobs:
       - name: Check RRF macro line lengths
         run: node dist/check-gcode-line-length.mjs
 
+      - name: Check OM global size budget
+        run: node dist/check-om-global-budget.mjs
+
       - name: Build release asset
         run: |
           command -v rsync >/dev/null 2>&1 || {

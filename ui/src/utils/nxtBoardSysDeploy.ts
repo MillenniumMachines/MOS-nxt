@@ -18,7 +18,7 @@ export function sysDeployFilesForPlatform(platformId: string): string[] {
 export type DeployPlatformSysOptions = {
   /** When set (custom Save/Apply), upload these bodies instead of downloading pack templates. */
   generatedContents?: Record<string, string>
-  /** Also write generated pack overlays under machine/custom/ on SD. */
+  /** Also write generated pack overlays under 0:/sys/nxt-user-custom/ on SD. */
   packOverlayContents?: Record<string, string>
 }
 
@@ -44,6 +44,7 @@ export async function deployPlatformSysFiles(
     }
   }
 
+  const deployedFromManifest = new Set<string>()
   for (const name of machine.sysDeployFiles) {
     let content: string
     if (options?.generatedContents?.[name] != null) {
@@ -61,6 +62,17 @@ export async function deployPlatformSysFiles(
     const dest = `0:/sys/${name}`
     await uploadDwcFile(dest, content)
     written.push(dest)
+    deployedFromManifest.add(name)
+  }
+
+  // Extra generated homes (e.g. homea.g when A is configured) not listed in sys-deploy-manifest.
+  if (options?.generatedContents) {
+    for (const [name, content] of Object.entries(options.generatedContents)) {
+      if (deployedFromManifest.has(name)) continue
+      const dest = `0:/sys/${name}`
+      await uploadDwcFile(dest, content)
+      written.push(dest)
+    }
   }
   return written
 }

@@ -15,7 +15,19 @@ if { global.nxtTouchProbeID == null }
 if { !exists(global.nxtProbeToolID) || global.nxtProbeToolID == null }
     abort { "nxt-probe-tool-ready: nxtProbeToolID not configured" }
 
-M98 P"nxt-probe-tool-sync.g"
+; Skip sync when probe M4000 row already matches tip radius + name (avoids SD churn).
+var nxtProbeRowOk = false
+var nxtProbeIdx = { global.nxtProbeToolID }
+var nxtRadOk = false
+var nxtNameOk = false
+if { exists(global.nxtTT) && global.nxtTT[var.nxtProbeIdx] != null }
+    if { #tools > var.nxtProbeIdx && tools[var.nxtProbeIdx] != null }
+        if { global.nxtProbeTipRadius != null }
+            set var.nxtRadOk = { global.nxtTT[var.nxtProbeIdx][0] == global.nxtProbeTipRadius }
+            set var.nxtNameOk = { tools[var.nxtProbeIdx].name == "Touch Probe" }
+            set var.nxtProbeRowOk = { var.nxtRadOk && var.nxtNameOk }
+if { !var.nxtProbeRowOk }
+    M98 P"nxt-probe-tool-sync.g"
 
 var skipSelect = { exists(param.S) && param.S == 1 }
 if { !var.skipSelect && state.currentTool != global.nxtProbeToolID }
