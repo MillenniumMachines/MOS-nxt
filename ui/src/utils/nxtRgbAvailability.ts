@@ -1,4 +1,5 @@
 import { nxtBoardPackFromManifest } from './nxtConfigManifestData'
+import { readFirmwareGlobal } from './nxtToolChangerOm'
 
 const RGB_LED_ROLES = new Set(['rgb_led', 'work_light', 'led_strip', 'work_light_rgb'])
 
@@ -27,7 +28,7 @@ export function pinmapDeclaresRgbLed(pinmap: Record<string, unknown> | null | un
   return pinmapAssignedEntries(pinmap ?? null).some(entryIsRgbLed)
 }
 
-/** RRF object-model LED strip count (after M950 L in config). */
+/** RRF object-model LED strip count (after M950 E/L). */
 export function countOmLeds(leds: unknown): number {
   if (leds == null) {
     return 0
@@ -52,15 +53,44 @@ export function readOmLedsFromMachineModel(model: unknown): unknown {
   return (model as Record<string, unknown>).leds
 }
 
+function rgbPinConfigured(rgbPin: unknown): boolean {
+  if (rgbPin == null) {
+    return false
+  }
+  const s = String(rgbPin).trim()
+  return s.length > 0 && s !== 'null' && s !== 'undefined'
+}
+
+/**
+ * True when RGB hardware is present or declared for this board.
+ * DWC often omits `model.leds` from the OM query, so also trust nxt RGB globals
+ * (set by board `rgb.g`) and the board pinmap.
+ */
 export function isRgbLightHardwareConfigured(ctx: {
   leds: unknown
   boardShortName: string | null
+  /** global.nxtRGBPin — set by board pack rgb.g */
+  rgbPin?: unknown
+  /** global.nxtRGBReady — true after M950 */
+  rgbReady?: unknown
 }): boolean {
   if (countOmLeds(ctx.leds) > 0) {
     return true
   }
+  if (ctx.rgbReady === true || ctx.rgbReady === 1) {
+    return true
+  }
+  if (rgbPinConfigured(ctx.rgbPin)) {
+    return true
+  }
   const pack = nxtBoardPackFromManifest(ctx.boardShortName)
   return pinmapDeclaresRgbLed(pack?.pinmap ?? null)
+}
+
+/** Map-safe read of nxtFeatureRgbLight from OM global. */
+export function isRgbFeatureEnabled(globalVal: unknown): boolean {
+  const v = readFirmwareGlobal(globalVal, 'nxtFeatureRgbLight')
+  return v === true || v === 1
 }
 
 export function rgbLedIndexItems(ledCount: number): Array<{ value: number; text: string }> {

@@ -14,7 +14,7 @@ nxt-config/
       motor-24v/ | motor-48v/ Optional supply variants
 
   machine/
-    <machineId>/              global.nxtPlatformProfile (e.g. v1.5, v1.6_v2)
+    <machineId>/              global.nxtPlatformProfile (e.g. v1.5, v1.6, v2.0, custom)
       OVERVIEW.txt
       entry.g                 Machine motion chain (no homing at boot)
       movement.g, limits.g, general.g, network-default.g
@@ -27,7 +27,9 @@ Build-time manifest: `dist/generate-nxt-config-manifest.mjs` → `ui/src/generat
 | Machine | Homing deploy | Boards (shared) |
 |---------|---------------|-----------------|
 | `v1.5` | Y → max, Z steps 1600 | `cdy3_f4`, `scylla1_0_h723` 24/48 V |
-| `v1.6_v2` | Y → min (Y0), Z steps 800 | same board tree |
+| `v1.6` | Y → min (Y0), Z steps 800 | same board tree |
+| `v2.0` | Y → min (Y0), Z steps 800 | same board tree |
+| `custom` | Operator overlays | same board tree |
 
 **Homing:** [NXT_BOARD_HOMING.md](NXT_BOARD_HOMING.md)
 

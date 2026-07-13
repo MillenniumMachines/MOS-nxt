@@ -54,6 +54,20 @@ jobs:
           chmod +x dist/check-line-endings.sh
           ./dist/check-line-endings.sh
 
+  om-global-budget:
+    name: OM global size hygiene
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check OM budget rules
+        run: node dist/check-om-global-budget.mjs
+
+      - name: Check CDYv3 endstop-y.g conditionals
+        run: |
+          chmod +x dist/check-cdy-endstop-y.sh
+          ./dist/check-cdy-endstop-y.sh
+
   dwc-build-pin:
     name: DWC build pin alignment
     runs-on: ubuntu-latest

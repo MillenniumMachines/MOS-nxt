@@ -19,10 +19,10 @@ if { var.featTouchOn }
         set var.deflX = global.nxtProbeDeflection[0]
     if { exists(global.nxtProbeDeflection) && #global.nxtProbeDeflection >= 2 }
         set var.deflY = global.nxtProbeDeflection[1]
-    M4000 P{var.probeIdx} R{global.nxtProbeTipRadius} S"Touch Probe" X{var.deflX} Y{var.deflY}
+    M4000 P{var.probeIdx} R{global.nxtProbeTipRadius} S"Touch Probe" X{var.deflX} Y{var.deflY} K1
     M99
 
 if { global.nxtDatumToolRadius == null }
     M99
 
-M4000 P{var.probeIdx} R{global.nxtDatumToolRadius} S"Datum Tool"
+M4000 P{var.probeIdx} R{global.nxtDatumToolRadius} S"Datum Tool" K1

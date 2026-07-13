@@ -72,26 +72,35 @@
             <v-tabs v-model="activeTab" grow>
               <v-tab>{{ $t('plugins.nxt.panels.status.caption') }}</v-tab>
               <v-tab>{{ $t('plugins.nxt.panels.configuration.caption') }}</v-tab>
+              <v-tab>{{ $t('plugins.nxt.panels.calibration.caption') }}</v-tab>
               <v-tab>{{ $t('plugins.nxt.panels.probing.caption') }}</v-tab>
+              <v-tab>{{ $t('plugins.nxt.panels.maintenance.caption') }}</v-tab>
             </v-tabs>
 
-            <v-tabs-items v-model="activeTab">
+            <v-window v-model="activeTab">
               <!-- Status Tab -->
-              <v-tab-item>
+              <v-window-item>
                 <div class="pa-4">
                   <nxt-machine-status-panel />
                 </div>
-              </v-tab-item>
+              </v-window-item>
 
               <!-- Configuration Tab -->
-              <v-tab-item>
+              <v-window-item>
                 <div class="pa-4">
                   <nxt-configuration-panel />
                 </div>
-              </v-tab-item>
+              </v-window-item>
+
+              <!-- Calibration Tab -->
+              <v-window-item>
+                <div class="pa-4">
+                  <nxt-calibration-panel />
+                </div>
+              </v-window-item>
 
               <!-- Probing Tab -->
-              <v-tab-item>
+              <v-window-item>
                 <div class="pa-4">
                   <v-row>
                     <v-col cols="12">
@@ -102,8 +111,15 @@
                     </v-col>
                   </v-row>
                 </div>
-              </v-tab-item>
-            </v-tabs-items>
+              </v-window-item>
+
+              <!-- Maintenance Tab -->
+              <v-window-item>
+                <div class="pa-4">
+                  <nxt-maintenance-panel />
+                </div>
+              </v-window-item>
+            </v-window>
           </v-card-text>
         </v-card>
       </v-col>
@@ -112,8 +128,16 @@
 </template>
 
 <script lang="ts">
-import BaseComponent from './components/base/BaseComponent.vue'
+// @ts-nocheck — Vue 2 + defineNxtComponent.extend(): tsc does not merge data/computed onto `this`.
+import { defineNxtComponent } from './components/base/BaseComponent.vue'
 import { readFirmwareGlobal } from './utils/nxtToolChangerOm'
+import ActionConfirmationWidget from './components/panels/ActionConfirmationWidget.vue'
+import MachineStatusPanel from './components/panels/MachineStatusPanel.vue'
+import ConfigurationPanel from './components/panels/ConfigurationPanel.vue'
+import ProbingCyclesPanel from './components/panels/ProbingCyclesPanel.vue'
+import ProbeResultsPanel from './components/panels/ProbeResultsPanel.vue'
+import MaintenancePanel from './components/panels/MaintenancePanel.vue'
+import CalibrationPanel from './components/panels/CalibrationPanel.vue'
 
 /**
  * nxt Main Dashboard Component
@@ -122,15 +146,24 @@ import { readFirmwareGlobal } from './utils/nxtToolChangerOm'
  * Includes the persistent status widget and action confirmation widget
  * as specified in the Phase 2.1 requirements.
  */
-export default BaseComponent.extend({
+export default defineNxtComponent({
   name: 'nxt',
+  components: {
+    NxtActionConfirmationWidget: ActionConfirmationWidget,
+    NxtMachineStatusPanel: MachineStatusPanel,
+    NxtConfigurationPanel: ConfigurationPanel,
+    NxtCalibrationPanel: CalibrationPanel,
+    NxtProbingCyclesPanel: ProbingCyclesPanel,
+    NxtProbeResultsPanel: ProbeResultsPanel,
+    NxtMaintenancePanel: MaintenancePanel
+  },
   data() {
     return {
       activeTab: 0,
       restarting: false,
     }
   },
-  
+
   computed: {
     /**
      * Check if we're connected to a machine
@@ -155,7 +188,7 @@ export default BaseComponent.extend({
      * Check if there's an active dialog requiring user action
      */
     hasActiveDialog(): boolean {
-      const messageBox = this.$store.state.machine.model.messageBox
+      const messageBox = this.$store.state.machine.model.state.messageBox
       return messageBox && messageBox.message ? true : false
     },
 
@@ -183,6 +216,18 @@ export default BaseComponent.extend({
       return t === key ? 'Probing' : t
     },
 
+    maintenanceCaption(): string {
+      const key = 'plugins.nxt.panels.maintenance.caption'
+      const t = (this as any).$t(key).toString()
+      return t === key ? 'Maintenance' : t
+    },
+
+    calibrationCaption(): string {
+      const key = 'plugins.nxt.panels.calibration.caption'
+      const t = (this as any).$t(key).toString()
+      return t === key ? 'Calibration' : t
+    },
+
     pageTitle(): string {
       const path = this.$route?.path || ''
       if (path.startsWith('/nxt/Configuration')) return this.configurationCaption
@@ -190,13 +235,29 @@ export default BaseComponent.extend({
       if (path.startsWith('/nxt/Probing')) return this.probingCaption
       if (path === '/nxt' || path === '/nxt/') {
         if (this.activeTab === 1) return this.configurationCaption
-        if (this.activeTab === 2) return this.probingCaption
+        if (this.activeTab === 2) return this.calibrationCaption
+        if (this.activeTab === 3) return this.probingCaption
+        if (this.activeTab === 4) return this.maintenanceCaption
       }
       return this.statusCaption
     }
   },
 
   methods: {
+    onGotoCalibration() {
+      // Status=0, Configuration=1, Calibration=2
+      this.activeTab = 2
+    },
+    applyTabFromQuery() {
+      try {
+        const q = new URLSearchParams(window.location.search)
+        if (q.get('tab') === 'calibration' || window.location.hash === '#calibration') {
+          this.activeTab = 2
+        }
+      } catch {
+        /* ignore */
+      }
+    },
     /**
      * Restart the machine using M999
      */
@@ -212,8 +273,10 @@ export default BaseComponent.extend({
       }
     }
   },
-  
+
   mounted() {
+    window.addEventListener('nxt-goto-calibration', this.onGotoCalibration as EventListener)
+    this.applyTabFromQuery()
     console.log('nxt: Main dashboard component mounted')
     console.log('nxt: Connected to machine:', this.isConnected)
     if (this.isConnected && this.restartRequired) {
@@ -221,6 +284,10 @@ export default BaseComponent.extend({
     } else if (!this.isConnected) {
       console.log('nxt: Not connected to machine - some features will be unavailable')
     }
+  },
+
+  beforeUnmount() {
+    window.removeEventListener('nxt-goto-calibration', this.onGotoCalibration as EventListener)
   }
 })
 </script>

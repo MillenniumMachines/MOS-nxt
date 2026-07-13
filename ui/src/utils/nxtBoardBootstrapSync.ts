@@ -1,5 +1,6 @@
 /**
  * Sync nxt-board-bootstrap SD sentinel files with nxtBoardBootstrapMode from nxt-user-vars.g.
+ * Uploads/deletes are idempotent (skip when SD already matches).
  */
 import {
   NXT_BOARD_BOOTSTRAP_REQUESTED,
@@ -11,7 +12,9 @@ import {
 
 export async function syncBoardBootstrapSentinels(mode: 'auto' | 'off'): Promise<void> {
   if (mode === 'auto') {
-    await uploadDwcFile(NXT_BOARD_BOOTSTRAP_REQUESTED, '')
+    if (!(await dwcFileExists(NXT_BOARD_BOOTSTRAP_REQUESTED))) {
+      await uploadDwcFile(NXT_BOARD_BOOTSTRAP_REQUESTED, '')
+    }
     if (await dwcFileExists(NXT_BOARD_BOOTSTRAP_SKIP)) {
       try {
         await deleteDwcFile(NXT_BOARD_BOOTSTRAP_SKIP)

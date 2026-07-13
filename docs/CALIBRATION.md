@@ -690,6 +690,21 @@ This calibration system should be implemented in **Phase 4** of the nxt developm
 
 ---
 
+## DWC Calibration tab (shipped on v0.6.0)
+
+The nxt plugin **Calibration** tab (`CalibrationPanel.vue`) implements the phased workflow described in this document:
+
+| Mode | UI flow | Macros |
+|------|---------|--------|
+| **Manual** | Phases 1–5 with dial-indicator steps | **M5014**, **M5015**, **M6523** |
+| **Probe** | Automated travel legs on selected axis | **G9000**, **M5015**, **M6523** |
+
+**Maintenance** counters and **M5013** thresholds live on the separate **Maintenance** tab. Configuration for platform (`v1.6` / `v2.0` / `custom`), probe references, and OM budget callouts are on the **Configuration** tab — see [CONFIGURATION_UI.md](CONFIGURATION_UI.md).
+
+On the **v0.6.0** line, keep serialized `global` OM under **~5 KiB** when using calibration vectors; disable unused features if boot is tight on CDYv3 — [OM_GLOBAL_SIZE.md](OM_GLOBAL_SIZE.md).
+
+---
+
 ## 7. References
 
 ### Related Documentation

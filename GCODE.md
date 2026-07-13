@@ -525,6 +525,48 @@ Sets the addressable RGB work light via **M150** when the RGB light feature is e
 
 ---
 
+## Jake probing execute layer (v0.6.0 backport)
+
+Higher-level probing macros used by the Probing UI and calibration flows. Each `G65xx.1.g` wraps planning + **G6513** surface probing.
+
+### G6513: Multi-point surface probe
+
+Probes one or more flat surfaces (pairs of start/target vectors). Used internally by `G6500.1`–`G6512.1` and **G6520.1**.
+
+**Usage:** `G6513 P{ … } [I<probeId>] [D1]`
+
+**Parameters:** `P` — nested vector of surface probe legs (see macro header in `macros/probing/G6513.g`). `I` — optional probe sensor id. `D1` — continuation mode when chaining surfaces.
+
+### G6520.1: Vise corner execute
+
+Probes the top surface of a workpiece at a vise corner using **G6513**, then stores compensated coordinates in the probe results table.
+
+### G37.1: Probe Z with current tool
+
+When the toolsetter is disabled, probes a Z surface with the **active tool** (relative tool lengths unknown). Used for manual datum setup before **M5016**.
+
+### G9000: Automated axis travel calibration
+
+Probe-assisted travel calibration: for each leg (8 / 16 / 24 mm), probe → move away → probe again. Invoked from the **Calibration** tab (probe mode). Requires touch probe enabled and reference geometry configured.
+
+---
+
+## WCS probe utilities (M5010–M5016, M7601)
+
+| Code | Purpose |
+|------|---------|
+| **M5010** | Reset WCS probe details for workplace `W` |
+| **M5012** | Reset probe cycle counts |
+| **M5013** | Set per-axis maintenance service threshold (mm); used by Maintenance tab |
+| **M5014** | Calibration phase 1 — indicator zero / travel / return (manual mode) |
+| **M5015** | Calibration — jog, **G6512** probe, return |
+| **M5016** | Static datum setup (toolsetter + probe reference) |
+| **M7601** | Print workplace probe details (debug) |
+
+See [CALIBRATION.md](docs/CALIBRATION.md) and the nxt **Calibration** / **Maintenance** tabs in DWC.
+
+---
+
 ## Global Variables
 
 ### Probe Results Table

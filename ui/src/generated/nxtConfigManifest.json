@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-11T14:30:18.011Z",
+  "generatedAt": "2026-07-13T00:10:57.452Z",
   "boards": [
     {
       "shortName": "cdy3_f4",
@@ -98,6 +98,18 @@
   ],
   "machines": [
     {
+      "id": "custom",
+      "title": "Custom machine pack (nxt)",
+      "hasCommonDeploy": true,
+      "sysDeployFiles": [
+        "homeall.g",
+        "homex.g",
+        "homey.g",
+        "homez.g"
+      ],
+      "machineEntryPath": "nxt-config/machine/custom/entry.g"
+    },
+    {
       "id": "v1.5",
       "title": "Milo v1.5 board packs (nxt)",
       "hasCommonDeploy": true,
@@ -110,6 +122,18 @@
       "machineEntryPath": "nxt-config/machine/v1.5/entry.g"
     },
     {
+      "id": "v1.6",
+      "title": "Milo v1.6 machine pack (nxt)",
+      "hasCommonDeploy": true,
+      "sysDeployFiles": [
+        "homeall.g",
+        "homex.g",
+        "homey.g",
+        "homez.g"
+      ],
+      "machineEntryPath": "nxt-config/machine/v1.6/entry.g"
+    },
+    {
       "id": "v1.6_v2",
       "title": "Milo v1.6 / v2.0 board packs (nxt)",
       "hasCommonDeploy": true,
@@ -120,9 +144,53 @@
         "homez.g"
       ],
       "machineEntryPath": "nxt-config/machine/v1.6_v2/entry.g"
+    },
+    {
+      "id": "v2.0",
+      "title": "Milo v2.0 machine pack (nxt)",
+      "hasCommonDeploy": true,
+      "sysDeployFiles": [
+        "homeall.g",
+        "homex.g",
+        "homey.g",
+        "homez.g"
+      ],
+      "machineEntryPath": "nxt-config/machine/v2.0/entry.g"
     }
   ],
   "platforms": [
+    {
+      "id": "custom",
+      "title": "Custom machine pack (nxt)",
+      "hasCommonDeploy": true,
+      "sysDeployFiles": [
+        "homeall.g",
+        "homex.g",
+        "homey.g",
+        "homez.g"
+      ],
+      "machineEntryPath": "nxt-config/machine/custom/entry.g",
+      "boards": [
+        {
+          "shortName": "cdy3_f4",
+          "variant": null,
+          "title": "Fly CDYv3",
+          "entryPath": "nxt-config/board/cdy3_f4/entry.g"
+        },
+        {
+          "shortName": "scylla1_0_h723",
+          "variant": "24v",
+          "title": "Scylla v1.0 (24v V motor)",
+          "entryPath": "nxt-config/board/scylla1_0_h723/motor-24v/entry.g"
+        },
+        {
+          "shortName": "scylla1_0_h723",
+          "variant": "48v",
+          "title": "Scylla v1.0 (48v V motor)",
+          "entryPath": "nxt-config/board/scylla1_0_h723/motor-48v/entry.g"
+        }
+      ]
+    },
     {
       "id": "v1.5",
       "title": "Milo v1.5 board packs (nxt)",
@@ -156,6 +224,38 @@
       ]
     },
     {
+      "id": "v1.6",
+      "title": "Milo v1.6 machine pack (nxt)",
+      "hasCommonDeploy": true,
+      "sysDeployFiles": [
+        "homeall.g",
+        "homex.g",
+        "homey.g",
+        "homez.g"
+      ],
+      "machineEntryPath": "nxt-config/machine/v1.6/entry.g",
+      "boards": [
+        {
+          "shortName": "cdy3_f4",
+          "variant": null,
+          "title": "Fly CDYv3",
+          "entryPath": "nxt-config/board/cdy3_f4/entry.g"
+        },
+        {
+          "shortName": "scylla1_0_h723",
+          "variant": "24v",
+          "title": "Scylla v1.0 (24v V motor)",
+          "entryPath": "nxt-config/board/scylla1_0_h723/motor-24v/entry.g"
+        },
+        {
+          "shortName": "scylla1_0_h723",
+          "variant": "48v",
+          "title": "Scylla v1.0 (48v V motor)",
+          "entryPath": "nxt-config/board/scylla1_0_h723/motor-48v/entry.g"
+        }
+      ]
+    },
+    {
       "id": "v1.6_v2",
       "title": "Milo v1.6 / v2.0 board packs (nxt)",
       "hasCommonDeploy": true,
@@ -166,6 +266,38 @@
         "homez.g"
       ],
       "machineEntryPath": "nxt-config/machine/v1.6_v2/entry.g",
+      "boards": [
+        {
+          "shortName": "cdy3_f4",
+          "variant": null,
+          "title": "Fly CDYv3",
+          "entryPath": "nxt-config/board/cdy3_f4/entry.g"
+        },
+        {
+          "shortName": "scylla1_0_h723",
+          "variant": "24v",
+          "title": "Scylla v1.0 (24v V motor)",
+          "entryPath": "nxt-config/board/scylla1_0_h723/motor-24v/entry.g"
+        },
+        {
+          "shortName": "scylla1_0_h723",
+          "variant": "48v",
+          "title": "Scylla v1.0 (48v V motor)",
+          "entryPath": "nxt-config/board/scylla1_0_h723/motor-48v/entry.g"
+        }
+      ]
+    },
+    {
+      "id": "v2.0",
+      "title": "Milo v2.0 machine pack (nxt)",
+      "hasCommonDeploy": true,
+      "sysDeployFiles": [
+        "homeall.g",
+        "homex.g",
+        "homey.g",
+        "homez.g"
+      ],
+      "machineEntryPath": "nxt-config/machine/v2.0/entry.g",
       "boards": [
         {
           "shortName": "cdy3_f4",

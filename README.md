@@ -48,7 +48,7 @@ The information contained here is for advanced users who want to understand furt
 
 - You _must_ be using RRF `v3.6.0-rc.3` or above. nxt uses many 'meta gcode' features that do not exist in earlier versions.
 
-**Reference firmware for development:** When reviewing or extending nxt macros and docs, treat **[RepRapFirmware 3.6.2](docs/RRF_REFERENCE.md)** as the evaluation baseline (G-code dictionary, object model, and bugfix level). See [`docs/RRF_REFERENCE.md`](docs/RRF_REFERENCE.md).
+**Reference firmware for development:** When reviewing or extending nxt macros and docs on branch **`v0.6.0`**, treat **[RepRapFirmware 3.6.3](docs/RRF_REFERENCE.md)** as the evaluation baseline. See [`docs/RRF_REFERENCE.md`](docs/RRF_REFERENCE.md). Dual-line porting: [`docs/BRANCH_PORTING.md`](docs/BRANCH_PORTING.md).
 - nxt includes its own `daemon.g` file for repetitive tasks (VSSC is planned but not yet implemented). If you want to implement your own repetitive tasks, create a `user-daemon.g` file in the `/sys` directory, which nxt will run during its daemon loop. Do not use long-running loops inside `user-daemon.g` as this will interfere with nxt's daemon behaviour.
 
 ### RRF Config
@@ -124,18 +124,18 @@ To install the nxt plugin on your physical machine:
 3. Click **Install Plugin** and upload the ZIP. Start the plugin once installed.
 4. **Mandatory Firmware Step:** Open your `0:/sys/config.g` via the System Directory and add `M98 P"nxt.g"` to the end of the file. (If you are upgrading from `mos`, ensure you remove the old `M98 P"mos.g"` and replace it with `nxt.g`).
 5. Run `M999` to restart the board and load the new nxt globals.
-6. In **Configuration**, select your **platform** (`v1.5` or `v1.6_v2`), then **Apply platform sys files** so `0:/sys/home*.g` match that platform ([homing requirements](docs/NXT_BOARD_HOMING.md)).
+6. In **Configuration**, select your **platform** (`v1.5`, `v1.6`, or `v2.0`), then **Apply platform sys files** so `0:/sys/home*.g` match that platform ([homing requirements](docs/NXT_BOARD_HOMING.md)).
 7. Optional tuning: the plugin installs `0:/sys/nxt-user-overrides.g.example`; copy it to `nxt-user-overrides.g` to override globals after the rest of nxt has loaded (probe repeatability, etc.).
 
 ## DWC Plugin Development
 
-The nxt UI is a **Vue 2.7 / Vuetify 2.x** plugin for [Duet Web Control](https://github.com/Duet3D/DuetWebControl) **3.6.2+** (`dwcVersion` in [`ui/plugin.json`](ui/plugin.json)). Source lives in `ui/`.
+The nxt UI is a **Vue 2.7 / Vuetify 2.x** plugin for [Duet Web Control](https://github.com/Duet3D/DuetWebControl) **3.6.3+** (`dwcVersion` in [`ui/plugin.json`](ui/plugin.json)). Source lives in `ui/`.
 
 For building and testing **additional** nxt-compatible plugins (sibling repos, catalog, plugin ZIP), see [docs/LOCAL_PLUGIN_BUILD_AND_TEST.md](docs/LOCAL_PLUGIN_BUILD_AND_TEST.md).
 
 ### Quick Start
 
-**Prerequisites:** A local clone of [DuetWebControl](https://github.com/Duet3D/DuetWebControl) on a **3.6.2-compatible** branch or tag (e.g. `3.6-dev` or `v3.6.2` when available) with `npm install` completed.
+**Prerequisites:** A local clone of [DuetWebControl](https://github.com/Duet3D/DuetWebControl) on a **3.6.3-compatible** tag (see [`ci/dwc-build-ref`](ci/dwc-build-ref)) with `npm install` completed.
 
 ```powershell
 # 1. Create a directory junction (Windows) — folder name MUST match plugin.json "id"

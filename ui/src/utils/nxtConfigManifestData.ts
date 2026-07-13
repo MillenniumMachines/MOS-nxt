@@ -10,12 +10,32 @@ export type NxtConfigBoardEntry = {
   entryPath: string
 }
 
+export type NxtConfigPinmapEntry = {
+  id?: string
+  label?: string
+  kind?: string
+  pin?: string
+  aliases?: string[]
+  gpOutIndex?: number
+  probeIndex?: number
+  index?: number
+  axis?: string
+  note?: string
+}
+
+export type NxtConfigPinmap = {
+  boardId?: string
+  assigned?: NxtConfigPinmapEntry[]
+  free?: NxtConfigPinmapEntry[]
+  fanByVoltage?: Record<string, NxtConfigPinmapEntry>
+}
+
 export type NxtConfigBoardPack = {
   shortName: string
   title: string
   variant: 'single' | 'motor-24v-48v'
   entries: NxtConfigBoardEntry[]
-  pinmap: Record<string, unknown> | null
+  pinmap: NxtConfigPinmap | null
 }
 
 export type NxtConfigMachineEntry = {

@@ -1,0 +1,36 @@
+---
+description: Hard stop — keep RRF global OM under ~5 KiB on v0.6.0 (branch v0.7.0 uses ~8 KiB)
+alwaysApply: true
+---
+
+# Object model `global` size budget (hard stop)
+
+On branch **`v0.6.0`**, design for **5120 bytes (~5 KiB)** serialized `global` (CDYv3 binding constraint). Branch **`v0.7.0`** targets **~8 KiB**.
+
+RRF/DSF discards oversized `key=global` responses:
+
+`Cannot store excessively long object model response … key global`
+
+DWC always polls the **whole** `global` key; plugins cannot split it.
+
+## Boot overlay order (mandatory)
+
+1. `nxt-vars.g` — lean core defaults  
+2. `nxt-custom-globals.g` — only when Custom (`nxt-custom.requested` / overlays); `if { !exists }` → null  
+3. Optional MOS import → tooltable → probe-wcs if `!nxtWPCtrPos` → align WCS/OT  
+4. `nxt-user-vars.g` — operator `set` overlay (omit unset keys)  
+5. … board / tools / boot / plugin-init once / RGB …  
+6. **`nxt-user-overrides.g` last** → then `nxtLoaded`
+
+UI Save paths must use `persistNxtUserConfig`.
+
+## Rules for every agent (mandatory)
+
+1. **Do not** add `global nxtCustom*` to [`nxt-vars.g`](../../macros/system/nxt-vars.g).
+2. **Do not** pre-fill `nxtProbeResults` in `nxt-boot.g`.
+3. **Do not** allocate `nxtTT` with a filled template — use `vector(limits.tools, null)`.
+4. **Do not** persist `set global.<optional> = null` in `nxt-user-vars.g`.
+5. **Do not** add many small globals when one packed vector works.
+6. **Warn / avoid** dual `mosTT` + `nxtTT`.
+7. **Before** claiming vars/boot work done: `node dist/check-om-global-budget.mjs` — must exit 0.
+8. Read [docs/OM_GLOBAL_SIZE.md](../../docs/OM_GLOBAL_SIZE.md) and [docs/BRANCH_PORTING.md](../../docs/BRANCH_PORTING.md).

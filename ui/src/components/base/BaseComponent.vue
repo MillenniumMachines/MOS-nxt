@@ -15,7 +15,7 @@ import { readFirmwareGlobal } from "../../utils/nxtToolChangerOm";
  * Provides common computed properties and methods for consistent
  * interaction with the DWC store and RRF object model.
  */
-export default Vue.extend({
+const BaseComponent = Vue.extend({
   name: 'BaseComponent',
   computed: {
     /**
@@ -184,4 +184,13 @@ export default Vue.extend({
     }
   }
 })
+
+/**
+ * Vue 2 helper: extend BaseComponent with panel options (replaces v0.7.0 compat/vueCompat).
+ */
+export function defineNxtComponent(options: Record<string, unknown>) {
+  return BaseComponent.extend(options)
+}
+
+export default BaseComponent
 </script>

@@ -1,0 +1,18 @@
+Milo v2.0 machine pack (nxt)
+============================
+Homing requirements: docs/NXT_BOARD_HOMING.md (v2.0 — Y toward Y0, Z reversed, Z800).
+
+Currently identical to v1.6 motion/limits; diverge here when Milo v2.0 hardware differs.
+Edit under nxt-config/machine/v2.0/ without disturbing v1.5 or v1.6 users.
+
+Automatic pack load (opt-in) runs from nxt.g after nxt-vars.g and nxt-user-vars.g
+via macros/system/nxt-board-pack-loader.g — see docs/NXT_BOARD_CONFIG.md.
+
+1. nxt Configuration: Platform v2.0, bootstrap Auto, Save (writes nxt-user-vars.g and nxt-board-bootstrap.requested).
+2. Optionally create 0:/sys/nxt-board-bootstrap.skip to hard-disable pack load.
+3. For motor-variant boards: global nxtBoardMotorVoltage = 24 or 48 in nxt-user-vars.g.
+4. For a fully manual chain, add 0:/sys/nxt-user-board.g with M98 P"nxt-config/board/.../entry.g"
+   (see macros/system/nxt-user-board.g.example).
+
+config.g: For a thin install, call M98 P"nxt.g" early and avoid duplicating M98 lines for
+drives/limits/spindle if the board pack loader runs them.

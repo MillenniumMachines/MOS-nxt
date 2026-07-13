@@ -35,19 +35,22 @@ sequenceDiagram
 | **v1.5** | X | Toward **min** | `M574 X1` (board pins) | — | — |
 | **v1.5** | Y | Toward **max** | `M574 Y2` via `endstop-y.g` | — | — |
 | **v1.5** | Z | Toward **max** (top) | `M574 Z2` | `M569 P2 S0`, `M92 Z1600` | `G92 Z{move.axes[2].max}` |
-| **v1.6_v2** | X | Toward **min** | `M574 X1` | — | — |
-| **v1.6_v2** | Y | Toward **min (Y0)** | `M574 Y1` via `endstop-y.g` | — | — |
-| **v1.6_v2** | Z | Toward **max** (top) | `M574 Z2` | `M569 P2 S1`, `M92 Z800` | `G92 Z{move.axes[2].max}` |
+| **v1.6** / **v2.0** | X | Toward **min** | `M574 X1` | — | — |
+| **v1.6** / **v2.0** | Y | Toward **min (Y0)** | `M574 Y1` via `endstop-y.g` (**PD_11** CDYv3, **PD_14** Scylla) | — | — |
+| **v1.6** / **v2.0** | Z | Toward **max** (top) | `M574 Z2` | `M569 P2 S1`, `M92 Z800` | `G92 Z{move.axes[2].max}` |
 
 Source files:
 
 - v1.5: `macros/nxt-config/machine/v1.5/home*.g`
-- v1.6_v2: `macros/nxt-config/machine/v1.6_v2/home*.g`
+- v1.6: `macros/nxt-config/machine/v1.6/home*.g`
+- v2.0: `macros/nxt-config/machine/v2.0/home*.g`
+
+Legacy `nxtPlatformProfile = v1.6_v2` maps to **v1.6** in the UI.
 
 ## Deploy workflow
 
 1. Install or update the nxt plugin (ships `nxt-config/machine/<profile>/` on SD).
-2. In DWC **Configuration**, select **Machine profile** (`v1.5` or `v1.6_v2`).
+2. In DWC **Configuration**, select **Machine profile** (`v1.5`, `v1.6`, or `v2.0`).
 3. Review deploy list (homing → `0:/sys/`, board/machine boot paths).
 4. Click **Apply platform sys files**.
 5. Files in `machine/<profile>/sys-deploy-manifest.txt` upload to `0:/sys/`, replacing existing `home*.g`.

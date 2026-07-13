@@ -119,9 +119,9 @@ elif { global.nxtFeatureToolSetter && global.nxtToolSetterPos != null }
         G10 L1 P{state.currentTool} Z0
         echo "tpost.g: First measured tool - offset set to 0 (establishes reference)"
 else
-    ; No toolsetter available - manual offset required
-    M291 P"Toolsetter not available. Please set tool offset manually." R"Manual Offset Required" S2
-    echo "tpost.g: Manual tool offset required - no automatic measurement available"
+    ; No toolsetter — re-zero Z origin in current WCS with the installed tool.
+    echo "tpost.g: Toolsetter unavailable — running G37.1 to set Z origin"
+    G37.1
 
 ; Clear tool change state to indicate completion
 set global.nxtToolChangeState = null

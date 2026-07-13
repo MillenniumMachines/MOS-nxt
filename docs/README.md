@@ -12,6 +12,9 @@ All product documentation lives in **`docs/`** in this repository.
 | [CODE.md](CODE.md) | Macro / meta G-code style |
 | [plugin-spec.md](plugin-spec.md) | Plugin contract |
 | [RRF_REFERENCE.md](RRF_REFERENCE.md) | RRF version pin |
+| [VERSIONING.md](VERSIONING.md) | Branch ↔ RRF/DWC alignment |
+| [BRANCH_PORTING.md](BRANCH_PORTING.md) | v0.6.0 ↔ v0.7.0 manual porting until EOL |
+| [OM_GLOBAL_SIZE.md](OM_GLOBAL_SIZE.md) | Global OM ~5 KiB budget (v0.6.0 line) |
 | [NAMING.md](NAMING.md) | Product (`nxt`), repo (`MOS-nxt`), DWC wiring |
 | [RRF_LINE_LENGTH.md](RRF_LINE_LENGTH.md) | Macro line-length limits (gates: `.cursor/rules/gcode-line-length.mdc`) |
 

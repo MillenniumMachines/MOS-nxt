@@ -10,6 +10,8 @@ import StatusWidget from './StatusWidget.vue'
 import ActionConfirmationWidget from './ActionConfirmationWidget.vue'
 import MachineStatusPanel from './MachineStatusPanel.vue'
 import ConfigurationPanel from './ConfigurationPanel.vue'
+import CalibrationPanel from './CalibrationPanel.vue'
+import MaintenancePanel from './MaintenancePanel.vue'
 import ProbingCyclesPanel from './ProbingCyclesPanel.vue'
 import ProbeResultsPanel from './ProbeResultsPanel.vue'
 import ToolManagementPanel from './ToolManagementPanel.vue'
@@ -20,6 +22,8 @@ Vue.component('nxt-status-widget', StatusWidget)
 Vue.component('nxt-action-confirmation-widget', ActionConfirmationWidget)
 Vue.component('nxt-machine-status-panel', MachineStatusPanel)
 Vue.component('nxt-configuration-panel', ConfigurationPanel)
+Vue.component('nxt-calibration-panel', CalibrationPanel)
+Vue.component('nxt-maintenance-panel', MaintenancePanel)
 Vue.component('nxt-probing-cycles-panel', ProbingCyclesPanel)
 Vue.component('nxt-probe-results-panel', ProbeResultsPanel)
 Vue.component('nxt-tool-management-panel', ToolManagementPanel)
@@ -31,6 +35,8 @@ export {
   ActionConfirmationWidget,
   MachineStatusPanel,
   ConfigurationPanel,
+  CalibrationPanel,
+  MaintenancePanel,
   ProbingCyclesPanel,
   ProbeResultsPanel,
   ToolManagementPanel,
