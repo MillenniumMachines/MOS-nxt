@@ -1,6 +1,10 @@
 # nxt versioning and RRF / DWC alignment
 
-This document defines how **nxt release lines** map to **RepRapFirmware (RRF)** and **Duet Web Control (DWC)** generations. Follow it when opening a new branch, bumping CI pins, or preparing releases.
+Branch ↔ firmware policy and release workflow. For moving changes between lines during dual maintenance, see [BRANCH_PORTING.md](BRANCH_PORTING.md).
+
+## Dual maintenance (current)
+
+**`v0.6.0` and `v0.7.0` are maintained simultaneously** until **`v0.6.0` is EOL'd**. Lines do **not** merge; porting is manual ([BRANCH_PORTING.md](BRANCH_PORTING.md)).
 
 ## Branch ↔ firmware rule
 
@@ -8,11 +12,11 @@ This document defines how **nxt release lines** map to **RepRapFirmware (RRF)** 
 
 | nxt line | Git branch | nxt tags | RRF / DWC generation | Notes |
 |----------|------------|----------|----------------------|--------|
-| 0.6.x | `v0.6.0` | `v0.6.0-beta.N` … `v0.6.0` | **3.6.x** | Previous line; `ci/dwc-build-ref` was `v3.6.2` |
-| **0.7.x** | **`v0.7.0`** | **`v0.7.0-beta.N` … `v0.7.0`** | **3.7.x** | **Current active line** |
+| 0.6.x | `v0.6.0` | `v0.6.0-beta.N` … `v0.6.0` | **3.6.x** | Supported in parallel until EOL; OM **~5 KiB**; CDYv3 |
+| **0.7.x** | **`v0.7.0`** | **`v0.7.0-beta.N` … `v0.7.0`** | **3.7.x** | **Forward line**; OM **~8 KiB** |
 | 0.8.x (future) | `v0.8.0` | `v0.8.0-*` | **3.8.x** | Open when RRF 3.8 ships |
 
-The **minor** digit in nxt semver (`0.M.0`) matches the **minor** digit in RRF/DWC (`3.M`). Patch releases on the same line (`v0.7.1`, `v0.7.2`) stay on the same RRF **3.7** generation unless a hotfix explicitly documents a different pin.
+The **minor** digit in nxt semver (`0.M.0`) matches the **minor** digit in RRF/DWC (`3.M`). Patch releases on the same line stay on the same RRF **3.M** generation unless a hotfix explicitly documents a different pin.
 
 ## Pins on the active branch (`v0.7.0`)
 
@@ -21,17 +25,18 @@ The **minor** digit in nxt semver (`0.M.0`) matches the **minor** digit in RRF/D
 | DWC build ref | [`ci/dwc-build-ref`](../ci/dwc-build-ref) | `v3.7.0-beta.1` |
 | RRF evaluation target | [`RRF_REFERENCE.md`](RRF_REFERENCE.md) | **3.7.0-beta.1** (3.7.x line) |
 | Plugin manifest | [`ui/plugin.json`](../ui/plugin.json) | `rrfVersion: "auto-major"` → `3.7.*`; `dwcVersion: "auto"` → exact DWC at build |
+| OM budget | [OM_GLOBAL_SIZE.md](OM_GLOBAL_SIZE.md) | **~8 KiB** serialized `global` (CDYv3 dropped on this line) |
 
 When upstream ships a stable **3.7.0** (or newer 3.7.x patch), bump `ci/dwc-build-ref` and [`RRF_REFERENCE.md`](RRF_REFERENCE.md) together on branch `v0.7.0`. Rebuild plugin ZIPs against the matching DWC tree.
 
 ## Release workflow
 
-1. **Active development** happens on the versioned branch (`v0.7.0`), not `main`, until the line is promoted.
-2. **Pre-releases:** `v0.7.0-beta.N` — increment N per [release-plugin-verify](../.cursor/rules/release-plugin-verify.mdc).
+1. **Active development** on versioned branch `v0.7.0` (forward line).
+2. **Pre-releases:** `v0.7.0-beta.N` — see [release-plugin-verify](../.cursor/rules/release-plugin-verify.mdc).
 3. **Release candidates:** `v0.7.0-rcN` (no dot before `rc`).
-4. **Stable:** `v0.7.0` on branch `v0.7.0`; merge to `main` when the line is complete.
-5. **ZIP naming:** `nxt-<version>.zip` (see [NAMING.md](NAMING.md)).
-6. **`global.nxtVersion`** and CAM post-processors (`M4005`) must match the installed nxt release from the same line.
+4. **Stable:** `v0.7.0` on branch `v0.7.0`.
+5. **ZIP naming:** `nxt-<version>.zip` ([NAMING.md](NAMING.md)).
+6. **`global.nxtVersion`** and CAM post-processors (`M4005`) match the installed release from this line.
 
 ## Starting a new RRF generation (e.g. 3.8)
 
@@ -45,6 +50,7 @@ When RRF **3.8.x** is the target:
 
 ## Related docs
 
+- [BRANCH_PORTING.md](BRANCH_PORTING.md) — dual-line manual porting until v0.6.0 EOL
 - [RRF_REFERENCE.md](RRF_REFERENCE.md) — evaluation RRF for macro/OM review on this branch
 - [RRF_3.7_MIGRATION.md](RRF_3.7_MIGRATION.md) — upgrading from 3.6 to 3.7
 - [PLUGIN_LOAD_TROUBLESHOOTING.md](PLUGIN_LOAD_TROUBLESHOOTING.md) — DWC exact-version match for plugin ZIPs
