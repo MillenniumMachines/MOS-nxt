@@ -32,9 +32,8 @@ if { state.currentTool == global.nxtProbeToolID }
     var probeType = { global.nxtFeatureTouchProbe ? "Touch Probe" : "Datum Tool" }
     ; ATC: replace with magazine unload / pocket deposit sequence for probe
     M291 P{"Please remove the " ^ var.probeType ^ " and confirm when safely stowed."} R{"Remove " ^ var.probeType} S3
-    
-    ; Clear any cached measurements for the probe tool
-    set global.nxtToolCache[state.currentTool] = { null }
+    ; Keep nxtToolCacheIdx/Z for probe this session — tpost relative offset needs it
+    ; (docs/TOOLSETTING.md Scenario B: probe → cutter).
 else
     ; Standard cutting tool: removal only. New tool measurement runs in tpost.g.
     ; ATC: replace with magazine unload / pocket deposit sequence.

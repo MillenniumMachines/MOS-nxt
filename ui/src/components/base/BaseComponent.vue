@@ -91,14 +91,28 @@ const BaseComponent = defineComponent({
     },
 
     /**
-     * Get/Set current workplace coordinate system (1-based, maps to G54-G59.3)
+     * Current WCS as 1-based index (1 = G54 … 9 = G59.3).
+     * RRF move.workplaceNumber is 0-based (0 = G54); do not use `|| 1` (turns G54 into 1 then +1 → WCS2).
      */
     currentWorkplace: {
       get(): number {
-        return store.state.machine.model.move.workplaceNumber || 1
+        const move = store.state.machine.model.move as {
+          workplaceNumber?: number
+          motionSystems?: Array<{ workplaceNumber?: number }>
+        }
+        const fromSystem = move?.motionSystems?.[0]?.workplaceNumber
+        const raw =
+          typeof fromSystem === 'number'
+            ? fromSystem
+            : typeof move?.workplaceNumber === 'number'
+              ? move.workplaceNumber
+              : 0
+        return raw + 1
       },
       set(workplace: number) {
-        this.sendCode(`G${53 + workplace}`)
+        // workplace is 1-based WCS; G54 = G54, G55 = G55, …
+        const w = typeof workplace === 'number' && workplace >= 1 ? workplace : 1
+        this.sendCode(`G${53 + w}`)
       }
     },
 
@@ -139,14 +153,18 @@ const BaseComponent = defineComponent({
     },
 
     /**
-     * Get available spindles from RRF configuration
+     * Get available spindles from RRF configuration (configured slots only).
      */
     availableSpindles(): Array<{ id: number, name: string }> {
       const spindles = store.state.machine.model.spindles || []
-      return spindles.map((_: any, index: number) => ({
-        id: index,
-        name: `Spindle ${index}`
-      }))
+      return spindles
+        .map((spindle: { state?: string } | null, index: number) => ({
+          id: index,
+          name: `Spindle ${index}`,
+          configured: spindle != null && spindle.state !== 'unconfigured'
+        }))
+        .filter((s: { configured: boolean }) => s.configured)
+        .map((s: { id: number; name: string }) => ({ id: s.id, name: s.name }))
     },
 
     /**

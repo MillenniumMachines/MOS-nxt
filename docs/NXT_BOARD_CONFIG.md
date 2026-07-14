@@ -102,11 +102,30 @@ Machine must exist on SD: `0:/sys/nxt-config/machine/<id>/OVERVIEW.txt`.
 
 ## Pin maps and free pins
 
-Each board ships `pinmap.json` (`assigned` + `free`) with human-readable labels from RRF pin names (e.g. Scylla `mist`, `coolant`, `relay`, `aux0`–`aux2`, `probe`, `tool`).
+Each board ships `pinmap.json` (`assigned` + `free`) with human-readable labels from RRF pin names (e.g. Scylla `mist`, `coolant`, `aux0`–`aux2`, `relay`, `probe`, `tool`).
 
-Configuration dropdowns list **free** named pins (Mist, Coolant, Relay, Aux, Probe, Toolsetter). Pins already assigned to another role are shown **disabled**. Clear a select to unassign.
+Configuration dropdowns list **free** named pins (Mist, Coolant, Relay, Aux, Probe, Toolsetter). Pins already assigned to another role or selected as **fans** are shown **disabled**. Clear a select to unassign.
 
-Board packs create matching `M950 J…` ports in `gpio.g` (and Scylla `motor-*/gpio-aux.g`) so Mist/Coolant/Relay/Aux map to stable gpOut indices for `M42`.
+### Scylla named outputs (board-owned)
+
+Create order and preferred **gpOut** indices when the pin is **not** a fan ([`gpio.g`](../macros/nxt-config/board/scylla1_0_h723/gpio.g)):
+
+| Order | Pin | Preferred `M950 J` | Default role (null-only) |
+|------|-----|--------------------|---------------------------|
+| 1 | mist | J0 | `nxtCoolantMistID` |
+| 2 | coolant | J1 | `nxtCoolantFloodID` |
+| 3 | aux0 | J2 | `nxtAux1ID` (UI: Aux 0) |
+| 4 | aux1 | J3 | `nxtAux2ID` (UI: Aux 1) |
+| 5 | aux2 | J4 | `nxtAux3ID` (UI: Aux 2) |
+| 6 | relay | J5 | `nxtRelayID` |
+
+After create, [`gpio-role-defaults.g`](../macros/nxt-config/board/scylla1_0_h723/gpio-role-defaults.g) fills those globals **only when still null** (user-vars win).
+
+**Fans:** `global.nxtBoardFanPins` lists aliases created as `M950 F` instead of `M950 J`. Default when null: **24 V → `aux0`**, **48 V → `aux1`**. Persist as a CSV string (`"aux0"` / `"mist,aux1"`); explicit none is `""`. Legacy single-pin vectors still work at boot. Hold-to-test uses `M106` for fan-mode pins and `M42` for gpOut roles.
+
+### Scylla UART header (PD8 / PD9)
+
+Firmware `serial.aux2`: TX=`PD_8` (`tx3`), RX=`PD_9` (`rx3`). [`uart.g`](../macros/nxt-config/board/scylla1_0_h723/uart.g) issues `M575` when `nxtUartDevice` ≠ 0 (0=off, 1=PanelDue, 2=BTT TFT, 3=pendant). On RRF 3.7.x nxt uses **P3** for aux2 (verify on hardware). One primary device in UI; further devices can daisy-chain on the same TX/RX later.
 
 ### Scylla A axis (fourth / rotary)
 
@@ -127,7 +146,7 @@ Board packs create matching `M950 J…` ports in `gpio.g` (and Scylla `motor-*/g
 
 ## Opt-in, opt-out, manual override
 
-- **Auto load (recommended):** Configuration → bootstrap **Auto** → **Save** (creates `nxt-board-bootstrap.requested`).
+- **Auto load (recommended):** Configuration → bootstrap **Auto** → **Save** (creates `nxt-board-bootstrap.requested`, and sets `nxtBoardBootstrapMode=auto`). The pack loader also runs when mode is **auto** even if the sentinel file is briefly missing after M999 (then recreates it).
 - **Hard disable:** create `0:/sys/nxt-board-bootstrap.skip` (pack never loads while skip exists).
 - **Manual chain:** add `0:/sys/nxt-user-board.g`; the loader runs this file and returns. See `macros/system/nxt-user-board.g.example`.
 

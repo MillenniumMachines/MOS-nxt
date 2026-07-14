@@ -210,13 +210,73 @@ export type ProbeRoleOccupancy = {
 
 const GPOUT_ROLE_LABELS: Array<{ key: keyof GpOutRoleOccupancy; label: string }> = [
   { key: 'nxtRelayID', label: 'Relay' },
-  { key: 'nxtAux1ID', label: 'Aux 1' },
-  { key: 'nxtAux2ID', label: 'Aux 2' },
-  { key: 'nxtAux3ID', label: 'Aux 3' },
+  { key: 'nxtAux1ID', label: 'Aux 0' },
+  { key: 'nxtAux2ID', label: 'Aux 1' },
+  { key: 'nxtAux3ID', label: 'Aux 2' },
   { key: 'nxtCoolantAirID', label: 'Air' },
   { key: 'nxtCoolantMistID', label: 'Mist' },
   { key: 'nxtCoolantFloodID', label: 'Flood' }
 ]
+
+/** Canonical Scylla named-output create order (matches gpio.g). */
+export const NXT_NAMED_OUTPUT_ALIASES = [
+  'mist',
+  'coolant',
+  'aux0',
+  'aux1',
+  'aux2',
+  'relay'
+] as const
+
+export type NxtNamedOutputAlias = (typeof NXT_NAMED_OUTPUT_ALIASES)[number]
+
+export function defaultBoardFanPinsForVoltage(
+  voltage: number | null | undefined
+): string[] {
+  return voltage === 48 ? ['aux1'] : ['aux0']
+}
+
+/**
+ * Fan index (M106 P) for a pin alias, given create order among fan pins.
+ * Matches Scylla gpio.g sequential F0…Fn assignment.
+ */
+export function fanIndexForPinAlias(
+  fanPins: string[] | null | undefined,
+  alias: string
+): number | null {
+  if (fanPins == null || fanPins.length === 0) {
+    return null
+  }
+  const set = new Set(fanPins.map((p) => String(p).toLowerCase()))
+  let idx = 0
+  for (const name of NXT_NAMED_OUTPUT_ALIASES) {
+    if (!set.has(name)) {
+      continue
+    }
+    if (name === alias) {
+      return idx
+    }
+    idx += 1
+  }
+  return null
+}
+
+export function namedOutputSelectItems(
+  boardShortName: string | null | undefined
+): Array<{ value: string; title: string }> {
+  const pack = nxtBoardPackFromManifest(boardShortName)
+  const named =
+    (pack?.pinmap as { namedOutputs?: string[] } | null)?.namedOutputs ??
+    [...NXT_NAMED_OUTPUT_ALIASES]
+  const free = pack?.pinmap?.free ?? []
+  return named.map((id) => {
+    const hit = free.find((p) => p.id === id || p.aliases?.includes(id))
+    return {
+      value: id,
+      title: hit?.label ? `${hit.label} (${id})` : id
+    }
+  })
+}
 
 const PROBE_ROLE_LABELS: Array<{ key: keyof ProbeRoleOccupancy; label: string }> = [
   { key: 'nxtTouchProbeID', label: 'Touch probe' },
@@ -355,7 +415,6 @@ export function gpOutItemsForBoard(
   const currentKey = options?.currentRoleKey ?? null
   const currentId =
     currentKey != null && occupancy != null ? occupancy[currentKey] ?? null : null
-  const volt = options?.motorVoltage
 
   if (free.length > 0) {
     return free
@@ -365,15 +424,6 @@ export function gpOutItemsForBoard(
         const ownedByOther = role != null && id !== currentId
         let label = p.label ?? p.aliases?.[0] ?? `Output ${id}`
         let pin = p.pin
-        if (p.id === 'aux_spare') {
-          if (volt === 24) {
-            label = 'Aux 1'
-            pin = 'A.5'
-          } else if (volt === 48) {
-            label = 'Aux 0'
-            pin = 'A.4'
-          }
-        }
         // Keep the human pin name clean; occupancy only disables the row.
         const name = ownedByOther
           ? `${formatPinSelectName(label, pin)} — used by ${role}`

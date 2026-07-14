@@ -72,9 +72,10 @@ if { exists(global.mosPTID) }
 if { exists(global.mosProbeToolID) }
     set global.nxtProbeToolID = { global.mosProbeToolID }
 
-; Normalize Jake dual-slot (probe @ 48, datum @ 49) and legacy indices → single slot at limits.tools - 1.
+; Normalize legacy MOS probe indices → single probe slot at limits.tools - 1 (no datum pocket).
 set global.nxtProbeToolID = { limits.tools - 1 }
-set global.nxtReservedFrom = { limits.tools - 1 }
+if { exists(global.nxtReservedFrom) }
+    set global.nxtReservedFrom = null
 if { exists(global.mosTPID) }
     set global.nxtTouchProbeID = { global.mosTPID }
 if { exists(global.mosTSID) }
@@ -108,7 +109,12 @@ if { exists(global.mosTSR) }
 if { exists(global.mosFAE) }
     set global.nxtFeatureFourthAxis = { global.mosFAE != 0 }
 
-if { exists(global.mosPS) && exists(global.nxtPinStates) }
+; Pin snapshot is session-only (allocated in pause.g) — copy from MOS if present, do not persist.
+if { exists(global.mosPS) }
+    if { !exists(global.nxtPinStates) }
+        global nxtPinStates = { vector(min(limits.gpOutPorts, 8), 0.0) }
+    elif { global.nxtPinStates == null }
+        set global.nxtPinStates = { vector(min(limits.gpOutPorts, 8), 0.0) }
     var pinN = { min(#global.mosPS, #global.nxtPinStates) }
     while { iterations < var.pinN }
         set global.nxtPinStates[iterations] = { global.mosPS[iterations] }
@@ -133,7 +139,11 @@ if { exists(global.mosAxisServiceAt) && exists(global.nxtAxisServiceAt) }
     var nxtSvcN = { min(#global.mosAxisServiceAt, #global.nxtAxisServiceAt) }
     while { iterations < var.nxtSvcN }
         set global.nxtAxisServiceAt[iterations] = { global.mosAxisServiceAt[iterations] }
-if { exists(global.mosToolLife) && exists(global.nxtToolLife) }
+if { exists(global.mosToolLife) }
+    if { !exists(global.nxtToolLife) }
+        global nxtToolLife = { vector(min(limits.tools, 50), null) }
+    elif { global.nxtToolLife == null }
+        set global.nxtToolLife = { vector(min(limits.tools, 50), null) }
     var nxtLifeN = { min(#global.mosToolLife, #global.nxtToolLife) }
     while { iterations < var.nxtLifeN }
         set global.nxtToolLife[iterations] = { global.mosToolLife[iterations] }
@@ -162,8 +172,8 @@ if { exists(global.mosTTLocked) }
     if { !exists(global.nxtTTLocked) }
         global nxtTTLocked = false
     set global.nxtTTLocked = { global.mosTTLocked }
-if { exists(global.mosReservedFrom) }
-    set global.nxtReservedFrom = { limits.tools - 1 }
+if { exists(global.nxtReservedFrom) }
+    set global.nxtReservedFrom = null
 if { exists(global.mosFeatRGB) }
     set global.nxtFeatureRgbLight = { global.mosFeatRGB }
 
@@ -182,9 +192,8 @@ echo >>{var.UV} {"set global.nxtFeatureToolSetter = " ^ (global.nxtFeatureToolSe
 echo >>{var.UV} {"set global.nxtFeatureCoolantControl = " ^ (global.nxtFeatureCoolantControl ? "true" : "false")}
 echo >>{var.UV} {"set global.nxtFeatureFourthAxis = " ^ (global.nxtFeatureFourthAxis ? "true" : "false")}
 echo >>{var.UV} {""}
-echo >>{var.UV} {"; Probe tool index (datum / touch probe tool table slot)"}
+echo >>{var.UV} {"; Probe tool index (touch probe tool table slot)"}
 echo >>{var.UV} {"set global.nxtProbeToolID = " ^ (global.nxtProbeToolID == null ? "null" : global.nxtProbeToolID)}
-echo >>{var.UV} {"set global.nxtReservedFrom = " ^ (global.nxtReservedFrom == null ? "null" : global.nxtReservedFrom)}
 echo >>{var.UV} {"set global.nxtDeltaMachine = " ^ (global.nxtDeltaMachine == null ? "null" : global.nxtDeltaMachine)}
 echo >>{var.UV} {""}
 echo >>{var.UV} {"; Spindle Configuration"}
@@ -330,13 +339,7 @@ echo >>{var.UV} {"set global.nxtCustomXBacklash = " ^ (global.nxtCustomXBacklash
 echo >>{var.UV} {"set global.nxtCustomYBacklash = " ^ (global.nxtCustomYBacklash == null ? "null" : global.nxtCustomYBacklash)}
 echo >>{var.UV} {"set global.nxtCustomZBacklash = " ^ (global.nxtCustomZBacklash == null ? "null" : global.nxtCustomZBacklash)}
 echo >>{var.UV} {"set global.nxtCustomABacklash = " ^ (global.nxtCustomABacklash == null ? "null" : global.nxtCustomABacklash)}
-echo >>{var.UV} {""}
-echo >>{var.UV} {"; gpOut snapshot (caps min(limits.gpOutPorts,32) in nxt-vars.g)"}
-var pline = {"set global.nxtPinStates = {"}
-while { iterations < #global.nxtPinStates }
-    set var.pline = { var.pline ^ (iterations > 0 ? ", " : "") ^ global.nxtPinStates[iterations] }
-set var.pline = { var.pline ^ "}" }
-echo >>{var.UV} {var.pline}
+; nxtPinStates is pause-session only — do not write into nxt-user-vars.g (OM ~8KB).
 
 echo "nxt: MOS migration complete — saved " ^ var.UV
 

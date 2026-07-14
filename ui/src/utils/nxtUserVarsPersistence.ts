@@ -19,7 +19,8 @@ export type NxtUserConfigDraft = {
   nxtTouchProbeID: number | null
   nxtTouchProbeInvert: boolean
   nxtProbeTipRadius: number | null
-  nxtProbeDeflection: number | null
+  /** Touch-probe deflection {X, Y} mm; null = unset. Legacy scalar normalizes to [n, n]. */
+  nxtProbeDeflection: number[] | null
   nxtToolSetterID: number | null
   nxtToolSetterInvert: boolean
   nxtToolSetterPos: number[] | null
@@ -35,6 +36,11 @@ export type NxtUserConfigDraft = {
   nxtAux1ID: number | null
   nxtAux2ID: number | null
   nxtAux3ID: number | null
+  /** Pin aliases created as M950 F instead of J (e.g. aux0). null = board voltage default on pack load. */
+  nxtBoardFanPins: string[] | null
+  /** 0=off 1=PanelDue 2=BTT TFT 3=pendant — Scylla UART PD8/PD9 */
+  nxtUartDevice: number
+  nxtUartBaud: number
   nxtPlatformProfile: string | null
   nxtBoardShortNameOverride: string | null
   nxtBoardKitKey: string | null
@@ -108,6 +114,9 @@ export const NXT_USER_VARS_PERSISTED_KEYS = [
   'nxtAux1ID',
   'nxtAux2ID',
   'nxtAux3ID',
+  'nxtBoardFanPins',
+  'nxtUartDevice',
+  'nxtUartBaud',
   'nxtPlatformProfile',
   'nxtBoardShortNameOverride',
   'nxtBoardKitKey',
@@ -204,6 +213,105 @@ export function readConfigVector(value: unknown): number[] | null {
   return null
 }
 
+/**
+ * Probe deflection as {X,Y}. Accepts legacy scalar or 1-length vector → [n, n].
+ */
+export function readConfigDeflectionXY(value: unknown): number[] | null {
+  if (value == null) {
+    return null
+  }
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return [value, value]
+  }
+  const vec = readConfigVector(value)
+  if (!vec || vec.length === 0) {
+    return null
+  }
+  if (vec.length === 1) {
+    return [vec[0], vec[0]]
+  }
+  return [vec[0], vec[1]]
+}
+
+export function isFactoryZeroDeflection(value: number[] | null | undefined): boolean {
+  return (
+    value != null &&
+    value.length >= 2 &&
+    value[0] === 0 &&
+    value[1] === 0
+  )
+}
+
+/** String vector from OM (e.g. nxtBoardFanPins). Empty array = explicitly none; null = unset. */
+export function readConfigStringVector(value: unknown): string[] | null {
+  if (value == null) {
+    return null
+  }
+  // CSV string persist form, or legacy scalar "none" / single alias
+  if (typeof value === 'string') {
+    const s = value.trim()
+    if (s.length === 0 || s === 'none') {
+      return []
+    }
+    return s.split(',').map((p) => p.trim()).filter((p) => p.length > 0 && p !== 'none')
+  }
+  const raw: unknown[] = []
+  if (Array.isArray(value)) {
+    raw.push(...value)
+  } else if (value instanceof Map) {
+    for (let i = 0; i < 16; i++) {
+      if (!value.has(i) && !value.has(String(i))) {
+        break
+      }
+      raw.push(value.get(i) ?? value.get(String(i)))
+    }
+  } else if (typeof value === 'object') {
+    const o = value as Record<string, unknown>
+    const keys = Object.keys(o)
+      .filter((k) => /^\d+$/.test(k))
+      .sort((a, b) => Number(a) - Number(b))
+    for (const k of keys) {
+      raw.push(o[k])
+    }
+  } else {
+    return null
+  }
+  return raw.map((v) => String(v).trim()).filter((s) => s.length > 0)
+}
+
+export function formatPersistedStringVector(value: string[] | null | undefined): string {
+  if (value == null) {
+    return 'null'
+  }
+  if (value.length === 0) {
+    // Explicit none as empty string (gpio treats "" / "none" as no fans)
+    return '""'
+  }
+  // CSV string — avoids RRF non-array indexing on string/"none" sentinels
+  return `"${value.map((s) => String(s).replace(/"/g, '').trim()).filter(Boolean).join(',')}"`
+}
+
+/**
+ * Live / file G-code to assign a global that may not exist yet (pre-reboot installs).
+ * RRF requires `global name = …` before `set global.name = …`.
+ * Returns a single multi-line block (if/else) for file persist, or use
+ * {@link gcodeEnsureGlobalLines} for stepwise DWC sendCode.
+ */
+export function gcodeEnsureSetGlobal(name: string, rhs: string): string {
+  return gcodeEnsureGlobalLines(name, rhs).join('\n')
+}
+
+/** Two short if-blocks so DWC can send them as separate rr_gcode calls if needed. */
+export function gcodeEnsureGlobalLines(name: string, rhs: string): string[] {
+  const key = name.replace(/^global\./, '')
+  return [
+    `if { !exists(global.${key}) }`,
+    `    global ${key} = ${rhs}`,
+    `if { exists(global.${key}) }`,
+    `    set global.${key} = ${rhs}`
+  ]
+}
+
 export function emptyConfigDraft(): NxtUserConfigDraft {
   return {
     nxtFeatureTouchProbe: false,
@@ -236,6 +344,9 @@ export function emptyConfigDraft(): NxtUserConfigDraft {
     nxtAux1ID: null,
     nxtAux2ID: null,
     nxtAux3ID: null,
+    nxtBoardFanPins: null,
+    nxtUartDevice: 0,
+    nxtUartBaud: 57600,
     nxtPlatformProfile: null,
     nxtBoardShortNameOverride: null,
     nxtBoardKitKey: null,
@@ -345,7 +456,7 @@ export function snapshotConfigFromOm(globalVal: unknown): NxtUserConfigDraft {
     draft.nxtTouchProbeInvert = inv === undefined ? true : readConfigBool(inv)
   }
   draft.nxtProbeTipRadius = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtProbeTipRadius'))
-  draft.nxtProbeDeflection = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtProbeDeflection'))
+  draft.nxtProbeDeflection = readConfigDeflectionXY(readFirmwareGlobal(globalVal, 'nxtProbeDeflection'))
   draft.nxtToolSetterID = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtToolSetterID'))
   {
     const inv = readFirmwareGlobal(globalVal, 'nxtToolSetterInvert')
@@ -370,6 +481,15 @@ export function snapshotConfigFromOm(globalVal: unknown): NxtUserConfigDraft {
   draft.nxtAux1ID = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtAux1ID'))
   draft.nxtAux2ID = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtAux2ID'))
   draft.nxtAux3ID = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtAux3ID'))
+  {
+    const fansRaw = readFirmwareGlobal(globalVal, 'nxtBoardFanPins')
+    draft.nxtBoardFanPins =
+      fansRaw === null || fansRaw === undefined
+        ? null
+        : (readConfigStringVector(fansRaw) ?? []).filter((s) => s !== 'none')
+  }
+  draft.nxtUartDevice = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtUartDevice')) ?? 0
+  draft.nxtUartBaud = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtUartBaud')) ?? 57600
   draft.nxtPlatformProfile = migratePlatformProfileId(
     readConfigString(readFirmwareGlobal(globalVal, 'nxtPlatformProfile'))
   )
@@ -451,12 +571,18 @@ export function mapMosGlobalsToConfig(globalVal: unknown, draft: NxtUserConfigDr
   mosNum('mosSDS', 'nxtSpindleDecelSec')
   mosNum('mosTPID', 'nxtTouchProbeID')
   mosNum('mosTPR', 'nxtProbeTipRadius')
-  mosNum('mosTPD', 'nxtProbeDeflection')
   mosNum('mosTSID', 'nxtToolSetterID')
   mosNum('mosCAID', 'nxtCoolantAirID')
   mosNum('mosCMID', 'nxtCoolantMistID')
   mosNum('mosCFID', 'nxtCoolantFloodID')
   mosNum('mosRelayID', 'nxtRelayID')
+
+  if (isDraftFieldUnset(draft, 'nxtProbeDeflection')) {
+    const mosTpd = readFirmwareGlobal(globalVal, 'mosTPD')
+    if (mosTpd !== undefined) {
+      draft.nxtProbeDeflection = readConfigDeflectionXY(mosTpd)
+    }
+  }
 
   if (isDraftFieldUnset(draft, 'nxtToolSetterPos') && readFirmwareGlobal(globalVal, 'mosTSP') !== undefined) {
     draft.nxtToolSetterPos = readConfigVector(readFirmwareGlobal(globalVal, 'mosTSP'))
@@ -484,8 +610,7 @@ export function applySingletonDefaults(draft: NxtUserConfigDraft, ctx: MachineLi
 const NXT_VARS_FACTORY_SENTINELS: Partial<Record<keyof NxtUserConfigDraft, number>> = {
   nxtTouchProbeID: 0,
   nxtToolSetterID: 1,
-  nxtProbeTipRadius: 0,
-  nxtProbeDeflection: 0
+  nxtProbeTipRadius: 0
 }
 
 function clearNxtVarsFactoryDefaults(draft: NxtUserConfigDraft): void {
@@ -494,6 +619,10 @@ function clearNxtVarsFactoryDefaults(draft: NxtUserConfigDraft): void {
     if (sentinel !== undefined && draft[key] === sentinel) {
       ;(draft as Record<string, unknown>)[key] = null
     }
+  }
+  // nxt-vars.g default {0.0, 0.0} — not a measured user value
+  if (isFactoryZeroDeflection(draft.nxtProbeDeflection)) {
+    draft.nxtProbeDeflection = null
   }
 }
 
@@ -570,7 +699,7 @@ export function buildNxtUserVarsGcode(config: NxtUserConfigDraft): string {
     `set global.nxtTouchProbeID = ${formatPersistedNumber(config.nxtTouchProbeID)}`,
     `set global.nxtTouchProbeInvert = ${formatPersistedBool(config.nxtTouchProbeInvert)}`,
     `set global.nxtProbeTipRadius = ${formatPersistedNumber(config.nxtProbeTipRadius)}`,
-    `set global.nxtProbeDeflection = ${formatPersistedNumber(config.nxtProbeDeflection)}`,
+    `set global.nxtProbeDeflection = ${formatPersistedVector(config.nxtProbeDeflection)}`,
     '; Probe repeatability: defaults in nxt-vars.g; optional 0:/sys/nxt-user-overrides.g',
     '',
     '; Tool Setter Configuration',
@@ -591,6 +720,9 @@ export function buildNxtUserVarsGcode(config: NxtUserConfigDraft): string {
     `set global.nxtAux1ID = ${formatPersistedNumber(config.nxtAux1ID)}`,
     `set global.nxtAux2ID = ${formatPersistedNumber(config.nxtAux2ID)}`,
     `set global.nxtAux3ID = ${formatPersistedNumber(config.nxtAux3ID)}`,
+    gcodeEnsureSetGlobal('nxtBoardFanPins', formatPersistedStringVector(config.nxtBoardFanPins)),
+    gcodeEnsureSetGlobal('nxtUartDevice', formatPersistedNumber(config.nxtUartDevice)),
+    gcodeEnsureSetGlobal('nxtUartBaud', formatPersistedNumber(config.nxtUartBaud)),
     '',
     '; --- Board pack (Configuration panel) ---',
     `; Bootstrap: ${config.nxtBoardBootstrapMode === 'auto' ? 'auto (syncs nxt-board-bootstrap.requested on Save)' : 'off'}`,
@@ -602,18 +734,38 @@ export function buildNxtUserVarsGcode(config: NxtUserConfigDraft): string {
     config.nxtBoardSysDeployPlatform
       ? `; Homing sys deploy platform: ${config.nxtBoardSysDeployPlatform}`
       : '; Homing sys deploy platform: (not recorded — use Apply platform sys files)',
-    `set global.nxtPlatformProfile = ${formatPersistedString(config.nxtPlatformProfile)}`,
-    `set global.nxtBoardShortNameOverride = ${formatPersistedString(config.nxtBoardShortNameOverride)}`,
-    `set global.nxtBoardMotorVoltage = ${formatPersistedNumber(config.nxtBoardMotorVoltage)}`,
-    `set global.nxtBoardBootstrapMode = "${config.nxtBoardBootstrapMode === 'auto' ? 'auto' : 'off'}"`,
-    `set global.nxtBoardPackExpectedEntry = ${formatPersistedString(config.nxtBoardPackExpectedEntry)}`,
-    `set global.nxtBoardSysDeployPlatform = ${formatPersistedString(config.nxtBoardSysDeployPlatform)}`
+    gcodeEnsureSetGlobal(
+      'nxtBoardBootstrapMode',
+      `"${config.nxtBoardBootstrapMode === 'auto' ? 'auto' : 'off'}"`
+    ),
+    gcodeEnsureSetGlobal(
+      'nxtPlatformProfile',
+      formatPersistedString(config.nxtPlatformProfile)
+    ),
+    gcodeEnsureSetGlobal(
+      'nxtBoardShortNameOverride',
+      formatPersistedString(config.nxtBoardShortNameOverride)
+    ),
+    gcodeEnsureSetGlobal(
+      'nxtBoardMotorVoltage',
+      formatPersistedNumber(config.nxtBoardMotorVoltage)
+    ),
+    gcodeEnsureSetGlobal(
+      'nxtBoardPackExpectedEntry',
+      formatPersistedString(config.nxtBoardPackExpectedEntry)
+    ),
+    gcodeEnsureSetGlobal(
+      'nxtBoardSysDeployPlatform',
+      formatPersistedString(config.nxtBoardSysDeployPlatform)
+    )
   ]
 
   // Omit null optional keys — each `set global.foo = null` recreates an OM entry and
   // can push the SBC `global` JSON over the 8KB SPI limit.
   if (config.nxtBoardKitKey != null && config.nxtBoardKitKey !== '') {
-    lines.push(`set global.nxtBoardKitKey = ${formatPersistedString(config.nxtBoardKitKey)}`)
+    lines.push(
+      gcodeEnsureSetGlobal('nxtBoardKitKey', formatPersistedString(config.nxtBoardKitKey))
+    )
   }
 
   const customPairs: Array<[string, number | string | null | undefined]> = [

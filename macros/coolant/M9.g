@@ -22,6 +22,9 @@ if { !var.restore }
     M99
 
 ; Restore coolant intent from pause snapshot (not instantaneous pulse phase)
+if { !exists(global.nxtPinStates) || global.nxtPinStates == null }
+    M99
+
 var floodOn = false
 if { global.nxtCoolantFloodID != null }
     set var.floodOn = { global.nxtPinStates[global.nxtCoolantFloodID] > 0 }

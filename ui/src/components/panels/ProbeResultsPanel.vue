@@ -213,15 +213,15 @@ export default defineNxtComponent({
         { title: '', key: 'actions', sortable: false, width: '60px' }
       ],
       wcsOptions: [
-        { text: 'WCS1', value: 1 },
-        { text: 'WCS2', value: 2 },
-        { text: 'WCS3', value: 3 },
-        { text: 'WCS4', value: 4 },
-        { text: 'WCS5', value: 5 },
-        { text: 'WCS6', value: 6 },
-        { text: 'WCS7', value: 7 },
-        { text: 'WCS8', value: 8 },
-        { text: 'WCS9', value: 9 }
+        { text: 'WCS1 (G54)', value: 1 },
+        { text: 'WCS2 (G55)', value: 2 },
+        { text: 'WCS3 (G56)', value: 3 },
+        { text: 'WCS4 (G57)', value: 4 },
+        { text: 'WCS5 (G58)', value: 5 },
+        { text: 'WCS6 (G59)', value: 6 },
+        { text: 'WCS7 (G59.1)', value: 7 },
+        { text: 'WCS8 (G59.2)', value: 8 },
+        { text: 'WCS9 (G59.3)', value: 9 }
       ]
     }
   },

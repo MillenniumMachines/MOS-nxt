@@ -32,13 +32,13 @@ if { !exists(global.nxtProbeToolID) || global.nxtProbeToolID == null }
     set global.nxtProbeToolID = { limits.tools - 1 }
     echo "[nxt] boot: nxtProbeToolID unset — defaulting to last tool index " ^ global.nxtProbeToolID
 
-if { !exists(global.nxtReservedFrom) || global.nxtReservedFrom == null }
-    set global.nxtReservedFrom = { limits.tools - 1 }
-
-; Normalize probe slot to last index (single-slot T49 model).
+; Normalize probe slot to last index (T49 on 50-tool tables). No separate datum pocket.
 if { global.nxtProbeToolID != limits.tools - 1 }
     set global.nxtProbeToolID = { limits.tools - 1 }
-    set global.nxtReservedFrom = { limits.tools - 1 }
+
+; Legacy nxtReservedFrom (dual-slot alias) — clear if present so it does not bloat OM.
+if { exists(global.nxtReservedFrom) }
+    set global.nxtReservedFrom = null
 
 if { global.nxtFeatureTouchProbe && (!exists(global.nxtDeltaMachine) || global.nxtDeltaMachine == null) }
     set global.nxtConfigPending = true
@@ -49,7 +49,7 @@ if { global.nxtFeatureTouchProbe && (!exists(global.nxtDeltaMachine) || global.n
 
 ; --- All checks passed ---
 
-; Ensure probe/datum tool row matches config (M4000 early-exits when unchanged; no M4001 wipe).
+; Ensure probe tool row matches config (M4000 early-exits when unchanged; no M4001 wipe).
 if { exists(global.nxtProbeToolID) && global.nxtProbeToolID != null }
     if { global.nxtProbeToolID < limits.tools }
         M98 P"nxt-probe-tool-sync.g"

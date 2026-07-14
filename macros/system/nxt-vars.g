@@ -17,8 +17,9 @@ global nxtTutorialMode = true           ; Echo tutorial messages during probing
 global nxtWS = ""                       ; Work-state hint for RGB daemon ("probing", "homing", …)
 
 ; --- Core Settings ---
-global nxtProbeToolID = { limits.tools - 1 } ; Touch probe and datum share this slot (T49 on 50-tool table)
-global nxtReservedFrom = { limits.tools - 1 } ; First system-reserved index; user tools 0 .. nxtReservedFrom-1
+global nxtProbeToolID = { limits.tools - 1 } ; Touch probe RRF slot (T49 on 50-tool table)
+; nxtReservedFrom removed from always-on declares (was a dual-slot/range alias; OM budget).
+; Legacy SD may still `set` it — boot clears/syncs only if it already exists.
 global nxtTouchProbeID = 0             ; The ID of the touch probe sensor
 global nxtToolSetterID = 1             ; The ID of the tool setter sensor
 ; Active-low invert for M558 C"…" (`!` prefix). Touch probe NC typical = true.
@@ -34,7 +35,9 @@ global nxtConfigPending = false       ; true when nxt-user-vars.g missing — us
 ; --- Tooling & Probing ---
 global nxtDeltaMachine = null      ; The static Z distance between the toolsetter and reference surface
 global nxtProbeResults = { vector(5, null) } ; Last 5 probe results (rows sized at runtime to #move.axes+1)
-global nxtToolCache = { vector(min(limits.tools, 50), null) } ; Per-tool cache (max 50 slots)
+; Tool-length cache for relative offsets (tpost) — two scalars, not vector(limits.tools) (OM ~8KB)
+global nxtToolCacheIdx = -1            ; tool index for nxtToolCacheZ (-1 = empty)
+global nxtToolCacheZ = null            ; last measured Z / virtual toolsetter Z for that tool
 global nxtLastProbeResult = null   ; Stores the result of the last probing operation
 global nxtProbeTipRadius = 0.0    ; Radius of the probe tip for compensation (mm)
 global nxtProbeDeflection = {0.0, 0.0} ; {X,Y} touch-probe deflection (mm) — MOS mosTPD layout
@@ -109,7 +112,8 @@ global nxtIdleDimBri = 40             ; RGB brightness while idle (0-255; error 
 global nxtFeatMaint = true                            ; master enable for maintenance tracking
 global nxtAxisTravel = { vector(max(#move.axes, 4), 0.0) }    ; accumulated travel per axis (mm)
 global nxtAxisServiceAt = { vector(max(#move.axes, 4), 0.0) } ; per-axis service threshold (mm); 0 = off
-global nxtToolLife = { vector(limits.tools, 0.0) }    ; accumulated spindle-on time per tool (s)
+; Tool life: null until first tick / nxt-maintenance.g (50×0.0 floats blow the SBC ~8KB global cap)
+global nxtToolLife = null
 global nxtMaintLastPos = { vector(max(#move.axes, 4), 0.0) }  ; last sampled machine position per axis
 global nxtMaintLastTime = 0                           ; last sampled uptime (s) for life dt
 global nxtMaintPrimed = false                         ; false until the first sample is taken
@@ -130,16 +134,28 @@ global nxtIdleSince = 0               ; runtime: uptime(s) activity was last see
 ; Motor / VFD contactor relay output — reserved from coolant Configuration UI
 global nxtRelayID = null
 
-; Aux gpOut roles (Configuration UI; reserved for future macros)
+; Aux gpOut roles (Configuration UI). Scylla labels: Aux0→nxtAux1ID, Aux1→nxtAux2ID, Aux2→nxtAux3ID
 global nxtAux1ID = null
 global nxtAux2ID = null
 global nxtAux3ID = null
+
+; Named board pins created as fans (M950 F) instead of gpOut (M950 J).
+; Default filled by Scylla gpio.g from motor voltage when null: 24V→aux0, 48V→aux1.
+; Idempotent: gpio.g may declare this before nxt-vars on some boot paths.
+if { !exists(global.nxtBoardFanPins) }
+    global nxtBoardFanPins = null
+else
+    set global.nxtBoardFanPins = null
+
+; UART accessory on board serial header (Scylla PD8/PD9 aux2). 0=off 1=PanelDue 2=TFT 3=pendant
+global nxtUartDevice = 0
+global nxtUartBaud = 57600
 
 ; --- Coolant Control ---
 global nxtCoolantAirID = null ; Coolant Air Output Pin ID
 global nxtCoolantMistID = null ; Coolant Mist Output Pin ID
 global nxtCoolantFloodID = null ; Coolant Flood Output Pin ID
-global nxtPinStates = { vector(min(limits.gpOutPorts, 8), 0.0) } ; gpOut PWM snapshot; pause.g uses min(#gpOut, #nxtPinStates)
+global nxtPinStates = null ; gpOut PWM snapshot; allocated in pause.g (OM budget)
 global nxtCoolantMistPulseEnabled = false ; Pulse mist output when M7 is used
 global nxtCoolantFloodPulseEnabled = false ; Pulse flood output when M8 is used
 global nxtCoolantPulseOnSec = 5 ; Coolant pulse ON phase length (seconds)
@@ -155,9 +171,19 @@ global nxtDaemonEnabled = true ; Enable macros/system/daemon.g background loop
 global nxtDaemonInterval = 250 ; Minimum milliseconds between daemon iterations
 
 ; --- Spindle Control ---
-global nxtSpindleID = null  ; Default Spindle ID
-global nxtSpindleAccelSec = null  ; Spindle Acceleration Time (seconds)
-global nxtSpindleDecelSec = null  ; Spindle Deceleration Time (seconds)
+; Idempotent: must exist before nxt-user-vars.g set (do not bare-declare after a mid-file abort).
+if { !exists(global.nxtSpindleID) }
+    global nxtSpindleID = 0
+else
+    set global.nxtSpindleID = 0
+if { !exists(global.nxtSpindleAccelSec) }
+    global nxtSpindleAccelSec = null
+else
+    set global.nxtSpindleAccelSec = null
+if { !exists(global.nxtSpindleDecelSec) }
+    global nxtSpindleDecelSec = null
+else
+    set global.nxtSpindleDecelSec = null
 
 ; --- Canned drilling cycles (G81, G73, G83, …) ---
 ; When non-null, nxtCannedCycle is a vector:
@@ -172,9 +198,8 @@ global nxtCannedZi = 0              ; scratch: Z axis index (set by nxt-canned-z
 global nxtPlatformProfile = null   ; platform id = nxt-config/machine/<id>/ directory name
 global nxtBoardShortNameOverride = null ; RRF boards[0].shortName override for pack resolution, or null
 global nxtBoardMotorVoltage = null ; 24 | 48 | null (motor-24v / motor-48v board packs)
-global nxtBoardPackEntry = null    ; last resolved entry path at boot (telemetry)
-global nxtBoardPackExpectedEntry = null ; saved expected entry path (Configuration Save)
-global nxtBoardSysDeployPlatform = null ; platform whose home*.g were last deployed to 0:/sys/
+; Pack path telemetry (Entry / Expected / ShortName / SysDeploy): declare on first use in
+; nxt-board-pack-resolve.g / Configuration Save (OM budget — not always-on nulls).
 global nxtBoardBootstrapMode = "off" ; "off" | "auto" (Save syncs nxt-board-bootstrap.requested)
 
 ; --- Optional magazine / ATC extension (not allocated here) ---

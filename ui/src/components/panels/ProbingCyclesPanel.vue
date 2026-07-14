@@ -454,9 +454,10 @@ export default defineNxtComponent({
       return this.$store.state.machine.model?.state?.currentTool === this.probeToolId
     },
     wcsOptions(): { text: string; value: number }[] {
-      // Labels match internal WCS numbers 1–9 (G54–G59.3 / U and M6520 W).
+      // 1–9 = G54–G59.3 (M6520 W / probe U). WCS1 = G54, WCS2 = G55, …
+      const gCodes = ['G54', 'G55', 'G56', 'G57', 'G58', 'G59', 'G59.1', 'G59.2', 'G59.3']
       return Array.from({ length: 9 }, (_, i) => ({
-        text: `WCS${i + 1}`,
+        text: `WCS${i + 1} (${gCodes[i]})`,
         value: i + 1
       }))
     },

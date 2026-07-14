@@ -6,8 +6,14 @@
 if { !inputs[state.thisInput].active }
     M99
 
-if { !exists(global.nxtAxisTravel) || !exists(global.nxtToolLife) }
+if { !exists(global.nxtAxisTravel) }
     M99
+
+; Lazy tool-life vector (null at boot until first use / this save)
+if { !exists(global.nxtToolLife) }
+    global nxtToolLife = { vector(min(limits.tools, 50), null) }
+elif { global.nxtToolLife == null }
+    set global.nxtToolLife = { vector(min(limits.tools, 50), null) }
 
 var f = { "0:/sys/nxt-maintenance.g" }
 
@@ -22,7 +28,7 @@ while { var.a < var.nxtSaveTravelN }
 
 var t = 0
 while { var.t < #global.nxtToolLife }
-    if { global.nxtToolLife[var.t] > 0 }
+    if { global.nxtToolLife[var.t] != null && global.nxtToolLife[var.t] > 0 }
         echo >>{var.f} { "    set global.nxtToolLife[" ^ var.t ^ "] = " ^ global.nxtToolLife[var.t] }
     set var.t = { var.t + 1 }
 

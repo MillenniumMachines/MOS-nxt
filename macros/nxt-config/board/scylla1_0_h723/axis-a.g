@@ -1,6 +1,6 @@
 ; axis-a.g — Scylla v1.0 fourth axis (physical drive 3)
 ;
-; Loaded from motor-*/entry.g when global.nxtFeatureFourthAxis is true.
+; Loaded from motor-*/entry.g when global.nxtFeatureFourthAxis is true (boolean).
 ; Pins: amin=PD_15 (D.15), amax=PD_13 (D.13). Driver 3 is the 4th TMC5160.
 ;
 ; Steps/mm, soft limits, and speeds: prefer MosFourthAxis

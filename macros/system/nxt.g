@@ -82,6 +82,9 @@ else
     M117 "nxt config pending"
     echo "nxt: nxt-user-vars.g not found — open DWC Configuration, review settings, then Save to create the file."
 
+; Operator overlay done — enter CNC mode before board pack (meta if/exists need { } under M453).
+M453
+
 ; Optional: load board pack (drives, limits, spindle, …). After user vars so motor voltage / platform apply.
 ; Requires 0:/sys/nxt-board-bootstrap.requested — see nxt-board-pack-loader.g
 M117 "nxt board-pack"
@@ -104,7 +107,7 @@ if { !exists(global.nxtLoaded) }
 if { !exists(global.nxtBootOk) }
     global nxtBootOk = false
 
-; CNC mode before boot checks (board pack may also M453; safe to repeat)
+; CNC mode (idempotent if already set above; board pack may also M453)
 M453
 
 ; Run boot-time sanity checks (sets nxtBootOk; does not set nxtLoaded)
@@ -113,6 +116,10 @@ M98 P"nxt-boot.g"
 
 ; Restore persisted maintenance counters (axis travel + tool life) when present.
 if { global.nxtBootOk && fileexists("0:/sys/nxt-maintenance.g") }
+    if { !exists(global.nxtToolLife) }
+        global nxtToolLife = { vector(min(limits.tools, 50), null) }
+    elif { global.nxtToolLife == null }
+        set global.nxtToolLife = { vector(min(limits.tools, 50), null) }
     M117 "nxt nxt-maintenance.g"
     M98 P"nxt-maintenance.g"
 
@@ -139,10 +146,10 @@ elif { global.nxtBootOk && global.nxtDaemonHookPluginInit }
 
 ; MosFourthAxis (optional sibling plugin) — only when feature on and files present.
 ; Prefer 0:/sys/mos-fourth-axis.g (init + M4800). Else init under plugins/ + M4800.
+; Feature flag is boolean (same as other nxtFeature*); do not compare to 1.
 var nxtFaOn = false
-if { exists(global.nxtFeatureFourthAxis) }
-    if { global.nxtFeatureFourthAxis == true || global.nxtFeatureFourthAxis == 1 }
-        set var.nxtFaOn = true
+if { exists(global.nxtFeatureFourthAxis) && global.nxtFeatureFourthAxis }
+    set var.nxtFaOn = true
 
 if { var.nxtFaOn }
     if { fileexists("0:/sys/mos-fourth-axis.g") }

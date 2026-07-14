@@ -105,20 +105,24 @@ Pack loading vs homing deploy: [NXT_BOARD_CONFIG.md](NXT_BOARD_CONFIG.md).
 
 ### 6. Coolant / output roles
 
-Configure GPIO outputs from **named board pins** (Mist, Coolant, Relay, Aux, …):
+Configure GPIO outputs from **named board pins** (Mist, Coolant, Relay, Aux, …). On Scylla, the board pack creates ports and fills null role IDs in order **mist → coolant → aux0 → aux1 → aux2 → relay**.
 
-| Setting | Description | Example (Scylla) |
-|---------|-------------|------------------|
-| Relay | Motor/VFD contactor | Relay (`D.5`) |
-| Aux 1–3 | Spare aux MOSFET outputs | Aux 1 / Aux 2 |
-| Air Blast | Any free named gpOut | Aux 2 |
-| Mist Coolant | Prefer Mist pin | Mist (`A.7`) |
-| Flood / Coolant | Prefer Coolant pin | Coolant (`C.4`) |
+| Setting | Description | Example (Scylla preferred) |
+|---------|-------------|----------------------------|
+| Relay | Motor/VFD contactor | Relay J5 (`D.5`) |
+| Aux 0 / 1 / 2 | Spare aux MOSFET outputs | Aux0 J2 / Aux1 J3 / Aux2 J4 |
+| Air Blast | Any free named gpOut | — |
+| Mist Coolant | Prefer Mist pin | Mist J0 (`A.7`) |
+| Flood / Coolant | Prefer Coolant pin | Coolant J1 (`C.4`) |
+| Board pins as fans | Multi-select → `M950 F` instead of gpOut | Default Aux0@24V / Aux1@48V |
+| UART accessory | Single device on PD8/PD9 | Off / PanelDue / TFT / Pendant |
 
 **Usage Notes:**
 - Dropdown labels use board pin names from `pinmap.json` (not bare `Output N`)
-- Clear a field to unassign; pins used by another role are disabled in other dropdowns
+- Clear a field to unassign; pins used by another role or selected as fans are disabled
 - Coolant IDs drive M7 / M8 / M9 via `M42 P{id}`
+- **Output test:** hold to energize (`M42` for gpOut, `M106` for fan-mode); release turns OFF (pointer capture avoids the old mouseleave race)
+- Fan / UART hardware changes need **Save** then **reboot** (or board pack reload) so `M950` / `M575` re-run
 - Pulse timing requires `macros/system/daemon.g` (enabled by default via `global.nxtDaemonEnabled`)
 - When pulsing is enabled for a type, `M7`/`M8` turn that output on in cycles; `M9` stops pulsing immediately
 - Pause saves coolant **intent** (not instantaneous OFF phase) so resume restores pulsing correctly

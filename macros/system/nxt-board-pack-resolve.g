@@ -13,8 +13,9 @@ else
     M99
 
 if { !exists(global.nxtBoardPackShortName) }
-    global nxtBoardPackShortName = ""
-set global.nxtBoardPackShortName = var.brd
+    global nxtBoardPackShortName = var.brd
+else
+    set global.nxtBoardPackShortName = var.brd
 
 var volt = null
 if { exists(global.nxtBoardMotorVoltage) && global.nxtBoardMotorVoltage != null }
@@ -60,7 +61,10 @@ if { var.entry == "" }
 if { exists(global.nxtBoardPackExpectedEntry) && global.nxtBoardPackExpectedEntry != null && global.nxtBoardPackExpectedEntry != "" && var.entry != global.nxtBoardPackExpectedEntry }
     echo "[nxt] board pack: resolved " ^ var.entry ^ " expected " ^ global.nxtBoardPackExpectedEntry
 
-set global.nxtBoardPackEntry = var.entry
+if { !exists(global.nxtBoardPackEntry) }
+    global nxtBoardPackEntry = var.entry
+else
+    set global.nxtBoardPackEntry = var.entry
 M117 "nxt board pack load"
 M98 P{var.entry}
 echo "[nxt] board pack: loaded " ^ global.nxtBoardPackEntry

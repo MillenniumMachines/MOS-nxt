@@ -22,22 +22,41 @@ DWC always polls the whole `global` key; plugins cannot split that request.
 7. Board pack, tools, boot checks, plugin-init **once**, single post-colour RGB `M950`, …
 8. **`nxt-user-overrides.g`** — last wins → then `nxtLoaded`
 
-Configuration / Calibration **Save** and Custom **Apply** share [`ui/src/utils/nxtUserConfigPersist.ts`](../ui/src/utils/nxtUserConfigPersist.ts) (`persistNxtUserConfig`): user-vars upload, idempotent bootstrap + `nxt-custom.requested` sync, cached `ensureCustomGlobals`, optional Custom pack deploy.
+Configuration / Calibration **Save** and Custom **Apply** share [`ui/src/utils/nxtUserConfigPersist.ts`](../ui/src/utils/nxtUserConfigPersist.ts) (`persistNxtUserConfig`): user-vars upload, idempotent bootstrap + `nxt-custom.requested` / `nxt-custom-a.requested` sync, cached `ensureCustomGlobals`, optional Custom pack deploy.
 
 ## Rules
 
 1. Prefer `null` slots over filled templates (`nxtTT`).
 2. Do not expand `nxtProbeResults` / `nxtProbeHitXY` / cal travel vectors at boot.
-3. Do not put `nxtCustom*` or deprecated `nxtBoardKitKey` / `nxtScyllaMotorVoltage` in `nxt-vars.g`.
-4. Do not declare touch/toolsetter-specific sample-count triples in `nxt-vars.g` (optional via overrides).
-5. Never persist `set global.foo = null` for optional keys in `nxt-user-vars.g`.
-6. Avoid dual `mosTT` + `nxtTT`.
-7. Do not gate `nxt-probe-wcs.g` on `nxtOvertravel` (align may set OT from MOS first).
+3. Do not pre-fill `nxtToolLife` with `vector(limits.tools, 0.0)` — leave `null` and allocate on first use (`nxt-tool-life-ensure.g` / maintenance).
+4. Do not put `nxtCustom*` or deprecated `nxtBoardKitKey` / `nxtScyllaMotorVoltage` in `nxt-vars.g`.
+5. Do not declare touch/toolsetter-specific sample-count triples in `nxt-vars.g` (optional via overrides).
+6. Never persist `set global.foo = null` for optional keys in `nxt-user-vars.g`.
+7. Avoid dual `mosTT` + `nxtTT`.
+8. Do not gate `nxt-probe-wcs.g` on `nxtOvertravel` (align may set OT from MOS first).
+9. Tool-length cache is scalars (`nxtToolCacheIdx` / `nxtToolCacheZ`), not `vector(limits.tools)`.
+10. `nxtPinStates` stays `null` until `pause.g`; do not persist it in user-vars.
+11. Custom A-axis keys only when `0:/sys/nxt-custom-a.requested` exists (Save syncs when any `nxtCustomA*` is set).
+12. Board pack path telemetry (`nxtBoardPackEntry` / Expected / ShortName / SysDeploy) is declare-on-use — not always-on nulls in `nxt-vars.g`.
 
 ## Checking size
 
 ```bash
 node dist/check-om-global-budget.mjs
 ```
+
+The checker does **three** things:
+
+1. **Hygiene** — Custom gating, null session vectors, null-filled `nxtTT`, no deprecated keys, …
+2. **Known bloat bans** — e.g. `nxtToolLife = { vector(limits.tools, 0.0) }` at boot (this alone can push Custom machines over 8 KiB)
+3. **Estimated JSON size** — sums a pessimistic UTF-8 size for lean boot (`nxt-vars` + tooltable) and for lean + all Custom null declares; fails if estimates exceed soft thresholds below the 8192 cliff
+
+Example OK line:
+
+```text
+check-om-global-budget: estimate lean≈NNNNB customNulls≈MMMMB lean+custom≈PPPPB (limit 8192; …)
+```
+
+Estimates are **not** a live DSF capture — leave headroom for `nxt-user-vars.g` strings, filled `nxtTT` slots, and third-party globals (e.g. MosFourthAxis). If the printer still reports `total length 8xxx, key global`, shrink further even when the checker is green.
 
 Cursor rule: [`.cursor/rules/om-global-size.mdc`](../.cursor/rules/om-global-size.mdc).

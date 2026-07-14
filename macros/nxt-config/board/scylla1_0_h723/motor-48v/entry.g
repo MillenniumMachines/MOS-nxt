@@ -6,9 +6,12 @@ if { fileexists("0:/sys/estop.g") }
     M98 P"estop.g"
 M98 P"nxt-config/board/scylla1_0_h723/motor-48v/drives.g"
 M98 P"nxt-config/board/scylla1_0_h723/motor-48v/speed.g"
-M98 P"nxt-config/board/scylla1_0_h723/motor-48v/fans.g"
+; Named outputs + optional fans (mist/coolant/aux0/aux1/aux2/relay)
 M98 P"nxt-config/board/scylla1_0_h723/gpio.g"
-M98 P"nxt-config/board/scylla1_0_h723/motor-48v/gpio-aux.g"
+M98 P"nxt-config/board/scylla1_0_h723/gpio-role-defaults.g"
+; UART header PD8/PD9 when nxtUartDevice != 0
+if { fileexists("0:/sys/nxt-config/board/scylla1_0_h723/uart.g") }
+    M98 P"nxt-config/board/scylla1_0_h723/uart.g"
 ; RGB / NeoPixel header (PD_6) — always define pin + M950 strip
 if { fileexists("0:/sys/nxt-config/board/scylla1_0_h723/rgb.g") }
     M117 "nxt board RGB"
@@ -16,12 +19,11 @@ if { fileexists("0:/sys/nxt-config/board/scylla1_0_h723/rgb.g") }
 else
     echo "[nxt] board Scylla: rgb.g missing on SD — reinstall nxt-config"
 M98 P"nxt-config/board/scylla1_0_h723/motor-48v/spindle.g"
-; Optional A / rotary (drive 3) when global.nxtFeatureFourthAxis is true/1
+; Optional A / rotary (drive 3) when global.nxtFeatureFourthAxis (boolean)
 ; (Configuration Save / MOS import — MosFourthAxis for steps/homea)
 var nxtLoadAxisA = false
-if { exists(global.nxtFeatureFourthAxis) }
-    if { global.nxtFeatureFourthAxis == true || global.nxtFeatureFourthAxis == 1 }
-        set var.nxtLoadAxisA = true
+if { exists(global.nxtFeatureFourthAxis) && global.nxtFeatureFourthAxis }
+    set var.nxtLoadAxisA = true
 if { var.nxtLoadAxisA }
     if { fileexists("0:/sys/nxt-config/board/scylla1_0_h723/axis-a.g") }
         M117 "nxt board A axis"

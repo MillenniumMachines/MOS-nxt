@@ -13,7 +13,9 @@ if { exists(param.D) && param.D < 0 }
 M400
 
 ; Spindles only need to be stopped if they're actually running.
-var spindleID = { global.nxtSpindleID }
+var spindleID = 0
+if { exists(global.nxtSpindleID) && global.nxtSpindleID != null }
+    set var.spindleID = { global.nxtSpindleID }
 
 var doWait = false
 

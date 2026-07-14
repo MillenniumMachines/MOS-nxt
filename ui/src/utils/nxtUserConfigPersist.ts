@@ -4,16 +4,18 @@
  */
 import type { NxtUserConfigDraft } from './nxtUserVarsPersistence'
 import { buildNxtUserVarsGcode } from './nxtUserVarsPersistence'
-import { buildCustomPackFiles } from './nxtCustomPackGenerate'
+import { buildCustomPackFiles, customAAxisPartiallyConfigured } from './nxtCustomPackGenerate'
 import { deployPlatformSysFiles } from './nxtBoardSysDeploy'
 import { syncBoardBootstrapSentinels } from './nxtBoardBootstrapSync'
 import {
+  NXT_CUSTOM_A_REQUESTED_PATH,
   NXT_CUSTOM_REQUESTED_PATH,
   NXT_USER_VARS_DWC_PATH,
   deleteDwcFile,
   dwcFileExists,
   uploadDwcFile
 } from './nxtFileUpload'
+import { ensureSetFirmwareGlobal } from './nxtOmEnsureSet'
 import store from '../compat/dwcStore'
 
 let _customGlobalsEnsured = false
@@ -96,6 +98,27 @@ export async function syncCustomRequestedSentinel(wantCustom: boolean): Promise<
   }
 }
 
+/** Optional A-axis Custom keys — OM budget; pairs with nxt-custom-globals.g gate. */
+export async function syncCustomARequestedSentinel(wantA: boolean): Promise<void> {
+  const exists = await dwcFileExists(NXT_CUSTOM_A_REQUESTED_PATH)
+  if (wantA) {
+    if (!exists) {
+      await uploadDwcFile(
+        NXT_CUSTOM_A_REQUESTED_PATH,
+        '; Custom A-axis fields set — declare nxtCustomA* in nxt-custom-globals.g\n'
+      )
+    }
+    return
+  }
+  if (exists) {
+    try {
+      await deleteDwcFile(NXT_CUSTOM_A_REQUESTED_PATH)
+    } catch {
+      /* absent is fine */
+    }
+  }
+}
+
 export type PersistNxtUserConfigOpts = {
   /** Upload nxt-user-vars.g (default true). */
   uploadUserVars?: boolean
@@ -163,6 +186,7 @@ export async function persistNxtUserConfig(
 
   if (syncCustom) {
     await syncCustomRequestedSentinel(custom)
+    await syncCustomARequestedSentinel(custom && customAAxisPartiallyConfigured(draft))
   }
 
   if (doEnsure && custom && opts.sendCode) {
@@ -179,7 +203,7 @@ export async function persistNxtUserConfig(
     })
     if (setDeployPlat && opts.sendCode && connected) {
       draft.nxtBoardSysDeployPlatform = 'custom'
-      await opts.sendCode('set global.nxtBoardSysDeployPlatform = "custom"')
+      await ensureSetFirmwareGlobal('nxtBoardSysDeployPlatform', '"custom"', opts.sendCode)
     }
   }
 

@@ -132,7 +132,9 @@ function readMosTTFlags(
 }
 
 export type BuildM4000LineOptions = {
-  /** First reserved system index (probe/datum). Appends K1 when toolIndex >= this. */
+  /** Probe slot (nxtProbeToolID). Appends K1 when toolIndex equals this. */
+  probeToolIndex?: number | null
+  /** @deprecated use probeToolIndex — treated as exact probe slot if probeToolIndex omitted */
   reservedFrom?: number | null
   /** When false, omit C even if nxtTT defines it (live Fusion import). */
   includeTc?: boolean
@@ -155,6 +157,8 @@ export function buildM4000Command(args: {
   deflY?: number | null
   flutes?: number | null
   fluteLengthMm?: number | null
+  probeToolIndex?: number | null
+  /** @deprecated use probeToolIndex */
   reservedFrom?: number | null
   includeTc?: boolean
   tcCapable?: boolean | null
@@ -170,6 +174,7 @@ export function buildM4000Command(args: {
     deflY,
     flutes,
     fluteLengthMm,
+    probeToolIndex,
     reservedFrom,
     includeTc = false,
     tcCapable,
@@ -210,7 +215,13 @@ export function buildM4000Command(args: {
     line += ' B1'
   }
 
-  if (typeof reservedFrom === 'number' && Number.isFinite(reservedFrom) && toolIndex >= reservedFrom) {
+  const probeSlot =
+    typeof probeToolIndex === 'number' && Number.isFinite(probeToolIndex)
+      ? probeToolIndex
+      : typeof reservedFrom === 'number' && Number.isFinite(reservedFrom)
+        ? reservedFrom
+        : null
+  if (probeSlot != null && toolIndex === probeSlot) {
     line += ' K1'
   }
 
@@ -222,6 +233,38 @@ export async function sendM4000(
   args: Parameters<typeof buildM4000Command>[0]
 ): Promise<void> {
   await sendCode(buildM4000Command(args))
+}
+
+/** Scratch macro for Fusion / bulk Tool Library import (upload once, M98 once). */
+export const NXT_TOOL_IMPORT_SCRATCH_PATH = '0:/sys/nxt-tool-import-scratch.g'
+
+/**
+ * Build a one-shot import macro: bump load-depth so M4000 skips per-tool SD sync,
+ * optional M4002, then all M4000 lines, then one nxt-user-tools-sync.g.
+ * Avoids N HTTP rr_gcode calls (SBC "Invalid password" / disconnect under burst).
+ */
+export function buildToolImportScratchContent(opts: {
+  replace: boolean
+  m4000Lines: string[]
+}): string {
+  const lines: string[] = [
+    '; nxt-tool-import-scratch.g — written by nxt Tool Library import (do not edit)',
+    ...NXT_USER_TOOLS_LOAD_DEPTH_OPEN
+  ]
+  if (opts.replace) {
+    lines.push('M4002', '')
+  }
+  for (const line of opts.m4000Lines) {
+    const trimmed = String(line).trim()
+    if (trimmed.length > 0) {
+      lines.push(trimmed)
+    }
+  }
+  lines.push('')
+  lines.push(...NXT_USER_TOOLS_LOAD_DEPTH_CLOSE)
+  lines.push('M98 P"nxt-user-tools-sync.g"')
+  lines.push('')
+  return lines.join('\n')
 }
 
 function buildM4000Line(
@@ -261,10 +304,11 @@ function buildM4000Line(
     tsCapable = false
   }
 
-  const reservedFrom =
+  const probeToolIndex =
+    lineOpts?.probeToolIndex ??
     lineOpts?.reservedFrom ??
     (() => {
-      const v = readFirmwareGlobal(firmwareGlobals, 'nxtReservedFrom')
+      const v = readFirmwareGlobal(firmwareGlobals, 'nxtProbeToolID')
       return typeof v === 'number' && Number.isFinite(v) ? v : null
     })()
 
@@ -278,7 +322,7 @@ function buildM4000Line(
     deflY: defl.y,
     flutes: nxtFluteCount,
     fluteLengthMm: nxtFluteLengthMm,
-    reservedFrom,
+    probeToolIndex,
     includeTc: includeTc && tcCapable != null,
     tcCapable,
     tsCapable: tsCapable === false ? false : null
@@ -386,11 +430,13 @@ export function buildNxtUserToolsGContent(args: BuildNxtUserToolsGArgs): string 
   } = args
 
   const defaultSpindleId = readDefaultSpindleId(firmwareGlobals)
-  const reservedFromRaw = readFirmwareGlobal(firmwareGlobals, 'nxtReservedFrom')
-  const reservedFrom =
-    typeof reservedFromRaw === 'number' && Number.isFinite(reservedFromRaw)
-      ? reservedFromRaw
-      : null
+  const probeFromOm = readFirmwareGlobal(firmwareGlobals, 'nxtProbeToolID')
+  const probeSlot =
+    typeof probeToolIndex === 'number' && Number.isFinite(probeToolIndex)
+      ? probeToolIndex
+      : typeof probeFromOm === 'number' && Number.isFinite(probeFromOm)
+        ? probeFromOm
+        : null
   const lines: string[] = [
     '; nxt user tool library (persisted)',
     '; Auto-generated — Tool Library "Save to board", M4000/M4001 (nxt-user-tools-sync.g), or edit on SD.',
@@ -404,7 +450,7 @@ export function buildNxtUserToolsGContent(args: BuildNxtUserToolsGArgs): string 
 
   const indices: number[] = []
   for (let i = 0; i < tools.length; i++) {
-    if (shouldIncludeToolIndex(i, tools, probeToolIndex, currentToolIndex)) {
+    if (shouldIncludeToolIndex(i, tools, probeSlot ?? -1, currentToolIndex)) {
       indices.push(i)
     }
   }
@@ -428,7 +474,7 @@ export function buildNxtUserToolsGContent(args: BuildNxtUserToolsGArgs): string 
     const rec = t as Record<string, unknown>
     lines.push(
       buildM4000Line(i, rec, firmwareGlobals, defaultSpindleId, {
-        reservedFrom,
+        probeToolIndex: probeSlot,
         includeTc: true
       })
     )

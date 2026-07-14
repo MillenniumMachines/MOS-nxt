@@ -9,6 +9,8 @@ export const NXT_USER_PINMAP_DWC_PATH = '0:/sys/nxt-user-pinmap.g'
 export const NXT_USER_TOOLS_DWC_PATH = '0:/sys/nxt-user-tools.g'
 /** Present when Platform=Custom — nxt.g loads nxt-custom-globals.g before user-vars. */
 export const NXT_CUSTOM_REQUESTED_PATH = '0:/sys/nxt-custom.requested'
+/** Present when any Custom A-axis field is set — nxt-custom-globals.g declares nxtCustomA*. */
+export const NXT_CUSTOM_A_REQUESTED_PATH = '0:/sys/nxt-custom-a.requested'
 export const NXT_BOARD_BOOTSTRAP_REQUESTED = '0:/sys/nxt-board-bootstrap.requested'
 export const NXT_BOARD_BOOTSTRAP_SKIP = '0:/sys/nxt-board-bootstrap.skip'
 

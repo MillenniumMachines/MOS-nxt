@@ -27,7 +27,10 @@ export type NxtConfigPinmap = {
   boardId?: string
   assigned?: NxtConfigPinmapEntry[]
   free?: NxtConfigPinmapEntry[]
+  /** @deprecated Prefer fanDefaultsByVoltage + namedOutputs */
   fanByVoltage?: Record<string, NxtConfigPinmapEntry>
+  namedOutputs?: string[]
+  fanDefaultsByVoltage?: Record<string, string[]>
 }
 
 export type NxtConfigBoardPack = {

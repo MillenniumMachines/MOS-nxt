@@ -20,7 +20,7 @@
 													<template v-slot:activator="{ props }">
 														<v-chip v-bind="props" label variant="outlined" size="small" class="status-chip">
 															<span class="pill-text">{{ currentWorkplaceGCode }}</span>
-															<v-avatar right rounded :color="currentWorkplaceColor" class="ma-0">{{ currentWorkplace+1 }}</v-avatar>
+															<v-avatar right rounded :color="currentWorkplaceColor" class="ma-0">{{ currentWorkplace }}</v-avatar>
 														</v-chip>
 													</template>
 													<span>{{ currentWorkplaceTooltip }}</span>
@@ -268,14 +268,24 @@ export default defineNxtComponent({
 			return store.state.machine.model.move.axes.filter((axis: Axis) => axis.visible);
 		},
 
-		// Workplace (WCS) information
+		// Workplace (WCS) information — OM workplaceNumber is 0-based (0=G54); currentWorkplace is 1-based
 		currentWorkplaceGCode(): string {
-			return `G${53 + store.state.machine.model.move.workplaceNumber + 1}`;
+			return `G${53 + this.currentWorkplace}`;
 		},
 
 		currentWorkplaceValid(): WorkplaceSet {
 			const axes = store.state.machine.model.move.axes.filter((axis: Axis) => axis.visible);
-			const workplace = store.state.machine.model.move.workplaceNumber;
+			const move = store.state.machine.model.move as {
+				workplaceNumber?: number
+				motionSystems?: Array<{ workplaceNumber?: number }>
+			};
+			const fromSystem = move?.motionSystems?.[0]?.workplaceNumber;
+			const workplace =
+				typeof fromSystem === 'number'
+					? fromSystem
+					: typeof move?.workplaceNumber === 'number'
+						? move.workplaceNumber
+						: 0;
 			const offsets = axes.map((axis: Axis) => axis.workplaceOffsets[workplace]);
 
 			if (offsets.every((offset: number) => offset !== 0)) {

@@ -77,8 +77,28 @@ var fineSpeed = { exists(param.F) ? param.F : sensors.probes[param.I].speeds[1] 
 if { var.roughSpeed == var.fineSpeed && !exists(param.F) }
     set var.fineSpeed = { var.roughSpeed / 5 }
 
-var probeDeflectionUm = { global.nxtProbeDeflection * 1000 }
-var probeTipRadiusUm = { global.nxtProbeTipRadius * 1000 }
+; Resolve touch-probe deflection (µm). nxtProbeDeflection is {X,Y}; legacy scalar supported.
+; Toolsetter probes must NOT apply stylus deflection (would bias tool-length vs probe).
+var probeDeflectionUm = 0
+var applyTouchDefl = false
+if { exists(param.I) && exists(global.nxtTouchProbeID) && global.nxtTouchProbeID != null }
+    if { param.I == global.nxtTouchProbeID }
+        set var.applyTouchDefl = true
+if { var.applyTouchDefl && exists(global.nxtProbeDeflection) && global.nxtProbeDeflection != null }
+    if { #global.nxtProbeDeflection >= 2 }
+        if { var.probeAxisIndex == 1 }
+            set var.probeDeflectionUm = { global.nxtProbeDeflection[1] * 1000 }
+        else
+            ; X (0) and Z (2) use X component — no separate Z deflection yet
+            set var.probeDeflectionUm = { global.nxtProbeDeflection[0] * 1000 }
+    elif { #global.nxtProbeDeflection >= 1 }
+        set var.probeDeflectionUm = { global.nxtProbeDeflection[0] * 1000 }
+    else
+        set var.probeDeflectionUm = { global.nxtProbeDeflection * 1000 }
+
+var probeTipRadiusUm = 0
+if { var.applyTouchDefl && exists(global.nxtProbeTipRadius) && global.nxtProbeTipRadius != null }
+    set var.probeTipRadiusUm = { global.nxtProbeTipRadius * 1000 }
 
 if { exists(param.H) && param.H != null && (param.H < 0 || param.H > 3) }
     abort { "G6512: Hit slot H must be 0..3 when provided" }

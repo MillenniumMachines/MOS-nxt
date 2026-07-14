@@ -11,7 +11,11 @@ if { exists(param.P) && param.P < 0 }
     abort { "Spindle ID must be a positive value!" }
 
 ; Allocate Spindle ID
-var spindleID = { (exists(param.P) ? param.P : global.nxtSpindleID) }
+var spindleID = 0
+if { exists(param.P) }
+    set var.spindleID = { param.P }
+elif { exists(global.nxtSpindleID) && global.nxtSpindleID != null }
+    set var.spindleID = { global.nxtSpindleID }
 
 ; Validate Spindle ID
 if { var.spindleID < 0 || var.spindleID > #spindles-1 || spindles[var.spindleID] == null || spindles[var.spindleID].state == "unconfigured" }

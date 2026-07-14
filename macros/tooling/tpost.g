@@ -42,12 +42,15 @@ if { state.currentTool == global.nxtProbeToolID && global.nxtFeatureTouchProbe }
         G6511 S0 R1
         var probeRefPos = { global.nxtLastProbeResult }
         var probeVirtualToolsetterPos = { var.probeRefPos - global.nxtDeltaMachine }
-        set global.nxtToolCache[state.currentTool] = { var.probeVirtualToolsetterPos }
+; Cache the measurement (scalar cache — OM budget vs vector(limits.tools))
+        set global.nxtToolCacheIdx = { state.currentTool }
+        set global.nxtToolCacheZ = { var.probeVirtualToolsetterPos }
         G10 L1 P{state.currentTool} Z0
         echo "tpost.g: Touch probe measured, virtual toolsetter position: " ^ var.probeVirtualToolsetterPos
     else
         ; No toolsetter: keep probe active without forcing reference probing.
-        set global.nxtToolCache[state.currentTool] = null
+        set global.nxtToolCacheIdx = -1
+        set global.nxtToolCacheZ = null
         G10 L1 P{state.currentTool} Z0
         echo "tpost.g: Touch probe loaded (toolsetter disabled, reference probing skipped)"
     
@@ -84,24 +87,22 @@ elif { global.nxtFeatureToolSetter && global.nxtToolSetterPos != null }
     G6512 Z{var.tsProbeTargetZ} I{global.nxtToolSetterID} F{var.tsFineSpeed} R{var.tsSamples} L{var.tsTol} O{var.tsOuterRetries}
     var newToolMeasurement = { global.nxtLastProbeResult }
     
-    ; Cache the measurement
-    set global.nxtToolCache[state.currentTool] = { var.newToolMeasurement }
-    
-    ; Calculate relative offset if we have previous tool data
-    ; This implements the relative offsetting workflow from TOOLSETTING.md
-    
-    ; Find the previous tool that was cached (most recent non-null entry)
+    ; Cache the measurement (read previous tool from scalar cache before overwrite)
     var oldToolMeasurement = null
     var oldToolOffset = 0
     var oldToolIndex = -1
-    
-    ; Look through tool cache to find the most recently measured tool
-    while { iterations < #global.nxtToolCache }
-        if { iterations != state.currentTool && global.nxtToolCache[iterations] != null }
-            set var.oldToolMeasurement = { global.nxtToolCache[iterations] }
-            set var.oldToolIndex = { iterations }
-            if { iterations < #tools && tools[iterations] != null }
-                set var.oldToolOffset = { tools[iterations].offsets[2] } ; Z offset
+
+    if { exists(state.previousTool) && state.previousTool >= 0 }
+        set var.oldToolIndex = { state.previousTool }
+
+    if { var.oldToolIndex >= 0 && exists(global.nxtToolCacheIdx) && global.nxtToolCacheIdx == var.oldToolIndex }
+        if { exists(global.nxtToolCacheZ) && global.nxtToolCacheZ != null }
+            set var.oldToolMeasurement = { global.nxtToolCacheZ }
+            if { var.oldToolIndex < #tools && tools[var.oldToolIndex] != null }
+                set var.oldToolOffset = { tools[var.oldToolIndex].offsets[2] }
+
+    set global.nxtToolCacheIdx = { state.currentTool }
+    set global.nxtToolCacheZ = { var.newToolMeasurement }
     
     if { var.oldToolMeasurement != null }
         ; Calculate relative offset: new_offset = old_offset + (new_measurement - old_measurement)

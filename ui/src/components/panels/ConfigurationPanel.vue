@@ -579,10 +579,13 @@
                   persistent-hint
                   clearable
                 >
-                  <template v-slot:item="{ item }: { item: any }">
-                                           <v-list-item-title>{{ item.name }}</v-list-item-title>
-                      <v-list-item-subtitle>ID: {{ item.id }}</v-list-item-subtitle>
-                                       </template>
+                  <template #item="{ props: itemProps, item }">
+                    <v-list-item
+                      v-bind="itemProps"
+                      :title="spindleSelectItemTitle(item)"
+                      :subtitle="spindleSelectItemSubtitle(item)"
+                    />
+                  </template>
                   <template v-slot:append>
                     <v-tooltip location="top">
                       <template v-slot:activator="{ props }">
@@ -760,7 +763,7 @@
               </v-col>
             </v-row>
             <v-row>
-              <v-col cols="12" md="6">
+              <v-col cols="12" md="4">
                 <v-text-field
                   :model-value="configDraft.nxtProbeTipRadius"
                   label="Probe Tip Radius (mm) *"
@@ -773,17 +776,30 @@
                   :error="configDraft.nxtProbeTipRadius === null || configDraft.nxtProbeTipRadius === 0"
                 />
               </v-col>
-              <v-col cols="12" md="6">
+              <v-col cols="12" md="4">
                 <v-text-field
-                  :model-value="configDraft.nxtProbeDeflection"
-                  label="Probe Deflection (mm) *"
+                  :model-value="probeDeflectionX"
+                  label="Deflection X (mm) *"
                   type="number"
                   step="0.001"
                   :disabled="uiFrozen"
-                  @update:model-value="onConfigDraftNumber('nxtProbeDeflection', $event)"
-                  hint="Required - Measured deflection value (0 if not measured)"
+                  @update:model-value="onProbeDeflectionComponent(0, $event)"
+                  hint="X-axis touch-probe deflection"
                   persistent-hint
-                  :error="configDraft.nxtProbeDeflection === null"
+                  :error="!probeDeflectionConfigured"
+                />
+              </v-col>
+              <v-col cols="12" md="4">
+                <v-text-field
+                  :model-value="probeDeflectionY"
+                  label="Deflection Y (mm) *"
+                  type="number"
+                  step="0.001"
+                  :disabled="uiFrozen"
+                  @update:model-value="onProbeDeflectionComponent(1, $event)"
+                  hint="Y-axis touch-probe deflection (0 if not measured)"
+                  persistent-hint
+                  :error="!probeDeflectionConfigured"
                 >
                   <template v-slot:append>
                     <v-tooltip location="top">
@@ -1018,7 +1034,7 @@
                   item-title="name"
                   item-value="id"
                   item-props
-                  :label="$t('plugins.nxt.panels.configuration.outputAux1')"
+                  :label="$t('plugins.nxt.panels.configuration.outputAux0')"
                   :disabled="uiFrozen"
                   @update:model-value="onConfigDraftSelect('nxtAux1ID', $event)"
                   clearable
@@ -1032,7 +1048,7 @@
                   item-title="name"
                   item-value="id"
                   item-props
-                  :label="$t('plugins.nxt.panels.configuration.outputAux2')"
+                  :label="$t('plugins.nxt.panels.configuration.outputAux1')"
                   :disabled="uiFrozen"
                   @update:model-value="onConfigDraftSelect('nxtAux2ID', $event)"
                   clearable
@@ -1046,7 +1062,7 @@
                   item-title="name"
                   item-value="id"
                   item-props
-                  :label="$t('plugins.nxt.panels.configuration.outputAux3')"
+                  :label="$t('plugins.nxt.panels.configuration.outputAux2')"
                   :disabled="uiFrozen"
                   @update:model-value="onConfigDraftSelect('nxtAux3ID', $event)"
                   clearable
@@ -1098,13 +1114,55 @@
                   clearable
                 />
               </v-col>
+              <v-col cols="12">
+                <v-select
+                  :model-value="effectiveBoardFanPins"
+                  :items="boardFanPinItems"
+                  item-title="title"
+                  item-value="value"
+                  chips
+                  multiple
+                  closable-chips
+                  :label="$t('plugins.nxt.panels.configuration.boardFanPins')"
+                  :hint="$t('plugins.nxt.panels.configuration.boardFanPinsHint')"
+                  persistent-hint
+                  :disabled="uiFrozen"
+                  @update:model-value="onBoardFanPinsChange"
+                />
+              </v-col>
+              <v-col cols="12" md="6">
+                <v-select
+                  :model-value="configDraft.nxtUartDevice"
+                  :items="uartDeviceItems"
+                  item-title="title"
+                  item-value="value"
+                  :label="$t('plugins.nxt.panels.configuration.uartDevice')"
+                  :hint="$t('plugins.nxt.panels.configuration.uartDeviceHint')"
+                  persistent-hint
+                  :disabled="uiFrozen"
+                  @update:model-value="onUartDeviceChange"
+                />
+              </v-col>
+              <v-col cols="12" md="6">
+                <v-text-field
+                  :model-value="configDraft.nxtUartBaud"
+                  type="number"
+                  min="9600"
+                  step="100"
+                  :label="$t('plugins.nxt.panels.configuration.uartBaud')"
+                  :disabled="uiFrozen || configDraft.nxtUartDevice === 0"
+                  @update:model-value="onUartBaudChange"
+                  hint="Default 57600"
+                  persistent-hint
+                />
+              </v-col>
             </v-row>
 
             <p class="text-caption font-weight-medium mb-1 mt-4">
               Output test (hold to energize)
             </p>
             <p class="text-caption text-grey mb-2">
-              Press and hold to turn the output on with M42; release to turn it off. Use this to verify relay wiring.
+              {{ $t('plugins.nxt.panels.configuration.outputTestHint') }}
             </p>
             <v-row dense>
               <v-col
@@ -1118,13 +1176,10 @@
                   block
                   variant="outlined"
                   :color="gpOutTestingKey === row.key ? 'warning' : undefined"
-                  :disabled="uiFrozen || !isConnected || row.id === null"
-                  @mousedown.prevent="startGpOutTest(row.key, row.id)"
-                  @mouseup.prevent="stopGpOutTest"
-                  @mouseleave="stopGpOutTest"
-                  @touchstart.prevent="startGpOutTest(row.key, row.id)"
-                  @touchend.prevent="stopGpOutTest"
-                  @touchcancel="stopGpOutTest"
+                  :disabled="uiFrozen || !isConnected || !row.canTest"
+                  @pointerdown.prevent="startGpOutTest(row, $event)"
+                  @pointerup.prevent="stopGpOutTest"
+                  @pointercancel="stopGpOutTest"
                 >
                   <v-icon start size="small">
                     {{ gpOutTestingKey === row.key ? 'mdi-flash' : 'mdi-flash-outline' }}
@@ -1427,6 +1482,10 @@ import {
   NXT_GPOUT_ROLE_KEYS,
   NXT_PROBE_ROLE_KEYS,
   NXT_CUSTOM_ENDSTOP_ROLE_KEYS,
+  NXT_NAMED_OUTPUT_ALIASES,
+  defaultBoardFanPinsForVoltage,
+  fanIndexForPinAlias,
+  namedOutputSelectItems,
   platformStructureSummary,
   NXT_SCYLLA_MOTOR_VOLTAGE_ITEMS,
   endstopPinItemsForBoard,
@@ -1446,15 +1505,22 @@ import {
 import { scanNxtConfigOnSd, formatSdScanWarnings } from '../../utils/nxtConfigSdScan'
 import { reconcileBoardState } from '../../utils/nxtBoardStateReconcile'
 import {
+  applySingletonDefaults,
   buildInitialConfigDraft,
   emptyConfigDraft,
   nxtConfigPendingInOm,
   nxtUserVarsPresentInOm,
   snapshotConfigFromOm,
+  formatPersistedStringVector,
   type NxtUserConfigDraft
 } from '../../utils/nxtUserVarsPersistence'
-import { ensureCustomGlobals, persistNxtUserConfig } from '../../utils/nxtUserConfigPersist'
 import {
+  ensureCustomGlobals,
+  persistNxtUserConfig,
+  syncCustomARequestedSentinel
+} from '../../utils/nxtUserConfigPersist'
+import {
+  customAAxisPartiallyConfigured,
   formatDriveDirs,
   formatEndstopPinList,
   parseDriveDirs,
@@ -1474,6 +1540,11 @@ import {
   isProbeTriggered,
   probeReadingText
 } from '../../utils/nxtProbeOm'
+import {
+  clearFirmwareGlobalIfExists,
+  ensureSetFirmwareGlobal,
+  formatOmRhs
+} from '../../utils/nxtOmEnsureSet'
 
 /**
  * nxt Configuration Panel
@@ -1504,8 +1575,11 @@ export default defineNxtComponent({
 
       // Spindle test state
       spindleTesting: false,
-      // Coolant / relay hold-to-test (M42)
+      // Coolant / relay hold-to-test (M42 / M106) — capture id at press to avoid race
       gpOutTestingKey: null as string | null,
+      gpOutTestingId: null as number | null,
+      gpOutTestingMode: null as 'gpout' | 'fan' | null,
+      gpOutTestSeq: 0,
 
       // Tool setter position editing
       toolSetterPosEdit: {
@@ -1592,8 +1666,23 @@ export default defineNxtComponent({
       return (
         d.nxtTouchProbeID !== null &&
         d.nxtProbeTipRadius !== null && d.nxtProbeTipRadius !== 0 &&
-        d.nxtProbeDeflection !== null
+        this.probeDeflectionConfigured
       )
+    },
+
+    probeDeflectionConfigured(): boolean {
+      const d = this.configDraft.nxtProbeDeflection
+      return d != null && d.length >= 2 && Number.isFinite(d[0]) && Number.isFinite(d[1])
+    },
+
+    probeDeflectionX(): number | null {
+      const d = this.configDraft.nxtProbeDeflection
+      return d != null && d.length >= 1 && Number.isFinite(d[0]) ? d[0] : null
+    },
+
+    probeDeflectionY(): number | null {
+      const d = this.configDraft.nxtProbeDeflection
+      return d != null && d.length >= 2 && Number.isFinite(d[1]) ? d[1] : null
     },
 
     /**
@@ -1606,10 +1695,9 @@ export default defineNxtComponent({
       const missing = []
       if (this.configDraft.nxtTouchProbeID === null) missing.push('Probe Sensor')
       if (this.configDraft.nxtProbeTipRadius === null || this.configDraft.nxtProbeTipRadius === 0) missing.push('Tip Radius')
-      if (this.configDraft.nxtProbeDeflection === null) missing.push('Deflection')
+      if (!this.probeDeflectionConfigured) missing.push('Deflection X/Y')
       return `Required: ${missing.join(', ')}`
     },
-
     /** Live OM probe row for the selected touch-probe sensor index. */
     selectedTouchProbeOm() {
       return getProbeByIndex(
@@ -2046,16 +2134,75 @@ export default defineNxtComponent({
       })) as ProbeSelectItem[]
     },
 
-    gpOutTestRows(): Array<{ key: string; label: string; id: number | null }> {
+    gpOutTestRows(): Array<{
+      key: string
+      label: string
+      id: number | null
+      mode: 'gpout' | 'fan'
+      canTest: boolean
+      fanAlias?: string
+    }> {
       const d = this.configDraft
+      const fans = this.effectiveBoardFanPins as string[]
+      const fanSet = new Set(fans.map((p: string) => p.toLowerCase()))
+      const rows: Array<{
+        key: string
+        label: string
+        id: number | null
+        mode: 'gpout' | 'fan'
+        canTest: boolean
+        fanAlias?: string
+      }> = [
+        { key: 'nxtRelayID', label: 'Relay', id: d.nxtRelayID, mode: 'gpout', canTest: false },
+        { key: 'nxtAux1ID', label: 'Aux 0', id: d.nxtAux1ID, mode: 'gpout', canTest: false },
+        { key: 'nxtAux2ID', label: 'Aux 1', id: d.nxtAux2ID, mode: 'gpout', canTest: false },
+        { key: 'nxtAux3ID', label: 'Aux 2', id: d.nxtAux3ID, mode: 'gpout', canTest: false },
+        { key: 'nxtCoolantAirID', label: 'Air', id: d.nxtCoolantAirID, mode: 'gpout', canTest: false },
+        { key: 'nxtCoolantMistID', label: 'Mist', id: d.nxtCoolantMistID, mode: 'gpout', canTest: false },
+        { key: 'nxtCoolantFloodID', label: 'Flood', id: d.nxtCoolantFloodID, mode: 'gpout', canTest: false }
+      ]
+      for (const row of rows) {
+        row.canTest = row.id != null && row.id >= 0
+      }
+      // Fan-mode named pins: test via M106 even if no gpOut role id
+      for (const alias of NXT_NAMED_OUTPUT_ALIASES) {
+        if (!fanSet.has(alias)) {
+          continue
+        }
+        const fanIdx = fanIndexForPinAlias(fans, alias)
+        if (fanIdx == null) {
+          continue
+        }
+        rows.push({
+          key: `fan:${alias}`,
+          label: `Fan ${alias}`,
+          id: fanIdx,
+          mode: 'fan',
+          canTest: true,
+          fanAlias: alias
+        })
+      }
+      return rows
+    },
+
+    effectiveBoardFanPins(): string[] {
+      const d = this.configDraft.nxtBoardFanPins
+      if (d != null) {
+        return d
+      }
+      return defaultBoardFanPinsForVoltage(this.configDraft.nxtBoardMotorVoltage)
+    },
+
+    boardFanPinItems(): Array<{ value: string; title: string }> {
+      return namedOutputSelectItems(this.resolvedBoardShortNameForPack)
+    },
+
+    uartDeviceItems(): Array<{ value: number; title: string }> {
       return [
-        { key: 'nxtRelayID', label: 'Relay', id: d.nxtRelayID },
-        { key: 'nxtAux1ID', label: 'Aux 1', id: d.nxtAux1ID },
-        { key: 'nxtAux2ID', label: 'Aux 2', id: d.nxtAux2ID },
-        { key: 'nxtAux3ID', label: 'Aux 3', id: d.nxtAux3ID },
-        { key: 'nxtCoolantAirID', label: 'Air', id: d.nxtCoolantAirID },
-        { key: 'nxtCoolantMistID', label: 'Mist', id: d.nxtCoolantMistID },
-        { key: 'nxtCoolantFloodID', label: 'Flood', id: d.nxtCoolantFloodID }
+        { value: 0, title: this.$t('plugins.nxt.panels.configuration.uartOff').toString() },
+        { value: 1, title: this.$t('plugins.nxt.panels.configuration.uartPanelDue').toString() },
+        { value: 2, title: this.$t('plugins.nxt.panels.configuration.uartTft').toString() },
+        { value: 3, title: this.$t('plugins.nxt.panels.configuration.uartPendant').toString() }
       ]
     },
 
@@ -2071,9 +2218,17 @@ export default defineNxtComponent({
     }
   },
 
+  beforeUnmount() {
+    void this.stopGpOutTest()
+  },
+
   methods: {
     syncConfigDraftFromOm() {
       this.configDraft = snapshotConfigFromOm(this.$store.state.machine.model.global)
+      applySingletonDefaults(this.configDraft, {
+        spindles: this.availableSpindles,
+        probes: this.availableProbes
+      })
     },
 
     initializeConfigurationDraft() {
@@ -2086,8 +2241,53 @@ export default defineNxtComponent({
           probes: this.availableProbes
         })
       }
+      applySingletonDefaults(this.configDraft, {
+        spindles: this.availableSpindles,
+        probes: this.availableProbes
+      })
     },
 
+    spindleSelectItemRaw(item: unknown): { id?: number; name?: string } | null {
+      if (item == null || typeof item !== 'object') {
+        return null
+      }
+      const slotItem = item as { raw?: { id?: number; name?: string }; id?: number; name?: string; title?: string }
+      if (slotItem.raw != null && typeof slotItem.raw === 'object') {
+        return slotItem.raw
+      }
+      if (typeof slotItem.id === 'number') {
+        return {
+          id: slotItem.id,
+          name: slotItem.name ?? slotItem.title
+        }
+      }
+      return null
+    },
+
+    spindleSelectItemTitle(item: unknown): string {
+      const raw = this.spindleSelectItemRaw(item)
+      if (raw?.name) {
+        return raw.name
+      }
+      if (item != null && typeof item === 'object') {
+        const slotItem = item as { title?: string; name?: string }
+        if (typeof slotItem.title === 'string' && slotItem.title.length > 0) {
+          return slotItem.title
+        }
+        if (typeof slotItem.name === 'string' && slotItem.name.length > 0) {
+          return slotItem.name
+        }
+      }
+      return ''
+    },
+
+    spindleSelectItemSubtitle(item: unknown): string {
+      const raw = this.spindleSelectItemRaw(item)
+      if (typeof raw?.id === 'number') {
+        return `ID: ${raw.id}`
+      }
+      return ''
+    },
     async onConfigDraftSelect(key: keyof NxtUserConfigDraft, value: unknown) {
       const v = value === undefined || value === '' ? null : value
       if (
@@ -2152,15 +2352,36 @@ export default defineNxtComponent({
       const lim = this.$store.state.machine.model.limits as { gpOutPorts?: number } | undefined
       const n = lim?.gpOutPorts
       const maxPorts = typeof n === 'number' && n > 0 ? n : 8
+      const fanIds = new Set<number>()
+      const fans = this.effectiveBoardFanPins as string[]
+      // Preferred indices match pinmap / gpio.g: mist0 coolant1 aux0→2 … relay5
+      const preferred: Record<string, number> = {
+        mist: 0,
+        coolant: 1,
+        aux0: 2,
+        aux1: 3,
+        aux2: 4,
+        relay: 5
+      }
+      for (const a of fans) {
+        const id = preferred[String(a).toLowerCase()]
+        if (typeof id === 'number') {
+          fanIds.add(id)
+        }
+      }
       return gpOutItemsForBoard(
         this.resolvedBoardShortNameForPack,
         maxPorts,
         this.gpOutOccupancy,
         { currentRoleKey: roleKey, motorVoltage: this.resolvedMotorVoltageForPack }
-      ).map((item) => ({
-        ...item,
-        props: { disabled: Boolean(item.disabled) }
-      }))
+      ).map((item) => {
+        const fanBlocked = fanIds.has(item.id)
+        return {
+          ...item,
+          disabled: Boolean(item.disabled) || fanBlocked,
+          props: { disabled: Boolean(item.disabled) || fanBlocked }
+        }
+      })
     },
 
     probeSelectItemRaw(
@@ -2250,6 +2471,28 @@ export default defineNxtComponent({
       }
       ;(this.configDraft as Record<string, unknown>)[key] = v
       await this.updateVariable(String(key), v)
+    },
+
+    async onProbeDeflectionComponent(index: 0 | 1, raw: string | number | null) {
+      let v: number | null =
+        raw === '' || raw === null || raw === undefined ? null : typeof raw === 'number' ? raw : Number(raw)
+      if (v !== null && !Number.isFinite(v)) {
+        return
+      }
+      const prev = this.configDraft.nxtProbeDeflection
+      const next: number[] = [
+        prev != null && prev.length >= 1 && Number.isFinite(prev[0]) ? prev[0] : 0,
+        prev != null && prev.length >= 2 && Number.isFinite(prev[1]) ? prev[1] : 0
+      ]
+      if (v === null) {
+        // Clearing one axis clears the whole vector (required pair)
+        this.configDraft.nxtProbeDeflection = null
+        await this.updateVariable('nxtProbeDeflection', null)
+        return
+      }
+      next[index] = v
+      this.configDraft.nxtProbeDeflection = next
+      await this.updateVariable('nxtProbeDeflection', next)
     },
 
     customEndstopPinKey(axis: 'X' | 'Y' | 'Z' | 'A'): keyof NxtUserConfigDraft {
@@ -2669,7 +2912,9 @@ export default defineNxtComponent({
           }
         }
 
-        await this.sendCode(`set global.${key} = ${value}`)
+        await ensureSetFirmwareGlobal(String(key), formatOmRhs(value), (c) =>
+          this.sendCode(c)
+        )
         ;(this.configDraft as Record<string, unknown>)[key] = value
         this.showStatus(`${key} ${value ? 'enabled' : 'disabled'}`, 'success')
       } catch (error) {
@@ -2684,27 +2929,24 @@ export default defineNxtComponent({
     async updateVariable(key: string, value: any) {
       try {
         if (String(key).startsWith('nxtCustom')) {
+          const wantA =
+            String(key).startsWith('nxtCustomA') ||
+            customAAxisPartiallyConfigured(this.configDraft)
+          await syncCustomARequestedSentinel(wantA)
           await ensureCustomGlobals((c) => this.sendCode(c))
         }
-        // Deprecated kit key may be absent from OM (not in nxt-vars.g) — skip clearing.
+        // Deprecated kit key may be absent from OM — clear only if present.
         if (
           key === 'nxtBoardKitKey' &&
           (value === null || value === undefined || value === '')
         ) {
-          await this.sendCode(
-            'if { exists(global.nxtBoardKitKey) }\n    set global.nxtBoardKitKey = null'
-          )
+          await clearFirmwareGlobalIfExists('nxtBoardKitKey', (c) => this.sendCode(c))
           console.log(`nxt: Updated ${key} to ${value}`)
           return
         }
-        // Handle null values
-        if (value === null || value === undefined || value === '') {
-          await this.sendCode(`set global.${key} = null`)
-        } else if (typeof value === 'number') {
-          await this.sendCode(`set global.${key} = ${value}`)
-        } else {
-          await this.sendCode(`set global.${key} = "${value}"`)
-        }
+        await ensureSetFirmwareGlobal(String(key), formatOmRhs(value), (c) =>
+          this.sendCode(c)
+        )
         console.log(`nxt: Updated ${key} to ${value}`)
       } catch (error) {
         console.error('nxt: Failed to update variable', key, error)
@@ -2841,43 +3083,133 @@ export default defineNxtComponent({
       }
     },
 
-    async startGpOutTest(key: string, id: number | null) {
-      if (id === null || this.uiFrozen || !this.isConnected) {
+    async startGpOutTest(
+      row: {
+        key: string
+        label: string
+        id: number | null
+        mode: 'gpout' | 'fan'
+        canTest: boolean
+      },
+      ev?: PointerEvent
+    ) {
+      if (!row.canTest || row.id == null || this.uiFrozen || !this.isConnected) {
         return
       }
       if (this.gpOutTestingKey != null) {
         await this.stopGpOutTest()
       }
-      this.gpOutTestingKey = key
+      const seq = ++this.gpOutTestSeq
+      const id = row.id
+      const mode = row.mode
+      this.gpOutTestingKey = row.key
+      this.gpOutTestingId = id
+      this.gpOutTestingMode = mode
       try {
-        await this.sendCode(`M42 P${id} S1`)
-        this.showStatus(`Output ${id} ON (release to turn off)`, 'info')
+        const target = ev?.currentTarget
+        if (target && typeof (target as HTMLElement).setPointerCapture === 'function' && ev?.pointerId != null) {
+          ;(target as HTMLElement).setPointerCapture(ev.pointerId)
+        }
+      } catch {
+        /* ignore capture failures */
+      }
+      try {
+        const cmd = mode === 'fan' ? `M106 P${id} S1` : `M42 P${id} S1`
+        await this.sendCode(cmd)
+        if (seq !== this.gpOutTestSeq || this.gpOutTestingKey !== row.key) {
+          // Release already requested — force OFF with captured id
+          const off = mode === 'fan' ? `M106 P${id} S0` : `M42 P${id} S0`
+          await this.sendCode(off)
+          return
+        }
+        this.showStatus(
+          mode === 'fan'
+            ? `Fan ${id} ON (release to turn off)`
+            : `Output ${id} ON (release to turn off)`,
+          'info'
+        )
       } catch (e) {
         console.error('nxt: gpOut test start failed', e)
         this.gpOutTestingKey = null
-        this.showStatus(`Failed to energize output ${id}`, 'error')
+        this.gpOutTestingId = null
+        this.gpOutTestingMode = null
+        this.showStatus(`Failed to energize ${mode === 'fan' ? 'fan' : 'output'} ${id}`, 'error')
       }
     },
 
     async stopGpOutTest() {
       const key = this.gpOutTestingKey
-      if (key == null) {
+      const id = this.gpOutTestingId
+      const mode = this.gpOutTestingMode
+      if (key == null || id == null || mode == null) {
+        this.gpOutTestingKey = null
+        this.gpOutTestingId = null
+        this.gpOutTestingMode = null
         return
       }
+      // Bump seq so a late ON completion turns OFF immediately
+      this.gpOutTestSeq += 1
       this.gpOutTestingKey = null
-      const row = this.gpOutTestRows.find(
-        (r: { key: string; label: string; id: number | null }) => r.key === key
-      )
-      const id = row?.id
-      if (id == null) {
-        return
-      }
+      this.gpOutTestingId = null
+      this.gpOutTestingMode = null
       try {
-        await this.sendCode(`M42 P${id} S0`)
-        this.showStatus(`Output ${id} OFF`, 'success')
+        const cmd = mode === 'fan' ? `M106 P${id} S0` : `M42 P${id} S0`
+        await this.sendCode(cmd)
+        this.showStatus(mode === 'fan' ? `Fan ${id} OFF` : `Output ${id} OFF`, 'success')
       } catch (e) {
         console.error('nxt: gpOut test stop failed', e)
-        this.showStatus(`Failed to de-energize output ${id}`, 'error')
+        this.showStatus(`Failed to de-energize ${mode === 'fan' ? 'fan' : 'output'} ${id}`, 'error')
+      }
+    },
+
+    async onBoardFanPinsChange(value: unknown) {
+      const pins = Array.isArray(value)
+        ? value.map((v) => String(v)).filter((s) => s.length > 0)
+        : []
+      this.configDraft.nxtBoardFanPins = pins
+      try {
+        const rhs = formatPersistedStringVector(pins)
+        await ensureSetFirmwareGlobal('nxtBoardFanPins', rhs, (c) => this.sendCode(c))
+        this.showStatus(
+          this.$t('plugins.nxt.panels.configuration.boardFanPinsSaved').toString(),
+          'warning'
+        )
+      } catch (e) {
+        console.error('nxt: fan pins update failed', e)
+        this.showStatus('Failed to update fan pin list', 'error')
+      }
+    },
+
+    async onUartDeviceChange(value: unknown) {
+      const n = value === '' || value == null ? 0 : Number(value)
+      this.configDraft.nxtUartDevice = Number.isFinite(n) ? n : 0
+      try {
+        await ensureSetFirmwareGlobal(
+          'nxtUartDevice',
+          String(this.configDraft.nxtUartDevice),
+          (c) => this.sendCode(c)
+        )
+        this.showStatus(
+          this.$t('plugins.nxt.panels.configuration.uartSaved').toString(),
+          'warning'
+        )
+      } catch (e) {
+        console.error('nxt: uart device update failed', e)
+        this.showStatus('Failed to update UART device', 'error')
+      }
+    },
+
+    async onUartBaudChange(value: unknown) {
+      const n = Number(value)
+      this.configDraft.nxtUartBaud = Number.isFinite(n) && n >= 9600 ? Math.floor(n) : 57600
+      try {
+        await ensureSetFirmwareGlobal(
+          'nxtUartBaud',
+          String(this.configDraft.nxtUartBaud),
+          (c) => this.sendCode(c)
+        )
+      } catch (e) {
+        console.error('nxt: uart baud update failed', e)
       }
     },
 

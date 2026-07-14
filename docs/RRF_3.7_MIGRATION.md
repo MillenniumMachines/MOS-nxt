@@ -81,7 +81,7 @@ See [NXT_BOARD_CONFIG.md](NXT_BOARD_CONFIG.md#network-configuration) for boot or
 
 Duet 3 main boards expose **two USB CDC channels** in RRF 3.7. In `M575`, device **1** is the second USB CDC; device **2** is the first serial port; device **3** is the second serial port.
 
-If PanelDue is on the **first serial port**, change `M575 P1` → `P2` in your `network.g` or `config.g`. nxt does not ship `M575` (PanelDue-specific).
+**PanelDue / serial screens:** If you use a screen on the Scylla UART header (PD8/PD9), prefer Configuration → **UART accessory** (`nxtUartDevice` + board `uart.g`) rather than hand-editing `network.g`. Manual `M575` in user config remains valid; on 3.7.x aux2 is typically **P3** (see nxt `uart.g`). Legacy note: first serial PanelDue was often `M575 P1` on 3.6.x → **P2** on 3.7 for the first UART — confirm which port your cable uses.
 
 Dual-boot between 3.6.x and 3.7.x (from upstream wiki):
 

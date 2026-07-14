@@ -1,8 +1,4 @@
-; fans.g - Configures fans
+; fans.g — deprecated on Scylla: fan/gpOut create lives in gpio.g (nxtBoardFanPins).
+; Kept so older entry order / docs still resolve; no-op.
 
-; TODO: Is Q500 appropriate?
-
-; Configure aux0 as fan and enable at startup
-; This runs at v-mos input voltage
-M950 F0 C"PA_5" Q500
-M106 P0 S1 H-1
+M99

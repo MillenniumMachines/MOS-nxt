@@ -37,8 +37,9 @@ M563 P{param.P} R-1 S"Unknown Tool"
 set global.nxtTT[param.P] = null
 
 ; Zero accumulated tool life so a later tool at this index does not inherit spindle time.
-if { exists(global.nxtToolLife) && param.P < #global.nxtToolLife && global.nxtToolLife[param.P] != 0 }
-    set global.nxtToolLife[param.P] = 0
+if { exists(global.nxtToolLife) && global.nxtToolLife != null && param.P < #global.nxtToolLife }
+    if { global.nxtToolLife[param.P] != null && global.nxtToolLife[param.P] != 0 }
+        set global.nxtToolLife[param.P] = 0
     if { exists(global.nxtFeatMaint) && global.nxtFeatMaint }
         M98 P"nxt/nxt-save-maintenance.g"
 

@@ -1,5 +1,8 @@
 /**
  * Fusion tool library → live M4000 import policy (nxt plugin; no ATC C flag on live import).
+ *
+ * Only the probe pocket (nxtProbeToolID, typically T49) is skipped.
+ * There is no separate reserved datum pocket — T(limits.tools-2) is a normal user tool.
  */
 
 export type FusionToolRecord = {
@@ -59,31 +62,40 @@ function roundMm(n: number): number {
 }
 
 /**
- * Max user pocket index: 0 .. (limits.tools - 2), e.g. 48 when limits.tools = 50.
+ * Highest legal RRF tool index (limits.tools - 1). Probe exclusion is separate.
+ * @deprecated reservedFrom ignored — kept for call-site compatibility
  */
 export function maxUserToolIndex(
   limitsTools: number | null | undefined,
-  reservedFrom: number | null | undefined
+  _reservedFrom?: number | null | undefined
 ): number {
-  if (typeof reservedFrom === 'number' && Number.isFinite(reservedFrom) && reservedFrom > 0) {
-    return reservedFrom - 1
+  if (typeof limitsTools === 'number' && Number.isFinite(limitsTools) && limitsTools > 0) {
+    return limitsTools - 1
   }
-  if (typeof limitsTools === 'number' && Number.isFinite(limitsTools) && limitsTools > 1) {
-    return limitsTools - 2
-  }
-  return 48
+  return 49
 }
 
 export function buildFusionImportPreview(
   tools: readonly FusionToolRecord[],
   opts: {
-    maxIndex: number
+    /** Firmware limits.tools (exclusive upper bound for pocket numbers). */
+    limitsTools: number
+    /** nxtProbeToolID — only this pocket is skipped (typically 49). */
     probeIndex: number
+    /** @deprecated ignored; use limitsTools */
+    maxIndex?: number
   }
 ): FusionImportPreview {
   const warnings: string[] = []
   const rows: FusionImportRow[] = []
   const seen = new Set<number>()
+  const limitsTools =
+    typeof opts.limitsTools === 'number' && Number.isFinite(opts.limitsTools) && opts.limitsTools > 0
+      ? opts.limitsTools
+      : typeof opts.maxIndex === 'number' && Number.isFinite(opts.maxIndex)
+        ? opts.maxIndex + 1
+        : 50
+  const maxPocket = limitsTools - 1
 
   for (const rec of tools) {
     if (rec == null || typeof rec !== 'object') {
@@ -94,14 +106,16 @@ export function buildFusionImportPreview(
     const descRaw = typeof rec.description === 'string' ? rec.description.trim() : ''
     const label = descRaw || `tool ${pocket ?? '?'}`
 
-    if (pocket == null || pocket < 0 || pocket > opts.maxIndex) {
+    if (pocket == null || pocket < 0 || pocket > maxPocket) {
       warnings.push(
-        `Skipped ${label}: tool ${pocket ?? '?'} exceeds the user tool range (0–${opts.maxIndex}).`
+        `Skipped ${label}: Fusion pocket T${pocket ?? '?'} is outside the firmware range T0–T${maxPocket}.`
       )
       continue
     }
     if (pocket === opts.probeIndex) {
-      warnings.push(`Skipped tool ${pocket} (${label}): that number is reserved for the probe.`)
+      warnings.push(
+        `Skipped ${label}: T${pocket} is reserved for the touch probe (nxtProbeToolID).`
+      )
       continue
     }
 

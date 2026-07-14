@@ -620,11 +620,13 @@ import {
 import {
   snapshotConfigFromOm,
   readConfigVector,
+  readConfigDeflectionXY,
   readConfigNumber,
   readConfigBool,
   type NxtUserConfigDraft
 } from '../../utils/nxtUserVarsPersistence'
 import { persistNxtUserConfig } from '../../utils/nxtUserConfigPersist'
+import { ensureSetFirmwareGlobal, formatOmRhs } from '../../utils/nxtOmEnsureSet'
 
 type AxisLetter = 'X' | 'Y' | 'Z' | 'A'
 
@@ -668,11 +670,11 @@ export default defineNxtComponent({
       // Undo
       prevSteps: null as number | null,
       prevBacklash: null as number | null,
-      prevDeflection: null as number | null,
+      prevDeflection: null as number[] | null,
       // Pending for save
       pendingSteps: {} as Partial<Record<AxisLetter, number>>,
       pendingBacklash: {} as Partial<Record<AxisLetter, number>>,
-      pendingDeflection: null as number | null,
+      pendingDeflection: null as number[] | null,
       // Rotary
       rotaryWcs: 54,
       aCommanded: 90 as number | null,
@@ -725,9 +727,10 @@ export default defineNxtComponent({
       const b = this.currentAxisOm?.backlash
       return typeof b === 'number' ? b : 0
     },
-    currentDeflection(): number | null {
-      const v = readFirmwareGlobal(this.$store.state.machine.model.global, 'nxtProbeDeflection')
-      return typeof v === 'number' ? v : null
+    currentDeflection(): number[] | null {
+      return readConfigDeflectionXY(
+        readFirmwareGlobal(this.$store.state.machine.model.global, 'nxtProbeDeflection')
+      )
     },
     currentStepsDisplay(): string {
       return this.currentSteps > 0 ? this.currentSteps.toFixed(4) : '—'
@@ -736,9 +739,10 @@ export default defineNxtComponent({
       return this.currentBacklash.toFixed(4)
     },
     deflectionDisplay(): string {
-      return this.currentDeflection != null ? this.currentDeflection.toFixed(4) : '—'
-    },
-    touchProbeReady(): boolean {
+      const v = this.currentDeflection
+      if (v == null) return '—'
+      return `X ${v[0].toFixed(4)} / Y ${v[1].toFixed(4)}`
+    },    touchProbeReady(): boolean {
       const g = this.$store.state.machine.model.global
       return (
         readFirmwareGlobal(g, 'nxtFeatureTouchProbe') === true &&
@@ -921,21 +925,20 @@ export default defineNxtComponent({
     probeModeSelectable(): boolean {
       return this.touchProbeReady && !this.needsProbeDatumSetup
     },
-    rawDeflectionValue(): number | null {
-      const v = readFirmwareGlobal(this.globalOm, 'nxtProbeDeflection')
-      if (typeof v === 'number' && Number.isFinite(v)) return v
-      const vec = readConfigVector(v)
-      if (vec && vec.length > 0 && Number.isFinite(vec[0])) return vec[0]
-      return null
+    rawDeflectionValue(): number[] | null {
+      return readConfigDeflectionXY(readFirmwareGlobal(this.globalOm, 'nxtProbeDeflection'))
     },
     probeDeflectionReady(): boolean {
       if (this.sessionDeflectionOk) return true
-      if (this.pendingDeflection != null && this.pendingDeflection !== 0) return true
+      if (this.pendingDeflection != null) {
+        const p = this.pendingDeflection
+        if (p.length >= 2 && (p[0] !== 0 || p[1] !== 0)) return true
+      }
       return false
     },
     canConfirmExistingDeflection(): boolean {
       const v = this.rawDeflectionValue
-      return v != null && Number.isFinite(v)
+      return v != null && v.length >= 2 && Number.isFinite(v[0]) && Number.isFinite(v[1])
     },
     canRunG9000(): boolean {
       return (
@@ -1038,14 +1041,27 @@ export default defineNxtComponent({
     },
     async applyDeflection() {
       if (this.defProposed == null) return
-      if (!window.confirm(`Set nxtProbeDeflection = ${this.defProposed.toFixed(4)}?`)) return
-      this.prevDeflection = this.currentDeflection
+      const axis = this.selectedAxis
+      const cur = this.currentDeflection ?? [0, 0]
+      const next: number[] = [cur[0], cur[1]]
+      if (axis === 'X') {
+        next[0] = this.defProposed
+      } else if (axis === 'Y') {
+        next[1] = this.defProposed
+      } else {
+        // Z: no third component — apply isotropic estimate to X and Y
+        next[0] = this.defProposed
+        next[1] = this.defProposed
+      }
+      const label = `{${next[0].toFixed(4)}, ${next[1].toFixed(4)}}`
+      if (!window.confirm(`Set nxtProbeDeflection = ${label}?`)) return
+      this.prevDeflection = cur
       try {
-        await this.sendCode(`set global.nxtProbeDeflection = ${this.defProposed}`)
-        this.pendingDeflection = this.defProposed
+        await ensureSetFirmwareGlobal('nxtProbeDeflection', formatOmRhs(next), (c) => this.sendCode(c))
+        this.pendingDeflection = next
         this.sessionDeflectionOk = true
         this.needsDeflectionRecheck = false
-        this.show('Probe deflection updated', 'success')
+        this.show(`Probe deflection updated ${label}`, 'success')
       } catch (e: any) {
         this.show(e?.message ?? 'Failed to set deflection', 'error')
       }
@@ -1053,14 +1069,14 @@ export default defineNxtComponent({
     confirmExistingDeflection() {
       const v = this.rawDeflectionValue
       if (v == null) return
-      if (v === 0) {
+      if (v[0] === 0 && v[1] === 0) {
         if (!window.confirm(this.$t('plugins.nxt.panels.calibration.confirmZeroDeflection').toString())) {
           return
         }
       }
       this.sessionDeflectionOk = true
       this.needsDeflectionRecheck = false
-      this.show(`Using deflection ${v.toFixed(4)} mm`, 'success')
+      this.show(`Using deflection X ${v[0].toFixed(4)} / Y ${v[1].toFixed(4)} mm`, 'success')
     },
     async runDatumSetup() {
       this.datumBusy = true
