@@ -10,7 +10,8 @@ export type NxtUserConfigDraft = {
   nxtFeatureCoolantControl: boolean
   nxtFeatureRgbLight: boolean
   nxtFeatureFourthAxis: boolean
-  nxtRgbLedIndex: number | null
+  /** NeoPixel LEDs on the strip (M950 U / M150 S). */
+  nxtRGBCount: number | null
   nxtProbeToolID: number | null
   nxtDeltaMachine: number | null
   nxtSpindleID: number | null
@@ -89,7 +90,7 @@ export const NXT_USER_VARS_PERSISTED_KEYS = [
   'nxtFeatureCoolantControl',
   'nxtFeatureRgbLight',
   'nxtFeatureFourthAxis',
-  'nxtRgbLedIndex',
+  'nxtRGBCount',
   'nxtProbeToolID',
   'nxtDeltaMachine',
   'nxtSpindleID',
@@ -319,7 +320,7 @@ export function emptyConfigDraft(): NxtUserConfigDraft {
     nxtFeatureCoolantControl: false,
     nxtFeatureRgbLight: false,
     nxtFeatureFourthAxis: false,
-    nxtRgbLedIndex: 0,
+    nxtRGBCount: 1,
     nxtProbeToolID: null,
     nxtDeltaMachine: null,
     nxtSpindleID: null,
@@ -444,7 +445,7 @@ export function snapshotConfigFromOm(globalVal: unknown): NxtUserConfigDraft {
   draft.nxtFeatureCoolantControl = readConfigBool(readFirmwareGlobal(globalVal, 'nxtFeatureCoolantControl'))
   draft.nxtFeatureRgbLight = readConfigBool(readFirmwareGlobal(globalVal, 'nxtFeatureRgbLight'))
   draft.nxtFeatureFourthAxis = readConfigBool(readFirmwareGlobal(globalVal, 'nxtFeatureFourthAxis'))
-  draft.nxtRgbLedIndex = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtRgbLedIndex'))
+  draft.nxtRGBCount = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtRGBCount')) ?? 1
   draft.nxtProbeToolID = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtProbeToolID'))
   draft.nxtDeltaMachine = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtDeltaMachine'))
   draft.nxtSpindleID = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtSpindleID'))
@@ -683,8 +684,8 @@ export function buildNxtUserVarsGcode(config: NxtUserConfigDraft): string {
     `set global.nxtFeatureRgbLight = ${formatPersistedBool(config.nxtFeatureRgbLight)}`,
     `set global.nxtFeatureFourthAxis = ${formatPersistedBool(config.nxtFeatureFourthAxis)}`,
     '',
-    '; RGB work light (M150)',
-    `set global.nxtRgbLedIndex = ${formatPersistedNumber(config.nxtRgbLedIndex)}`,
+    '; RGB work light (M950 U / M150 S)',
+    `set global.nxtRGBCount = ${formatPersistedNumber(config.nxtRGBCount ?? 1)}`,
     '',
     '; Probe tool index (null in UI → last tool at load) and static datum (touch probe calibration)',
     `set global.nxtProbeToolID = ${formatPersistedProbeToolID(config.nxtProbeToolID)}`,

@@ -174,6 +174,11 @@ if { var.nxtFaOn }
 if { fileexists("0:/sys/nxt-rgb-colours.g") }
     M98 P"nxt-rgb-colours.g"
 
+; nxtRGBCount is owned by Configuration → nxt-user-vars.g. Legacy colour files may
+; still set count; re-apply user-vars so Configuration wins before M950.
+if { fileexists("0:/sys/nxt-user-vars.g") }
+    M98 P"nxt-user-vars.g"
+
 ; Migrate legacy per-state RGB globals into nxtRGBCol, then rewrite the file so
 ; the next boot does not recreate nxtRGBIdle/Home/... (OM bloat).
 var nxtRgbLegacy = { exists(global.nxtRGBIdle) || exists(global.nxtRGBHome) || exists(global.nxtRGBErr) }

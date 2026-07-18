@@ -1313,15 +1313,16 @@
           <v-expansion-panel-text>
             <v-row>
               <v-col cols="12" md="4">
-                <v-select
-                  :model-value="configDraft.nxtRgbLedIndex"
-                  :items="rgbLedSelectItems"
-                  item-title="text"
-                  item-value="value"
-                  :label="$t('plugins.nxt.panels.configuration.rgbLedIndex')"
+                <v-text-field
+                  :model-value="configDraft.nxtRGBCount"
+                  :label="$t('plugins.nxt.panels.configuration.rgbLedCount')"
+                  type="number"
+                  min="1"
+                  max="256"
+                  step="1"
                   :disabled="uiFrozen"
-                  @update:model-value="onConfigDraftSelect('nxtRgbLedIndex', $event)"
-                  :hint="$t('plugins.nxt.panels.configuration.rgbLedIndexHint')"
+                  @update:model-value="onRgbLedCount($event)"
+                  :hint="$t('plugins.nxt.panels.configuration.rgbLedCountHint')"
                   persistent-hint
                 />
               </v-col>
@@ -1530,10 +1531,8 @@ import {
 } from '../../utils/nxtCustomPackGenerate'
 import { readFirmwareGlobal } from '../../utils/nxtToolChangerOm'
 import {
-  countOmLeds,
   isRgbLightHardwareConfigured,
-  readOmLedsFromMachineModel,
-  rgbLedIndexItems
+  readOmLedsFromMachineModel
 } from '../../utils/nxtRgbAvailability'
 import {
   getProbeByIndex,
@@ -1934,11 +1933,6 @@ export default defineNxtComponent({
         rgbPin: readFirmwareGlobal(g, 'nxtRGBPin'),
         rgbReady: readFirmwareGlobal(g, 'nxtRGBReady')
       })
-    },
-
-    rgbLedSelectItems(): Array<{ value: number; text: string }> {
-      const n = countOmLeds(readOmLedsFromMachineModel(this.$store.state.machine.model))
-      return rgbLedIndexItems(n > 0 ? n : 1)
     },
 
     machineBoardsList(): Array<{ shortName?: string; name?: string }> {
@@ -2471,6 +2465,28 @@ export default defineNxtComponent({
       }
       ;(this.configDraft as Record<string, unknown>)[key] = v
       await this.updateVariable(String(key), v)
+    },
+
+    async onRgbLedCount(raw: string | number | null) {
+      let v: number | null =
+        raw === '' || raw === null || raw === undefined ? null : typeof raw === 'number' ? raw : Number(raw)
+      if (v === null || !Number.isFinite(v)) {
+        return
+      }
+      v = Math.max(1, Math.min(256, Math.round(v)))
+      this.configDraft.nxtRGBCount = v
+      await this.updateVariable('nxtRGBCount', v)
+      const g = this.$store.state.machine.model.global
+      const pin = readFirmwareGlobal(g, 'nxtRGBPin')
+      if (pin == null || pin === '') {
+        return
+      }
+      const stripRaw = readFirmwareGlobal(g, 'nxtRGBStrip')
+      const typeRaw = readFirmwareGlobal(g, 'nxtRGBType')
+      const strip = typeof stripRaw === 'number' && Number.isFinite(stripRaw) ? stripRaw : 0
+      const type = typeof typeRaw === 'number' && Number.isFinite(typeRaw) ? typeRaw : 1
+      const pinLit = typeof pin === 'string' ? `"${pin}"` : String(pin)
+      await this.sendCode(`M950 E${strip} C${pinLit} T${type} U${v}`)
     },
 
     async onProbeDeflectionComponent(index: 0 | 1, raw: string | number | null) {

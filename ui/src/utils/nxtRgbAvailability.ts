@@ -93,10 +93,3 @@ export function isRgbFeatureEnabled(globalVal: unknown): boolean {
   return v === true || v === 1
 }
 
-export function rgbLedIndexItems(ledCount: number): Array<{ value: number; text: string }> {
-  const n = Math.max(0, Math.min(ledCount, 8))
-  if (n === 0) {
-    return [{ value: 0, text: 'LED 0' }]
-  }
-  return Array.from({ length: n }, (_, i) => ({ value: i, text: `LED ${i}` }))
-}

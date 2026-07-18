@@ -71,7 +71,7 @@ global nxtTTLocked = false                   ; Tool Library edit-lock (persisted
 ; --- RGB status LED (optional feature) -------------------------------------
 ; A single status light that mirrors what the machine is doing. The daemon
 ; turns the machine state into a colour a few times a second - see nxt-run-rgb.g.
-global nxtRgbLedIndex = 0 ; M6524 / Configuration UI LED index (M150 P parameter)
+global nxtRgbLedIndex = 0 ; legacy unused; strip length is nxtRGBCount (Configuration)
 
 ; Work-state hint. nxt macros set this (e.g. "probing", "homing"); the daemon
 ; clears it back to "" when the machine returns to idle, so a finished or
