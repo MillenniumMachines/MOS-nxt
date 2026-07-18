@@ -108,20 +108,20 @@ Configuration dropdowns list **free** named pins (Mist, Coolant, Relay, Aux, Pro
 
 ### Scylla named outputs (board-owned)
 
-Create order and preferred **gpOut** indices when the pin is **not** a fan ([`gpio.g`](../macros/nxt-config/board/scylla1_0_h723/gpio.g)):
+Create order and preferred **gpOut** indices when the pin is **not** a fan ([`gpio.g`](../macros/nxt-config/board/scylla1_0_h723/gpio.g)). Aux0–2 and relay are **24 V** rails (independent of motor pack voltage):
 
 | Order | Pin | Preferred `M950 J` | Default role (null-only) |
 |------|-----|--------------------|---------------------------|
-| 1 | mist | J0 | `nxtCoolantMistID` |
-| 2 | coolant | J1 | `nxtCoolantFloodID` |
-| 3 | aux0 | J2 | `nxtAux1ID` (UI: Aux 0) |
-| 4 | aux1 | J3 | `nxtAux2ID` (UI: Aux 1) |
-| 5 | aux2 | J4 | `nxtAux3ID` (UI: Aux 2) |
+| 1 | aux0 | J0 | `nxtAux1ID` (UI: Aux 0) |
+| 2 | aux1 | J1 | `nxtAux2ID` (UI: Aux 1) |
+| 3 | aux2 | J2 | `nxtAux3ID` (UI: Aux 2) |
+| 4 | coolant | J3 | `nxtCoolantFloodID` |
+| 5 | mist | J4 | `nxtCoolantMistID` |
 | 6 | relay | J5 | `nxtRelayID` |
 
 After create, [`gpio-role-defaults.g`](../macros/nxt-config/board/scylla1_0_h723/gpio-role-defaults.g) fills those globals **only when still null** (user-vars win).
 
-**Fans:** `global.nxtBoardFanPins` lists aliases created as `M950 F` instead of `M950 J`. Default when null: **24 V → `aux0`**, **48 V → `aux1`**. Persist as a CSV string (`"aux0"` / `"mist,aux1"`); explicit none is `""`. Legacy single-pin vectors still work at boot. Hold-to-test uses `M106` for fan-mode pins and `M42` for gpOut roles.
+**Fans:** `global.nxtBoardFanPins` lists aliases created as `M950 F` instead of `M950 J`. Default when null: always **`aux0`** (any motor voltage). Persist as a CSV string (`"aux0"` / `"mist,aux1"`); explicit none is `""`. Legacy single-pin vectors still work at boot. Hold-to-test uses `M106` for fan-mode pins and `M42` for gpOut roles.
 
 ### Scylla UART header (PD8 / PD9)
 

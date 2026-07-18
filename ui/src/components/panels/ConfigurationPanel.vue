@@ -1298,6 +1298,50 @@
           </v-expansion-panel-text>
         </v-expansion-panel>
 
+        <!-- Magazine / ATC (MosAtc plugin + SD init macros) -->
+        <v-expansion-panel>
+          <v-expansion-panel-title>
+            <div>
+              <v-icon class="mr-2">mdi-format-list-numbered</v-icon>
+              <strong>Tool Changer (ATC)</strong>
+              <v-spacer />
+              <v-icon v-if="configDraft.nxtFeatureAtc" size="small" color="success" class="mr-2">
+                mdi-check-circle
+              </v-icon>
+            </div>
+          </v-expansion-panel-title>
+          <v-expansion-panel-text>
+            <v-alert type="info" density="compact" variant="outlined" class="mb-3">
+              <span class="text-caption">
+                Uses firmware flag <code>global.nxtFeatureAtc</code>. When enabled, boot loads MosAtc
+                init macros from SD (<code>mos-atc.g</code> or <code>plugins/mos-atc/mos-atc-init.g</code>)
+                only if present — same pattern as MosFourthAxis. Install the <strong>MosAtc</strong> DWC
+                plugin for magazine / job-sequence UI. Base nxt Tool Library lists RRF tools only.
+              </span>
+            </v-alert>
+            <v-alert
+              v-if="configDraft.nxtFeatureAtc && !atcPluginInstalled"
+              type="warning"
+              density="compact"
+              variant="outlined"
+              class="mb-3"
+            >
+              <span class="text-caption">
+                ATC feature is enabled but the MosAtc DWC plugin is not installed or started.
+              </span>
+            </v-alert>
+            <v-switch
+              :model-value="configDraft.nxtFeatureAtc"
+              label="Enable Tool Changer (ATC) Feature"
+              :disabled="uiFrozen"
+              @update:model-value="updateFeature('nxtFeatureAtc', $event)"
+              hint="Save Configuration, then reboot. Leave off unless MosAtc is installed (saves OM global budget)."
+              persistent-hint
+              class="mt-0"
+            />
+          </v-expansion-panel-text>
+        </v-expansion-panel>
+
         <!-- RGB / Work Light Configuration -->
         <v-expansion-panel v-if="rgbHardwareConfigured">
           <v-expansion-panel-title>
@@ -1530,6 +1574,7 @@ import {
   validateCustomMachineDraft
 } from '../../utils/nxtCustomPackGenerate'
 import { readFirmwareGlobal } from '../../utils/nxtToolChangerOm'
+import { isAtcPluginInstalled } from '../../utils/nxtInstalledPlugins'
 import {
   isRgbLightHardwareConfigured,
   readOmLedsFromMachineModel
@@ -2013,6 +2058,19 @@ export default defineNxtComponent({
       return String(sel).trim() !== om
     },
 
+    atcPluginInstalled(): boolean {
+      const model = this.$store.state.machine.model as {
+        plugins?: Map<string, unknown> | Record<string, { started?: boolean }>
+      }
+      const settings = this.$store.state.settings as {
+        plugins?: Record<string, { started?: boolean }>
+      }
+      return isAtcPluginInstalled({
+        modelPlugins: model?.plugins ?? null,
+        settingsPlugins: settings?.plugins ?? null
+      })
+    },
+
     nxtPlatformSelectItems() {
       return NXT_PLATFORM_OPTIONS
     },
@@ -2348,13 +2406,13 @@ export default defineNxtComponent({
       const maxPorts = typeof n === 'number' && n > 0 ? n : 8
       const fanIds = new Set<number>()
       const fans = this.effectiveBoardFanPins as string[]
-      // Preferred indices match pinmap / gpio.g: mist0 coolant1 aux0→2 … relay5
+      // Preferred indices match pinmap / gpio.g: aux0–2, coolant, mist, relay
       const preferred: Record<string, number> = {
-        mist: 0,
-        coolant: 1,
-        aux0: 2,
-        aux1: 3,
-        aux2: 4,
+        aux0: 0,
+        aux1: 1,
+        aux2: 2,
+        coolant: 3,
+        mist: 4,
         relay: 5
       }
       for (const a of fans) {

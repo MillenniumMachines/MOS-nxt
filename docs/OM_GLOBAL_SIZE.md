@@ -37,7 +37,8 @@ Configuration / Calibration **Save** and Custom **Apply** share [`ui/src/utils/n
 9. Tool-length cache is scalars (`nxtToolCacheIdx` / `nxtToolCacheZ`), not `vector(limits.tools)`.
 10. `nxtPinStates` stays `null` until `pause.g`; do not persist it in user-vars.
 11. Custom A-axis keys only when `0:/sys/nxt-custom-a.requested` exists (Save syncs when any `nxtCustomA*` is set).
-12. Board pack path telemetry (`nxtBoardPackEntry` / Expected / ShortName / SysDeploy) is declare-on-use — not always-on nulls in `nxt-vars.g`.
+12. **MosAtc / MosFourthAxis:** optional sibling plugins load from `nxt.g` only when `nxtFeatureAtc` / `nxtFeatureFourthAxis` is true and SD init macros exist — not via unconditional plugin-init dispatch (saves ~800B+ `atc*` globals when ATC is off).
+13. Board pack path telemetry (`nxtBoardPackEntry` / Expected / ShortName / SysDeploy) is declare-on-use — not always-on nulls in `nxt-vars.g`.
 
 ## Checking size
 

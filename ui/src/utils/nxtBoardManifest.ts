@@ -220,20 +220,21 @@ const GPOUT_ROLE_LABELS: Array<{ key: keyof GpOutRoleOccupancy; label: string }>
 
 /** Canonical Scylla named-output create order (matches gpio.g). */
 export const NXT_NAMED_OUTPUT_ALIASES = [
-  'mist',
-  'coolant',
   'aux0',
   'aux1',
   'aux2',
+  'coolant',
+  'mist',
   'relay'
 ] as const
 
 export type NxtNamedOutputAlias = (typeof NXT_NAMED_OUTPUT_ALIASES)[number]
 
+/** Default tool fan pin; aux/relay are 24V regardless of motor pack voltage. */
 export function defaultBoardFanPinsForVoltage(
-  voltage: number | null | undefined
+  _voltage: number | null | undefined
 ): string[] {
-  return voltage === 48 ? ['aux1'] : ['aux0']
+  return ['aux0']
 }
 
 /**

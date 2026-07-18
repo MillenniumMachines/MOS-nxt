@@ -17,6 +17,8 @@ Each plugin uses DWC `plugin.json` and may include nxt runtime metadata in `data
 - `enabled` (bool): defaults to `true` if omitted.
 - `loadOrder` (number): lower values initialize first.
 - `failureMode` (`soft` or `strict`): defaults to `soft`.
+- `featureFlag` (string, optional): global name (e.g. `nxtFeatureAtc`) — init dispatch runs only when that global is true.
+- `skipInitDispatch` (bool, optional): when true, init is **not** emitted in `nxt-plugin-init-dispatch.g`; load from `nxt.g` when the feature flag and SD macros are present (MosAtc / MosFourthAxis pattern).
 - `entrypoints` (object):
   - `init` (string, optional): one-time init macro path under `/sys`.
   - `daemon` (string, optional): periodic daemon macro path under `/sys`.

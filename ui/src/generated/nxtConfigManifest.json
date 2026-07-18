@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-14T01:19:36.361Z",
+  "generatedAt": "2026-07-18T05:58:17.608Z",
   "boards": [
     {
       "shortName": "scylla1_0_h723",
@@ -163,65 +163,65 @@
             "note": "Optional fourth axis. Firmware name amax (PD_13)."
           },
           {
-            "id": "mist",
-            "label": "Mist",
+            "id": "aux0",
+            "label": "Aux 0",
             "kind": "gpout",
             "gpOutIndex": 0,
-            "pin": "A.7",
+            "pin": "A.4",
             "aliases": [
-              "mist",
-              "mistpwm"
+              "aux0",
+              "aux0pwm"
             ],
-            "note": "Preferred J0. May be created as fan instead via nxtBoardFanPins."
+            "note": "Preferred J0. 24V rail. Default tool fan (nxtBoardFanPins) at any motor voltage."
+          },
+          {
+            "id": "aux1",
+            "label": "Aux 1",
+            "kind": "gpout",
+            "gpOutIndex": 1,
+            "pin": "A.5",
+            "aliases": [
+              "aux1",
+              "aux1pwm"
+            ],
+            "note": "Preferred J1. 24V rail. May be created as fan instead via nxtBoardFanPins."
+          },
+          {
+            "id": "aux2",
+            "label": "Aux 2",
+            "kind": "gpout",
+            "gpOutIndex": 2,
+            "pin": "A.6",
+            "aliases": [
+              "aux2",
+              "aux2pwm"
+            ],
+            "note": "Preferred J2. 24V rail. May be created as fan instead via nxtBoardFanPins."
           },
           {
             "id": "coolant",
             "label": "Coolant",
             "kind": "gpout",
-            "gpOutIndex": 1,
+            "gpOutIndex": 3,
             "pin": "C.4",
             "aliases": [
               "coolant",
               "cool",
               "coolantpwm"
             ],
-            "note": "Preferred J1. May be created as fan instead via nxtBoardFanPins."
+            "note": "Preferred J3. May be created as fan instead via nxtBoardFanPins."
           },
           {
-            "id": "aux0",
-            "label": "Aux 0",
-            "kind": "gpout",
-            "gpOutIndex": 2,
-            "pin": "A.4",
-            "aliases": [
-              "aux0",
-              "aux0pwm"
-            ],
-            "note": "Preferred J2. Default tool fan at 24 V (nxtBoardFanPins)."
-          },
-          {
-            "id": "aux1",
-            "label": "Aux 1",
-            "kind": "gpout",
-            "gpOutIndex": 3,
-            "pin": "A.5",
-            "aliases": [
-              "aux1",
-              "aux1pwm"
-            ],
-            "note": "Preferred J3. Default tool fan at 48 V (nxtBoardFanPins)."
-          },
-          {
-            "id": "aux2",
-            "label": "Aux 2",
+            "id": "mist",
+            "label": "Mist",
             "kind": "gpout",
             "gpOutIndex": 4,
-            "pin": "A.6",
+            "pin": "A.7",
             "aliases": [
-              "aux2",
-              "aux2pwm"
+              "mist",
+              "mistpwm"
             ],
-            "note": "Preferred J4."
+            "note": "Preferred J4. May be created as fan instead via nxtBoardFanPins."
           },
           {
             "id": "relay",
@@ -233,7 +233,7 @@
               "relay",
               "relayctr"
             ],
-            "note": "Preferred J5. Motor/VFD contactor."
+            "note": "Preferred J5. 24V rail. Motor/VFD contactor."
           },
           {
             "id": "probe",
@@ -248,11 +248,11 @@
           }
         ],
         "namedOutputs": [
-          "mist",
-          "coolant",
           "aux0",
           "aux1",
           "aux2",
+          "coolant",
+          "mist",
           "relay"
         ],
         "fanDefaultsByVoltage": {
@@ -260,7 +260,7 @@
             "aux0"
           ],
           "48": [
-            "aux1"
+            "aux0"
           ]
         }
       }

@@ -105,16 +105,16 @@ Pack loading vs homing deploy: [NXT_BOARD_CONFIG.md](NXT_BOARD_CONFIG.md).
 
 ### 6. Coolant / output roles
 
-Configure GPIO outputs from **named board pins** (Mist, Coolant, Relay, Aux, …). On Scylla, the board pack creates ports and fills null role IDs in order **mist → coolant → aux0 → aux1 → aux2 → relay**.
+Configure GPIO outputs from **named board pins** (Mist, Coolant, Relay, Aux, …). On Scylla, the board pack creates ports and fills null role IDs in order **aux0 → aux1 → aux2 → coolant → mist → relay**. Aux0–2 and relay are 24 V rails.
 
 | Setting | Description | Example (Scylla preferred) |
 |---------|-------------|----------------------------|
-| Relay | Motor/VFD contactor | Relay J5 (`D.5`) |
-| Aux 0 / 1 / 2 | Spare aux MOSFET outputs | Aux0 J2 / Aux1 J3 / Aux2 J4 |
+| Relay | Motor/VFD contactor (24 V) | Relay J5 (`D.5`) |
+| Aux 0 / 1 / 2 | Spare aux MOSFET outputs (24 V) | Aux0 J0 / Aux1 J1 / Aux2 J2 |
 | Air Blast | Any free named gpOut | — |
-| Mist Coolant | Prefer Mist pin | Mist J0 (`A.7`) |
-| Flood / Coolant | Prefer Coolant pin | Coolant J1 (`C.4`) |
-| Board pins as fans | Multi-select → `M950 F` instead of gpOut | Default Aux0@24V / Aux1@48V |
+| Mist Coolant | Prefer Mist pin | Mist J4 (`A.7`) |
+| Flood / Coolant | Prefer Coolant pin | Coolant J3 (`C.4`) |
+| Board pins as fans | Multi-select → `M950 F` instead of gpOut | Default Aux0 (any motor voltage) |
 | UART accessory | Single device on PD8/PD9 | Off / PanelDue / TFT / Pendant |
 
 **Usage Notes:**

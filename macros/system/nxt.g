@@ -168,6 +168,34 @@ if { var.nxtFaOn }
     else
         echo "nxt: nxtFeatureFourthAxis on but MosFourthAxis macros missing on SD"
 
+; MosAtc (optional sibling plugin) — only when feature on and init macros present.
+; Init is NOT via nxt-plugin-init-dispatch (OM budget); same pattern as MosFourthAxis.
+var nxtAtcOn = false
+var nxtAtcLoaded = false
+if { exists(global.nxtFeatureAtc) && global.nxtFeatureAtc }
+    set var.nxtAtcOn = true
+
+if { var.nxtAtcOn }
+    if { fileexists("0:/sys/mos-atc.g") }
+        M117 "nxt mos-atc"
+        M98 P"mos-atc.g"
+        set var.nxtAtcLoaded = true
+    elif { fileexists("0:/sys/plugins/mos-atc/mos-atc-init.g") }
+        M117 "nxt mos-atc-init"
+        M98 P"plugins/mos-atc/mos-atc-init.g"
+        set var.nxtAtcLoaded = true
+    elif { fileexists("0:/plugins/mos-atc/mos-atc-init.g") }
+        M117 "nxt mos-atc-init"
+        M98 P"0:/plugins/mos-atc/mos-atc-init.g"
+        set var.nxtAtcLoaded = true
+    else
+        echo "nxt: nxtFeatureAtc on but MosAtc macros missing on SD"
+
+if { var.nxtAtcLoaded }
+    if { !exists(global.nxtPluginLoaded_mosatc) }
+        global nxtPluginLoaded_mosatc = false
+    set global.nxtPluginLoaded_mosatc = true
+
 ; Do not M98 rotary-plugin-config.g here — Scylla axis-a.g already maps A; avoid duplicate M584/M574.
 
 ; Persisted RGB colour map (written by nxt-save-rgb.g from Status / RGB panel).

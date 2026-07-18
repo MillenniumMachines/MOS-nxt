@@ -1,6 +1,7 @@
 /** Companion DWC plugin ids detected from the machine / settings store. */
 
 export const NXT_FOURTH_AXIS_PLUGIN_ID = 'MosFourthAxis'
+export const NXT_ATC_PLUGIN_ID = 'MosAtc'
 
 export type DwcPluginEntry = { started?: boolean; id?: string }
 
@@ -33,5 +34,21 @@ export function isFourthAxisPluginInstalled(opts: {
   if (pluginMapHasId(opts.modelPlugins, NXT_FOURTH_AXIS_PLUGIN_ID)) return true
   if (pluginMapHasId(opts.settingsPlugins, NXT_FOURTH_AXIS_PLUGIN_ID)) return true
   if (pluginMapHasId(opts.plugins, NXT_FOURTH_AXIS_PLUGIN_ID)) return true
+  return false
+}
+
+/**
+ * True when MosAtc is installed (magazine / job-sequence UI).
+ * Firmware init macros load from nxt.g when global.nxtFeatureAtc is also true.
+ */
+export function isAtcPluginInstalled(opts: {
+  modelPlugins?: Map<string, unknown> | Record<string, DwcPluginEntry> | null
+  settingsPlugins?: Record<string, DwcPluginEntry> | null
+  /** @deprecated pass modelPlugins / settingsPlugins */
+  plugins?: Record<string, DwcPluginEntry>
+}): boolean {
+  if (pluginMapHasId(opts.modelPlugins, NXT_ATC_PLUGIN_ID)) return true
+  if (pluginMapHasId(opts.settingsPlugins, NXT_ATC_PLUGIN_ID)) return true
+  if (pluginMapHasId(opts.plugins, NXT_ATC_PLUGIN_ID)) return true
   return false
 }

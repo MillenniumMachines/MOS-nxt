@@ -10,7 +10,9 @@
       "id": "MosAtc",
       "repoPath": "../mos-atc",
       "manifestPath": "dwc-plugin/plugin.json",
-      "required": false
+      "required": false,
+      "skipInitDispatch": true,
+      "featureFlag": "nxtFeatureAtc"
     },
     {
       "id": "ArborCTL",

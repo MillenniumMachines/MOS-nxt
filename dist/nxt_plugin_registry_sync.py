@@ -170,9 +170,17 @@ def build_dispatchers(
         safe_id = sanitize_plugin_id(plugin_id)
 
         init_entry = entrypoints.get("init")
-        if isinstance(init_entry, str) and init_entry.strip():
+        skip_init = bool(nxt.get("skipInitDispatch"))
+        feature_flag = str(nxt.get("featureFlag", "")).strip()
+        if isinstance(init_entry, str) and init_entry.strip() and not skip_init:
             if validate_or_error(plugin_id, failure_mode, "init", init_entry):
                 init_path = to_rrf_macro_path(init_entry)
+                if feature_flag:
+                    files["init"].extend(
+                        [
+                            f"if {{ exists(global.{feature_flag}) && global.{feature_flag} }}",
+                        ]
+                    )
                 files["init"].extend(
                     [
                         f"if {{ !exists(global.nxtPluginLoaded_{safe_id}) }}",

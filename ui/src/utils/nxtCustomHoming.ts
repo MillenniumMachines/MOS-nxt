@@ -18,11 +18,14 @@ function axisLetter(i: 0 | 1 | 2 | 3): 'X' | 'Y' | 'Z' | 'A' {
   return i === 0 ? 'X' : i === 1 ? 'Y' : i === 2 ? 'Z' : 'A'
 }
 
-/** Signed first-pass travel expression toward the endstop. */
+/**
+ * Signed first-pass travel expression toward the endstop.
+ * Minus must be inside `{}` (RRF: `Z{-(…)}`, not `Z-{…}` → "expected number after 'Z'").
+ */
 function homeTravelExpr(axis: 0 | 1 | 2 | 3, homeAt: CustomHomeAt): string {
   const a = `move.axes[${axis}]`
-  const span = `(${a}.max - ${a}.min + 5)`
-  return homeAt === 1 ? `-{${span}}` : `{${span}}`
+  const span = `${a}.max - ${a}.min + 5`
+  return homeAt === 1 ? `{-(${span})}` : `{${span}}`
 }
 
 function backoffExpr(homeAt: CustomHomeAt): string {
@@ -40,8 +43,20 @@ function g92Line(axis: 0 | 1 | 2 | 3, homeAt: CustomHomeAt): string {
   return `G53 G92 ${L}{${pos}}`
 }
 
-function raiseZSafe(): string {
-  return `G53 G0 Z{move.axes[2].max}`
+/** Raise spindle; G0 requires Z already homed (home Z first / use homeall). */
+function raiseZSafeLines(): string[] {
+  return [
+    'if { !move.axes[2].homed }',
+    '    abort {"Home Z first - clearance raise needs Z homed"}',
+    'G53 G0 Z{move.axes[2].max}'
+  ]
+}
+
+function zTravelGuardLines(): string[] {
+  return [
+    'if { move.axes[2].min >= move.axes[2].max }',
+    '    abort {"Z limits invalid - set Custom Z Min/Max, Save, reboot"}'
+  ]
 }
 
 export function buildCustomHomexG(input: CustomHomingInput): string {
@@ -55,7 +70,7 @@ export function buildCustomHomexG(input: CustomHomingInput): string {
     'G94',
     '',
     '; Raise Z for clearance',
-    raiseZSafe(),
+    ...raiseZSafeLines(),
     '',
     '; First pass toward X endstop',
     `G53 G1 H1 X${homeTravelExpr(0, ha)} F{1800}`,
@@ -84,7 +99,7 @@ export function buildCustomHomeyG(input: CustomHomingInput): string {
     'G21',
     'G94',
     '',
-    raiseZSafe(),
+    ...raiseZSafeLines(),
     '',
     `G53 G1 H1 Y${homeTravelExpr(1, ha)} F{1800}`,
     '',
@@ -109,6 +124,8 @@ export function buildCustomHomezG(input: CustomHomingInput): string {
     'G91',
     'G21',
     'G94',
+    '',
+    ...zTravelGuardLines(),
     '',
     'var toolZ = null',
     '',
@@ -143,7 +160,7 @@ export function buildCustomHomeaG(input: CustomHomingInput): string {
     'G21',
     'G94',
     '',
-    raiseZSafe(),
+    ...raiseZSafeLines(),
     '',
     `G53 G1 H1 A${homeTravelExpr(3, ha)} F{1800}`,
     '',
