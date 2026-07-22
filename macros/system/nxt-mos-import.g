@@ -83,7 +83,15 @@ if { exists(global.mosTSID) }
 if { exists(global.mosTPR) }
     set global.nxtProbeTipRadius = { global.mosTPR }
 if { exists(global.mosTPD) }
-    set global.nxtProbeDeflection = { global.mosTPD }
+    ; Normalize MOS mosTPD (scalar/{X}/{X,Y}) to nxt {X,Y,Z}; Z falls back to X when absent
+    if { #global.mosTPD >= 3 }
+        set global.nxtProbeDeflection = { global.mosTPD[0], global.mosTPD[1], global.mosTPD[2] }
+    elif { #global.mosTPD >= 2 }
+        set global.nxtProbeDeflection = { global.mosTPD[0], global.mosTPD[1], global.mosTPD[0] }
+    elif { #global.mosTPD >= 1 }
+        set global.nxtProbeDeflection = { global.mosTPD[0], global.mosTPD[0], global.mosTPD[0] }
+    else
+        set global.nxtProbeDeflection = { global.mosTPD, global.mosTPD, global.mosTPD }
 if { exists(global.mosTSP) }
     set global.nxtToolSetterPos = { global.mosTSP }
 if { exists(global.mosSID) }
@@ -206,12 +214,22 @@ echo >>{var.UV} {"set global.nxtTouchProbeID = " ^ (global.nxtTouchProbeID == nu
 echo >>{var.UV} {"set global.nxtProbeTipRadius = " ^ (global.nxtProbeTipRadius == null ? "null" : global.nxtProbeTipRadius)}
 if { global.nxtProbeDeflection == null }
     echo >>{var.UV} {"set global.nxtProbeDeflection = null"}
+elif { #global.nxtProbeDeflection >= 3 }
+    var nxtDeflUv = { "{" ^ global.nxtProbeDeflection[0] ^ ", " ^ global.nxtProbeDeflection[1] }
+    set var.nxtDeflUv = { var.nxtDeflUv ^ ", " ^ global.nxtProbeDeflection[2] ^ "}" }
+    echo >>{var.UV} {"set global.nxtProbeDeflection = " ^ var.nxtDeflUv}
 elif { #global.nxtProbeDeflection >= 2 }
-    echo >>{var.UV} {"set global.nxtProbeDeflection = {" ^ global.nxtProbeDeflection[0] ^ ", " ^ global.nxtProbeDeflection[1] ^ "}"}
+    var nxtDeflUv = { "{" ^ global.nxtProbeDeflection[0] ^ ", " ^ global.nxtProbeDeflection[1] }
+    set var.nxtDeflUv = { var.nxtDeflUv ^ ", " ^ global.nxtProbeDeflection[0] ^ "}" }
+    echo >>{var.UV} {"set global.nxtProbeDeflection = " ^ var.nxtDeflUv}
 elif { #global.nxtProbeDeflection == 1 }
-    echo >>{var.UV} {"set global.nxtProbeDeflection = {" ^ global.nxtProbeDeflection[0] ^ ", 0}"}
+    var nxtDeflUv = { "{" ^ global.nxtProbeDeflection[0] ^ ", " ^ global.nxtProbeDeflection[0] }
+    set var.nxtDeflUv = { var.nxtDeflUv ^ ", " ^ global.nxtProbeDeflection[0] ^ "}" }
+    echo >>{var.UV} {"set global.nxtProbeDeflection = " ^ var.nxtDeflUv}
 else
-    echo >>{var.UV} {"set global.nxtProbeDeflection = {" ^ global.nxtProbeDeflection[0] ^ "}"}
+    var nxtDeflUv = { "{" ^ global.nxtProbeDeflection ^ ", " ^ global.nxtProbeDeflection }
+    set var.nxtDeflUv = { var.nxtDeflUv ^ ", " ^ global.nxtProbeDeflection ^ "}" }
+    echo >>{var.UV} {"set global.nxtProbeDeflection = " ^ var.nxtDeflUv}
 echo >>{var.UV} {"set global.nxtDatumToolRadius = " ^ (global.nxtDatumToolRadius == null ? "null" : global.nxtDatumToolRadius)}
 echo >>{var.UV} {"set global.nxtProtectedMoveBackOff = " ^ (global.nxtProtectedMoveBackOff == null ? "null" : global.nxtProtectedMoveBackOff)}
 if { global.nxtTouchProbeRefPos == null }

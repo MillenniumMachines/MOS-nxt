@@ -62,13 +62,15 @@ The solution lies in exploiting different mathematical properties of each error 
 3. **Probe deflection is symmetrical and constant**: When probing opposite sides of an object
    - From negative direction (e.g., X-): probe deflects in +X before triggering
    - From positive direction (e.g., X+): probe deflects in -X before triggering  
-   - The measured distance includes deflection on BOTH sides
-   - For a known-size object: `measured size = actual size + 2 × deflection`
+   - Tip radius is applied directionally in **G6512**; deflection is a positive magnitude per axis
+   - For an **external** known-size object (1-2-3 block) with tip compensation on and deflection unset:
+     `measured size ≈ actual size − 2 × deflection`
+   - Internal features (pockets) read long by roughly `+2 × deflection` when deflection is unset
    - Once steps-per-mm and backlash are correct, deflection can be isolated
 
 **The Calibration Sequence**:
 ```
-Phase 1: Manual rough steps-per-mm (±1-2% accuracy sufficient)
+Phase 1: Travel backlash estimate (M5014 / G9000 — not M92)
          ↓
 Phase 2: Dual-dimension steps-per-mm (cancels backlash + deflection)
          ↓  
@@ -103,9 +105,9 @@ Phase 5: Verification
 The calibration follows a specific sequence to break the circular dependency:
 
 ```
-Phase 1: Rough Steps-per-mm Calibration (Manual)
+Phase 1: Travel Backlash Estimate (Manual M5014)
          ↓
-Phase 2: Precise Steps-per-mm Calibration (Automated, Dual-Dimension)
+Phase 2: Precise Steps-per-mm Calibration (Dual-Dimension spans)
          ↓
 Phase 3: Backlash Measurement & Compensation (Statistical Drift Analysis)
          ↓
@@ -115,15 +117,15 @@ Phase 5: Verification & Refinement
 ```
 
 **Why This Order Works**:
-- **Phase 1** gets steps-per-mm "close enough" (±1-2%) for probing to work reliably
-- **Phase 2** achieves precise steps-per-mm (<0.1%) using dual-dimension method that mathematically cancels out backlash and deflection
+- **Phase 1** estimates backlash from dial/probe round-trip (8/16/24 mm) — not steps/mm
+- **Phase 2** achieves precise steps-per-mm (<0.1%) using dual-dimension spans that cancel backlash and deflection
 - **Phase 3** uses statistical analysis with accurate steps-per-mm to isolate backlash from deflection
 - **Phase 4** measures deflection now that both steps-per-mm and backlash are correct
 - **Phase 5** verifies all calibrations are working together correctly
 
-### 3.3 Phase 1: Rough Steps-per-mm Calibration (Manual)
+### 3.3 Phase 1: Travel Calibration — Backlash Estimate (Manual)
 
-**Goal**: Get steps-per-mm accurate using a dial indicator on a fixed face (8 / 16 / 24 mm travel legs).
+**Goal**: Estimate backlash using a dial indicator on a fixed face (8 / 16 / 24 mm travel legs). Round-trip tests on one surface **do not isolate steps/mm** — use Phase 2 for M92.
 
 **Procedure** (Calibration tab → `M5014`):
 1. Secure the 1-2-3 block (**3″∥X**). Select which face you are measuring; travel is **away** from that face.
@@ -132,12 +134,12 @@ Phase 5: Verification & Refinement
    - Machine moves away by D, then returns by D
    - Enter dial **residual** R (+ = short of zero after return)
    - `measured = D − R`
-4. UI classifies near-constant error → backlash vs near-proportional → steps/mm; Apply M92 / M425 as appropriate.
+4. UI classifies near-constant error → **M425 backlash**; Apply M425 as appropriate. Use Phase 2 for steps/mm.
 5. Repeat for other axes as needed.
 
 **Why This Works**:
-- Zero → away → return isolates positioning error over known travel without depending on probe deflection
-- Multi-distance legs separate constant (backlash) from proportional (steps) error
+- Zero → away → return measures **lost motion** (backlash) over known travel without depending on probe deflection
+- Near-constant residual across 8/16/24 mm → backlash estimate
 - Optional 3× averaging improves consistency
 
 ### 3.4 Phase 2: Precise Steps-per-mm Calibration (Automated, Dual-Dimension)
@@ -170,7 +172,7 @@ Subtracting:
 d2_measured - d1_measured = (s_current / s_actual) × (d2_actual - d1_actual)
 
 Therefore:
-s_actual = s_current × (d2_actual - d1_actual) / (d2_measured - d1_measured)
+s_actual = s_current × (d2_measured - d1_measured) / (d2_actual - d1_actual)
 ```
 
 **Both deflection and backlash terms cancel out!** This is why we can calibrate steps-per-mm precisely without knowing these other error sources.
@@ -203,7 +205,7 @@ s_actual = s_current × (d2_actual - d1_actual) / (d2_measured - d1_measured)
    ```
    actual1 = 25.4  ; mm
    actual2 = 50.8  ; mm
-   s_new = s_current × (actual2 - actual1) / (measured2 - measured1)
+   s_new = s_current × (measured2 - measured1) / (actual2 - actual1)
    ```
    
 5. **Apply Correction**:
@@ -261,7 +263,7 @@ var measured2 = { abs(var.right2 - var.left2) }
 
 ; Calculate new steps-per-mm
 var current_steps = { move.axes[0].stepsPerMm }
-var new_steps = { var.current_steps * (var.dim2_actual - var.dim1_actual) / (var.measured2 - var.measured1) }
+var new_steps = { var.current_steps * (var.measured2 - var.measured1) / (var.dim2_actual - var.dim1_actual) }
 
 echo "Current steps/mm: " ^ var.current_steps
 echo "Measured dim1: " ^ var.measured1 ^ "mm (actual: " ^ var.dim1_actual ^ "mm)"
@@ -432,29 +434,30 @@ A dedicated calibration wizard in the Settings panel would:
    - Record: `right = nxtLastProbeResult`
    - Calculate: `measured = abs(right - left)`
 
-3. **Calculate Deflection**:
+3. **Calculate Deflection** (external block, residual form):
    ```
-   total_error = measured - actual_dimension
-   deflection = total_error / 2
+   newD = currentD + (actual_dimension − measured) / 2
    ```
-   
-   Example:
+   First calibration with `currentD = 0`. Re-checks with compensation already active converge when `measured ≈ actual`.
+
+   Example (external 3″ face, tip radius already set, deflection was 0):
    ```
-   measured = 25.45mm
-   actual = 25.40mm
-   deflection = (25.45 - 25.40) / 2 = 0.025mm
+   measured = 76.15mm
+   actual = 76.20mm
+   newD = 0 + (76.20 − 76.15) / 2 = 0.025mm
    ```
 
 4. **Update nxt Configuration**:
-   - Set `global.nxtProbeDeflection = {calculated_deflection}`
-   - Add to nxt-user-vars.g for persistence
+   - Set `global.nxtProbeDeflection = {Dx, Dy, Dz}` (positive magnitudes; update the probed axis only)
+   - Persist via Configuration / Calibration **Save** → `nxt-user-vars.g`
+   - **Recalibrate** after the G6512 direction-signed deflection fix — older values are not portable
 
 5. **Verify**:
    - Re-measure the reference dimension
    - The probing macro (G6512) will now apply deflection compensation
    - Result should be within ±0.01mm of actual dimension
 
-**Repeat for Y and Z axes**. Note that deflection may differ between axes due to probe geometry and mounting.
+**Repeat for Y and Z axes**. Note that deflection may differ between axes due to probe geometry and mounting. A-axis has no linear tip/deflection channel.
 
 ### 3.7 Phase 5: Verification & Refinement
 
@@ -511,9 +514,9 @@ The **Calibration** tab on the main nxt dashboard (`ui/src/nxt.vue` → `Calibra
 
 **Mode:** After Phase 0 is clear and the touch probe is ready, choose **Manual (1-2-3)** or **Probe**.
 
-**Manual XYZ (phases 1–5):** Assumes a **1-2-3 block** with **3″∥X, 2″∥Y, 1″∥Z**. Phase 1 (`M5014`): pick block face (travel away from that face) → zero dial on surface → away/return at **8 / 16 / 24 mm** → enter residual (`measured = commanded − residual`). Optional **3×** average per leg. UI classifies like probe mode. Phase 2 assist (`M5015`). Phase 3 scatter plot off by default.
+**Manual XYZ (phases 1–5):** Assumes a **1-2-3 block** with **3″∥X, 2″∥Y, 1″∥Z**. Phase 1 (`M5014`): pick block face (travel away from that face) → zero dial on surface → away/return at **8 / 16 / 24 mm** → enter residual (`measured = commanded − residual`). Optional **3×** average per leg. UI estimates **M425 backlash only** — use Phase 2 for steps/mm. Phase 2 assist (`M5015`): capture opposing faces (L1/R1/L2/R2) and compute spans `|right − left|`. Phase 3 scatter plot off by default.
 
-**Probe mode:** Deflection (Phase 4) must be confirmed before `G9000`. `G9000 X|Y|Z` runs 8 / 16 / 24 mm legs; each leg does **probe (hit0) → away D → probe (hit1)** three times; `measured = D − mean((hit1−hit0)·dir)`. UI classifies near-constant error → backlash (`M425`) vs near-proportional → steps (`M92`). After steps Apply, re-check deflection before Save.
+**Probe mode recommended order:** Phase 4 deflection → `G9000` backlash (8/16/24 mm away→re-probe) → Phase 2 dual spans for steps/mm → Phase 5 verify. Deflection must be confirmed before `G9000`. `G9000 X|Y|Z` runs 8 / 16 / 24 mm legs; each leg does **probe (hit0) → away D → probe (hit1)** three times; `measured = D − mean((hit1−hit0)·dir)`. UI estimates **M425 backlash only** — never auto-proposes M92 from travel. After Phase 2 Apply M92, re-check deflection before Save.
 
 **A / rotary:** Shown only when both are true:
 
@@ -526,10 +529,10 @@ The **Calibration** tab on the main nxt dashboard (`ui/src/nxt.vue` → `Calibra
 | `M4910` | Probe rotary Y center |
 | `M4807 W…` | Optional: apply stored Y center as Y0 to WCS |
 | `M4806 V…` | Apply A steps/mm (`M92 A` + `rotaryAStepsPerMm`) |
-| `M5014` | Phase 1: zero dial → away/return 8/16/24 → residual → travel globals |
-| `M5015` | Phase 2 jog → G6512 → return |
+| `M5014` | Phase 1: zero dial → away/return 8/16/24 → residual → backlash estimate (not M92) |
+| `M5015` | Phase 2 jog → G6512 → return; capture opposing faces |
 | `M5016` | Phase 0 static datum |
-| `G9000` | Probe-mode 8/16/24: probe → away → re-probe ×3 per leg |
+| `G9000` | Probe-mode 8/16/24: probe → away → re-probe ×3 per leg (backlash only) |
 
 **Save calibration:** uploads `nxt-user-vars.g` (`nxtCustom*Steps`, `nxtCustom*Backlash`, `nxtProbeDeflection`, `nxtTouchProbeRefPos`, `nxtToolSetterPos`, `nxtDeltaMachine`). On **Custom** platform, also regenerates pack overlays (`steps.g`, `drives-overlay.g` with `M425`).
 
@@ -722,8 +725,8 @@ This calibration system should be implemented in **Phase 4** of the nxt developm
 
 ### Calibration Sequence Summary
 ```
-1. Manual rough steps-per-mm → Get within 1-2%
-2. Automated precise steps-per-mm → Use dual-dimension method
+1. Manual travel backlash → estimate M425
+2. Dual-dimension spans → M92 steps/mm
 3. Probe backlash → Measure & compensate via statistical drift
 4. Probe deflection → Measure with known object
 5. Verify → Test accuracy and repeatability
@@ -736,14 +739,15 @@ This calibration system should be implemented in **Phase 4** of the nxt developm
 new_steps = current_steps × (commanded / actual_measured)
 ```
 
-**Steps-per-mm Correction (Automated)**:
+**Steps-per-mm Correction (Automated, dual-dimension)**:
 ```
-new_steps = current_steps × (d2_actual - d1_actual) / (d2_measured - d1_measured)
+new_steps = current_steps × (d2_measured - d1_measured) / (d2_actual - d1_actual)
+measured = abs(right_face - left_face)   ; per size
 ```
 
-**Probe Deflection**:
+**Probe Deflection** (external block, tip radius in G6512):
 ```
-deflection = (measured_dimension - actual_dimension) / 2
+new_deflection = current_deflection + (actual - measured) / 2
 ```
 
 **Backlash**:

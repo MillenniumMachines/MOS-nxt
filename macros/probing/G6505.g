@@ -69,12 +69,12 @@ G6550 Z{var.probeZ}
 if { var.probeAxis == 0 }
     echo "G6505: Probing +X edge"
     var xPlusTarget = { var.centerX + var.probeDistance }
-    G6512 X{var.xPlusTarget} Y{var.centerY} Z{var.probeZ} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries}
+    G6512 X{var.xPlusTarget} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries}
     var plusEdge = { global.nxtLastProbeResult }
     G6550 X{var.centerX}
     echo "G6505: Probing -X edge"
     var xMinusTarget = { var.centerX - var.probeDistance }
-    G6512 X{var.xMinusTarget} Y{var.centerY} Z{var.probeZ} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries}
+    G6512 X{var.xMinusTarget} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries}
     var minusEdge = { global.nxtLastProbeResult }
     G6550 X{var.centerX}
     var calculatedCenter = { (var.plusEdge + var.minusEdge) / 2 }
@@ -84,12 +84,12 @@ if { var.probeAxis == 0 }
 else
     echo "G6505: Probing +Y edge"
     var yPlusTarget = { var.centerY + var.probeDistance }
-    G6512 X{var.centerX} Y{var.yPlusTarget} Z{var.probeZ} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries}
+    G6512 Y{var.yPlusTarget} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries}
     var plusEdge = { global.nxtLastProbeResult }
     G6550 Y{var.centerY}
     echo "G6505: Probing -Y edge"
     var yMinusTarget = { var.centerY - var.probeDistance }
-    G6512 X{var.centerX} Y{var.yMinusTarget} Z{var.probeZ} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries}
+    G6512 Y{var.yMinusTarget} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries}
     var minusEdge = { global.nxtLastProbeResult }
     G6550 Y{var.centerY}
     var calculatedCenter = { (var.plusEdge + var.minusEdge) / 2 }

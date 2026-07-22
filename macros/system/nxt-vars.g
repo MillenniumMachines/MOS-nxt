@@ -41,7 +41,7 @@ global nxtToolCacheIdx = -1            ; tool index for nxtToolCacheZ (-1 = empt
 global nxtToolCacheZ = null            ; last measured Z / virtual toolsetter Z for that tool
 global nxtLastProbeResult = null   ; Stores the result of the last probing operation
 global nxtProbeTipRadius = 0.0    ; Radius of the probe tip for compensation (mm)
-global nxtProbeDeflection = {0.0, 0.0} ; {X,Y} touch-probe deflection (mm) — MOS mosTPD layout
+global nxtProbeDeflection = {0.0, 0.0, 0.0} ; {X,Y,Z} touch-probe deflection (mm); legacy {X,Y}/scalar ok
 global nxtDatumToolRadius = null  ; Datum tool radius when touch probe feature is off (mm)
 global nxtProtectedMoveBackOff = null ; Protected move back-off distance (mm)
 global nxtTouchProbeRefPos = null ; Touch probe reference surface [X, Y, Z] machine coords

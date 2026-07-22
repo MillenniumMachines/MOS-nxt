@@ -13,12 +13,16 @@ if { exists(global.mosFeatTouchProbe) && global.mosFeatTouchProbe }
 if { var.featTouchOn }
     if { global.nxtProbeTipRadius == null }
         M99
+    ; M4000 X/Y carry lateral deflection for tool-table display (Z stays in nxtProbeDeflection[2])
     var deflX = 0.0
     var deflY = 0.0
-    if { exists(global.nxtProbeDeflection) && #global.nxtProbeDeflection >= 1 }
-        set var.deflX = global.nxtProbeDeflection[0]
-    if { exists(global.nxtProbeDeflection) && #global.nxtProbeDeflection >= 2 }
-        set var.deflY = global.nxtProbeDeflection[1]
+    if { exists(global.nxtProbeDeflection) && global.nxtProbeDeflection != null }
+        if { #global.nxtProbeDeflection >= 1 }
+            set var.deflX = global.nxtProbeDeflection[0]
+        if { #global.nxtProbeDeflection >= 2 }
+            set var.deflY = global.nxtProbeDeflection[1]
+        elif { #global.nxtProbeDeflection >= 1 }
+            set var.deflY = global.nxtProbeDeflection[0]
     M4000 P{var.probeIdx} R{global.nxtProbeTipRadius} S"Touch Probe" X{var.deflX} Y{var.deflY} K1
     M99
 

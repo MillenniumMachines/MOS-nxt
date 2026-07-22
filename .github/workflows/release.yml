@@ -44,6 +44,12 @@ jobs:
       - name: Check RRF macro line lengths
         run: node dist/check-gcode-line-length.mjs
 
+      - name: Check G6512 single-axis call contract
+        run: node dist/check-g6512-axis-contract.mjs
+
+      - name: Check G6512 deflection compensation math
+        run: node dist/check-g6512-deflection-math.mjs
+
       - name: Check OM global size budget
         run: node dist/check-om-global-budget.mjs
 

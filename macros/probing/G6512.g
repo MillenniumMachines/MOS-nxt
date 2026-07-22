@@ -77,28 +77,35 @@ var fineSpeed = { exists(param.F) ? param.F : sensors.probes[param.I].speeds[1] 
 if { var.roughSpeed == var.fineSpeed && !exists(param.F) }
     set var.fineSpeed = { var.roughSpeed / 5 }
 
-; Resolve touch-probe deflection (µm). nxtProbeDeflection is {X,Y}; legacy scalar supported.
-; Toolsetter probes must NOT apply stylus deflection (would bias tool-length vs probe).
+; Resolve touch-probe deflection (µm). nxtProbeDeflection is {X,Y,Z} positive magnitudes.
+; Legacy: scalar, {x}, or {x,y} (Z falls back to X). Toolsetter must NOT apply stylus defl.
+; A-axis: no linear tip/deflection compensation.
 var probeDeflectionUm = 0
 var applyTouchDefl = false
 if { exists(param.I) && exists(global.nxtTouchProbeID) && global.nxtTouchProbeID != null }
     if { param.I == global.nxtTouchProbeID }
         set var.applyTouchDefl = true
-if { var.applyTouchDefl && exists(global.nxtProbeDeflection) && global.nxtProbeDeflection != null }
-    if { #global.nxtProbeDeflection >= 2 }
+var applyAxisDefl = { var.applyTouchDefl && var.probeAxisIndex >= 0 && var.probeAxisIndex <= 2 }
+if { var.applyAxisDefl && exists(global.nxtProbeDeflection) && global.nxtProbeDeflection != null }
+    var deflLen = { #global.nxtProbeDeflection }
+    if { var.deflLen >= 3 }
+        set var.probeDeflectionUm = { global.nxtProbeDeflection[var.probeAxisIndex] * 1000 }
+    elif { var.deflLen >= 2 }
         if { var.probeAxisIndex == 1 }
             set var.probeDeflectionUm = { global.nxtProbeDeflection[1] * 1000 }
         else
-            ; X (0) and Z (2) use X component — no separate Z deflection yet
+            ; X or legacy Z → X component
             set var.probeDeflectionUm = { global.nxtProbeDeflection[0] * 1000 }
-    elif { #global.nxtProbeDeflection >= 1 }
+    elif { var.deflLen >= 1 }
         set var.probeDeflectionUm = { global.nxtProbeDeflection[0] * 1000 }
     else
+        ; Scalar legacy
         set var.probeDeflectionUm = { global.nxtProbeDeflection * 1000 }
 
 var probeTipRadiusUm = 0
-if { var.applyTouchDefl && exists(global.nxtProbeTipRadius) && global.nxtProbeTipRadius != null }
-    set var.probeTipRadiusUm = { global.nxtProbeTipRadius * 1000 }
+if { var.applyAxisDefl && var.probeAxisIndex != 2 }
+    if { exists(global.nxtProbeTipRadius) && global.nxtProbeTipRadius != null }
+        set var.probeTipRadiusUm = { global.nxtProbeTipRadius * 1000 }
 
 if { exists(param.H) && param.H != null && (param.H < 0 || param.H > 3) }
     abort { "G6512: Hit slot H must be 0..3 when provided" }
@@ -151,10 +158,14 @@ while { var.attempt < var.outerLimit && var.toleranceOk == false }
 
         var triggeredPos = global.nxtAbsPos[var.probeAxisIndex]
         var direction = { var.targetVector[var.probeAxisIndex] > var.startPos[var.probeAxisIndex] ? 1 : -1 }
-        var compensated = { var.triggeredPos * 1000 - var.probeDeflectionUm }
-
-        if { var.probeAxisIndex != 2 }
-            set var.compensated = { var.compensated + (var.probeTipRadiusUm * var.direction) }
+        ; X/Y: surface = T + dir*(R − D). Z: tip-center = T − dir*D (no tip radius).
+        ; A: leave trigger uncompensated (probeDeflectionUm / tip = 0).
+        var compensated = { var.triggeredPos * 1000 }
+        if { var.probeAxisIndex == 2 }
+            set var.compensated = { var.compensated - (var.probeDeflectionUm * var.direction) }
+        elif { var.probeAxisIndex == 0 || var.probeAxisIndex == 1 }
+            var tipMinusDefl = { var.probeTipRadiusUm - var.probeDeflectionUm }
+            set var.compensated = { var.compensated + (var.tipMinusDefl * var.direction) }
 
         if { var.toleranceEnabled }
             echo "G6512: attempt " ^ { var.innerIdx + 1 } ^ "/3 axis " ^ move.axes[var.probeAxisIndex].letter ^ " = " ^ { var.compensated / 1000 } ^ " mm"

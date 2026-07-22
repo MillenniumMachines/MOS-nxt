@@ -58,7 +58,7 @@ G6550 X{var.startX} Y{var.xProbeY}
 var probeZ = { var.startZ - var.probeDepth }
 G6550 Z{var.probeZ}
 
-G6512 X{var.xTarget} Y{var.xProbeY} Z{var.probeZ} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries}
+G6512 X{var.xTarget} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries}
 var xSurface = { global.nxtLastProbeResult }
 
 G6550 Z{var.startZ}
@@ -71,7 +71,7 @@ var yProbeX = { var.xTarget > var.startX ? var.xTarget + var.clearance : var.xTa
 G6550 X{var.yProbeX} Y{var.startY}
 G6550 Z{var.probeZ}
 
-G6512 X{var.yProbeX} Y{var.yTarget} Z{var.probeZ} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries}
+G6512 Y{var.yTarget} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries}
 var ySurface = { global.nxtLastProbeResult }
 
 G6550 Z{var.startZ}

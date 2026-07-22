@@ -65,15 +65,15 @@ var probeDistance = { var.boreDiameter / 2 + var.overtravel }
 echo "G6500: Probing bore diameter ~" ^ var.boreDiameter ^ "mm"
 
 var xPlusTarget = { var.centerX + var.probeDistance }
-G6512 X{var.xPlusTarget} Y{var.centerY} Z{var.probeZ} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H0
+G6512 X{var.xPlusTarget} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H0
 G6550 X{var.centerX}
 
 var xMinusTarget = { var.centerX - var.probeDistance }
-G6512 X{var.xMinusTarget} Y{var.centerY} Z{var.probeZ} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H1
+G6512 X{var.xMinusTarget} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H1
 G6550 X{var.centerX}
 
 var yPlusTarget = { var.centerY + var.probeDistance }
-G6512 X{var.centerX} Y{var.yPlusTarget} Z{var.probeZ} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H2
+G6512 Y{var.yPlusTarget} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H2
 
 var xPx = { global.nxtProbeHitXY[0] }
 var xPy = { global.nxtProbeHitXY[1] }

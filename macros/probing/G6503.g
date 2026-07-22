@@ -73,7 +73,7 @@ G6550 X{var.xPlusStart} Y{var.centerY}
 var probeZ = { var.startZ - var.probeDepth }
 G6550 Z{var.probeZ}
 
-G6512 X{var.xPlusTarget} Y{var.centerY} Z{var.probeZ} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H0
+G6512 X{var.xPlusTarget} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H0
 G6550 Z{var.startZ}
 
 ; -X from left
@@ -84,7 +84,7 @@ var xMinusTarget = { var.centerX - var.halfW + var.overtravel }
 G6550 X{var.xMinusStart} Y{var.centerY}
 G6550 Z{var.probeZ}
 
-G6512 X{var.xMinusTarget} Y{var.centerY} Z{var.probeZ} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H1
+G6512 X{var.xMinusTarget} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H1
 G6550 Z{var.startZ}
 
 ; X center from ±X chord only (Y probes then run at this X)
@@ -98,7 +98,7 @@ var yPlusTarget = { var.centerY + var.halfH - var.overtravel }
 G6550 X{var.calculatedCenterX} Y{var.yPlusStart}
 G6550 Z{var.probeZ}
 
-G6512 X{var.calculatedCenterX} Y{var.yPlusTarget} Z{var.probeZ} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H2
+G6512 Y{var.yPlusTarget} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H2
 G6550 Z{var.startZ}
 
 ; -Y
@@ -109,7 +109,7 @@ var yMinusTarget = { var.centerY - var.halfH + var.overtravel }
 G6550 X{var.calculatedCenterX} Y{var.yMinusStart}
 G6550 Z{var.probeZ}
 
-G6512 X{var.calculatedCenterX} Y{var.yMinusTarget} Z{var.probeZ} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H3
+G6512 Y{var.yMinusTarget} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H3
 G6550 Z{var.startZ}
 
 var xPx = { global.nxtProbeHitXY[0] }

@@ -270,14 +270,6 @@
               <v-btn
                 size="small"
                 color="primary"
-                :disabled="travelClassification.proposedNewSteps == null || uiFrozen"
-                @click="applyTravelSteps"
-              >
-                {{ $t('plugins.nxt.panels.calibration.applyTravelSteps') }}
-              </v-btn>
-              <v-btn
-                size="small"
-                color="primary"
                 variant="outlined"
                 :disabled="travelClassification.proposedBacklash == null || uiFrozen"
                 @click="applyTravelBacklash"
@@ -366,14 +358,6 @@
                 <v-btn
                   size="small"
                   color="primary"
-                  :disabled="travelClassification.proposedNewSteps == null || uiFrozen || selectedAxis === 'A'"
-                  @click="applyTravelSteps"
-                >
-                  {{ $t('plugins.nxt.panels.calibration.applyTravelSteps') }}
-                </v-btn>
-                <v-btn
-                  size="small"
-                  color="primary"
                   variant="outlined"
                   :disabled="travelClassification.proposedBacklash == null || uiFrozen || selectedAxis === 'A'"
                   @click="applyTravelBacklash"
@@ -385,8 +369,8 @@
           </v-expansion-panel-text>
         </v-expansion-panel>
 
-        <!-- Phase 2 -->
-        <v-expansion-panel v-if="calMode === 'manual'" value="2">
+        <!-- Phase 2 — dual-dimension steps (manual + probe) -->
+        <v-expansion-panel value="2">
           <v-expansion-panel-title>{{ $t('plugins.nxt.panels.calibration.phase2Title') }}</v-expansion-panel-title>
           <v-expansion-panel-text>
             <p class="text-caption mb-2">{{ $t('plugins.nxt.panels.calibration.phase2Hint') }}</p>
@@ -414,12 +398,96 @@
             </v-row>
             <v-row density="compact" class="mt-2">
               <v-col cols="6" md="3">
+                <v-text-field
+                  :model-value="p2Face1Left"
+                  type="number"
+                  step="0.001"
+                  density="compact"
+                  variant="outlined"
+                  :label="$t('plugins.nxt.panels.calibration.face1Left')"
+                  hide-details
+                  readonly
+                />
+              </v-col>
+              <v-col cols="6" md="3">
+                <v-text-field
+                  :model-value="p2Face1Right"
+                  type="number"
+                  step="0.001"
+                  density="compact"
+                  variant="outlined"
+                  :label="$t('plugins.nxt.panels.calibration.face1Right')"
+                  hide-details
+                  readonly
+                />
+              </v-col>
+              <v-col cols="6" md="3">
+                <v-text-field
+                  :model-value="p2Face2Left"
+                  type="number"
+                  step="0.001"
+                  density="compact"
+                  variant="outlined"
+                  :label="$t('plugins.nxt.panels.calibration.face2Left')"
+                  hide-details
+                  readonly
+                />
+              </v-col>
+              <v-col cols="6" md="3">
+                <v-text-field
+                  :model-value="p2Face2Right"
+                  type="number"
+                  step="0.001"
+                  density="compact"
+                  variant="outlined"
+                  :label="$t('plugins.nxt.panels.calibration.face2Right')"
+                  hide-details
+                  readonly
+                />
+              </v-col>
+            </v-row>
+            <v-row density="compact" class="mt-1">
+              <v-col cols="6" md="3">
+                <v-text-field
+                  :model-value="effectiveP2Measured1"
+                  type="number"
+                  step="0.001"
+                  density="compact"
+                  variant="outlined"
+                  :label="$t('plugins.nxt.panels.calibration.measured1')"
+                  hide-details
+                  readonly
+                />
+              </v-col>
+              <v-col cols="6" md="3">
+                <v-text-field
+                  :model-value="effectiveP2Measured2"
+                  type="number"
+                  step="0.001"
+                  density="compact"
+                  variant="outlined"
+                  :label="$t('plugins.nxt.panels.calibration.measured2')"
+                  hide-details
+                  readonly
+                />
+              </v-col>
+              <v-col cols="12" md="6" class="d-flex align-center">
+                <v-checkbox
+                  v-model="p2UseManualSpans"
+                  density="compact"
+                  hide-details
+                  :label="$t('plugins.nxt.panels.calibration.manualSpanOverride')"
+                />
+              </v-col>
+            </v-row>
+            <v-row v-if="p2UseManualSpans" density="compact" class="mt-1">
+              <v-col cols="6" md="3">
                 <v-text-field v-model.number="p2Measured1" type="number" step="0.001" density="compact" variant="outlined"
-                  :label="$t('plugins.nxt.panels.calibration.measured1')" hide-details />
+                  :label="$t('plugins.nxt.panels.calibration.manualSpan1')" hide-details />
               </v-col>
               <v-col cols="6" md="3">
                 <v-text-field v-model.number="p2Measured2" type="number" step="0.001" density="compact" variant="outlined"
-                  :label="$t('plugins.nxt.panels.calibration.measured2')" hide-details />
+                  :label="$t('plugins.nxt.panels.calibration.manualSpan2')" hide-details />
               </v-col>
             </v-row>
             <v-row density="compact" class="mt-2">
@@ -438,18 +506,31 @@
                   {{ $t('plugins.nxt.panels.calibration.runG6512Jog') }}
                 </v-btn>
               </v-col>
-              <v-col cols="6" md="2">
-                <v-btn block variant="outlined" :disabled="!isConnected" @click="captureProbeInto('m1')">
-                  {{ $t('plugins.nxt.panels.calibration.captureM1') }}
+            </v-row>
+            <v-row density="compact" class="mt-1">
+              <v-col cols="6" md="3">
+                <v-btn block variant="outlined" size="small" :disabled="!isConnected" @click="captureProbeFace('l1')">
+                  {{ $t('plugins.nxt.panels.calibration.captureL1') }}
                 </v-btn>
               </v-col>
-              <v-col cols="6" md="2">
-                <v-btn block variant="outlined" :disabled="!isConnected" @click="captureProbeInto('m2')">
-                  {{ $t('plugins.nxt.panels.calibration.captureM2') }}
+              <v-col cols="6" md="3">
+                <v-btn block variant="outlined" size="small" :disabled="!isConnected" @click="captureProbeFace('r1')">
+                  {{ $t('plugins.nxt.panels.calibration.captureR1') }}
+                </v-btn>
+              </v-col>
+              <v-col cols="6" md="3">
+                <v-btn block variant="outlined" size="small" :disabled="!isConnected" @click="captureProbeFace('l2')">
+                  {{ $t('plugins.nxt.panels.calibration.captureL2') }}
+                </v-btn>
+              </v-col>
+              <v-col cols="6" md="3">
+                <v-btn block variant="outlined" size="small" :disabled="!isConnected" @click="captureProbeFace('r2')">
+                  {{ $t('plugins.nxt.panels.calibration.captureR2') }}
                 </v-btn>
               </v-col>
             </v-row>
             <p class="text-caption text-grey mt-1">{{ $t('plugins.nxt.panels.calibration.runG6512JogHint') }}</p>
+            <p class="text-caption text-grey">{{ $t('plugins.nxt.panels.calibration.phase2SpanHint') }}</p>
             <div class="d-flex align-center justify-space-between mt-3">
               <span class="text-caption">{{ p2Preview }}</span>
               <v-btn color="primary" :disabled="!canApplyP2" @click="applySteps(p2Proposed, 'p2')">
@@ -599,6 +680,7 @@ import {
   dualDimensionStepsCorrection,
   backlashFromMeans,
   deflectionFromSpan,
+  spanFromFaces,
   meanOf,
   classifyTravelCalibration,
   NXT_123_FACE_PAIRS,
@@ -655,8 +737,13 @@ export default defineNxtComponent({
       p1Commanded: NXT_123_AXIS_DEFAULTS.X.p1Commanded as number | null,
       // Phase 2 — X default pair 2″+3″ (3″∥X)
       blockFacePair: NXT_123_AXIS_DEFAULTS.X.facePair as Nxt123FacePairId,
+      p2Face1Left: null as number | null,
+      p2Face1Right: null as number | null,
+      p2Face2Left: null as number | null,
+      p2Face2Right: null as number | null,
       p2Measured1: null as number | null,
       p2Measured2: null as number | null,
+      p2UseManualSpans: false,
       probeTarget: null as number | null,
       // Phase 3
       blMeanPos: null as number | null,
@@ -741,8 +828,10 @@ export default defineNxtComponent({
     deflectionDisplay(): string {
       const v = this.currentDeflection
       if (v == null) return '—'
-      return `X ${v[0].toFixed(4)} / Y ${v[1].toFixed(4)}`
-    },    touchProbeReady(): boolean {
+      const z = v.length >= 3 ? v[2] : v[0]
+      return `X ${v[0].toFixed(4)} / Y ${v[1].toFixed(4)} / Z ${z.toFixed(4)}`
+    },
+    touchProbeReady(): boolean {
       const g = this.$store.state.machine.model.global
       return (
         readFirmwareGlobal(g, 'nxtFeatureTouchProbe') === true &&
@@ -792,15 +881,35 @@ export default defineNxtComponent({
     defActual(): number {
       return NXT_123_FACES[this.blockDeflectFace as Nxt123FaceId].mm
     },
+    effectiveP2Measured1(): number | null {
+      if (
+        !this.p2UseManualSpans &&
+        this.p2Face1Left != null &&
+        this.p2Face1Right != null
+      ) {
+        return spanFromFaces(this.p2Face1Left, this.p2Face1Right)
+      }
+      return this.p2Measured1
+    },
+    effectiveP2Measured2(): number | null {
+      if (
+        !this.p2UseManualSpans &&
+        this.p2Face2Left != null &&
+        this.p2Face2Right != null
+      ) {
+        return spanFromFaces(this.p2Face2Left, this.p2Face2Right)
+      }
+      return this.p2Measured2
+    },
     p2Proposed(): number | null {
-      if (this.p2Measured1 == null || this.p2Measured2 == null) return null
+      if (this.effectiveP2Measured1 == null || this.effectiveP2Measured2 == null) return null
       return (
         dualDimensionStepsCorrection(
           this.currentSteps,
           this.refDim1,
           this.refDim2,
-          this.p2Measured1,
-          this.p2Measured2
+          this.effectiveP2Measured1,
+          this.effectiveP2Measured2
         ).result?.newSteps ?? null
       )
     },
@@ -809,8 +918,8 @@ export default defineNxtComponent({
         this.currentSteps,
         this.refDim1,
         this.refDim2,
-        this.p2Measured1 ?? 0,
-        this.p2Measured2 ?? 0
+        this.effectiveP2Measured1 ?? 0,
+        this.effectiveP2Measured2 ?? 0
       )
       if (r.errors.length) return r.errors[0]
       if (!r.result) return ''
@@ -828,9 +937,19 @@ export default defineNxtComponent({
       if (this.blProposed == null) return ''
       return `→ ${this.blProposed.toFixed(4)} mm`
     },
+    currentAxisDeflection(): number {
+      const v = this.currentDeflection
+      if (v == null) return 0
+      if (this.selectedAxis === 'Y') return v.length >= 2 ? v[1] : 0
+      if (this.selectedAxis === 'Z') return v.length >= 3 ? v[2] : v.length >= 1 ? v[0] : 0
+      return v.length >= 1 ? v[0] : 0
+    },
     defProposed(): number | null {
       if (this.defActual == null || this.defMeasured == null) return null
-      return deflectionFromSpan(this.defMeasured, this.defActual)
+      if (this.selectedAxis === 'A') return null
+      return (
+        deflectionFromSpan(this.defMeasured, this.defActual, this.currentAxisDeflection).result
+      )
     },
     defPreview(): string {
       if (this.defProposed == null) return ''
@@ -932,13 +1051,24 @@ export default defineNxtComponent({
       if (this.sessionDeflectionOk) return true
       if (this.pendingDeflection != null) {
         const p = this.pendingDeflection
-        if (p.length >= 2 && (p[0] !== 0 || p[1] !== 0)) return true
+        if (
+          p.length >= 3 &&
+          (p[0] !== 0 || p[1] !== 0 || p[2] !== 0)
+        ) {
+          return true
+        }
       }
       return false
     },
     canConfirmExistingDeflection(): boolean {
       const v = this.rawDeflectionValue
-      return v != null && v.length >= 2 && Number.isFinite(v[0]) && Number.isFinite(v[1])
+      return (
+        v != null &&
+        v.length >= 3 &&
+        Number.isFinite(v[0]) &&
+        Number.isFinite(v[1]) &&
+        Number.isFinite(v[2])
+      )
     },
     canRunG9000(): boolean {
       return (
@@ -1015,6 +1145,12 @@ export default defineNxtComponent({
         await this.sendCode(`M92 ${axis}${proposed}`)
         this.pendingSteps[axis] = proposed
         this.show(`Steps applied for ${axis}`, 'success')
+        if (this.calMode === 'probe') {
+          this.needsDeflectionRecheck = true
+          this.sessionDeflectionOk = false
+          this.openPhase = '4'
+          this.show(this.$t('plugins.nxt.panels.calibration.deflectionRecheckHint').toString(), 'warning')
+        }
       } catch (e: any) {
         this.show(e?.message ?? 'M92 failed', 'error')
       }
@@ -1042,18 +1178,20 @@ export default defineNxtComponent({
     async applyDeflection() {
       if (this.defProposed == null) return
       const axis = this.selectedAxis
-      const cur = this.currentDeflection ?? [0, 0]
-      const next: number[] = [cur[0], cur[1]]
-      if (axis === 'X') {
-        next[0] = this.defProposed
-      } else if (axis === 'Y') {
-        next[1] = this.defProposed
-      } else {
-        // Z: no third component — apply isotropic estimate to X and Y
-        next[0] = this.defProposed
-        next[1] = this.defProposed
+      if (axis === 'A') {
+        this.show('A-axis has no linear probe deflection channel', 'warning')
+        return
       }
-      const label = `{${next[0].toFixed(4)}, ${next[1].toFixed(4)}}`
+      const cur = this.currentDeflection ?? [0, 0, 0]
+      const next: number[] = [
+        cur.length >= 1 ? cur[0] : 0,
+        cur.length >= 2 ? cur[1] : 0,
+        cur.length >= 3 ? cur[2] : cur.length >= 1 ? cur[0] : 0
+      ]
+      if (axis === 'X') next[0] = this.defProposed
+      else if (axis === 'Y') next[1] = this.defProposed
+      else if (axis === 'Z') next[2] = this.defProposed
+      const label = `{${next[0].toFixed(4)}, ${next[1].toFixed(4)}, ${next[2].toFixed(4)}}`
       if (!window.confirm(`Set nxtProbeDeflection = ${label}?`)) return
       this.prevDeflection = cur
       try {
@@ -1069,14 +1207,18 @@ export default defineNxtComponent({
     confirmExistingDeflection() {
       const v = this.rawDeflectionValue
       if (v == null) return
-      if (v[0] === 0 && v[1] === 0) {
+      const z = v.length >= 3 ? v[2] : v[0]
+      if (v[0] === 0 && v[1] === 0 && z === 0) {
         if (!window.confirm(this.$t('plugins.nxt.panels.calibration.confirmZeroDeflection').toString())) {
           return
         }
       }
       this.sessionDeflectionOk = true
       this.needsDeflectionRecheck = false
-      this.show(`Using deflection X ${v[0].toFixed(4)} / Y ${v[1].toFixed(4)} mm`, 'success')
+      this.show(
+        `Using deflection X ${v[0].toFixed(4)} / Y ${v[1].toFixed(4)} / Z ${z.toFixed(4)} mm`,
+        'success'
+      )
     },
     async runDatumSetup() {
       this.datumBusy = true
@@ -1146,23 +1288,27 @@ export default defineNxtComponent({
         this.g9000Busy = false
       }
     },
-    async applyTravelSteps() {
-      const proposed = this.travelClassification?.proposedNewSteps
-      if (proposed == null) return
-      await this.applySteps(proposed, 'g9000')
-      if (this.calMode === 'probe') {
-        this.needsDeflectionRecheck = true
-        this.sessionDeflectionOk = false
-        this.openPhase = '4'
-        this.show(this.$t('plugins.nxt.panels.calibration.deflectionRecheckHint').toString(), 'warning')
-      }
-    },
     async applyTravelBacklash() {
       const proposed = this.travelClassification?.proposedBacklash
       if (proposed == null) return
-      this.blMeanPos = proposed
-      this.blMeanNeg = 0
-      await this.applyBacklash()
+      const axis = this.selectedAxis
+      if (axis === 'A') return
+      if (!window.confirm(`Apply M425 ${axis}${proposed.toFixed(4)} from travel test?`)) return
+      this.prevBacklash = this.currentBacklash
+      const axes = this.$store.state.machine.model.move?.axes ?? []
+      const parts: string[] = []
+      for (let i = 0; i < Math.min(axes.length, 4); i++) {
+        const letter = (axes[i]?.letter ?? ['X', 'Y', 'Z', 'A'][i]) as string
+        const val = letter === axis ? proposed : (axes[i]?.backlash ?? 0)
+        parts.push(`${letter}${val}`)
+      }
+      try {
+        await this.sendCode(`M425 ${parts.join(' ')}`)
+        this.pendingBacklash[axis] = proposed
+        this.show(`Backlash ${proposed.toFixed(4)} mm applied for ${axis}`, 'success')
+      } catch (e: any) {
+        this.show(e?.message ?? 'M425 failed', 'error')
+      }
     },
     async runPhase1MotionTest() {
       if (!this.canRunP1Motion) return
@@ -1203,15 +1349,17 @@ export default defineNxtComponent({
       const v = readFirmwareGlobal(this.$store.state.machine.model.global, 'nxtLastProbeResult')
       return typeof v === 'number' ? v : null
     },
-    captureProbeInto(which: 'm1' | 'm2') {
+    captureProbeFace(slot: 'l1' | 'r1' | 'l2' | 'r2') {
       const v = this.lastProbeResult()
       if (v == null) {
         this.show('No nxtLastProbeResult yet', 'warning')
         return
       }
-      if (which === 'm1') this.p2Measured1 = v
-      else this.p2Measured2 = v
-      this.show(`Captured ${v}`, 'success')
+      if (slot === 'l1') this.p2Face1Left = v
+      else if (slot === 'r1') this.p2Face1Right = v
+      else if (slot === 'l2') this.p2Face2Left = v
+      else this.p2Face2Right = v
+      this.show(`Captured ${slot.toUpperCase()} = ${v}`, 'success')
     },
     addBacklashSample(dir: 'pos' | 'neg') {
       const v = this.lastProbeResult()

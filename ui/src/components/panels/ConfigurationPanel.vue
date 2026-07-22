@@ -763,7 +763,7 @@
               </v-col>
             </v-row>
             <v-row>
-              <v-col cols="12" md="4">
+              <v-col cols="12" md="3">
                 <v-text-field
                   :model-value="configDraft.nxtProbeTipRadius"
                   label="Probe Tip Radius (mm) *"
@@ -776,7 +776,7 @@
                   :error="configDraft.nxtProbeTipRadius === null || configDraft.nxtProbeTipRadius === 0"
                 />
               </v-col>
-              <v-col cols="12" md="4">
+              <v-col cols="12" md="3">
                 <v-text-field
                   :model-value="probeDeflectionX"
                   label="Deflection X (mm) *"
@@ -789,7 +789,7 @@
                   :error="!probeDeflectionConfigured"
                 />
               </v-col>
-              <v-col cols="12" md="4">
+              <v-col cols="12" md="3">
                 <v-text-field
                   :model-value="probeDeflectionY"
                   label="Deflection Y (mm) *"
@@ -818,6 +818,19 @@
                     </v-tooltip>
                   </template>
                 </v-text-field>
+              </v-col>
+              <v-col cols="12" md="3">
+                <v-text-field
+                  :model-value="probeDeflectionZ"
+                  label="Deflection Z (mm) *"
+                  type="number"
+                  step="0.001"
+                  :disabled="uiFrozen"
+                  @update:model-value="onProbeDeflectionComponent(2, $event)"
+                  hint="Z-axis touch-probe deflection (0 if not measured)"
+                  persistent-hint
+                  :error="!probeDeflectionConfigured"
+                />
               </v-col>
             </v-row>
             <v-alert type="info" density="compact" variant="outlined" class="mb-2">
@@ -1716,7 +1729,13 @@ export default defineNxtComponent({
 
     probeDeflectionConfigured(): boolean {
       const d = this.configDraft.nxtProbeDeflection
-      return d != null && d.length >= 2 && Number.isFinite(d[0]) && Number.isFinite(d[1])
+      return (
+        d != null &&
+        d.length >= 3 &&
+        Number.isFinite(d[0]) &&
+        Number.isFinite(d[1]) &&
+        Number.isFinite(d[2])
+      )
     },
 
     probeDeflectionX(): number | null {
@@ -1729,6 +1748,11 @@ export default defineNxtComponent({
       return d != null && d.length >= 2 && Number.isFinite(d[1]) ? d[1] : null
     },
 
+    probeDeflectionZ(): number | null {
+      const d = this.configDraft.nxtProbeDeflection
+      return d != null && d.length >= 3 && Number.isFinite(d[2]) ? d[2] : null
+    },
+
     /**
      * Get touch probe requirements message
      */
@@ -1739,7 +1763,7 @@ export default defineNxtComponent({
       const missing = []
       if (this.configDraft.nxtTouchProbeID === null) missing.push('Probe Sensor')
       if (this.configDraft.nxtProbeTipRadius === null || this.configDraft.nxtProbeTipRadius === 0) missing.push('Tip Radius')
-      if (!this.probeDeflectionConfigured) missing.push('Deflection X/Y')
+      if (!this.probeDeflectionConfigured) missing.push('Deflection X/Y/Z')
       return `Required: ${missing.join(', ')}`
     },
     /** Live OM probe row for the selected touch-probe sensor index. */
@@ -2547,7 +2571,7 @@ export default defineNxtComponent({
       await this.sendCode(`M950 E${strip} C${pinLit} T${type} U${v}`)
     },
 
-    async onProbeDeflectionComponent(index: 0 | 1, raw: string | number | null) {
+    async onProbeDeflectionComponent(index: 0 | 1 | 2, raw: string | number | null) {
       let v: number | null =
         raw === '' || raw === null || raw === undefined ? null : typeof raw === 'number' ? raw : Number(raw)
       if (v !== null && !Number.isFinite(v)) {
@@ -2556,10 +2580,11 @@ export default defineNxtComponent({
       const prev = this.configDraft.nxtProbeDeflection
       const next: number[] = [
         prev != null && prev.length >= 1 && Number.isFinite(prev[0]) ? prev[0] : 0,
-        prev != null && prev.length >= 2 && Number.isFinite(prev[1]) ? prev[1] : 0
+        prev != null && prev.length >= 2 && Number.isFinite(prev[1]) ? prev[1] : 0,
+        prev != null && prev.length >= 3 && Number.isFinite(prev[2]) ? prev[2] : 0
       ]
       if (v === null) {
-        // Clearing one axis clears the whole vector (required pair)
+        // Clearing one axis clears the whole vector (required XYZ)
         this.configDraft.nxtProbeDeflection = null
         await this.updateVariable('nxtProbeDeflection', null)
         return

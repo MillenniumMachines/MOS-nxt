@@ -21,7 +21,7 @@ export type NxtUserConfigDraft = {
   nxtTouchProbeID: number | null
   nxtTouchProbeInvert: boolean
   nxtProbeTipRadius: number | null
-  /** Touch-probe deflection {X, Y} mm; null = unset. Legacy scalar normalizes to [n, n]. */
+  /** Touch-probe deflection {X, Y, Z} mm; null = unset. Legacy scalar/{X,Y} normalize to XYZ. */
   nxtProbeDeflection: number[] | null
   nxtToolSetterID: number | null
   nxtToolSetterInvert: boolean
@@ -217,31 +217,39 @@ export function readConfigVector(value: unknown): number[] | null {
 }
 
 /**
- * Probe deflection as {X,Y}. Accepts legacy scalar or 1-length vector → [n, n].
+ * Probe deflection as {X,Y,Z} positive magnitudes.
+ * Legacy: scalar / {n} → [n,n,n]; {x,y} → [x,y,x] (Z falls back to X).
  */
 export function readConfigDeflectionXY(value: unknown): number[] | null {
   if (value == null) {
     return null
   }
   if (typeof value === 'number' && Number.isFinite(value)) {
-    return [value, value]
+    return [value, value, value]
   }
   const vec = readConfigVector(value)
   if (!vec || vec.length === 0) {
     return null
   }
   if (vec.length === 1) {
-    return [vec[0], vec[0]]
+    return [vec[0], vec[0], vec[0]]
   }
-  return [vec[0], vec[1]]
+  if (vec.length === 2) {
+    return [vec[0], vec[1], vec[0]]
+  }
+  return [vec[0], vec[1], vec[2]]
 }
+
+/** @deprecated Alias — use readConfigDeflectionXY (now returns XYZ). */
+export const readConfigDeflectionXYZ = readConfigDeflectionXY
 
 export function isFactoryZeroDeflection(value: number[] | null | undefined): boolean {
   return (
     value != null &&
-    value.length >= 2 &&
+    value.length >= 3 &&
     value[0] === 0 &&
-    value[1] === 0
+    value[1] === 0 &&
+    value[2] === 0
   )
 }
 
@@ -625,7 +633,7 @@ function clearNxtVarsFactoryDefaults(draft: NxtUserConfigDraft): void {
       ;(draft as Record<string, unknown>)[key] = null
     }
   }
-  // nxt-vars.g default {0.0, 0.0} — not a measured user value
+  // nxt-vars.g default {0.0, 0.0, 0.0} — not a measured user value
   if (isFactoryZeroDeflection(draft.nxtProbeDeflection)) {
     draft.nxtProbeDeflection = null
   }

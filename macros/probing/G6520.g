@@ -57,7 +57,7 @@ var ySurfaceTarget = { exists(param.Y) ? param.Y : var.startY - var.overtravel }
 echo "G6520: Probing Z surface"
 ; Top of jaw / part — defines corner Z in machine space
 var zTarget = { var.startZ - var.depth }
-G6512 X{var.startX} Y{var.startY} Z{var.zTarget} I{var.probeID} F{var.feedRate} R{var.retries}
+G6512 Z{var.zTarget} I{var.probeID} F{var.feedRate} R{var.retries}
 var zSurface = { global.nxtLastProbeResult }
 
 M5000
@@ -67,8 +67,8 @@ var currentZ = { global.nxtAbsPos[2] }
 echo "G6520: Probing X surface"
 ; Stand off in Y to clear the Y jaw while moving in X toward the X face
 var xProbeY = { var.ySurfaceTarget < var.startY ? var.ySurfaceTarget + var.clearance : var.ySurfaceTarget - var.clearance }
-G6550 X{var.startX} Y{var.xProbeY}
-G6512 X{var.xSurfaceTarget} Y{var.xProbeY} Z{var.currentZ} I{var.probeID} F{var.feedRate} R{var.retries}
+G6550 X{var.startX} Y{var.xProbeY} Z{var.currentZ}
+G6512 X{var.xSurfaceTarget} I{var.probeID} F{var.feedRate} R{var.retries}
 var xSurface = { global.nxtLastProbeResult }
 
 var xClearPos = { var.xSurfaceTarget < var.startX ? var.xSurfaceTarget + var.clearance : var.xSurfaceTarget - var.clearance }
@@ -77,8 +77,8 @@ G6550 X{var.xClearPos}
 echo "G6520: Probing Y surface"
 ; Clear in X to the side of the corner before sweeping toward the Y face
 var yProbeX = { var.xSurfaceTarget < var.startX ? var.xSurfaceTarget + var.clearance : var.xSurfaceTarget - var.clearance }
-G6550 X{var.yProbeX} Y{var.startY}
-G6512 X{var.yProbeX} Y{var.ySurfaceTarget} Z{var.currentZ} I{var.probeID} F{var.feedRate} R{var.retries}
+G6550 X{var.yProbeX} Y{var.startY} Z{var.currentZ}
+G6512 Y{var.ySurfaceTarget} I{var.probeID} F{var.feedRate} R{var.retries}
 var ySurface = { global.nxtLastProbeResult }
 
 var cornerX = { var.xSurface }

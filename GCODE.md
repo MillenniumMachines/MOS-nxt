@@ -252,7 +252,14 @@ Emitted by Fusion/FreeCAD post-processors during job preamble / WCS changes. Pro
 
 ### G6512: Single-Axis Probing (Core)
 
-Low-level single-axis probe move with compensation and averaging. Used by all probing cycles.
+Low-level single-axis probe move with compensation and averaging. Used by all probing cycles. Callers must pass **exactly one** of `X|Y|Z|A` (position with `G6550`/`G0` first). Enforced by `node dist/check-g6512-axis-contract.mjs`.
+
+**Compensation** (touch probe only — when `I == global.nxtTouchProbeID`; toolsetter IDs skip tip/deflection):
+- `global.nxtProbeDeflection = {X,Y,Z}` positive magnitudes (mm). Legacy scalar / `{X,Y}` still load (`Z` falls back to `X`).
+- Approach direction `dir = sign(target − start)`.
+- **X/Y surface:** `result = trigger + dir × (tipRadius − deflection)`
+- **Z tip-center:** `result = trigger − dir × zDeflection` (no tip radius)
+- **A:** no linear tip/deflection compensation
 
 **Repeatability:** Defaults are **`macros/system/nxt-vars.g`** (`nxtProbeInnerSampleCount`, **`nxtProbeMaxSampleSpreadMm`** default **0.0075** mm, **`nxtProbeSampleOuterRetries`**). Override via **`0:/sys/nxt-user-overrides.g`** (loaded **last** in **`nxt.g`**; see **`nxt-user-overrides.g.example`**). When **`nxtProbeMaxSampleSpreadMm` > 0**, **`G6512`** runs **3** touches ( **`R`** is ignored), **`echo`s** each compensated value, and requires **both** consecutive pairs (1–2 and 2–3) to be within the limit. On failure it **`echo`s** the pair delta and over-limit amount, then repeats the whole 3-touch block up to **`1 + nxtProbeSampleOuterRetries`** cycles. On success it averages the three values into **`nxtLastProbeResult`**. Set **`nxtProbeMaxSampleSpreadMm`** to **0** to disable (honors **`R`** / **`nxtProbeInnerSampleCount`**, no pair checks).
 
@@ -266,6 +273,8 @@ Low-level single-axis probe move with compensation and averaging. Used by all pr
 - `H`: Optional hit index 0..3 for `(X,Y)` into `global.nxtProbeHitXY`
 
 **Results:** Stores compensated result in `global.nxtLastProbeResult`.
+
+**Note:** After the direction-signed deflection fix, recalibrate Phase 4 values — older stored deflections are not portable.
 
 ---
 

@@ -79,7 +79,7 @@ echo "G6502: Probing rectangular pocket " ^ var.pocketWidth ^ "x" ^ var.pocketHe
 ; Probe +X edge (right side of pocket)
 echo "G6502: Probing +X edge"
 var xPlusTarget = { var.centerX + var.xProbeDistance }
-G6512 X{var.xPlusTarget} Y{var.centerY} Z{var.probeZ} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H0
+G6512 X{var.xPlusTarget} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H0
 
 ; Move back to center for next probe
 G6550 X{var.centerX}
@@ -87,7 +87,7 @@ G6550 X{var.centerX}
 ; Probe -X edge (left side of pocket)
 echo "G6502: Probing -X edge"
 var xMinusTarget = { var.centerX - var.xProbeDistance }
-G6512 X{var.xMinusTarget} Y{var.centerY} Z{var.probeZ} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H1
+G6512 X{var.xMinusTarget} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H1
 
 ; Move back to center for next probe
 G6550 X{var.centerX}
@@ -95,7 +95,7 @@ G6550 X{var.centerX}
 ; Probe +Y edge (front of pocket)
 echo "G6502: Probing +Y edge"
 var yPlusTarget = { var.centerY + var.yProbeDistance }
-G6512 X{var.centerX} Y{var.yPlusTarget} Z{var.probeZ} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H2
+G6512 Y{var.yPlusTarget} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H2
 
 ; Move back to center for next probe
 G6550 Y{var.centerY}
@@ -103,7 +103,7 @@ G6550 Y{var.centerY}
 ; Probe -Y edge (back of pocket)
 echo "G6502: Probing -Y edge"
 var yMinusTarget = { var.centerY - var.yProbeDistance }
-G6512 X{var.centerX} Y{var.yMinusTarget} Z{var.probeZ} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H3
+G6512 Y{var.yMinusTarget} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H3
 
 ; Chord vectors from opposing pocket walls; skew θ = angle of X chord vs machine X.
 ; Center = mean of (midpoint of X pair) and (midpoint of Y pair) — see G6500 header.

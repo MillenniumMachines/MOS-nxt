@@ -44,7 +44,7 @@ Configure your touch probe settings:
 |---------|-------------|---------|
 | Touch Probe Sensor ID | RRF probe index | `0` |
 | Probe Tip Radius | Radius of probe tip for horizontal compensation | `1.5` mm |
-| Probe Deflection | Measured deflection compensation value | `0.025` mm |
+| Probe Deflection {X,Y,Z} | Positive magnitudes (mm) per linear axis | `{0.025, 0.025, 0.020}` |
 
 **Additional Features:**
 - **"Measure Probe Deflection" Button**: Launches the deflection measurement wizard
@@ -191,10 +191,11 @@ View measurement results and calculated deflection:
 
 | Axis | Known Dimension | Measured Dimension | Deflection |
 |------|----------------|-------------------|------------|
-| X | (entered value) | (measured value) | (difference) |
-| Y | (entered value) | (measured value) | (difference) |
+| X | (entered value) | (measured value) | `current + (actual − measured) / 2` |
+| Y | (entered value) | (measured value) | same residual form |
+| Z | (entered value) | (measured value) | same residual form |
 
-**Average Deflection:** The final value applied to `nxtProbeDeflection`
+**Per-axis Deflection:** Applied into `nxtProbeDeflection = {X,Y,Z}` (not averaged). Recalibrate after the G6512 sign fix.
 
 ### Deflection Warnings
 
@@ -208,9 +209,9 @@ The wizard provides automatic validation:
 ### Applying Results
 
 Click **"Apply Deflection"** to:
-1. Set `nxtProbeDeflection` to the average value
-2. Close the wizard
-3. Update the configuration panel
+1. Update the selected linear axis in `nxtProbeDeflection = {X,Y,Z}`
+2. Close the wizard / continue calibration
+3. Update the configuration panel (Save to persist)
 
 ## How Configuration is Stored
 
@@ -296,8 +297,8 @@ You can also set configuration variables manually via G-code:
 ; Enable touch probe
 set global.nxtFeatureTouchProbe = true
 
-; Set probe deflection
-set global.nxtProbeDeflection = 0.025
+; Set probe deflection {X,Y,Z} positive magnitudes (mm)
+set global.nxtProbeDeflection = {0.025, 0.025, 0.020}
 
 ; Set spindle parameters
 set global.nxtSpindleID = 0

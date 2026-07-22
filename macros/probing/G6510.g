@@ -49,13 +49,17 @@ if { state.currentTool != global.nxtProbeToolID }
 echo "G6510: Single surface " ^ move.axes[var.probeAxis].letter
 
 M5000
-var targetCoords = { global.nxtAbsPos }
-set var.targetCoords[var.probeAxis] = { var.targetCoord }
 
 var probeFeed = { exists(param.F) ? param.F : null }
 var probeRetries = { exists(param.R) ? param.R : global.nxtProbeInnerSampleCount }
 
-G6512 X{var.targetCoords[0]} Y{var.targetCoords[1]} Z{var.targetCoords[2]} I{global.nxtTouchProbeID} F{var.probeFeed} R{var.probeRetries}
+; G6512 accepts exactly one axis word — dispatch the validated probe axis only
+if { var.probeAxis == 0 }
+    G6512 X{var.targetCoord} I{global.nxtTouchProbeID} F{var.probeFeed} R{var.probeRetries}
+elif { var.probeAxis == 1 }
+    G6512 Y{var.targetCoord} I{global.nxtTouchProbeID} F{var.probeFeed} R{var.probeRetries}
+else
+    G6512 Z{var.targetCoord} I{global.nxtTouchProbeID} F{var.probeFeed} R{var.probeRetries}
 
 if { global.nxtProbeResults[var.pSlot] == null || #global.nxtProbeResults[var.pSlot] < 3 }
     set global.nxtProbeResults[var.pSlot] = { vector(#move.axes + 1, 0.0) }

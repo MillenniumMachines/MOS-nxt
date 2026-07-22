@@ -1,7 +1,8 @@
-; M5014.g: CALIBRATION PHASE-1 — INDICATOR ZERO / TRAVEL / RETURN
+; M5014.g: CALIBRATION PHASE-1 — INDICATOR ZERO / TRAVEL / RETURN (backlash estimate)
 ;
 ; Zero dial on block face → away by 8/16/24 → return same distance → enter residual.
 ; measured = commanded - residual → global.nxtCalTravelCmd / nxtCalTravelMeas
+; Round-trip isolates lost motion (backlash), not steps/mm — use Phase 2 for M92.
 ;
 ; USAGE: M5014 X0|Y0|Z0|A0 D<±1> [R<1|3>] [F<feed>]
 ;   D = away direction along the axis (+1 or -1)

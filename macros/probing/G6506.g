@@ -69,7 +69,7 @@ if { param.N == 0 }
     echo "G6506: Touch 1"
     G6550 X{var.x0} Y{var.yAir0}
     G6550 Z{var.probeZ}
-    G6512 X{var.x0} Y{var.yTgt0} Z{var.probeZ} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H0
+    G6512 Y{var.yTgt0} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H0
     G6550 Z{var.startZ}
 
     var yAir1 = { var.yAir0 }
@@ -78,7 +78,7 @@ if { param.N == 0 }
     echo "G6506: Touch 2"
     G6550 X{var.x1} Y{var.yAir1}
     G6550 Z{var.probeZ}
-    G6512 X{var.x1} Y{var.yTgt1} Z{var.probeZ} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H1
+    G6512 Y{var.yTgt1} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H1
     G6550 Z{var.startZ}
 
     var xA = { global.nxtProbeHitXY[0] }
@@ -93,7 +93,7 @@ else
     echo "G6506: Touch 1"
     G6550 X{var.xAir0} Y{var.y0}
     G6550 Z{var.probeZ}
-    G6512 X{var.xTgt0} Y{var.y0} Z{var.probeZ} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H0
+    G6512 X{var.xTgt0} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H0
     G6550 Z{var.startZ}
 
     var xAir1 = { var.xAir0 }
@@ -102,7 +102,7 @@ else
     echo "G6506: Touch 2"
     G6550 X{var.xAir1} Y{var.y1}
     G6550 Z{var.probeZ}
-    G6512 X{var.xTgt1} Y{var.y1} Z{var.probeZ} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H1
+    G6512 X{var.xTgt1} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H1
     G6550 Z{var.startZ}
 
     var xA = { global.nxtProbeHitXY[0] }

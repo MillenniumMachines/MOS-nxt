@@ -75,7 +75,7 @@ if { var.probeAxis == 0 }
     var probeZ = { var.startZ - var.probeDepth }
     G6550 Z{var.probeZ}
 
-    G6512 X{var.xPlusTarget} Y{var.centerY} Z{var.probeZ} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H0
+    G6512 X{var.xPlusTarget} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H0
     G6550 Z{var.startZ}
 
     echo "G6504: Probing from -X direction"
@@ -85,7 +85,7 @@ if { var.probeAxis == 0 }
     G6550 X{var.xMinusStart} Y{var.centerY}
     G6550 Z{var.probeZ}
 
-    G6512 X{var.xMinusTarget} Y{var.centerY} Z{var.probeZ} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H1
+    G6512 X{var.xMinusTarget} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H1
     G6550 Z{var.startZ}
 
     var calculatedCenter = { (global.nxtProbeHitXY[0] + global.nxtProbeHitXY[2]) / 2 }
@@ -102,7 +102,7 @@ else
     var probeZ = { var.startZ - var.probeDepth }
     G6550 Z{var.probeZ}
 
-    G6512 X{var.centerX} Y{var.yPlusTarget} Z{var.probeZ} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H0
+    G6512 Y{var.yPlusTarget} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H0
     G6550 Z{var.startZ}
 
     echo "G6504: Probing from -Y direction"
@@ -112,7 +112,7 @@ else
     G6550 X{var.centerX} Y{var.yMinusStart}
     G6550 Z{var.probeZ}
 
-    G6512 X{var.centerX} Y{var.yMinusTarget} Z{var.probeZ} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H1
+    G6512 Y{var.yMinusTarget} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H1
     G6550 Z{var.startZ}
 
     var calculatedCenter = { (global.nxtProbeHitXY[1] + global.nxtProbeHitXY[3]) / 2 }

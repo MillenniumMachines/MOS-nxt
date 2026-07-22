@@ -44,7 +44,7 @@ export const NXT_GLOBAL_MANIFEST: NxtGlobalManifestEntry[] = [
   { key: 'nxtToolCacheZ', description: 'Tool-length cache: measured Z for nxtToolCacheIdx' },
   { key: 'nxtLastProbeResult', description: 'Last single probe result' },
   { key: 'nxtProbeTipRadius', description: 'Probe tip radius (mm)' },
-  { key: 'nxtProbeDeflection', description: 'Probe deflection compensation {X,Y} (mm)' },
+  { key: 'nxtProbeDeflection', description: 'Probe deflection compensation {X,Y,Z} (mm); positive magnitudes' },
   { key: 'nxtProbeInnerSampleCount', description: 'G6512 inner samples when R omitted (default nxt-vars.g; override nxt-user-overrides.g)' },
   { key: 'nxtProbeMaxSampleSpreadMm', description: 'G6512 max consecutive-pair deviation (mm); 0 disables (default 0.0075 in nxt-vars.g)' },
   { key: 'nxtProbeSampleOuterRetries', description: 'G6512 extra sample blocks after failed spread (default nxt-vars.g)' },

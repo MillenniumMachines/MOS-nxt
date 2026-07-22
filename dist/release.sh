@@ -9,6 +9,12 @@ WD="${PWD}"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 echo "Checking RRF macro line lengths (max 200)..."
 node "${ROOT}/dist/check-gcode-line-length.mjs" || exit 1
+echo "Checking G6512 single-axis call contract..."
+node "${ROOT}/dist/check-g6512-axis-contract.mjs" || exit 1
+echo "Checking G6512 deflection math..."
+node "${ROOT}/dist/check-g6512-deflection-math.mjs" || exit 1
+echo "Checking calibration math..."
+node "${ROOT}/dist/check-calibration-math.mjs" || exit 1
 echo "Checking OM global size budget hygiene..."
 node "${ROOT}/dist/check-om-global-budget.mjs" || exit 1
 chmod +x "${ROOT}/dist/check-node-for-dwc-build.sh"

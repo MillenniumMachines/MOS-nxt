@@ -1,9 +1,10 @@
-; G9000.g: AUTOMATED AXIS TRAVEL CALIBRATION (probe)
+; G9000.g: AUTOMATED AXIS TRAVEL CALIBRATION (probe) — backlash estimate
 ;
 ; Per leg (8 / 16 / 24 mm): probe (hit0) → away by D → probe (hit1), ×3.
 ; residual R = (hit1 - hit0) * dirToward; measured = D - meanR
 ; Results: global.nxtCalTravelCmd / nxtCalTravelMeas / nxtCalTravelAxis
-; Does NOT apply M92/M425 — Calibration UI classifies and applies.
+; Does NOT apply M92/M425 — Calibration UI classifies (backlash only) and applies M425.
+; Use Phase 2 dual-dimension spans for steps/mm.
 ;
 ; USAGE: G9000 X0 | Y0 | Z0
 ; Requires: nxtFeatureTouchProbe, nxtTouchProbeID, probe tool selected.
