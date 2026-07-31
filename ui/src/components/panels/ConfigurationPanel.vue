@@ -940,6 +940,33 @@
                 </v-alert>
               </v-col>
             </v-row>
+            <v-row class="mt-2">
+              <v-col cols="12" md="6" class="d-flex align-center">
+                <v-checkbox
+                  :model-value="configDraft.nxtToolSetterV2"
+                  :label="$t('plugins.nxt.panels.configuration.toolSetterV2')"
+                  :hint="$t('plugins.nxt.panels.configuration.toolSetterV2Hint')"
+                  persistent-hint
+                  :disabled="uiFrozen"
+                  density="compact"
+                  class="mt-0"
+                  @update:model-value="onToolSetterV2Change($event)"
+                />
+              </v-col>
+              <v-col v-if="configDraft.nxtToolSetterV2" cols="12" md="6">
+                <v-select
+                  :model-value="configDraft.nxtToolSetterRefDir"
+                  :items="toolSetterRefDirItems"
+                  item-title="title"
+                  item-value="value"
+                  :label="$t('plugins.nxt.panels.configuration.toolSetterRefDir')"
+                  :hint="$t('plugins.nxt.panels.configuration.toolSetterRefDirHint')"
+                  persistent-hint
+                  :disabled="uiFrozen"
+                  @update:model-value="onToolSetterRefDirChange($event)"
+                />
+              </v-col>
+            </v-row>
             <v-row>
               <v-col cols="12">
                 <v-text-field
@@ -1143,32 +1170,6 @@
                   @update:model-value="onBoardFanPinsChange"
                 />
               </v-col>
-              <v-col cols="12" md="6">
-                <v-select
-                  :model-value="configDraft.nxtUartDevice"
-                  :items="uartDeviceItems"
-                  item-title="title"
-                  item-value="value"
-                  :label="$t('plugins.nxt.panels.configuration.uartDevice')"
-                  :hint="$t('plugins.nxt.panels.configuration.uartDeviceHint')"
-                  persistent-hint
-                  :disabled="uiFrozen"
-                  @update:model-value="onUartDeviceChange"
-                />
-              </v-col>
-              <v-col cols="12" md="6">
-                <v-text-field
-                  :model-value="configDraft.nxtUartBaud"
-                  type="number"
-                  min="9600"
-                  step="100"
-                  :label="$t('plugins.nxt.panels.configuration.uartBaud')"
-                  :disabled="uiFrozen || configDraft.nxtUartDevice === 0"
-                  @update:model-value="onUartBaudChange"
-                  hint="Default 57600"
-                  persistent-hint
-                />
-              </v-col>
             </v-row>
 
             <p class="text-caption font-weight-medium mb-1 mt-4">
@@ -1277,6 +1278,55 @@
           </v-expansion-panel-text>
         </v-expansion-panel>
 
+        <!-- UART accessory (Scylla PD8/PD9) -->
+        <v-expansion-panel>
+          <v-expansion-panel-title>
+            <div>
+              <v-icon class="mr-2">mdi-serial-port</v-icon>
+              <strong>{{ $t('plugins.nxt.panels.configuration.uartSection') }}</strong>
+              <v-spacer />
+              <v-icon
+                v-if="configDraft.nxtUartDevice !== 0"
+                size="small"
+                color="success"
+                class="mr-2"
+              >
+                mdi-check-circle
+              </v-icon>
+            </div>
+          </v-expansion-panel-title>
+          <v-expansion-panel-text>
+            <v-row>
+              <v-col cols="12" md="6">
+                <v-select
+                  :model-value="configDraft.nxtUartDevice"
+                  :items="uartDeviceItems"
+                  item-title="title"
+                  item-value="value"
+                  :label="$t('plugins.nxt.panels.configuration.uartDevice')"
+                  :hint="$t('plugins.nxt.panels.configuration.uartDeviceHint')"
+                  persistent-hint
+                  :disabled="uiFrozen"
+                  @update:model-value="onUartDeviceChange"
+                />
+              </v-col>
+              <v-col cols="12" md="6">
+                <v-text-field
+                  :model-value="configDraft.nxtUartBaud"
+                  type="number"
+                  min="9600"
+                  step="100"
+                  :label="$t('plugins.nxt.panels.configuration.uartBaud')"
+                  :disabled="uiFrozen || configDraft.nxtUartDevice === 0"
+                  @update:model-value="onUartBaudChange"
+                  hint="Default 57600"
+                  persistent-hint
+                />
+              </v-col>
+            </v-row>
+          </v-expansion-panel-text>
+        </v-expansion-panel>
+
         <!-- Fourth / A axis (Scylla drive 3; MosFourthAxis for steps/homea) -->
         <v-expansion-panel>
           <v-expansion-panel-title>
@@ -1380,6 +1430,32 @@
                   :disabled="uiFrozen"
                   @update:model-value="onRgbLedCount($event)"
                   :hint="$t('plugins.nxt.panels.configuration.rgbLedCountHint')"
+                  persistent-hint
+                />
+              </v-col>
+              <v-col cols="12" md="4">
+                <v-select
+                  :model-value="configDraft.nxtRGBType"
+                  :items="rgbTypeSelectItems"
+                  item-title="title"
+                  item-value="value"
+                  :label="$t('plugins.nxt.panels.configuration.rgbType')"
+                  :disabled="uiFrozen"
+                  @update:model-value="onRgbType($event)"
+                  :hint="$t('plugins.nxt.panels.configuration.rgbTypeHint')"
+                  persistent-hint
+                />
+              </v-col>
+              <v-col cols="12" md="4">
+                <v-select
+                  :model-value="configDraft.nxtRGBOrder"
+                  :items="rgbOrderSelectItems"
+                  item-title="title"
+                  item-value="value"
+                  :label="$t('plugins.nxt.panels.configuration.rgbOrder')"
+                  :disabled="uiFrozen"
+                  @update:model-value="onRgbOrder($event)"
+                  :hint="$t('plugins.nxt.panels.configuration.rgbOrderHint')"
                   persistent-hint
                 />
               </v-col>
@@ -1566,6 +1642,9 @@ import {
   applySingletonDefaults,
   buildInitialConfigDraft,
   emptyConfigDraft,
+  normalizeNxtRgbOrder,
+  normalizeNxtRgbType,
+  normalizeNxtToolSetterRefDir,
   nxtConfigPendingInOm,
   nxtUserVarsPresentInOm,
   snapshotConfigFromOm,
@@ -2002,6 +2081,33 @@ export default defineNxtComponent({
         rgbPin: readFirmwareGlobal(g, 'nxtRGBPin'),
         rgbReady: readFirmwareGlobal(g, 'nxtRGBReady')
       })
+    },
+
+    rgbTypeSelectItems(): Array<{ value: number; title: string }> {
+      return [
+        { value: 1, title: 'RGB (T1)' },
+        { value: 2, title: 'RGBW (T2)' }
+      ]
+    },
+
+    rgbOrderSelectItems(): Array<{ value: number; title: string }> {
+      return [
+        { value: 0, title: 'BGR (K0)' },
+        { value: 1, title: 'BRG (K1)' },
+        { value: 2, title: 'RGB (K2)' },
+        { value: 3, title: 'RBG (K3)' },
+        { value: 4, title: 'GBR (K4)' },
+        { value: 5, title: 'GRB (K5, NeoPixel default)' }
+      ]
+    },
+
+    toolSetterRefDirItems(): Array<{ value: number; title: string }> {
+      return [
+        { value: 0, title: '+X' },
+        { value: 1, title: '−X' },
+        { value: 2, title: '+Y' },
+        { value: 3, title: '−Y' }
+      ]
     },
 
     machineBoardsList(): Array<{ shortName?: string; name?: string }> {
@@ -2558,17 +2664,62 @@ export default defineNxtComponent({
       v = Math.max(1, Math.min(256, Math.round(v)))
       this.configDraft.nxtRGBCount = v
       await this.updateVariable('nxtRGBCount', v)
+      await this.applyRgbStripM950()
+    },
+
+    async onRgbType(raw: number | null) {
+      if (raw === null || raw === undefined) {
+        return
+      }
+      const v = normalizeNxtRgbType(typeof raw === 'number' ? raw : Number(raw))
+      this.configDraft.nxtRGBType = v
+      await this.updateVariable('nxtRGBType', v)
+      await this.applyRgbStripM950()
+    },
+
+    async onRgbOrder(raw: number | null) {
+      if (raw === null || raw === undefined) {
+        return
+      }
+      const v = normalizeNxtRgbOrder(typeof raw === 'number' ? raw : Number(raw))
+      this.configDraft.nxtRGBOrder = v
+      await this.updateVariable('nxtRGBOrder', v)
+      await this.applyRgbStripM950()
+    },
+
+    async onToolSetterV2Change(raw: boolean | null) {
+      const v = !!raw
+      this.configDraft.nxtToolSetterV2 = v
+      await this.updateVariable('nxtToolSetterV2', v)
+    },
+
+    async onToolSetterRefDirChange(raw: number | null) {
+      if (raw === null || raw === undefined) {
+        return
+      }
+      const v = normalizeNxtToolSetterRefDir(typeof raw === 'number' ? raw : Number(raw))
+      this.configDraft.nxtToolSetterRefDir = v
+      await this.updateVariable('nxtToolSetterRefDir', v)
+    },
+
+    /** Re-issue M950 with current draft type/order/count when pin is known. */
+    async applyRgbStripM950() {
       const g = this.$store.state.machine.model.global
       const pin = readFirmwareGlobal(g, 'nxtRGBPin')
       if (pin == null || pin === '') {
         return
       }
       const stripRaw = readFirmwareGlobal(g, 'nxtRGBStrip')
-      const typeRaw = readFirmwareGlobal(g, 'nxtRGBType')
       const strip = typeof stripRaw === 'number' && Number.isFinite(stripRaw) ? stripRaw : 0
-      const type = typeof typeRaw === 'number' && Number.isFinite(typeRaw) ? typeRaw : 1
+      const type = normalizeNxtRgbType(this.configDraft.nxtRGBType)
+      const order = normalizeNxtRgbOrder(this.configDraft.nxtRGBOrder)
+      const countRaw = this.configDraft.nxtRGBCount
+      const count =
+        typeof countRaw === 'number' && Number.isFinite(countRaw)
+          ? Math.max(1, Math.min(256, Math.round(countRaw)))
+          : 1
       const pinLit = typeof pin === 'string' ? `"${pin}"` : String(pin)
-      await this.sendCode(`M950 E${strip} C${pinLit} T${type} U${v}`)
+      await this.sendCode(`M950 E${strip} C${pinLit} T${type} K${order} U${count}`)
     },
 
     async onProbeDeflectionComponent(index: 0 | 1 | 2, raw: string | number | null) {

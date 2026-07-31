@@ -61,7 +61,7 @@ You need to configure your Toolsetter and optionally, Touch Probe, in RRF before
 
 This involves configuring both of them as Z probes, which can be done with the `M558` command.
 
-You would add line(s) similar to these to your RRF `config.g` file, above where the nxt file (`nxt.g`) is included.
+**Scylla board packs** ship default `toolsetter.g` (K1 / `PE_7`) and `touchprobe.g` (K0 / `PE_15`, type P5). Place overrides at `0:/sys/toolsetter.g` or `0:/sys/touchprobe.g` if needed. Other boards still need explicit `M558` in `config.g` (or equivalent) above where `nxt.g` is included — for example:
 
 ```gcode
 

@@ -62,6 +62,8 @@ global nxtProbeMaxSampleSpreadMm = 0.0075
 global nxtProbeSampleOuterRetries = 1
 
 global nxtToolSetterPos = null     ; Toolsetter position vector [X, Y, Z]
+global nxtToolSetterV2 = false     ; V2.0: fixed ref pad geometry (13mm XY / -6mm Z vs platen)
+global nxtToolSetterRefDir = 0     ; V2 ref pad side of platen: 0=+X 1=-X 2=+Y 3=-Y
 global nxtToolSetterProbeTravelMm = 80.0 ; Downward travel from toolsetter Z used for tool-length probing
 global nxtToolSetterRadius = null ; Toolsetter platen radius for large-tool multi-point G37 (mm)
 global nxtToolChangeState = null   ; Tracks the current tool change state (1=tfree, 2=tfree done, 3=tpre done, 4=tpost, null=complete)
@@ -83,7 +85,8 @@ global nxtRgbLedIndex = 0 ; legacy unused; strip length is nxtRGBCount (Configur
 ; is created on first run from these values.
 global nxtRGBStrip = 0      ; LED strip number (the E in M950 E0 / M150 E0)
 global nxtRGBPin   = null   ; data pin, e.g. "PA_10" - null until configured
-global nxtRGBType  = 1      ; M950 T: 1=RGB NeoPixel, 3=RGBW NeoPixel
+global nxtRGBType  = 1      ; M950 T: 1=RGB NeoPixel, 2=RGBW NeoPixel
+global nxtRGBOrder = 5      ; M950 K colour order: 0=BGR … 5=GRB (NeoPixel default)
 global nxtRGBCount = 1      ; number of LEDs in the strip
 global nxtRGBBri   = 255    ; brightness 0-255
 

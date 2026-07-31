@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-22T07:28:05.007Z",
+  "generatedAt": "2026-07-31T05:38:15.484Z",
   "boards": [
     {
       "shortName": "scylla1_0_h723",
@@ -244,7 +244,7 @@
             "aliases": [
               "probe"
             ],
-            "note": "Requires 0:/sys/touchprobe.g (M558 K0) to appear in OM"
+            "note": "K0 via pack touchprobe.g (PE_15); override with 0:/sys/touchprobe.g"
           }
         ],
         "namedOutputs": [

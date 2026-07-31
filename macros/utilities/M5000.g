@@ -14,16 +14,23 @@ M400
 if { !exists(global.nxtAbsPos) }
     global nxtAbsPos = { vector(#move.axes, null) }
 
+; RRF 3.7+: prefer motionSystems[0].workplaceNumber (move.workplaceNumber is obsolete).
+var nxtWpIdx = 0
+if { exists(move.motionSystems) && #move.motionSystems > 0 }
+    set var.nxtWpIdx = { move.motionSystems[0].workplaceNumber }
+elif { exists(move.workplaceNumber) }
+    set var.nxtWpIdx = { move.workplaceNumber }
+
 if { !exists(param.P) || param.P == 0 }
     set global.nxtAbsPos = { vector(#move.axes, null) }
     while { iterations < #move.axes }
-        var nxtWpOff = { move.axes[iterations].workplaceOffsets[move.workplaceNumber] }
+        var nxtWpOff = { move.axes[iterations].workplaceOffsets[var.nxtWpIdx] }
         var nxtToolOff = { state.currentTool < 0 ? 0 : tools[state.currentTool].offsets[iterations] }
         set global.nxtAbsPos[iterations] = { var.nxtWpOff + var.nxtToolOff + move.axes[iterations].userPosition }
     M99
 
 if { param.P == 1 && exists(param.I) && param.I >= 0 && param.I < #move.axes }
-    var nxtWpOff1 = { move.axes[param.I].workplaceOffsets[move.workplaceNumber] }
+    var nxtWpOff1 = { move.axes[param.I].workplaceOffsets[var.nxtWpIdx] }
     var nxtToolOff1 = { state.currentTool < 0 ? 0 : tools[state.currentTool].offsets[param.I] }
     set global.nxtAbsPos = { var.nxtWpOff1 + var.nxtToolOff1 + move.axes[param.I].userPosition }
     M99

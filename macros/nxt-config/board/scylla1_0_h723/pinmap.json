@@ -174,7 +174,7 @@
       "probeIndex": 0,
       "pin": "E.15",
       "aliases": ["probe"],
-      "note": "Requires 0:/sys/touchprobe.g (M558 K0) to appear in OM"
+      "note": "K0 via pack touchprobe.g (PE_15); override with 0:/sys/touchprobe.g"
     }
   ],
   "namedOutputs": ["aux0", "aux1", "aux2", "coolant", "mist", "relay"],

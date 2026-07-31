@@ -202,10 +202,18 @@ if { var.nxtAtcLoaded }
 if { fileexists("0:/sys/nxt-rgb-colours.g") }
     M98 P"nxt-rgb-colours.g"
 
-; nxtRGBCount is owned by Configuration → nxt-user-vars.g. Legacy colour files may
-; still set count; re-apply user-vars so Configuration wins before M950.
+; nxtRGBCount / type / order are owned by Configuration → nxt-user-vars.g.
+; Legacy colour files may still set them; re-apply user-vars so Configuration wins.
 if { fileexists("0:/sys/nxt-user-vars.g") }
     M98 P"nxt-user-vars.g"
+
+; Legacy docs used T3 for RGBW; RRF M950 uses T2. Coerce once before M950.
+if { exists(global.nxtRGBType) && global.nxtRGBType == 3 }
+    set global.nxtRGBType = 2
+
+; Colour order (M950 K) — declare if upgrading from a build without nxtRGBOrder.
+if { !exists(global.nxtRGBOrder) }
+    global nxtRGBOrder = 5
 
 ; Migrate legacy per-state RGB globals into nxtRGBCol, then rewrite the file so
 ; the next boot does not recreate nxtRGBIdle/Home/... (OM bloat).
@@ -232,7 +240,7 @@ if { var.nxtRgbLegacy && exists(global.nxtRGBCol) }
 ; Single post-colour M950 owner for boot (daemon may lazy-fallback later).
 var nxtRgbPinOk = { exists(global.nxtRGBPin) && global.nxtRGBPin != null }
 if { var.nxtRgbPinOk }
-    M950 E{global.nxtRGBStrip} C{global.nxtRGBPin} T{global.nxtRGBType} U{global.nxtRGBCount}
+    M950 E{global.nxtRGBStrip} C{global.nxtRGBPin} T{global.nxtRGBType} K{global.nxtRGBOrder} U{global.nxtRGBCount}
     if { exists(global.nxtRGBReady) }
         set global.nxtRGBReady = true
 
@@ -250,7 +258,7 @@ elif { fileexists("0:/sys/nxt-user-overrides.g.example") }
 if { global.nxtBootOk }
     set global.nxtLoaded = true
     M117 "nxt ready"
-    echo "nxt v" ^ global.nxtVersion ^ " loaded successfully."
+    echo "nxt " ^ global.nxtVersion ^ " loaded successfully."
 else
     ; Safe message: nxtError may be null if boot aborted before it was set (avoid odd echo / OM values for DWC)
     M117 "nxt load FAILED"

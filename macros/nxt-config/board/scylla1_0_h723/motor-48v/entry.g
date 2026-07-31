@@ -36,6 +36,8 @@ else
     M98 P"nxt-config/board/scylla1_0_h723/motor-48v/toolsetter.g"
 if { fileexists("0:/sys/touchprobe.g") }
     M98 P"touchprobe.g"
+else
+    M98 P"nxt-config/board/scylla1_0_h723/motor-48v/touchprobe.g"
 if { fileexists("0:/sys/user-config.g") }
     M98 P"user-config.g"
 M99

@@ -55,7 +55,7 @@ Homing macros are **not** `M98`'d at boot.
 2. `nxt.g` → `nxt-vars.g` → gated **`nxt-custom-globals.g`** → optional MOS import (nested skips double custom/user-vars load) → **`nxt-tooltable.g`** → **`nxt-probe-wcs.g`** (if `!nxtWPCtrPos`) → align WCS/OT → **`nxt-user-vars.g`** → **`nxt-board-pack-loader.g`** → tools → **`nxt-boot.g`** (probe sync only; sets `nxtBootOk`) → plugin-init once → RGB colours + single `M950` → **`nxt-user-overrides.g` (last)** → **`nxtLoaded`**.
 3. Loader: `nxt-board-pack-resolve.g` → board entry → `machine/<nxtPlatformProfile>/entry.g` → optional `nxt-user-pinmap.g`.
 
-Board `rgb.g` sets pin/strip/type only; `nxt.g` owns the post-colour `M950`. Daemon caches plugin hook paths and runs plugin-init at most once (`nxtPluginsInited`).
+Board `rgb.g` sets pin/strip only; strip type (`nxtRGBType`), colour order (`nxtRGBOrder`), and LED count (`nxtRGBCount`) come from Configuration → `nxt-user-vars.g`. `nxt.g` owns the post-colour `M950` (`T`/`K`/`U`). Daemon caches plugin hook paths and runs plugin-init at most once (`nxtPluginsInited`).
 
 Configuration / Calibration Save and Custom Apply share `persistNxtUserConfig` (bootstrap + custom sentinels idempotent).
 
@@ -103,6 +103,8 @@ Machine must exist on SD: `0:/sys/nxt-config/machine/<id>/OVERVIEW.txt`.
 ## Pin maps and free pins
 
 Each board ships `pinmap.json` (`assigned` + `free`) with human-readable labels from RRF pin names (e.g. Scylla `mist`, `coolant`, `aux0`–`aux2`, `relay`, `probe`, `tool`).
+
+**Scylla probes:** pack `entry.g` loads toolsetter K1 (`PE_7`) and touch probe K0 (`PE_15`, P5) from voltage-specific `toolsetter.g` / `touchprobe.g`, unless overridden by `0:/sys/toolsetter.g` or `0:/sys/touchprobe.g`. Touch polarity follows `nxtTouchProbeInvert`.
 
 Configuration dropdowns list **free** named pins (Mist, Coolant, Relay, Aux, Probe, Toolsetter). Pins already assigned to another role or selected as **fans** are shown **disabled**. Clear a select to unassign.
 

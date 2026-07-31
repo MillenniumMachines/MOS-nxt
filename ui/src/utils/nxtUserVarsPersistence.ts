@@ -13,6 +13,10 @@ export type NxtUserConfigDraft = {
   nxtFeatureAtc: boolean
   /** NeoPixel LEDs on the strip (M950 U / M150 S). */
   nxtRGBCount: number | null
+  /** M950 T: 1=RGB NeoPixel, 2=RGBW NeoPixel. */
+  nxtRGBType: number | null
+  /** M950 K colour order: 0=BGR … 5=GRB (NeoPixel default). */
+  nxtRGBOrder: number | null
   nxtProbeToolID: number | null
   nxtDeltaMachine: number | null
   nxtSpindleID: number | null
@@ -26,6 +30,10 @@ export type NxtUserConfigDraft = {
   nxtToolSetterID: number | null
   nxtToolSetterInvert: boolean
   nxtToolSetterPos: number[] | null
+  /** V2.0 toolsetter fixed ref-pad geometry. */
+  nxtToolSetterV2: boolean
+  /** V2 ref pad side of platen: 0=+X 1=-X 2=+Y 3=-Y. */
+  nxtToolSetterRefDir: number
   nxtTouchProbeRefPos: number[] | null
   nxtCoolantAirID: number | null
   nxtCoolantMistID: number | null
@@ -93,6 +101,8 @@ export const NXT_USER_VARS_PERSISTED_KEYS = [
   'nxtFeatureFourthAxis',
   'nxtFeatureAtc',
   'nxtRGBCount',
+  'nxtRGBType',
+  'nxtRGBOrder',
   'nxtProbeToolID',
   'nxtDeltaMachine',
   'nxtSpindleID',
@@ -105,6 +115,8 @@ export const NXT_USER_VARS_PERSISTED_KEYS = [
   'nxtToolSetterID',
   'nxtToolSetterInvert',
   'nxtToolSetterPos',
+  'nxtToolSetterV2',
+  'nxtToolSetterRefDir',
   'nxtTouchProbeRefPos',
   'nxtCoolantAirID',
   'nxtCoolantMistID',
@@ -332,6 +344,8 @@ export function emptyConfigDraft(): NxtUserConfigDraft {
     nxtFeatureFourthAxis: false,
     nxtFeatureAtc: false,
     nxtRGBCount: 1,
+    nxtRGBType: 1,
+    nxtRGBOrder: 5,
     nxtProbeToolID: null,
     nxtDeltaMachine: null,
     nxtSpindleID: null,
@@ -344,6 +358,8 @@ export function emptyConfigDraft(): NxtUserConfigDraft {
     nxtToolSetterID: null,
     nxtToolSetterInvert: false,
     nxtToolSetterPos: null,
+    nxtToolSetterV2: false,
+    nxtToolSetterRefDir: 0,
     nxtTouchProbeRefPos: null,
     nxtCoolantAirID: null,
     nxtCoolantMistID: null,
@@ -458,6 +474,8 @@ export function snapshotConfigFromOm(globalVal: unknown): NxtUserConfigDraft {
   draft.nxtFeatureFourthAxis = readConfigBool(readFirmwareGlobal(globalVal, 'nxtFeatureFourthAxis'))
   draft.nxtFeatureAtc = readConfigBool(readFirmwareGlobal(globalVal, 'nxtFeatureAtc'))
   draft.nxtRGBCount = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtRGBCount')) ?? 1
+  draft.nxtRGBType = normalizeNxtRgbType(readConfigNumber(readFirmwareGlobal(globalVal, 'nxtRGBType')))
+  draft.nxtRGBOrder = normalizeNxtRgbOrder(readConfigNumber(readFirmwareGlobal(globalVal, 'nxtRGBOrder')))
   draft.nxtProbeToolID = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtProbeToolID'))
   draft.nxtDeltaMachine = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtDeltaMachine'))
   draft.nxtSpindleID = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtSpindleID'))
@@ -476,6 +494,10 @@ export function snapshotConfigFromOm(globalVal: unknown): NxtUserConfigDraft {
     draft.nxtToolSetterInvert = inv === undefined ? false : readConfigBool(inv)
   }
   draft.nxtToolSetterPos = readConfigVector(readFirmwareGlobal(globalVal, 'nxtToolSetterPos'))
+  draft.nxtToolSetterV2 = readConfigBool(readFirmwareGlobal(globalVal, 'nxtToolSetterV2'))
+  draft.nxtToolSetterRefDir = normalizeNxtToolSetterRefDir(
+    readConfigNumber(readFirmwareGlobal(globalVal, 'nxtToolSetterRefDir'))
+  )
   draft.nxtTouchProbeRefPos = readConfigVector(readFirmwareGlobal(globalVal, 'nxtTouchProbeRefPos'))
   draft.nxtCoolantAirID = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtCoolantAirID'))
   draft.nxtCoolantMistID = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtCoolantMistID'))
@@ -607,22 +629,34 @@ export function applySingletonDefaults(draft: NxtUserConfigDraft, ctx: MachineLi
     draft.nxtSpindleID = ctx.spindles[0].id
   }
   const touchProbes = ctx.probes.filter((p) => p.type >= 5 && p.type <= 8)
-  if (draft.nxtTouchProbeID === null && touchProbes.length === 1) {
-    draft.nxtTouchProbeID = touchProbes[0].id
+  const hasProbe = (id: number): boolean => touchProbes.some((p) => p.id === id)
+
+  // Prefer documented Scylla defaults (K0 touch / K1 toolsetter); never dual-assign.
+  if (draft.nxtTouchProbeID === null) {
+    if (hasProbe(0)) {
+      draft.nxtTouchProbeID = 0
+    } else if (touchProbes.length === 1) {
+      draft.nxtTouchProbeID = touchProbes[0].id
+    }
   }
-  if (draft.nxtToolSetterID === null && touchProbes.length === 1) {
-    draft.nxtToolSetterID = touchProbes[0].id
+  if (draft.nxtToolSetterID === null) {
+    if (hasProbe(1) && draft.nxtTouchProbeID !== 1) {
+      draft.nxtToolSetterID = 1
+    } else {
+      const remaining = touchProbes.filter((p) => p.id !== draft.nxtTouchProbeID)
+      if (remaining.length === 1) {
+        draft.nxtToolSetterID = remaining[0].id
+      }
+    }
   }
 }
 
 /**
  * Bootstrap form when nxt-user-vars.g is absent: MOS globals, then singleton picks.
- * Does not copy nxt-vars.g factory defaults (e.g. touch probe ID 0) into the form.
+ * Probe role IDs 0/1 are valid RRF indices (not "unset") — do not clear them.
  */
-/** Values from macros/system/nxt-vars.g — not treated as user config when bootstrapping the form. */
+/** Tip radius 0 from nxt-vars.g is not a measured user value when bootstrapping the form. */
 const NXT_VARS_FACTORY_SENTINELS: Partial<Record<keyof NxtUserConfigDraft, number>> = {
-  nxtTouchProbeID: 0,
-  nxtToolSetterID: 1,
   nxtProbeTipRadius: 0
 }
 
@@ -683,6 +717,33 @@ function formatPersistedString(value: string | null | undefined): string {
   return `"${String(value).replace(/"/g, '')}"`
 }
 
+/** M950 T: 1=RGB, 2=RGBW. Legacy T3 (old docs) → 2. */
+export function normalizeNxtRgbType(value: number | null | undefined): number {
+  if (value === 3) {
+    return 2
+  }
+  if (value === 1 || value === 2) {
+    return value
+  }
+  return 1
+}
+
+/** M950 K: 0=BGR … 5=GRB (NeoPixel default). */
+export function normalizeNxtRgbOrder(value: number | null | undefined): number {
+  if (value !== null && value !== undefined && value >= 0 && value <= 5) {
+    return value
+  }
+  return 5
+}
+
+/** V2 toolsetter ref pad side: 0=+X 1=-X 2=+Y 3=-Y. */
+export function normalizeNxtToolSetterRefDir(value: number | null | undefined): number {
+  if (value !== null && value !== undefined && value >= 0 && value <= 3) {
+    return value
+  }
+  return 0
+}
+
 export function buildNxtUserVarsGcode(config: NxtUserConfigDraft): string {
   const lines = [
     '; nxt User Configuration',
@@ -697,8 +758,10 @@ export function buildNxtUserVarsGcode(config: NxtUserConfigDraft): string {
     `set global.nxtFeatureFourthAxis = ${formatPersistedBool(config.nxtFeatureFourthAxis)}`,
     `set global.nxtFeatureAtc = ${formatPersistedBool(config.nxtFeatureAtc)}`,
     '',
-    '; RGB work light (M950 U / M150 S)',
+    '; RGB work light (M950 T / K / U)',
     `set global.nxtRGBCount = ${formatPersistedNumber(config.nxtRGBCount ?? 1)}`,
+    `set global.nxtRGBType = ${formatPersistedNumber(normalizeNxtRgbType(config.nxtRGBType))}`,
+    `set global.nxtRGBOrder = ${formatPersistedNumber(normalizeNxtRgbOrder(config.nxtRGBOrder))}`,
     '',
     '; Probe tool index (null in UI → last tool at load) and static datum (touch probe calibration)',
     `set global.nxtProbeToolID = ${formatPersistedProbeToolID(config.nxtProbeToolID)}`,
@@ -710,16 +773,23 @@ export function buildNxtUserVarsGcode(config: NxtUserConfigDraft): string {
     `set global.nxtSpindleDecelSec = ${formatPersistedNumber(config.nxtSpindleDecelSec)}`,
     '',
     '; Touch Probe Configuration',
-    `set global.nxtTouchProbeID = ${formatPersistedNumber(config.nxtTouchProbeID)}`,
+    // Omit null probe role IDs — keep nxt-vars.g defaults (0 / 1) instead of forcing null.
+    ...(config.nxtTouchProbeID !== null && config.nxtTouchProbeID !== undefined
+      ? [`set global.nxtTouchProbeID = ${formatPersistedNumber(config.nxtTouchProbeID)}`]
+      : []),
     `set global.nxtTouchProbeInvert = ${formatPersistedBool(config.nxtTouchProbeInvert)}`,
     `set global.nxtProbeTipRadius = ${formatPersistedNumber(config.nxtProbeTipRadius)}`,
     `set global.nxtProbeDeflection = ${formatPersistedVector(config.nxtProbeDeflection)}`,
     '; Probe repeatability: defaults in nxt-vars.g; optional 0:/sys/nxt-user-overrides.g',
     '',
     '; Tool Setter Configuration',
-    `set global.nxtToolSetterID = ${formatPersistedNumber(config.nxtToolSetterID)}`,
+    ...(config.nxtToolSetterID !== null && config.nxtToolSetterID !== undefined
+      ? [`set global.nxtToolSetterID = ${formatPersistedNumber(config.nxtToolSetterID)}`]
+      : []),
     `set global.nxtToolSetterInvert = ${formatPersistedBool(config.nxtToolSetterInvert)}`,
     `set global.nxtToolSetterPos = ${formatPersistedVector(config.nxtToolSetterPos)}`,
+    `set global.nxtToolSetterV2 = ${formatPersistedBool(config.nxtToolSetterV2)}`,
+    `set global.nxtToolSetterRefDir = ${formatPersistedNumber(normalizeNxtToolSetterRefDir(config.nxtToolSetterRefDir))}`,
     `set global.nxtTouchProbeRefPos = ${formatPersistedVector(config.nxtTouchProbeRefPos)}`,
     '',
     '; Coolant / output roles',
@@ -851,6 +921,48 @@ export function runNxtUserVarsPersistenceSelfTest(): void {
   if (gcode.includes('set global.nxtBoardKitKey = null')) {
     throw new Error('nxt-user-vars.g must not persist null nxtBoardKitKey (OM size)')
   }
+  if (gcode.includes('set global.nxtTouchProbeID = null')) {
+    throw new Error('nxt-user-vars.g must not persist null nxtTouchProbeID (keep nxt-vars default)')
+  }
+  if (gcode.includes('set global.nxtToolSetterID = null')) {
+    throw new Error('nxt-user-vars.g must not persist null nxtToolSetterID (keep nxt-vars default)')
+  }
+
+  const keepZero = buildInitialConfigDraft(
+    { nxtTouchProbeID: 0, nxtToolSetterID: 1, nxtProbeTipRadius: 0 },
+    { spindles: [], probes: [{ id: 0, type: 5 }, { id: 1, type: 8 }] }
+  )
+  if (keepZero.nxtTouchProbeID !== 0) {
+    throw new Error('bootstrap must keep nxtTouchProbeID 0 (valid probe index, not a sentinel)')
+  }
+  if (keepZero.nxtToolSetterID !== 1) {
+    throw new Error('bootstrap must keep nxtToolSetterID 1 (valid probe index, not a sentinel)')
+  }
+  if (keepZero.nxtProbeTipRadius !== null) {
+    throw new Error('bootstrap should clear tip-radius factory sentinel 0')
+  }
+
+  const dual = emptyConfigDraft()
+  applySingletonDefaults(dual, {
+    spindles: [],
+    probes: [
+      { id: 0, type: 5 },
+      { id: 1, type: 8 }
+    ]
+  })
+  if (dual.nxtTouchProbeID !== 0 || dual.nxtToolSetterID !== 1) {
+    throw new Error('applySingletonDefaults should assign touch=0 and toolsetter=1')
+  }
+
+  const sole = emptyConfigDraft()
+  applySingletonDefaults(sole, { spindles: [], probes: [{ id: 2, type: 5 }] })
+  if (sole.nxtTouchProbeID !== 2) {
+    throw new Error('applySingletonDefaults should assign sole probe to touch')
+  }
+  if (sole.nxtToolSetterID !== null) {
+    throw new Error('applySingletonDefaults must not dual-assign the sole probe to toolsetter')
+  }
+
   const draft = buildInitialConfigDraft(
     { mosSID: 0, mosTPID: 1, mosFeatTouchProbe: true },
     { spindles: [{ id: 0 }], probes: [{ id: 1, type: 5 }] }

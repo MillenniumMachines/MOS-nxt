@@ -18,11 +18,14 @@ This document outlines the complete tool setting and Z-offsetting workflow for n
 This process is performed once via the **Calibration** tab (Phase 0 → `M5016`, then park + load probe tool) to establish the machine's core geometry. It is only re-run if the toolsetter or reference surface is physically moved. See [CALIBRATION.md](CALIBRATION.md) §4 for the UI path and probe-mode calibration (`G9000`).
 
 1.  **Install Datum Tool:** The user installs a rigid, known-geometry datum tool (e.g., a gauge pin).
-2.  **Measure Toolsetter:** The system automatically probes the toolsetter with the datum tool to get the absolute machine coordinate `Z_act_datum` (`M5016`).
-3.  **Measure Reference Surface:** The user manually jogs the datum tool to the designated flat reference surface to get the absolute machine coordinate `Z_ref_datum`.
-4.  **Store Static Datum:** The system calculates and permanently saves the static datum:
+2.  **Verify Toolsetter Input:** `M5016` requires `nxtToolSetterID` from Configuration, asks the operator to press and hold the platen, and confirms that configured probe input is active.
+3.  **Measure Toolsetter:** Jog XY over the platen with ~20 mm Z clearance; `M5016` probes down 20 mm (or until trigger) for `Z_act_datum` / `nxtToolSetterPos`.
+4.  **Measure Reference Surface:**
+    - **V1 (default):** The user manually jogs the datum tool to the designated flat reference surface to get `Z_ref_datum` (and XY).
+    - **V2.0** (`nxtToolSetterV2`): Configuration sets the ref-pad side of the platen (`nxtToolSetterRefDir`: +X / −X / +Y / −Y). After probing `Z_act`, M5016 places `nxtTouchProbeRefPos` at **±13 mm** from the platen center in that direction and **`Z_ref = Z_act − 6`** (no second jog). Then `nxtDeltaMachine = −6`.
+5.  **Store Static Datum:** The system calculates and permanently saves:
     `nxtDeltaMachine = Z_ref_datum - Z_act_datum`
-5.  **Load touch probe:** Park (`G27`), install probe, `T{nxtProbeToolID}` so `tpost` / `G6511` establish the probe offset; **Save** writes `nxtToolSetterPos`, `nxtTouchProbeRefPos`, and `nxtDeltaMachine` to `nxt-user-vars.g`.
+6.  **Load touch probe:** Park (`G27`), install probe, `T{nxtProbeToolID}` so `tpost` / `G6511` establish the probe offset; **Save** writes `nxtToolSetterID`, `nxtToolSetterPos`, `nxtTouchProbeRefPos`, and `nxtDeltaMachine` to `nxt-user-vars.g`.
 
 ### UI Babystepping
 

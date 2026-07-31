@@ -30,7 +30,7 @@
       <!-- Phase 0: static datum -->
       <v-card v-if="needsProbeDatumSetup" variant="outlined" class="mb-4 pa-3">
         <div class="text-subtitle-2 mb-2">{{ $t('plugins.nxt.panels.calibration.phase0Title') }}</div>
-        <p class="text-caption text-grey mb-3">{{ $t('plugins.nxt.panels.calibration.phase0Hint') }}</p>
+        <p class="text-caption text-grey mb-3">{{ phase0HintText }}</p>
         <div class="d-flex flex-wrap ga-2 mb-3">
           <v-chip size="small" :color="toolSetterPosSet ? 'success' : 'warning'" variant="outlined">
             {{ $t('plugins.nxt.panels.calibration.chipToolSetter') }}: {{ toolSetterPosDisplay }}
@@ -1015,6 +1015,15 @@ export default defineNxtComponent({
     },
     deltaMachineSet(): boolean {
       return readConfigNumber(readFirmwareGlobal(this.globalOm, 'nxtDeltaMachine')) != null
+    },
+    toolSetterV2(): boolean {
+      return readConfigBool(readFirmwareGlobal(this.globalOm, 'nxtToolSetterV2'))
+    },
+    phase0HintText(): string {
+      if (this.toolSetterV2) {
+        return this.$t('plugins.nxt.panels.calibration.phase0HintV2').toString()
+      }
+      return this.$t('plugins.nxt.panels.calibration.phase0Hint').toString()
     },
     toolSetterPosDisplay(): string {
       const v = this.toolSetterPosVec

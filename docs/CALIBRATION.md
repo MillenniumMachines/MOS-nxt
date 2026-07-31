@@ -508,7 +508,9 @@ The **Calibration** tab on the main nxt dashboard (`ui/src/nxt.vue` → `Calibra
 
 **Phase 0 — Probe / datum setup** (when touch probe + toolsetter are enabled but `nxtTouchProbeRefPos` or `nxtDeltaMachine` is unset):
 
-1. `M5016` — datum tool → probe toolsetter → set `nxtToolSetterPos` → jog to reference surface → set `nxtTouchProbeRefPos` → `nxtDeltaMachine = Z_ref - Z_act`
+1. `M5016` — verify configured toolsetter input (press platen) → jog ~20 mm above platen → probe for `nxtToolSetterPos`, then:
+   - **V1:** jog to reference surface → set `nxtTouchProbeRefPos` → `nxtDeltaMachine = Z_ref - Z_act`
+   - **V2.0** (`nxtToolSetterV2` + `nxtToolSetterRefDir` from Configuration): compute ref pad at ±13 mm XY from platen and `Z_ref = Z_act − 6` → `nxtDeltaMachine = −6` (no second jog)
 2. Park (`G27`) + `T{nxtProbeToolID}` so `tpost` / `G6511` locate the probe
 3. **Save** persists positions + delta to `nxt-user-vars.g`
 

@@ -68,6 +68,12 @@ elif { global.nxtFeatureToolSetter && global.nxtToolSetterPos != null }
     var tsZ = global.nxtToolSetterPos[2]
     var tsTravel = { exists(global.nxtToolSetterProbeTravelMm) && global.nxtToolSetterProbeTravelMm > 0 ? global.nxtToolSetterProbeTravelMm : 80.0 }
     var tsProbeTargetZ = { var.tsZ - var.tsTravel }
+    if { var.tsProbeTargetZ < move.axes[2].min }
+        set var.tsProbeTargetZ = { move.axes[2].min }
+    var tsProbeTravelAvail = { var.tsZ - var.tsProbeTargetZ }
+    if { var.tsProbeTravelAvail < 5.0 }
+        var msgTsShort = "tpost.g: Not enough Z travel below nxtToolSetterPos"
+        abort { var.msgTsShort ^ " (need >= 5mm toward Zmin — check platen Z)" }
     var tsSamplesRaw = { exists(global.nxtToolSetterInnerSampleCount) && global.nxtToolSetterInnerSampleCount > 0 ? global.nxtToolSetterInnerSampleCount : global.nxtProbeInnerSampleCount }
     var tsSamples = { var.tsSamplesRaw < 2 ? 2 : var.tsSamplesRaw }
     var tsTol = { exists(global.nxtToolSetterMaxSampleSpreadMm) && global.nxtToolSetterMaxSampleSpreadMm >= 0 ? global.nxtToolSetterMaxSampleSpreadMm : global.nxtProbeMaxSampleSpreadMm }

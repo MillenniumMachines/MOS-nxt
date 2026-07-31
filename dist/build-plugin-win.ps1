@@ -32,10 +32,11 @@ git -C $Root diff-index --quiet HEAD -- 2>$null
 $dirty = if ($LASTEXITCODE -ne 0) { "-dirty" } else { "" }
 $buildVersion = ("$gitBranch-$gitSha$dirty") -replace '[^A-Za-z0-9._-]', '-'
 $outZip = "nxt-$buildVersion.zip"
-# DWC Vite names the ZIP from plugin.json version after %%NXT_VERSION%% substitution.
-$dwcPluginZip = "nxt-$buildVersion.zip"
+# plugin.json gets semver without leading v; DWC Vite names the ZIP from that.
+$pluginSemver = if ($buildVersion -like 'v*') { $buildVersion.Substring(1) } else { $buildVersion }
+$dwcPluginZip = "nxt-$pluginSemver.zip"
 
-Write-Host "  Version   : $buildVersion"
+Write-Host "  Version   : $buildVersion (plugin.json $pluginSemver)"
 Write-Host "  Output    : dist\$outZip"
 Write-Host ""
 
@@ -97,9 +98,10 @@ if (Test-Path $configSrc) {
   Copy-Item -Path "$configSrc\*" -Destination "$sdSys\nxt-config" -Recurse -Force -Exclude "README.md",".gitkeep"
 }
 
+# plugin.json: semver without leading v — DWC build-plugin prints/names as v${version}.
 $pj = Join-Path $stagingDir "plugin.json"
 if (Test-Path $pj) {
-  (Get-Content $pj -Raw) -replace '%%NXT_VERSION%%', $buildVersion | Set-Content $pj -NoNewline
+  (Get-Content $pj -Raw) -replace '%%NXT_VERSION%%', $pluginSemver | Set-Content $pj -NoNewline
 }
 $nxtG = Join-Path $sdSys "nxt.g"
 if (Test-Path $nxtG) {

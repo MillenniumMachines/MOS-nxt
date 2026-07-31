@@ -23,7 +23,9 @@ TMP_DIR=$(mktemp -d -t nxt-release-XXXXX)
 SYNC_CMD="rsync -a --exclude=README.md --exclude='*.gitkeep'"
 # shellcheck source=dist/resolve-build-version.sh
 source "${ROOT}/dist/resolve-build-version.sh"
-DWC_PLUGIN_ZIP="nxt-${BUILD_VERSION}.zip"
+# plugin.json semver without leading v — DWC build-plugin prints/names as v${version}.
+PLUGIN_SEMVER="${BUILD_VERSION#v}"
+DWC_PLUGIN_ZIP="nxt-${PLUGIN_SEMVER}.zip"
 DWC_REPO_PATH="${1:-${WD}/../DuetWebControl}"
 if [[ ! -d "${DWC_REPO_PATH}" && -d "${WD}/DuetWebControl" ]]; then
   DWC_REPO_PATH="${WD}/DuetWebControl"
@@ -184,7 +186,8 @@ fi
 echo "UI directory found, building plugin..."
 
 cp -r "${WD}/ui/"* "${TMP_DIR}/"
-sed -si -e "s/%%NXT_VERSION%%/${BUILD_VERSION}/g" plugin.json
+# plugin.json only: strip leading v so DWC does not display/name vv….
+sed -si -e "s/%%NXT_VERSION%%/${PLUGIN_SEMVER}/g" plugin.json
 
 echo "Generating nxt-config manifest..."
 node "${WD}/dist/generate-nxt-config-manifest.mjs" "${WD}"
@@ -248,11 +251,17 @@ if [[ -f "${BUILD_PLUGIN_JS}.next-bak" ]]; then
 fi
 
 BUILT_PLUGIN_ZIP=""
-if [[ -f "${TMP_DIR}/${DWC_PLUGIN_ZIP}" ]]; then
-    BUILT_PLUGIN_ZIP="${TMP_DIR}/${DWC_PLUGIN_ZIP}"
-elif [[ -f "${DWC_REPO_PATH}/dist/${DWC_PLUGIN_ZIP}" ]]; then
-    BUILT_PLUGIN_ZIP="${DWC_REPO_PATH}/dist/${DWC_PLUGIN_ZIP}"
-else
+_dwc_zip_names=("${DWC_PLUGIN_ZIP}" "nxt-${BUILD_VERSION}.zip")
+for _zip_name in "${_dwc_zip_names[@]}"; do
+    if [[ -f "${TMP_DIR}/${_zip_name}" ]]; then
+        BUILT_PLUGIN_ZIP="${TMP_DIR}/${_zip_name}"
+        break
+    elif [[ -f "${DWC_REPO_PATH}/dist/${_zip_name}" ]]; then
+        BUILT_PLUGIN_ZIP="${DWC_REPO_PATH}/dist/${_zip_name}"
+        break
+    fi
+done
+if [[ -z "${BUILT_PLUGIN_ZIP}" ]]; then
     shopt -s nullglob
     _candidates=("${TMP_DIR}"/nxt-*.zip "${DWC_REPO_PATH}/dist"/nxt-*.zip)
     shopt -u nullglob

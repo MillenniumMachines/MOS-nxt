@@ -1,7 +1,9 @@
 ; nxt-save-rgb.g
 ;
-; Persists RGB colour map, brightness and type across reboot.
-; LED count (nxtRGBCount) is owned by Configuration → nxt-user-vars.g.
+; Persists RGB colour map, brightness, type and colour order across reboot.
+; LED count / type / order are owned by Configuration → nxt-user-vars.g
+; (user-vars re-applied after this file in nxt.g). Colour file still stores
+; type/order so Status Save alone keeps them until the next Configuration Save.
 ; Writes /sys/nxt-rgb-colours.g (loaded from nxt.g before post-colour M950).
 ; Called by the nxt Status panel Save button via M98 P"nxt/nxt-save-rgb.g".
 
@@ -18,6 +20,7 @@ echo >>{var.f} ""
 echo >>{var.f} { "if { exists(global.nxtRGBCol) }" }
 echo >>{var.f} { "    set global.nxtRGBBri   = " ^ global.nxtRGBBri }
 echo >>{var.f} { "    set global.nxtRGBType  = " ^ global.nxtRGBType }
+echo >>{var.f} { "    set global.nxtRGBOrder = " ^ global.nxtRGBOrder }
 
 ; One line per colour index (keeps each echo under the RRF line-length limit).
 var i = 0

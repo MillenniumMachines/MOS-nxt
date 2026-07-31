@@ -26,6 +26,53 @@ export function runAllNxtUserVarsPersistenceTests(): void {
   if (!emptyGcode.includes('set global.nxtProbeDeflection = null')) {
     throw new Error('empty draft should persist nxtProbeDeflection as null')
   }
+  if (emptyGcode.includes('set global.nxtTouchProbeID = null')) {
+    throw new Error('empty draft must omit null nxtTouchProbeID')
+  }
+  if (emptyGcode.includes('set global.nxtToolSetterID = null')) {
+    throw new Error('empty draft must omit null nxtToolSetterID')
+  }
+  if (!emptyGcode.includes('set global.nxtRGBType = 1')) {
+    throw new Error('empty draft should persist nxtRGBType = 1 (RGB)')
+  }
+  if (!emptyGcode.includes('set global.nxtRGBOrder = 5')) {
+    throw new Error('empty draft should persist nxtRGBOrder = 5 (GRB)')
+  }
+  if (!emptyGcode.includes('set global.nxtToolSetterV2 = false')) {
+    throw new Error('empty draft should persist nxtToolSetterV2 = false')
+  }
+  if (!emptyGcode.includes('set global.nxtToolSetterRefDir = 0')) {
+    throw new Error('empty draft should persist nxtToolSetterRefDir = 0 (+X)')
+  }
+
+  const rgbLegacy = buildNxtUserVarsGcode({
+    ...emptyConfigDraft(),
+    nxtRGBType: 3,
+    nxtRGBOrder: 2
+  })
+  if (!rgbLegacy.includes('set global.nxtRGBType = 2')) {
+    throw new Error('legacy nxtRGBType 3 must normalize to 2 (RGBW)')
+  }
+  if (!rgbLegacy.includes('set global.nxtRGBOrder = 2')) {
+    throw new Error('buildNxtUserVarsGcode should persist nxtRGBOrder')
+  }
+
+  const snapRgb = snapshotConfigFromOm({ nxtRGBType: 3, nxtRGBOrder: 4 })
+  if (snapRgb.nxtRGBType !== 2 || snapRgb.nxtRGBOrder !== 4) {
+    throw new Error('snapshotConfigFromOm should normalize type 3→2 and keep order')
+  }
+
+  const withIds = buildNxtUserVarsGcode({
+    ...emptyConfigDraft(),
+    nxtTouchProbeID: 0,
+    nxtToolSetterID: 1
+  })
+  if (!withIds.includes('set global.nxtTouchProbeID = 0')) {
+    throw new Error('buildNxtUserVarsGcode should persist nxtTouchProbeID 0')
+  }
+  if (!withIds.includes('set global.nxtToolSetterID = 1')) {
+    throw new Error('buildNxtUserVarsGcode should persist nxtToolSetterID 1')
+  }
 
   if (!readConfigBool(1) || !readConfigBool(true)) {
     throw new Error('readConfigBool should accept 1 and true')
@@ -74,6 +121,32 @@ export function runAllNxtUserVarsPersistenceTests(): void {
   applySingletonDefaults(singleton, { spindles: [{ id: 0 }], probes: [] })
   if (singleton.nxtSpindleID !== 0) {
     throw new Error('applySingletonDefaults should pick sole spindle')
+  }
+
+  const dual = emptyConfigDraft()
+  applySingletonDefaults(dual, {
+    spindles: [],
+    probes: [
+      { id: 0, type: 5 },
+      { id: 1, type: 8 }
+    ]
+  })
+  if (dual.nxtTouchProbeID !== 0 || dual.nxtToolSetterID !== 1) {
+    throw new Error('applySingletonDefaults: null + OM [0,1] → touch 0, setter 1')
+  }
+
+  const sole = emptyConfigDraft()
+  applySingletonDefaults(sole, { spindles: [], probes: [{ id: 3, type: 5 }] })
+  if (sole.nxtTouchProbeID !== 3 || sole.nxtToolSetterID !== null) {
+    throw new Error('applySingletonDefaults: single probe → only touch filled')
+  }
+
+  const keepZero = buildInitialConfigDraft(
+    { nxtTouchProbeID: 0, nxtToolSetterID: 1 },
+    { spindles: [], probes: [{ id: 0, type: 5 }, { id: 1, type: 8 }] }
+  )
+  if (keepZero.nxtTouchProbeID !== 0 || keepZero.nxtToolSetterID !== 1) {
+    throw new Error('buildInitialConfigDraft must not clear probe role IDs 0/1')
   }
 
   const fromMos = buildInitialConfigDraft(
