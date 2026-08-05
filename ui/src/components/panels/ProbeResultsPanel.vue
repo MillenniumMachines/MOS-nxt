@@ -240,11 +240,12 @@ export default defineNxtComponent({
         
         results.push({
           index: i,
-          x: hasData && result[0] ? result[0] : 0,
-          y: hasData && result[1] ? result[1] : 0,
-          z: hasData && result[2] ? result[2] : 0,
-          a: hasData && result[3] ? result[3] : 0,
-          rotation: hasData && result.length > 4 && result[4] ? result[4] : 0,
+          x: hasData && result.length > 0 ? (result[0] ?? 0) : 0,
+          y: hasData && result.length > 1 ? (result[1] ?? 0) : 0,
+          z: hasData && result.length > 2 ? (result[2] ?? 0) : 0,
+          a: hasData && this.hasAAxis && result.length > 3 ? (result[3] ?? 0) : 0,
+          // θ is always the last slot (#move.axes), not a fixed index 4
+          rotation: hasData && result.length > 3 ? (result[result.length - 1] ?? 0) : 0,
           hasData
         })
       }

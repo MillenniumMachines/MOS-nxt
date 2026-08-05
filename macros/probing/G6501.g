@@ -113,6 +113,11 @@ var calculatedCenterY = { var.y1 + (var.ax * var.mb - var.bx * var.ma) / var.d }
 var vx = { var.xPx - var.xMx }
 var vy = { var.xPy - var.xMy }
 var thetaDeg = { atan2(var.vy, var.vx) * 180 / pi }
+; Fold to (−90, 90] so reversed ±X hit order does not yield ~±180°
+if { var.thetaDeg > 90 }
+    set var.thetaDeg = { var.thetaDeg - 180 }
+elif { var.thetaDeg <= -90 }
+    set var.thetaDeg = { var.thetaDeg + 180 }
 
 if { abs(var.thetaDeg) > var.skewLimit }
     abort { "G6501: |skew| " ^ var.thetaDeg ^ " exceeds limit " ^ var.skewLimit }

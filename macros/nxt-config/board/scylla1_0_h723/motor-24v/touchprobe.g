@@ -7,6 +7,6 @@ if { exists(global.nxtTouchProbeInvert) }
     set var.nxtTpInv = { global.nxtTouchProbeInvert }
 
 if { var.nxtTpInv }
-    M558 K0 P5 C"!PE_15" H2 A10 S0.01 T1200 F300:50
+    M558 K0 P5 C"!PE_15" H2 A10 S0.01 T1200 F200:50
 else
-    M558 K0 P5 C"PE_15" H2 A10 S0.01 T1200 F300:50
+    M558 K0 P5 C"PE_15" H2 A10 S0.01 T1200 F200:50

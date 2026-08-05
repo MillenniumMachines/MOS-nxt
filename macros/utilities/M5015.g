@@ -32,9 +32,8 @@ if { !exists(param.I) || param.I == null }
 
 var letter = { move.axes[var.axisIdx].letter }
 
-var jogMsgA = { "Jog near the measuring surface for " ^ var.letter }
-var jogMsgB = { var.jogMsgA ^ ", then press OK.<br/><b>CAUTION</b>: Jogging does not watch the probe." }
-M291 P{var.jogMsgB} R"nxt: Calibration probe" X1 Y1 Z1 J1 T0 S3
+var jogMsgA = { "Orient 1-2-3 with 3in ∥ X. Jog near the " ^ var.letter ^ " face, then OK." }
+M291 P{var.jogMsgA} R"nxt: Calibration probe" X1 Y1 Z1 J1 T0 S3
 if { result != 0 }
     abort { "M5015: Operator cancelled before probe" }
 

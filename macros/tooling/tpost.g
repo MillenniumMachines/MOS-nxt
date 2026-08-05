@@ -94,11 +94,13 @@ elif { global.nxtFeatureToolSetter && global.nxtToolSetterPos != null }
     var newToolMeasurement = { global.nxtLastProbeResult }
     
     ; Cache the measurement (read previous tool from scalar cache before overwrite)
+    ; RRF 3.7+: prefer motionSystems[0].previousTool (state.previousTool is obsolete).
     var oldToolMeasurement = null
     var oldToolOffset = 0
     var oldToolIndex = -1
-
-    if { exists(state.previousTool) && state.previousTool >= 0 }
+    if { exists(move.motionSystems) && #move.motionSystems > 0 }
+        set var.oldToolIndex = { move.motionSystems[0].previousTool }
+    elif { exists(state.previousTool) }
         set var.oldToolIndex = { state.previousTool }
 
     if { var.oldToolIndex >= 0 && exists(global.nxtToolCacheIdx) && global.nxtToolCacheIdx == var.oldToolIndex }
@@ -129,6 +131,10 @@ else
     ; No toolsetter — re-zero Z origin in current WCS with the installed tool.
     echo "tpost.g: Toolsetter unavailable — running G37.1 to set Z origin"
     G37.1
+
+; Re-assert job G68 (native G6512 uses G53; G6512.2 / G37.1 may have issued G69)
+if { exists(global.nxtJobG68Deg) && global.nxtJobG68Deg != null }
+    M98 P"nxt-job-g68-restore.g"
 
 ; Clear tool change state to indicate completion
 set global.nxtToolChangeState = null

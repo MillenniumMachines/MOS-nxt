@@ -1,10 +1,11 @@
 ; G9000.g: AUTOMATED AXIS TRAVEL CALIBRATION (probe) — backlash estimate
 ;
-; Per leg (8 / 16 / 24 mm): probe (hit0) → away by D → probe (hit1), ×3.
+; Per leg (TR8x8: 1×/2×/3× of 8 mm lead = 8 / 16 / 24): probe → away D → probe, ×3.
 ; residual R = (hit1 - hit0) * dirToward; measured = D - meanR
+; Same approach dir ⇒ tip/deflection cancel in R; R ≈ backlash when M425 unset.
 ; Results: global.nxtCalTravelCmd / nxtCalTravelMeas / nxtCalTravelAxis
 ; Does NOT apply M92/M425 — Calibration UI classifies (backlash only) and applies M425.
-; Use Phase 2 dual-dimension spans for steps/mm.
+; Use Phase 3 dual-dimension spans for steps/mm.
 ;
 ; USAGE: G9000 X0 | Y0 | Z0
 ; Requires: nxtFeatureTouchProbe, nxtTouchProbeID, probe tool selected.
@@ -39,10 +40,8 @@ G90
 G21
 G94
 
-var jogA = { "Jog the probe near a fixed 1-2-3 face along " ^ var.letter }
-var jogB = { var.jogA ^ " (block: 3in parallel to X). Leave clearance." }
-var jogC = { var.jogB ^ "<br/><b>CAUTION</b>: Jogging does not watch the probe. OK when ready." }
-M291 P{var.jogC} R"nxt: G9000" X1 Y1 Z1 J1 T0 S3
+var jogA = { "G9000 on " ^ var.letter ^ ". Orient 1-2-3 with 3in ∥ X; jog near the face, then OK." }
+M291 P{var.jogA} R"nxt: G9000" X1 Y1 Z1 J1 T0 S3
 if { result != 0 }
     abort { "G9000: Operator cancelled" }
 
@@ -59,26 +58,29 @@ var approach0 = { global.nxtAbsPos }
 ; Overshoot past the surface for G6512 target
 var overshoot = { 30 }
 
-if { !exists(global.nxtCalTravelCmd) || global.nxtCalTravelCmd == null }
-    global nxtCalTravelCmd = { vector(3, 0.0) }
-if { !exists(global.nxtCalTravelMeas) || global.nxtCalTravelMeas == null }
-    global nxtCalTravelMeas = { vector(3, 0.0) }
+; nxt-vars declares these null — never use # on null (RRF: Expecting array expression).
+if { !exists(global.nxtCalTravelCmd) }
+    global nxtCalTravelCmd = { 8.0, 16.0, 24.0 }
+else
+    set global.nxtCalTravelCmd = { 8.0, 16.0, 24.0 }
+if { !exists(global.nxtCalTravelMeas) }
+    global nxtCalTravelMeas = { 0.0, 0.0, 0.0 }
+else
+    set global.nxtCalTravelMeas = { 0.0, 0.0, 0.0 }
 if { !exists(global.nxtCalTravelAxis) }
     global nxtCalTravelAxis = null
 
-set global.nxtCalTravelCmd[0] = 8
-set global.nxtCalTravelCmd[1] = 16
-set global.nxtCalTravelCmd[2] = 24
-set global.nxtCalTravelMeas[0] = 0
-set global.nxtCalTravelMeas[1] = 0
-set global.nxtCalTravelMeas[2] = 0
 set global.nxtCalTravelAxis = { var.letter }
 
 var feed = { 300 }
 if { exists(global.nxtManualProbeFeeds) && #global.nxtManualProbeFeeds > 1 }
     set var.feed = { global.nxtManualProbeFeeds[1] }
 
-var distances = { 8, 16, 24 }
+; TR8x8 lead 8 mm → travel legs 1× / 2× / 3× lead
+var distances = { 8.0, 16.0, 24.0 }
+var meas0 = 0.0
+var meas1 = 0.0
+var meas2 = 0.0
 var leg = 0
 while { var.leg < 3 }
     var dCmd = { var.distances[var.leg] }
@@ -137,7 +139,14 @@ while { var.leg < 3 }
 
     var meanR = { var.sumR / 3 }
     var measured = { var.dCmd - var.meanR }
-    set global.nxtCalTravelMeas[var.leg] = { var.measured }
+    ; Full-vector assign so DSF/DWC OM sees all three legs (indexed set can drop [2]).
+    if { var.leg == 0 }
+        set var.meas0 = { var.measured }
+    elif { var.leg == 1 }
+        set var.meas1 = { var.measured }
+    else
+        set var.meas2 = { var.measured }
+    set global.nxtCalTravelMeas = { var.meas0, var.meas1, var.meas2 }
     echo "G9000: leg " ^ { var.leg + 1 } ^ " cmd=" ^ var.dCmd ^ " meas=" ^ var.measured
 
     set var.leg = { var.leg + 1 }
@@ -151,4 +160,4 @@ else
     G53 G1 Z{var.approach0[2]} F{var.feed}
 M400
 
-echo "G9000: Done on " ^ var.letter ^ " — review results in Calibration UI"
+echo "G9000: Done on " ^ var.letter ^ " — cmd {8,16,24} meas {" ^ var.meas0 ^ ", " ^ var.meas1 ^ ", " ^ var.meas2 ^ "}"

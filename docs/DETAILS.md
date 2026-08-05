@@ -10,11 +10,48 @@ nxt **`G650x`** cycle macros accept **`U1`–`U9`** to select the target workpla
 
 **Legacy:** omit **`U`** and pass **`P`** only to store results without applying a WCS.
 
-**Skew:** **`G6500`**, **`G6501`**, **`G6502`**, **`G6503`**, and **`G6506`** populate **`nxtProbeResults[row][#move.axes]`** with an estimate of in-plane rotation (degrees vs machine X). If **`|θ|`** exceeds **`global.nxtProbeMaxSkewDeg`** (default **5°**, overridable per cycle with **`T`** on supported macros), the cycle **`abort`s**.
+### Workpiece skew (θ) maths
 
-**`M6520`:** After **`G10 L2`** translation, optional **`G68 X0 Y0 R…`** applies coordinate rotation in the XY plane (**RepRapFirmware** **`G68`**). **G68** sign was fixed in **RRF 3.6.1**; the project’s **reference** firmware for evaluation is **3.6.2** ([`docs/RRF_REFERENCE.md`](RRF_REFERENCE.md)). **`Q`** on **`M6520`** (and forwarded from **`G650x`** when present): **0** (default) = **`M291`** prompt to apply or skip rotation; **1** = apply **`G68`** without prompt; **2** = translation only (no **`G68`**).
+In nxt, **“skew” means in-plane workpiece rotation vs machine +X**, not machine-axis non-orthogonality.
 
-**`M6522`:** When both results have a rotation slot, the rotation component is averaged with a **circular mean** of angles.
+| Cycle | θ | Notes |
+|-------|---|--------|
+| **G6506** | `atan2(dy, dx)` along two edge touches | Edge angle vs +X |
+| **G6500**–**G6503** | `atan2(vy, vx)` on the **±X chord only** | Y chord is for size/center; remapped Y angle would be θ+90°. **G6503** uses means of 3 pts/face for the chord endpoints |
+| Store | `nxtProbeResults[row][#move.axes]` | Degrees; folded into **(−90°, 90°]** so reversed hit order does not yield ~±180° |
+| Abort | `\|θ\| > T` / `nxtProbeMaxSkewDeg` (default **5°**) | |
+| Size echo (G6502/G6503) | `hypot(vx,vy)` / `hypot(wx,wy)` | Chord length = true wall spacing |
+
+**G68 polarity:** RRF **≥ 3.6.1** rotates **anticlockwise** for positive **R**. nxt passes measured θ through unchanged into **`G68 X0 Y0 R{θ}`** so a stock edge at +α from machine +X aligns programmed +X with that edge. Offline checks: `node dist/check-rotation-skew-math.mjs`.
+
+**`M6520`:** After **`G10 L2`** translation (axis flags apply even when the origin coordinate is **0**), optional **`G68`** when both **X** and **Y** are updated. **`Q`**: **0** = prompt; **1** = force; **2** = translation only. Successful **G68** arms job-scoped session globals **`nxtJobG68Deg`** / **`nxtJobG68Wcs`** (not saved to `nxt-user-vars.g`).
+
+**`M6522`:** Circular mean of two θ slots when both non-zero.
+
+**`G6512` / `G6550`:** Probe/protected moves use **`G53`** (machine coordinates), so an active **G68** does not warp hit capture. Legacy `.1` paths still **`G69`** before probe; **`tpost.g`** temporarily **`G69`** then restores from **`nxtJobG68Deg`**.
+
+### Job-scoped G68 lifecycle
+
+| Event | Behavior |
+|-------|----------|
+| **M6520** applies G68 | Set `nxtJobG68Deg` / `nxtJobG68Wcs` |
+| Toolchange (`tpost`) | Native **G6512** uses **G53** (safe under G68). End of `tpost` always **`nxt-job-g68-restore.g`** so **G6512.2**/**G37.1** `G69` does not drop job rotation |
+| Pause / resume | Leave G68; resume re-asserts restore helper if needed |
+| **cancel.g** | Always **`nxt-job-g68-clear.g`** (`G69` + null globals) |
+| **stop.g** | Clear only when **not** paused/pausing/resuming (avoids killing mid-job rotation if `stop.g` runs on pause) |
+
+### What this corrects vs what it does not
+
+| Geometry error | Handled? |
+|----------------|----------|
+| Stock/fixture rotated in **XY** | Yes — θ → `G68` |
+| WCS origin translate | Yes — `G10 L2` |
+| Non-square pocket/block (sides not ⊥) | Detect/abort on legacy `.1` only; **not** corrected by G68 |
+| Machine X/Y (or XZ/YZ) not orthogonal | **No** — would need separate machine-geometry compensation |
+| Part lean out of XY | **No** |
+| Probe tip deflection | Separate (**G6512** / calibration) |
+
+**Ranked follow-ups (workpiece path):** Y-chord cross-check vs X θ (after −90° remap); optional native squareness abort (port from `.1`); bore/boss θ is noisy on a true circle — prefer G6506 or pocket/block for fixture angle. **Machine-axis skew** remains a separate spike (RRF has no general XY skew matrix beyond G68).
 
 **`G6512 H0`–`H3`:** Optional hit index records averaged **(X,Y)** contact position (machine mm) into **`global.nxtProbeHitXY`**.
 
@@ -153,16 +190,22 @@ nxt **`G650x`** cycle macros accept **`U1`–`U9`** to select the target workpla
     *   Resets the RRF tool definition using `M563` with `R-1` (unassigned spindle) and a default name "Unknown Tool".
     *   Resets the corresponding entry in `global.mosTT` to `global.mosET` (empty tool) to clear the extended tool table row.
 
-### M4005: CHECK MILLENNIUMOS POST VERSION
+### M4005: CHECK nxt POST VERSION
 
 *   **Code:** `M4005`
-*   **Description:** Verifies that the version of the post-processor being used matches the installed version of MillenniumOS. This ensures compatibility between the generated G-code and the firmware's capabilities.
+*   **Description:** Verifies that the CAM post `V"…"` string matches `global.nxtVersion`, then runs **`M4006`** (touch-probe deflection required when that feature is on).
 *   **Arguments:**
     *   `V<version>`: The version string of the post-processor.
 *   **How it works:**
     *   Validates that the `V` parameter is provided.
-    *   Compares the provided `param.V` with the `global.mosVer` variable, which holds the installed MillenniumOS version.
-    *   If the versions do not match, it aborts the execution with an error message indicating the mismatch.
+    *   Compares `param.V` with `global.nxtVersion`.
+    *   On match, invokes `M4006` so probe-equipped machines cannot start jobs with unset / factory-zero deflection.
+
+### M4006: REQUIRE TOUCH-PROBE DEFLECTION
+
+*   **Code:** `M4006`
+*   **Description:** When `nxtFeatureTouchProbe` is true, aborts unless `nxtProbeDeflection` is a non-zero `{X,Y,Z}` vector.
+*   **Arguments:** none (usually called from `M4005`)
 
 ### M5.9: SPINDLE OFF
 

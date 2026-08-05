@@ -4,7 +4,8 @@
 ; USAGE: M5016
 ; Requires: nxtFeatureTouchProbe, nxtFeatureToolSetter, nxtTouchProbeID, nxtToolSetterID.
 ; Verifies configured toolsetter input by user toggle, then probes ~20mm from jog Z.
-; V2.0 (nxtToolSetterV2): ref pad at ±13mm XY from platen + Z = Z_act - 6 (no jog-to-ref).
+; V2.0 (nxtToolSetterV2): ref pad at ±13mm XY from platen + Z = Z_act - 6.
+; Operator must jog-confirm near the pad before values are used for G6511.
 ; After success: park (G27) and T{nxtProbeToolID} from the Calibration UI so tpost runs G6511.
 
 if { !inputs[state.thisInput].active }
@@ -135,10 +136,13 @@ if { var.nxtTsV2 }
     set global.nxtTouchProbeRefPos = { var.refX, var.refY, var.refZ }
     set global.nxtDeltaMachine = { var.refZ - var.zAct }
 
-    var msgV2a = "V2.0 ref pad computed (no jog)."
-    var msgV2b = { var.msgV2a ^ "<br/>Ref XYZ ≈ {" ^ var.refX ^ ", " ^ var.refY ^ ", " ^ var.refZ ^ "}" }
-    var msgV2c = { var.msgV2b ^ "<br/>nxtDeltaMachine = " ^ global.nxtDeltaMachine ^ " mm" }
-    M291 P{var.msgV2c} R"nxt: Datum setup" S2
+    var msgV2a = "V2.0 ref pad at XY ≈ {" ^ var.refX ^ ", " ^ var.refY ^ "}."
+    var msgV2b = { var.msgV2a ^ "<br/>Jog near the pad with clearance; Z target ≈ " ^ var.refZ ^ " mm." }
+    var msgV2c = { var.msgV2b ^ "<br/>Confirm tip is clear of clamps, then OK." }
+    var msgV2d = { var.msgV2c ^ "<br/><b>CAUTION</b>: Jogging does not watch probes." }
+    M291 P{var.msgV2d} R"nxt: Datum setup" X1 Y1 Z1 J1 T0 S3
+    if { result != 0 }
+        abort { "M5016: Cancelled — verify V2 ref pad location before continuing" }
 
     echo "M5016: nxtTouchProbeRefPos = {" ^ var.refX ^ ", " ^ var.refY ^ ", " ^ var.refZ ^ "}"
     echo "M5016: nxtDeltaMachine = " ^ global.nxtDeltaMachine ^ " mm (Z_ref - Z_act)"

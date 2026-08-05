@@ -771,9 +771,14 @@
                   step="0.001"
                   :disabled="uiFrozen"
                   @update:model-value="onConfigDraftNumber('nxtProbeTipRadius', $event)"
-                  hint="Required - For horizontal compensation"
+                  :hint="probeTipRadiusHint"
                   persistent-hint
-                  :error="configDraft.nxtProbeTipRadius === null || configDraft.nxtProbeTipRadius === 0"
+                  :error="
+                    configDraft.nxtProbeTipRadius === null ||
+                    configDraft.nxtProbeTipRadius === 0 ||
+                    tipRadiusLooksLikeDiameter
+                  "
+                  :error-messages="tipRadiusLooksLikeDiameter ? tipRadiusDiameterWarning : undefined"
                 />
               </v-col>
               <v-col cols="12" md="3">
@@ -1649,6 +1654,7 @@ import {
   nxtUserVarsPresentInOm,
   snapshotConfigFromOm,
   formatPersistedStringVector,
+  isFactoryZeroDeflection,
   type NxtUserConfigDraft
 } from '../../utils/nxtUserVarsPersistence'
 import {
@@ -1667,6 +1673,10 @@ import {
 } from '../../utils/nxtCustomPackGenerate'
 import { readFirmwareGlobal } from '../../utils/nxtToolChangerOm'
 import { isAtcPluginInstalled } from '../../utils/nxtInstalledPlugins'
+import {
+  probeTipDiameterMm,
+  suspectTipDiameterAsRadius
+} from '../../utils/nxtCalibrationMath'
 import {
   isRgbLightHardwareConfigured,
   readOmLedsFromMachineModel
@@ -1806,15 +1816,36 @@ export default defineNxtComponent({
       )
     },
 
+    tipRadiusLooksLikeDiameter(): boolean {
+      const r = this.configDraft.nxtProbeTipRadius
+      return r != null && Number.isFinite(r) && suspectTipDiameterAsRadius(r)
+    },
+
+    tipRadiusDiameterWarning(): string {
+      return 'Value looks like a tip diameter — enter radius (half the ball). e.g. 2 mm tip → 1.0'
+    },
+
+    probeTipRadiusHint(): string {
+      const r = this.configDraft.nxtProbeTipRadius
+      if (r != null && Number.isFinite(r) && r > 0) {
+        const dia = probeTipDiameterMm(r)
+        return `Radius, not diameter. Ball diameter = 2 × radius → ${dia.toFixed(3)} mm`
+      }
+      return 'Radius, not diameter (e.g. 1.0 → ball ⌀ 2.0 mm)'
+    },
+
     probeDeflectionConfigured(): boolean {
       const d = this.configDraft.nxtProbeDeflection
-      return (
-        d != null &&
-        d.length >= 3 &&
-        Number.isFinite(d[0]) &&
-        Number.isFinite(d[1]) &&
-        Number.isFinite(d[2])
-      )
+      if (
+        d == null ||
+        d.length < 3 ||
+        !Number.isFinite(d[0]) ||
+        !Number.isFinite(d[1]) ||
+        !Number.isFinite(d[2])
+      ) {
+        return false
+      }
+      return !isFactoryZeroDeflection(d)
     },
 
     probeDeflectionX(): number | null {
@@ -3213,6 +3244,16 @@ export default defineNxtComponent({
         this.prepareBoardPackFieldsForSave()
         if (!this.rgbHardwareConfigured) {
           this.configDraft.nxtFeatureRgbLight = false
+        }
+        if (
+          this.configDraft.nxtFeatureTouchProbe &&
+          !this.probeDeflectionConfigured
+        ) {
+          this.showStatus(
+            'Touch probe enabled: calibrate non-zero probe deflection (Calibration Phase 1) before Save.',
+            'error'
+          )
+          return
         }
         if (this.isCustomPlatform) {
           const errs = validateCustomMachineDraft(this.configDraft)

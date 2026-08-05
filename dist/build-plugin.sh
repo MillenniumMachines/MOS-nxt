@@ -123,6 +123,8 @@ echo "Checking G6512 single-axis call contract..."
 node "${ROOT}/dist/check-g6512-axis-contract.mjs" || exit 1
 echo "Checking G6512 deflection math..."
 node "${ROOT}/dist/check-g6512-deflection-math.mjs" || exit 1
+echo "Checking rotation / skew math..."
+node "${ROOT}/dist/check-rotation-skew-math.mjs" || exit 1
 echo "Checking calibration math..."
 node "${ROOT}/dist/check-calibration-math.mjs" || exit 1
 echo "Checking OM global size budget hygiene..."

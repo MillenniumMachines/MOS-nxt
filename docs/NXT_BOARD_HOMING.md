@@ -7,7 +7,8 @@ RRF uses homing macros on the SD card root:
 | `0:/sys/homez.g` | Home Z only |
 | `0:/sys/homex.g` | Home X (lifts Z first) |
 | `0:/sys/homey.g` | Home Y (lifts Z first) |
-| `0:/sys/homeall.g` | Home all — **Z first**, then X and Y together |
+| `0:/sys/homea.g` | Home A (optional; Custom Save or MosFourthAxis) |
+| `0:/sys/homeall.g` | Home all — **Z**, then **A if present**, then **X and Y together** |
 
 nxt vendors homing sources under `0:/sys/nxt-config/machine/<profile>/` and deploys them from **Configuration → Apply platform sys files**. They are **not** loaded by `nxt.g` at boot (deploy-only).
 
@@ -20,13 +21,18 @@ sequenceDiagram
   participant DWC
   participant homeall
   participant homez
+  participant homea
   participant XY
   DWC->>homeall: G28 / Home All
   homeall->>homez: M98 homez.g
   homez-->>homeall: Z homed
+  homeall->>homea: M98 homea.g if present
+  homea-->>homeall: A homed
   homeall->>XY: H1 toward X and Y endstops
   XY-->>homeall: X and Y homed
 ```
+
+A runs **before** XY so the rotary is at a known/safe position before the table moves. Presence of `0:/sys/homea.g` is the gate (not a firmware feature flag in the macro).
 
 ## Requirements matrix
 
@@ -39,7 +45,7 @@ sequenceDiagram
 | **v1.6** | Y | Toward **min (Y0)** | `M574 Y1` via `endstop-y.g` | — | — |
 | **v1.6** | Z | Toward **max** (top) | `M574 Z2` | `M569 P2 S1`, `M92 Z800` | `G92 Z{move.axes[2].max}` |
 | **v2.0** | X/Y/Z | Same as v1.6 (identical pack content for now) | same | same | same |
-| **custom** | X/Y/Z (+A optional) | Direction from `nxtCustom*HomeAt` (1=min→neg, 2=max→pos) | `nxtCustom*` → `M208` / `M574` / overlay in `0:/sys/nxt-user-custom/` | `M92` / `M584` / `M569` / `M906` via overlay | `G92` to min or max per axis; `homea.g` when A configured |
+| **custom** | X/Y/Z (+A optional) | Direction from `nxtCustom*HomeAt` (1=min→neg, 2=max→pos) | `nxtCustom*` → `M208` / `M574` / overlay in `0:/sys/nxt-user-custom/` | `M92` / `M584` / `M569` / `M906` via overlay | `G92` to min or max per axis; `homea.g` when A configured; **homeall** calls A **before** XY |
 
 Source files:
 

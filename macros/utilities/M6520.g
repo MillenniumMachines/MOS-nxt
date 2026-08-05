@@ -71,12 +71,12 @@ M5000
 var wcsNumber = { param.W }
 
 ; Use probe result coordinates directly as the origin
-; Only set axes that are flagged AND have non-zero values
+; Only set axes that are flagged (allow real origin at 0 — do not treat 0 as "unset")
 
-var offsetX = { exists(param.X) && var.resultVector[0] != 0 ? var.resultVector[0] : null }
-var offsetY = { exists(param.Y) && var.resultVector[1] != 0 ? var.resultVector[1] : null }
-var offsetZ = { exists(param.Z) && var.resultVector[2] != 0 ? var.resultVector[2] : null }
-var offsetA = { exists(param.A) && #var.resultVector > 3 && var.resultVector[3] != 0 ? var.resultVector[3] : null }
+var offsetX = { exists(param.X) ? var.resultVector[0] : null }
+var offsetY = { exists(param.Y) ? var.resultVector[1] : null }
+var offsetZ = { exists(param.Z) ? var.resultVector[2] : null }
+var offsetA = { exists(param.A) && #var.resultVector > 3 ? var.resultVector[3] : null }
 
 ; Execute G10 L2 command directly based on which axes are specified
 ; G10 L2 P<n> X Y Z A sets the WCS origin coordinates
@@ -139,8 +139,12 @@ if { exists(param.X) && exists(param.Y) && abs(var.thetaDeg) >= 0.0005 }
 
 if { var.applyG68 }
     ; XY plane, cancel any prior G68, select target WCS, then rotate about WCS origin (3.6.1+ sign)
+    ; RRF ≥3.6.1: G68 R is anticlockwise — matches atan2 edge/chord θ vs machine +X
     G17
     G69
     G{53 + var.wcsNumber}
     G68 X0 Y0 R{var.thetaDeg}
+    ; Job-scoped: persist across toolchanges; cleared on cancel / job finish
+    set global.nxtJobG68Deg = { var.thetaDeg }
+    set global.nxtJobG68Wcs = { var.wcsNumber }
     echo "M6520: G68 rotation applied R" ^ var.thetaDeg ^ " deg about current WCS origin"

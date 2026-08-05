@@ -174,6 +174,9 @@ export function dualDimensionStepsCorrection(
 }
 
 export function backlashFromMeans(meanPositive: number, meanNegative: number): number {
+  // Same surface, opposite free-space approach directions: deflection/tip cancel
+  // in the difference after G6512 compensation; separation ≈ backlash.
+  // Not valid as |leftFace − rightFace| on a solid block (that is a span).
   return Math.abs(meanPositive - meanNegative)
 }
 
@@ -189,11 +192,60 @@ export function spanFromFaces(left: number, right: number): number {
 }
 
 /**
- * External-block residual deflection update.
- * With tip radius already applied in G6512, an uncompensated external span reads short:
- *   measured ≈ actual − 2×D  →  D = (actual − measured) / 2
- * When compensation is already active, pass currentDeflection so re-checks converge:
+ * External span shortfall Δ = actual − measured.
+ * With G6512 tip on: Δ = 2[(R − R_true) + (D_phys − D)].
+ */
+export function externalSpanShortfall(measured: number, actual: number): number {
+  return actual - measured
+}
+
+/** Ball diameter implied by configured tip radius (confirmation readout). */
+export function probeTipDiameterMm(radiusMm: number): number {
+  return 2 * radiusMm
+}
+
+/** Typical max physical stylus deflection (mm); above this → tip / setup issue. */
+export const IMPLAUSIBLE_EXTERNAL_DEFLECTION_MM = 0.5
+
+/**
+ * Configured tip radius that looks like a common ball *diameter* entered as radius
+ * (e.g. 2 mm for a 2 mm tip → true R = 1).
+ */
+export const SUSPECT_TIP_DIAMETER_AS_RADIUS_MM = 2.0
+
+export function implausibleExternalDeflection(
+  proposedD: number,
+  limitMm: number = IMPLAUSIBLE_EXTERNAL_DEFLECTION_MM
+): boolean {
+  return Number.isFinite(proposedD) && Math.abs(proposedD) > limitMm
+}
+
+export function suspectTipDiameterAsRadius(
+  tipRadiusMm: number,
+  thresholdMm: number = SUSPECT_TIP_DIAMETER_AS_RADIUS_MM
+): boolean {
+  return Number.isFinite(tipRadiusMm) && tipRadiusMm >= thresholdMm
+}
+
+/**
+ * Equivalent tip-radius overstatement if shortfall were pure tip error (D≈D_phys):
+ *   R_ε ≈ Δ / 2
+ */
+export function tipRadiusErrorFromShortfall(
+  delta: number,
+  assumedPhysD = 0
+): number {
+  return delta / 2 - assumedPhysD
+}
+
+/**
+ * External-block residual deflection update (XY spans — Phase 1 / M5017).
+ * Span identity (G6512 tip on): S = L + 2(R_true − R) + 2(D − D_phys).
+ * With tip correct: measured ≈ actual − 2×D_residual →
  *   newD = currentD + (actual − measured) / 2
+ *
+ * Not used for Z: rough Dz is G6511-only; fine 1″ Z span is deferred.
+ * G6512 Z tip-center compensation does not apply tip radius.
  */
 export function deflectionFromSpan(
   measured: number,
@@ -212,6 +264,10 @@ export function deflectionFromSpan(
     warnings.push(
       'Computed deflection is negative — check tip radius, span entries, or approach setup'
     )
+  } else if (implausibleExternalDeflection(next)) {
+    warnings.push(
+      'Computed deflection is implausibly large — check tip radius (radius, not diameter)'
+    )
   }
   return { result: next, errors, warnings }
 }
@@ -227,12 +283,58 @@ export function stdDev(samples: number[]): number | null {
 export type TravelLeg = { commanded: number; measured: number }
 
 /**
+ * Default leadscrew pitch for Millennium Machines linear axes (TR8×8 = 8 mm/rev).
+ * Travel calibration legs are 1× / 2× / 3× this lead.
+ */
+export const DEFAULT_LEAD_SCREW_MM = 8
+
+/** Commanded travel distances for Phase 1 / G9000: [lead, 2×lead, 3×lead]. */
+export function travelCommandedLegs(
+  leadMm: number = DEFAULT_LEAD_SCREW_MM
+): [number, number, number] {
+  return [leadMm, leadMm * 2, leadMm * 3]
+}
+
+/**
+ * Nominal steps/mm hint for a leadscrew axis:
+ * (motorSteps × microsteps × gear) / leadMm
+ * e.g. 200 × 32 × 1 / 8 = 800
+ */
+export function nominalStepsPerMm(
+  microsteps: number,
+  gear = 1,
+  leadMm: number = DEFAULT_LEAD_SCREW_MM,
+  motorSteps = 200
+): number {
+  if (!(microsteps > 0) || !(gear > 0) || !(leadMm > 0) || !(motorSteps > 0)) {
+    return NaN
+  }
+  return (motorSteps * microsteps * gear) / leadMm
+}
+
+/**
  * Convert dial/probe residual after zero → away D → return into measured travel.
  * R > 0 means ended short of the zeroed surface; measured = commanded − R.
  * Used by M5014 (manual) and G9000 (probe) before classifyTravelCalibration.
  */
 export function measuredFromResidual(commanded: number, residual: number): number {
   return commanded - residual
+}
+
+/**
+ * G9000 probe travel residual on one face (same geometric approach twice).
+ * R = (hit1 − hit0) × dirToward, with dirToward = ±1 toward the surface.
+ *
+ * Same approach direction + speed ⇒ tip radius and stylus deflection cancel in R.
+ * With mechanical backlash b and no M425: hit1 ≈ hit0 + dirToward×b ⇒ R ≈ b > 0
+ * (machine reads past the true surface on the second hit after reversing onto it).
+ */
+export function probeTravelResidual(
+  hit0: number,
+  hit1: number,
+  dirToward: 1 | -1
+): number {
+  return (hit1 - hit0) * dirToward
 }
 
 export type TravelClassification = {
@@ -252,11 +354,46 @@ export type TravelClassification = {
 
 /** Max spread of |error| (mm) to treat as near-constant → backlash. */
 const BACKLASH_ABS_RANGE_MM = 0.05
+/** Ignore tiny intercept when error is mostly distance-proportional. */
+const BACKLASH_INTERCEPT_MIN_MM = 0.005
 
 /**
- * Classify 8/16/24 travel results (M5014 / G9000).
+ * Least-squares fit: error ≈ c + k × commanded.
+ * c is the distance-independent lost motion (backlash); k absorbs growth with travel
+ * (e.g. the extra residual often seen on the 24 mm leg).
+ */
+export function fitTravelErrorVsDistance(
+  legs: TravelLeg[],
+  errors: number[]
+): { intercept: number; slope: number } {
+  const n = legs.length
+  if (n < 2 || errors.length !== n) {
+    return { intercept: 0, slope: 0 }
+  }
+  let sumD = 0
+  let sumE = 0
+  let sumDD = 0
+  let sumDE = 0
+  for (let i = 0; i < n; i++) {
+    const d = legs[i].commanded
+    const e = errors[i]
+    sumD += d
+    sumE += e
+    sumDD += d * d
+    sumDE += d * e
+  }
+  const denom = n * sumDD - sumD * sumD
+  const slope = Math.abs(denom) < 1e-12 ? 0 : (n * sumDE - sumD * sumE) / denom
+  const intercept = (sumE - slope * sumD) / n
+  return { intercept, slope }
+}
+
+/**
+ * Classify travel results (M5014 / G9000) — typically TR8x8 legs 8/16/24.
  * Round-trip / same-face tests isolate lost motion (backlash), not steps/mm.
- * Never proposes M92 — use Phase 2 dual-dimension spans for steps.
+ * M425 proposal uses the constant intercept of error-vs-distance — not mean |error| —
+ * so a larger residual on the longest leg does not inflate backlash.
+ * Never proposes M92 — use Phase 3 dual-dimension spans for steps.
  */
 export function classifyTravelCalibration(
   legs: TravelLeg[],
@@ -280,38 +417,57 @@ export function classifyTravelCalibration(
     }
   }
 
-  const errors = legs.map((l) => l.measured - l.commanded)
-  const absErrors = errors.map((e) => Math.abs(e))
-  const meanAbsError = absErrors.reduce((a, b) => a + b, 0) / absErrors.length
+  const errors = legs.map((l: TravelLeg) => l.measured - l.commanded)
+  const absErrors = errors.map((e: number) => Math.abs(e))
+  const meanAbsError = absErrors.reduce((a: number, b: number) => a + b, 0) / absErrors.length
   const errorRange = Math.max(...absErrors) - Math.min(...absErrors)
 
-  const relativeErrors = legs.map((l) =>
+  const relativeErrors = legs.map((l: TravelLeg) =>
     l.commanded !== 0 ? (l.measured - l.commanded) / l.commanded : 0
   )
   const relativeRange = Math.max(...relativeErrors) - Math.min(...relativeErrors)
 
-  const proposedBacklash = meanAbsError
+  const { intercept, slope } = fitTravelErrorVsDistance(legs, errors)
+  const dMin = Math.min(...legs.map((l: TravelLeg) => l.commanded))
+  const dMax = Math.max(...legs.map((l: TravelLeg) => l.commanded))
+  const distanceComponent = Math.abs(slope) * (dMax - dMin)
+  const constantLost = Math.abs(intercept)
+
+  const constantLike =
+    errorRange <= BACKLASH_ABS_RANGE_MM && distanceComponent <= BACKLASH_ABS_RANGE_MM
+
   const proposedStepsRatio = null
   const proposedNewSteps = null
-
-  const constantLike = errorRange <= BACKLASH_ABS_RANGE_MM
+  let proposedBacklash: number | null = constantLost
+  if (!constantLike && constantLost < BACKLASH_INTERCEPT_MIN_MM) {
+    proposedBacklash = null
+  }
 
   let kind: TravelClassification['kind'] = 'mixed'
   let summary: string
+  const legLabel = legs.map((l: TravelLeg) => String(l.commanded)).join('/')
   if (constantLike) {
     kind = 'backlash'
-    summary = `Near-constant lost motion (~${meanAbsError.toFixed(4)} mm) → M425 backlash`
+    summary =
+      `Near-constant lost motion (~${constantLost.toFixed(4)} mm) → M425 backlash` +
+      ` [${legLabel} err ${errors.map((e: number) => e.toFixed(3)).join(', ')}]`
   } else {
     kind = 'mixed'
+    const cStr = constantLost.toFixed(4)
+    const dStr = distanceComponent.toFixed(4)
     summary =
-      'Variable travel error — review manually; use Phase 2 dual spans for steps/mm'
+      `Constant ~${cStr} mm + distance-varying ~${dStr} mm over travel — ` +
+      `M425 uses constant only; Phase 2 for steps/mm` +
+      ` [${legLabel} err ${errors.map((e: number) => e.toFixed(3)).join(', ')}]`
   }
 
-  if (meanAbsError > SOFT_PCT_WARN / 100 * 8) {
+  if (meanAbsError > (SOFT_PCT_WARN / 100) * DEFAULT_LEAD_SCREW_MM) {
     warnings.push('Large mean travel error — verify probe/dial setup before applying M425')
   }
-  if (relativeRange > 0.05) {
-    warnings.push('Error varies with distance — travel test may not be backlash-only')
+  if (distanceComponent > BACKLASH_ABS_RANGE_MM || relativeRange > 0.05) {
+    warnings.push(
+      'Error grows with travel distance — constant intercept used for M425; check Phase 2 for steps/mm'
+    )
   }
 
   return {
@@ -380,8 +536,53 @@ export function runNxtCalibrationMathSelfTest(): void {
   if (!deflBad.result || deflBad.result >= 0 || deflBad.warnings.length === 0) {
     throw new Error('deflectionFromSpan should warn on negative result')
   }
+  // Confirmed diameter-as-radius case: R=2, R_true=1, spans 73.466 / 48.265
+  const dxRun = externalSpanShortfall(73.466, NXT_123_BLOCK_MM.inch3)
+  const dyRun = externalSpanShortfall(48.265, NXT_123_BLOCK_MM.inch2)
+  if (Math.abs(dxRun - 2.734) > 1e-9 || Math.abs(dyRun - 2.535) > 1e-9) {
+    throw new Error('externalSpanShortfall M5017 sample mismatch')
+  }
+  const tipShare = 2 * (2 - 1) // 2×R_ε for R=2 vs R_true=1
+  if (Math.abs(tipShare - 2) > 1e-9) {
+    throw new Error('tip shortfall share should be 2 mm')
+  }
+  const leftoverDx = tipRadiusErrorFromShortfall(dxRun - tipShare)
+  const leftoverDy = tipRadiusErrorFromShortfall(dyRun - tipShare)
+  if (Math.abs(leftoverDx - 0.367) > 1e-9 || Math.abs(leftoverDy - 0.2675) > 1e-9) {
+    throw new Error('leftover D after tip peel mismatch')
+  }
+  if (!suspectTipDiameterAsRadius(2) || suspectTipDiameterAsRadius(1)) {
+    throw new Error('suspectTipDiameterAsRadius threshold failed')
+  }
+  if (Math.abs(probeTipDiameterMm(1) - 2) > 1e-9 || Math.abs(probeTipDiameterMm(2) - 4) > 1e-9) {
+    throw new Error('probeTipDiameterMm failed')
+  }
+  const deflModest = deflectionFromSpan(76.0, 76.2, 0)
+  if (
+    !deflModest.result ||
+    Math.abs(deflModest.result - 0.1) > 1e-9 ||
+    implausibleExternalDeflection(deflModest.result) ||
+    deflModest.warnings.some((w: string) => w.includes('implausibly'))
+  ) {
+    throw new Error('deflectionFromSpan should not warn under 0.5 mm')
+  }
+  const deflHuge = deflectionFromSpan(73.466, 76.2, 0)
+  if (
+    !deflHuge.result ||
+    !implausibleExternalDeflection(deflHuge.result) ||
+    deflHuge.warnings.length === 0
+  ) {
+    throw new Error('deflectionFromSpan should warn on implausible D')
+  }
   if (NXT_123_FACE_PAIRS['1x2'].dim1 !== 25.4 || NXT_123_FACES['3'].mm !== 76.2) {
     throw new Error('1-2-3 block constants mismatch')
+  }
+  const legs = travelCommandedLegs()
+  if (legs[0] !== 8 || legs[1] !== 16 || legs[2] !== 24) {
+    throw new Error('travelCommandedLegs TR8x8 mismatch')
+  }
+  if (Math.abs(nominalStepsPerMm(32) - 800) > 1e-9) {
+    throw new Error('nominalStepsPerMm 32µstep TR8x8 should be 800')
   }
   if (
     NXT_123_AXIS_DEFAULTS.X.primaryMm !== 76.2 ||
@@ -407,6 +608,29 @@ export function runNxtCalibrationMathSelfTest(): void {
     throw new Error('classifyTravelCalibration backlash proposal failed')
   }
 
+  // Constant 0.20 mm + slope −0.005 mm/mm → residuals grow on longer legs.
+  // mean |error| = 0.28; M425 must use intercept 0.20, not the mean.
+  const split = classifyTravelCalibration(
+    [
+      { commanded: 8, measured: 7.76 },
+      { commanded: 16, measured: 15.72 },
+      { commanded: 24, measured: 23.68 }
+    ],
+    800
+  )
+  if (split.kind !== 'mixed') throw new Error('classifyTravelCalibration expected mixed (distance term)')
+  if (split.proposedNewSteps != null) {
+    throw new Error('classifyTravelCalibration mixed must not propose steps')
+  }
+  if (split.proposedBacklash == null || Math.abs(split.proposedBacklash - 0.2) > 1e-3) {
+    throw new Error(
+      `classifyTravelCalibration must propose intercept backlash (~0.2), got ${split.proposedBacklash}`
+    )
+  }
+  if (Math.abs(split.meanAbsError - 0.28) > 1e-6) {
+    throw new Error('classifyTravelCalibration meanAbsError sanity failed')
+  }
+
   const mixed = classifyTravelCalibration(
     [
       { commanded: 8, measured: 8.2 },
@@ -419,11 +643,46 @@ export function runNxtCalibrationMathSelfTest(): void {
   if (mixed.proposedNewSteps != null) {
     throw new Error('classifyTravelCalibration mixed must not propose steps')
   }
+  // Must not equal naive mean |error| when distance term dominates the spread.
+  const mixedMean = (0.2 + 0.8 + 0.4) / 3
+  if (mixed.proposedBacklash != null && Math.abs(mixed.proposedBacklash - mixedMean) < 1e-9) {
+    throw new Error('classifyTravelCalibration must not use mean |error| as M425 when mixed')
+  }
 
   if (Math.abs(measuredFromResidual(16, 0.2) - 15.8) > 1e-9) {
     throw new Error('measuredFromResidual failed')
   }
   if (Math.abs(measuredFromResidual(8, -0.1) - 8.1) > 1e-9) {
     throw new Error('measuredFromResidual negative residual failed')
+  }
+
+  // --- Probe travel backlash (G9000 identity) ---
+  // dir=+1: after reverse onto face, hit1 ≈ hit0 + b
+  const bProbe = 0.05
+  const hit0 = 100
+  const rPos = probeTravelResidual(hit0, hit0 + bProbe, 1)
+  if (Math.abs(rPos - bProbe) > 1e-9) {
+    throw new Error('probeTravelResidual +dir should equal backlash')
+  }
+  const rNeg = probeTravelResidual(hit0, hit0 - bProbe, -1)
+  if (Math.abs(rNeg - bProbe) > 1e-9) {
+    throw new Error('probeTravelResidual -dir should equal backlash')
+  }
+  // Stylus deflection shifts both hits equally → cancels in R
+  const deflShift = 0.03
+  const rDefl = probeTravelResidual(hit0 - deflShift, hit0 + bProbe - deflShift, 1)
+  if (Math.abs(rDefl - bProbe) > 1e-9) {
+    throw new Error('probeTravelResidual must cancel common-mode deflection')
+  }
+  const g9000Legs = [8, 16, 24].map((D) => ({
+    commanded: D,
+    measured: measuredFromResidual(D, rPos)
+  }))
+  const g9000Cls = classifyTravelCalibration(g9000Legs, 800)
+  if (g9000Cls.kind !== 'backlash') {
+    throw new Error('G9000-style constant residual should classify as backlash')
+  }
+  if (g9000Cls.proposedBacklash == null || Math.abs(g9000Cls.proposedBacklash - bProbe) > 1e-6) {
+    throw new Error('G9000-style classify must propose |R| as M425')
   }
 }

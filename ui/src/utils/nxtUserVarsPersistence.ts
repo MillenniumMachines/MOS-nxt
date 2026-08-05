@@ -208,9 +208,17 @@ export function readConfigVector(value: unknown): number[] | null {
   }
   if (value instanceof Map) {
     const parts: number[] = []
-    for (let i = 0; i < 16; i++) {
+    // Prefer dense 0..n-1; do not stop early if later numeric keys exist (OM quirks).
+    let maxIdx = -1
+    for (const key of value.keys()) {
+      const n = typeof key === 'number' ? key : /^\d+$/.test(String(key)) ? Number(key) : NaN
+      if (Number.isFinite(n) && n >= 0 && n > maxIdx) maxIdx = n
+    }
+    if (maxIdx < 0) return null
+    for (let i = 0; i <= maxIdx && i < 16; i++) {
       if (!value.has(i) && !value.has(String(i))) {
-        break
+        parts.push(NaN)
+        continue
       }
       parts.push(Number(value.get(i) ?? value.get(String(i))))
     }
@@ -222,7 +230,12 @@ export function readConfigVector(value: unknown): number[] | null {
       .filter((k) => /^\d+$/.test(k))
       .sort((a, b) => Number(a) - Number(b))
     if (keys.length) {
-      return keys.map((k) => Number(o[k]))
+      const maxIdx = Number(keys[keys.length - 1])
+      const parts: number[] = []
+      for (let i = 0; i <= maxIdx && i < 16; i++) {
+        parts.push(o[String(i)] != null ? Number(o[String(i)]) : NaN)
+      }
+      return parts
     }
   }
   return null

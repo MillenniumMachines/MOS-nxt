@@ -99,6 +99,10 @@ When you first open DWC, the "Connect to Machine" modal dialog will appear. **Be
    - Click **Connect**
 6. Once connected, use **nxt** (dashboard: Status, Configuration, Probing) or **Tool Library** (configured RRF tools; mos-atc plugin adds ATC UI) under **Control**
 
+### Every-page CNC status (`registerLayout`)
+
+On DWC 3.7+, nxt registers a custom shell (`ui/src/layouts/NxtShell.vue`, layout id `nxt`) that mirrors DWC’s built-in chrome but swaps the CNC status panel for nxt’s rich `CNCContainerPanel` (tool, WCS, Z offset, spindle, positions). Registration uses `takeoverOnFirstLoad: true` so the first install activates it without a Settings visit. Operators can return to the stock shell via **Settings → Display** or the `/BuiltInLayout` magic URL (see DuetWebControl `CUSTOM-LAYOUT.md`). Re-diff `NxtShell.vue` against DWC `src/layouts/builtin.vue` when bumping `ci/dwc-build-ref`.
+
 ### Subsequent Sessions (Plugin Already Enabled)
 
 If the plugin is already enabled (you can see "nxt" in the sidebar):

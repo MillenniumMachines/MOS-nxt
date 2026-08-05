@@ -115,6 +115,11 @@ var dx = { var.xB - var.xA }
 var dy = { var.yB - var.yA }
 var rotationRad = { atan2(var.dy, var.dx) }
 var rotationDeg = { var.rotationRad * 180 / pi }
+; Fold to (−90, 90] so reversed touch order does not yield ~±180°
+if { var.rotationDeg > 90 }
+    set var.rotationDeg = { var.rotationDeg - 180 }
+elif { var.rotationDeg <= -90 }
+    set var.rotationDeg = { var.rotationDeg + 180 }
 
 if { abs(var.rotationDeg) > var.skewLimit }
     abort { "G6506: |angle| " ^ var.rotationDeg ^ " exceeds limit " ^ var.skewLimit }

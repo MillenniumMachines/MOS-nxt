@@ -1,6 +1,7 @@
 ; G6512.g: SINGLE-AXIS PROBING
 ;
 ; Deflection/tip compensation + optional multi-sample repeatability.
+; Touch probe IDs: probe feeds clamped to ≤200 / ≤50 mm/min (G6511 caps).
 ; Defaults: macros/system/nxt-vars.g (Probe repeatability).
 ; When nxtProbeMaxSampleSpreadMm > 0: strict consecutive-pair tolerance, 3 touches, R ignored.
 ; Per-invocation override: R = inner sample count when tolerance disabled (limit = 0).
@@ -76,6 +77,17 @@ var fineSpeed = { exists(param.F) ? param.F : sensors.probes[param.I].speeds[1] 
 
 if { var.roughSpeed == var.fineSpeed && !exists(param.F) }
     set var.fineSpeed = { var.roughSpeed / 5 }
+
+; Touch probe: clamp to ≤200 / ≤50 mm/min (reliable trigger; matches G6511)
+var isTouchProbe = false
+if { exists(global.nxtTouchProbeID) && global.nxtTouchProbeID != null }
+    if { param.I == global.nxtTouchProbeID }
+        set var.isTouchProbe = true
+if { var.isTouchProbe }
+    if { var.roughSpeed > 200 || var.roughSpeed <= 0 }
+        set var.roughSpeed = 200
+    if { var.fineSpeed > 50 || var.fineSpeed <= 0 }
+        set var.fineSpeed = 50
 
 ; Resolve touch-probe deflection (µm). nxtProbeDeflection is {X,Y,Z} positive magnitudes.
 ; Legacy: scalar, {x}, or {x,y} (Z falls back to X). Toolsetter must NOT apply stylus defl.
@@ -252,8 +264,13 @@ if { var.toleranceOk == false }
 set global.nxtLastProbeResult = { round(var.finalSumUm / var.finalCount) / 1000 }
 
 if { exists(param.H) && param.H != null && var.finalHitN > 0 }
-    if { !exists(global.nxtProbeHitXY) || global.nxtProbeHitXY == null }
+    ; nxt-vars declares nxtProbeHitXY null — never use # on null.
+    if { !exists(global.nxtProbeHitXY) }
         global nxtProbeHitXY = { vector(8, 0.0) }
+    elif { global.nxtProbeHitXY == null }
+        set global.nxtProbeHitXY = { vector(8, 0.0) }
+    elif { #global.nxtProbeHitXY < 8 }
+        set global.nxtProbeHitXY = { vector(8, 0.0) }
     set global.nxtProbeHitXY[2 * param.H] = { var.finalHitX / var.finalHitN }
     set global.nxtProbeHitXY[2 * param.H + 1] = { var.finalHitY / var.finalHitN }
 

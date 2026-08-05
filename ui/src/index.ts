@@ -20,22 +20,22 @@
  * Route/i18n registration stays synchronous so /nxt exists as soon as the chunk evaluates.
  */
 
-import { registerRoute, registerPluginMessages } from '@/plugins'
+import { registerRoute, registerPluginMessages, registerLayout } from '@/plugins'
 import { registerPluginData, PluginDataType } from './compat/dwcStore'
+import i18n from '@/i18n'
 
 // Import main components
 import nxt from './nxt.vue'
 import ToolManagementPanel from './components/panels/ToolManagementPanel.vue'
+import NxtShell from './layouts/NxtShell.vue'
 
 // Import component modules for their side effects (utility registrations only - Vue 3 has no
 // global `Vue.component`, so panels used inside nxt.vue's template are imported locally there)
 import './components/base'
 import './components/inputs'
 import './components/panels'
-// Overrides (CNC dashboard + MessageBoxDialog) replace core DWC components. DWC's own templates
-// import those components directly, so a plugin can't override them via global registration in
-// Vue 3 - see components/overrides/index.ts for details. Left imported (inert) so the override
-// components stay compiled/available if a future DWC version exposes an override hook.
+// Overrides: MessageBoxDialog remains inert under Vue 3 (DWC binds it in App.vue).
+// CNC every-page status is restored via registerLayout(NxtShell) below — see CUSTOM-LAYOUT.md.
 import './components/overrides'
 
 // Import localization
@@ -46,6 +46,12 @@ const NXT_ROUTE_PATH = '/nxt'
 function registerNxtSideEffects(): void {
   try {
     registerPluginMessages('nxt', { en })
+
+    registerLayout(NxtShell, {
+      id: 'nxt',
+      caption: String(i18n.global.t('plugins.nxt.layout.caption')),
+      takeoverOnFirstLoad: true,
+    })
 
     registerPluginData('nxt', PluginDataType.globalSetting, 'nxtUiState', {
       ready: false,

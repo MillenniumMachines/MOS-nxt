@@ -24,7 +24,7 @@ This document provides reference documentation for custom G-codes and M-codes im
 
 Moves the machine to a safe, known parking position.
 
-RRF homing uses `0:/sys/homeall.g`, `homex.g`, `homey.g`, and `homez.g`. nxt vendors homing sources under `nxt-config/machine/<profile>/` and deploys them from the Configuration panel (not loaded at boot). See [docs/NXT_BOARD_HOMING.md](docs/NXT_BOARD_HOMING.md) for axis directions and verification.
+RRF homing uses `0:/sys/homeall.g`, `homex.g`, `homey.g`, `homez.g`, and optionally `homea.g`. nxt vendors homing sources under `nxt-config/machine/<profile>/` and deploys them from the Configuration panel (not loaded at boot). **Home all** order: Z → A (if `homea.g` present) → X+Y together. See [docs/NXT_BOARD_HOMING.md](docs/NXT_BOARD_HOMING.md) for axis directions and verification.
 
 **Usage:** `G27 [X<level>] [Y<level>] [Z<level>]`
 
@@ -104,21 +104,24 @@ Probes all 4 edges of a rectangular pocket in X and Y to find the center.
 
 ### G6503: Rectangle Block Probe
 
-Probes all 4 edges of a rectangular block from outside to find the center.
+Probes all 4 faces of a rectangular block from outside to find the center. **3 points per face** (near-corner, mid, far-corner) with edge inset **`E`** (default **10** mm). Stays at dive Z along a face; raises to start Z only between faces. CCW perimeter starting at the −Y face near −X.
 
-**Usage:** `G6503 P<index> W<width> H<height> L<depth> [F<speed>] [R<retries>] [C<clearance>] [O<overtravel>]`
+**Usage:** `G6503 P<index>|U<wcs> W<width> H<height> L<depth> [F] [R] [C] [O] [E] [T] [Q]`
 
 **Parameters:**
-- `P`: Result table index (0-9) - **REQUIRED**
-- `W`: Block width in X direction (mm) - **REQUIRED**
-- `H`: Block height in Y direction (mm) - **REQUIRED**
-- `L`: Depth to move down before probing (mm) - **REQUIRED**
+- `P`: Result table index (0-9) — required if `U` omitted
+- `U`: Target workplace 1–9; stores at `P=U-1` and chains `M6520`
+- `W`: Block width in X (mm) — **REQUIRED**
+- `H`: Block height in Y (mm) — **REQUIRED**
+- `L`: Dive depth below start Z before side probes (mm) — **REQUIRED**
 - `F`: Optional speed override (mm/min)
-- `R`: Number of retries for averaging per probe point
-- `C`: Clearance distance (default: 5mm)
-- `O`: Overtravel distance (default: 2mm)
+- `R`: Inner sample count per probe point
+- `C`: Outside face clearance (default: **5** mm)
+- `O`: Overtravel past expected face into the block (default: 2 mm)
+- `E`: Corner clearance / edge inset for outer points (default: **10** mm); must be less than half W and half H
+- `T`, `Q`: Skew limit and `M6520` rotation policy
 
-**Results:** Stores X and Y center coordinates in the probe results table.
+**Results:** Face means → `nxtProbeHitXY` H0–H3 → center / skew / size in `nxtProbeResults`. Parks at solved center.
 
 ---
 
@@ -236,7 +239,9 @@ Probes one surface in X, Y, or Z to find the surface location.
 
 ### G6511: Reference Surface Probe
 
-Emitted by Fusion/FreeCAD post-processors during job preamble / WCS changes. Probes the touch-probe reference surface when **both** touch probe and toolsetter are enabled. No-op if already probed this session unless `R1`.
+Emitted by Fusion/FreeCAD post-processors during job preamble / WCS changes, and by `tpost.g` after every probe install. Probes the **saved** touch-probe reference surface when **both** touch probe and toolsetter are enabled. No-op if already probed this session unless `R1`.
+
+**Does not** jog-confirm over the reference — location is established in Phase 0 / `M5016` + Save. Tip install + trigger confirm happens in `tpre` / `nxt-probe-tool-ready`.
 
 **Usage:** `G6511 [R1] [S0]`
 
@@ -244,9 +249,17 @@ Emitted by Fusion/FreeCAD post-processors during job preamble / WCS changes. Pro
 - `R1`: Force re-probe (clears session skip)
 - `S0`: Non-standalone — do not switch to probe tool (nested call from `tpost.g`)
 
-**Requirements:** `nxtTouchProbeRefPos`, `nxtDeltaMachine` configured in DWC.
+**Requirements:** `nxtTouchProbeRefPos`, `nxtDeltaMachine` configured in DWC. V2 also needs `nxtToolSetterPos`.
 
-**Results:** Sets `global.nxtRefSurfaceProbed`; Z touch in `global.nxtLastProbeResult`.
+**Speeds:** Fast find capped at **200 mm/min**, slow validate at **50 mm/min** (configured probe speeds clamped down to these maxima).
+
+**Motion (V1 and V2):** `G53 Z0` → ref XY → drop to **`refZ + 50`** → **fast** `G6512` (≤200 mm/min) → **short slow** validate (target ≈ fastHit − 2 mm, ≤50 mm/min, with pair averaging) → mean → `nxtLastProbeResult`. Rough `nxtCalDefZ` ≈ `max(0, (refZ + tipRadius) − meanZ)`.
+
+**Probe target:** V1 seeks toward saved **`refZ`**. V2 (`nxtToolSetterV2`) seeks toward **`Z_act − 8`** (deeper overtravel past the pad).
+
+Temporarily zeros Z deflection during hits, then restores.
+
+**Results:** Sets `global.nxtRefSurfaceProbed`, `global.nxtLastProbeResult`, `global.nxtCalDefZ`.
 
 ---
 
@@ -261,6 +274,8 @@ Low-level single-axis probe move with compensation and averaging. Used by all pr
 - **Z tip-center:** `result = trigger − dir × zDeflection` (no tip radius)
 - **A:** no linear tip/deflection compensation
 
+**Speeds (touch probe):** Fast/slow clamped to **≤200 / ≤50** mm/min (same caps as G6511), regardless of M558 or `F` override. Toolsetter IDs are not clamped here.
+
 **Repeatability:** Defaults are **`macros/system/nxt-vars.g`** (`nxtProbeInnerSampleCount`, **`nxtProbeMaxSampleSpreadMm`** default **0.0075** mm, **`nxtProbeSampleOuterRetries`**). Override via **`0:/sys/nxt-user-overrides.g`** (loaded **last** in **`nxt.g`**; see **`nxt-user-overrides.g.example`**). When **`nxtProbeMaxSampleSpreadMm` > 0**, **`G6512`** runs **3** touches ( **`R`** is ignored), **`echo`s** each compensated value, and requires **both** consecutive pairs (1–2 and 2–3) to be within the limit. On failure it **`echo`s** the pair delta and over-limit amount, then repeats the whole 3-touch block up to **`1 + nxtProbeSampleOuterRetries`** cycles. On success it averages the three values into **`nxtLastProbeResult`**. Set **`nxtProbeMaxSampleSpreadMm`** to **0** to disable (honors **`R`** / **`nxtProbeInnerSampleCount`**, no pair checks).
 
 **Usage:** `G6512 [X<pos>|Y<pos>|Z<pos>|A<pos>] I<probeID> [F<speed>] [R<retries>] [H<hit>]`
@@ -274,7 +289,7 @@ Low-level single-axis probe move with compensation and averaging. Used by all pr
 
 **Results:** Stores compensated result in `global.nxtLastProbeResult`.
 
-**Note:** After the direction-signed deflection fix, recalibrate Phase 4 values — older stored deflections are not portable.
+**Note:** After the direction-signed deflection fix, recalibrate Phase 1 deflection values — older stored deflections are not portable.
 
 ---
 
@@ -390,11 +405,19 @@ Removes tool index `P` from RRF and clears `mosTT` row.
 
 ### M4005: Post-Processor Version Check
 
-Compares CAM post `V"…"` string to `global.nxtVersion` (exact match).
+Compares CAM post `V"…"` string to `global.nxtVersion` (exact match), then runs **`M4006`**.
 
 **Usage:** `M4005 V"<version>"`
 
 **Example:** `M4005 V"v0.6.0"` in job preamble.
+
+---
+
+### M4006: Require Touch-Probe Deflection
+
+When `nxtFeatureTouchProbe` is true, aborts unless `nxtProbeDeflection` is a non-zero `{X,Y,Z}` vector (factory `{0,0,0}` / unset = not calibrated). Invoked from `M4005` so CAM jobs cannot start without Phase 1 deflection.
+
+**Usage:** `M4006` (usually via `M4005`)
 
 ---
 
@@ -405,6 +428,23 @@ Retrieves the current tool-compensated machine position for all axes and stores 
 **Usage:** `M5000`
 
 **Results:** Updates `global.nxtAbsPos` vector with current positions.
+
+---
+
+### M5017: Probe XY External Spans (deflection assist)
+
+Phase 1 probe-mode assist: dive by `D`, **3-point CCW perimeter** on a 1-2-3 block (3″∥X), raise Z only between faces, park at probed XY center at the original safe Z.
+
+**Usage:** `M5017 D<diveMm> [O<overshootMm>]`
+
+**Parameters:**
+- `D`: Z dive depth from the operator’s safe starting Z (required, > 0)
+- `O`: Outside clearance beyond the nominal face (default **5** mm)
+- Edge inset (corner clearance) for outer face points is fixed at **10** mm
+
+**Behavior:** Operator jogs to approx **XY center at safe Z**. Starts at −Y/−X outside corner, probes 3 points along each face (stay at dive Z along the face), raises only when changing faces. Spans from **means** of the three hits per face (~76.2 mm X / ~50.8 mm Y). Echoes tip radius, current deflection, shortfalls, and proposed Dx/Dy; warns if proposed D > 0.5 mm or tip R ≥ 2.
+
+**Results:** `global.nxtCalDefSpanX`, `global.nxtCalDefSpanY`; `nxtCalDefSpan` = X for compat. Calibration UI applies deflection math (+ rough `nxtCalDefZ` from G6511).
 
 ---
 
@@ -434,7 +474,9 @@ Sets a Work Coordinate System (WCS) origin using coordinates from the probe resu
 - `Q`: Rotation policy: **0** (default) = `M291` prompt to apply or skip **G68**; **1** = apply **G68** without prompt; **2** = translation only (no **G68**)
 - `T`: Optional cap on `|θ|` in degrees (default `global.nxtProbeMaxSkewDeg`); abort **M6520** if exceeded
 
-**Rotation:** Uses RRF **G68 X0 Y0 R** after **G10 L2** and selecting the target workplace. **G68** rotation direction was corrected in **RRF 3.6.1**; nxt on branch **`v0.7.0`** targets **RRF 3.7.x** ([`docs/RRF_REFERENCE.md`](docs/RRF_REFERENCE.md)). See `docs/DETAILS.md` (nxt native probing section).
+**Rotation:** Uses RRF **G68 X0 Y0 R** after **G10 L2** and selecting the target workplace. **G68** rotation direction was corrected in **RRF 3.6.1** (anticlockwise **R**); nxt on branch **`v0.7.0`** targets **RRF 3.7.x** ([`docs/RRF_REFERENCE.md`](docs/RRF_REFERENCE.md)). See `docs/DETAILS.md` (nxt native probing section).
+
+**Job scope:** When **G68** is applied, nxt stores **`nxtJobG68Deg`** / **`nxtJobG68Wcs`** for the current job. Rotation **persists across toolchanges** (`tpost` re-asserts via `nxt-job-g68-restore.g` after paths that may `G69`). It is **cleared on cancel** and on **job finish** via `stop.g` (not while paused). Not written to `nxt-user-vars.g`.
 
 **Probe cycles:** With **`U`** on **G650x**/`G6510`, the macro stores results at row **`U−1`** and calls **`M6520`** via **`M98`** at the end so the operator does not run **M6520** separately.
 
@@ -502,7 +544,9 @@ Runs multiple full **G6512** Z probe cycles at a fixed reference surface (touch 
 - `B`: Reference probe — **0** = touch probe, **1** = toolsetter (default: touch if feature enabled, else toolsetter)
 - `C`: Number of **G6512** cycles (default **10**, max **50**)
 - `Z`: Machine Z target for **G6512** (default: reference surface Z from `nxtTouchProbeRefPos` or `nxtToolSetterPos`)
-- `F`, `L`, `O`: Passed through to **G6512** (`L`/`O` default from probe-specific globals)
+- `F`, `L`, `O`: Passed through to **G6512** (`L`/`O`: optional `nxtTouchProbe*` / `nxtToolSetter*` overrides, else `nxtProbeMaxSampleSpreadMm` / `nxtProbeSampleOuterRetries`)
+
+Approach clearance before each cycle is **`refZ + 50`**.
 
 **Requirements:**
 - **B0:** Touch probe enabled (`nxtFeatureTouchProbe` or legacy `mosFeatTouchProbe`), `nxtTouchProbeRefPos` set, valid `nxtTouchProbeID` sensor; selects **`T{global.nxtProbeToolID}`** if another tool is active (runs normal tool-change macros); prompts until the probe input reads active

@@ -123,6 +123,11 @@ var wy = { var.yPy - var.yMy }
 
 var thetaRad = { atan2(var.vy, var.vx) }
 var thetaDeg = { var.thetaRad * 180 / pi }
+; Fold to (−90, 90] so reversed ±X hit order does not yield ~±180°
+if { var.thetaDeg > 90 }
+    set var.thetaDeg = { var.thetaDeg - 180 }
+elif { var.thetaDeg <= -90 }
+    set var.thetaDeg = { var.thetaDeg + 180 }
 
 if { abs(var.thetaDeg) > var.skewLimit }
     abort { "G6502: |skew| " ^ var.thetaDeg ^ " deg exceeds limit " ^ var.skewLimit }
@@ -139,8 +144,9 @@ var xMinusEdge = { var.calculatedCenterX - var.vx / 2 }
 var yPlusEdge = { var.calculatedCenterY + var.wy / 2 }
 var yMinusEdge = { var.calculatedCenterY - var.wy / 2 }
 
-var actualWidth = { abs(var.vx) }
-var actualHeight = { abs(var.wy) }
+; Chord length = true wall spacing (projected |vx|/|wy| underestimate when skewed)
+var actualWidth = { sqrt(var.vx * var.vx + var.vy * var.vy) }
+var actualHeight = { sqrt(var.wx * var.wx + var.wy * var.wy) }
 
 ; Log results to probe results table
 if { global.nxtProbeResults[var.pSlot] == null || #global.nxtProbeResults[var.pSlot] < 3 }

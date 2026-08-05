@@ -182,14 +182,21 @@ export function buildCustomHomeallG(input: CustomHomingInput): string {
   const yHa = input.yHomeAt
   const lines = [
     '; homeall.g — nxt platform custom (generated)',
-    '; Homes Z, then X and Y together. Directions from nxtCustom*HomeAt.',
+    '; Homes Z, then A if present, then X and Y together. Directions from nxtCustom*HomeAt.',
     '',
     'G91',
     'G21',
     'G94',
     '',
     'M98 P"homez.g"',
-    '',
+    ''
+  ]
+  if (input.includeA && input.aHomeAt != null) {
+    lines.push('if { fileexists("0:/sys/homea.g") }')
+    lines.push('    M98 P"homea.g"')
+    lines.push('')
+  }
+  lines.push(
     `G53 G1 H1 X${homeTravelExpr(0, xHa)} Y${homeTravelExpr(1, yHa)} F{1800}`,
     '',
     'if { ! sensors.endstops[0].triggered }',
@@ -204,12 +211,7 @@ export function buildCustomHomeallG(input: CustomHomingInput): string {
     g92Line(0, xHa),
     g92Line(1, yHa),
     ''
-  ]
-  if (input.includeA && input.aHomeAt != null) {
-    lines.push('if { fileexists("0:/sys/homea.g") }')
-    lines.push('    M98 P"homea.g"')
-    lines.push('')
-  }
+  )
   return lines.join('\n')
 }
 

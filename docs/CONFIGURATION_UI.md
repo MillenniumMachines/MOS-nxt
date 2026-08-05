@@ -74,7 +74,7 @@ Select the machine platform and board pack that match your hardware. Platforms a
 | **Board profile** | Override `global.nxtBoardShortNameOverride` or leave Auto (first board in object model) |
 | **Scylla motor voltage** | Required for Scylla packs: `24` or `48` V variant |
 | **Bootstrap mode** | **Auto** — Save creates `0:/sys/nxt-board-bootstrap.requested`. **Off** — Save removes it. |
-| **Apply platform sys files** | Uploads `homeall.g`, `homex.g`, `homey.g`, `homez.g` from `nxt-config/machine/<profile>/` to `0:/sys/` (deploy-only, not boot) |
+| **Apply platform sys files** | Uploads `homeall.g`, `homex.g`, `homey.g`, `homez.g` (and `homea.g` when present) from `nxt-config/machine/<profile>/` to `0:/sys/` (deploy-only, not boot). Home all order: Z → A if present → X+Y |
 | **Check SD board packs** | Compares bundled manifest to `0:/sys/nxt-config/` (stale plugin warning) |
 | **Save Configuration** | Writes `nxt-user-vars.g` including `nxtBoardPackExpectedEntry` and syncs bootstrap sentinels |
 

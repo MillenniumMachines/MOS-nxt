@@ -374,7 +374,8 @@ export default defineNxtComponent({
         G6503: {
           gcode: 'G6503',
           name: 'Rectangle Block',
-          description: 'Probes all 4 edges of a rectangular block from outside to find the center.',
+          description:
+            'Probes 3 points on each of 4 outside faces (12 total, CCW perimeter) to find the block center.',
           icon: 'mdi-rectangle',
           params: ['W', 'H', 'L']
         },

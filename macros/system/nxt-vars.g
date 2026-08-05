@@ -50,9 +50,17 @@ global nxtRefSurfaceProbed = false ; Session flag: G6511 reference surface probe
 global nxtCalTravelCmd = null
 global nxtCalTravelMeas = null
 global nxtCalTravelAxis = null
+; M5017 deflection spans — session results (UI applies deflection)
+global nxtCalDefSpan = null
+global nxtCalDefSpanX = null
+global nxtCalDefSpanY = null
+global nxtCalDefZ = null          ; rough Dz from G6511 multi-height (mm)
 ; G6512 H-slot contacts — allocated on first H= write (OM ~8KB budget)
 global nxtProbeHitXY = null
 global nxtProbeMaxSkewDeg = 5.0   ; Abort rectangle/bore skew solve if |theta| exceeds this (deg)
+; Job-scoped G68 (session only — not persisted to nxt-user-vars.g)
+global nxtJobG68Deg = null         ; null = no job rotation; else degrees last applied
+global nxtJobG68Wcs = null         ; workplace 1–9 that owns nxtJobG68Deg
 
 ; --- Probe repeatability (G6512; all canned cycles use G6512) ---
 ; Defaults below. Optional touch/toolsetter-specific keys: declare+set in nxt-user-overrides.g

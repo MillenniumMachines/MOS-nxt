@@ -43,7 +43,7 @@ These features form the core of the new nxt system and must be implemented for t
     - [x] Bore (`G6500`) - Probe both sides of the bore in X and Y and find the centre point (4 probe points total)
     - [x] Boss (`G6501`) - Probe both sides of the boss in X and Y and find the centre point (4 probe points total)
     - [x] Rectangle Pocket (`G6502`) - Probe all 4 edges of the pocket in X and Y, and find the centre point (4 probe points total)
-    - [x] Rectangle Block (`G6503`) - Probe all 4 edges of the block in X and Y, and find the centre point (4 probe points total)
+    - [x] Rectangle Block (`G6503`) - Probe 3 points on each of 4 outside faces (12 total, CCW perimeter) and find the centre
     - [x] Web (X/Y) (`G6504`) - Probe a block (web) in either X OR Y, and find the centre point on that axis (2 probe points total)
     - [x] Pocket (X/Y) (`G6505`) - Probe a pocket in either X OR Y, and find the centre point on that axis (2 probe points total)
     - [x] Rotation (`G6506`) - Probe 2 points along a single surface in X or Y to find the rotation of that surface against the relevant axis (2 probe points total)
@@ -59,7 +59,7 @@ These features form the core of the new nxt system and must be implemented for t
 
 #### **UI-Driven Workflow**
 - [x] **Persistent UI Screen:** A new primary screen/view in DWC dedicated to nxt, containing always-visible widgets for core status and actions.
-    - [x] **Status Widget:** A persistent widget displaying: selected tool name, tool offset, machine state, selected WCS, and spindle state (direction, RPM).
+    - [x] **Status Widget:** Every-page CNC status via DWC `registerLayout` (`NxtShell`): selected tool name, tool Z offset, WCS, spindle (direction/RPM), axes, probe/toolsetter. First load takes over the shell (`takeoverOnFirstLoad`); switch back in **Settings → Display** or `/BuiltInLayout`. (Vue 2 global `CNCContainerPanel` override is inert on DWC 3.7.)
     - [x] **Action Confirmation Widget:** A persistent widget that replaces blocking `M291` dialogs. It will pause the job queue and display a confirmation request (e.g., "Start Spindle?") that the operator must interact with to resume the job.
 - [x] **UI-Based Configuration:** A new settings panel within the UI plugin will completely replace the `G8000` configuration wizard, allowing for non-serial, direct editing of all settings. Includes directory-driven platform/board selection and **Apply platform sys files** for homing macros ([NXT_BOARD_HOMING.md](NXT_BOARD_HOMING.md)).
 - [x] **UI-Driven Probing:** All probing cycles will be initiated and configured through the DWC UI.

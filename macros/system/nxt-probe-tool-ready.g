@@ -1,4 +1,4 @@
-; nxt-probe-tool-ready.g — M4000 probe row, select probe tool, wait for sensor active.
+; nxt-probe-tool-ready.g — M4000 probe row, select probe tool, confirm tip.
 ;
 ; USAGE: M98 P"nxt-probe-tool-ready.g" [S1]
 ;   S1: skip T{probe} selection (caller already selected tool)
@@ -34,4 +34,5 @@ if { !var.skipSelect && state.currentTool != global.nxtProbeToolID }
     echo "nxt-probe-tool-ready: Selecting touch probe T" ^ global.nxtProbeToolID
     T{global.nxtProbeToolID}
 
-M98 P"nxt-probe-sensor-wait.g"
+; P1: install prompt + tip poll (standalone G6511 / G6600 / M6523 path)
+M98 P"nxt-probe-sensor-wait.g" P1

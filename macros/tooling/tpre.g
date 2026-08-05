@@ -26,8 +26,13 @@ set global.nxtToolChangeState = 3
 ; Stop and park spindle for safety
 G27 Z1
 
-; Get the tool number that will be loaded (from the pending tool change)
-var newTool = { state.nextTool }
+; Get the tool number that will be loaded (from the pending tool change).
+; RRF 3.7+: prefer motionSystems[0].nextTool (state.nextTool is obsolete).
+var newTool = -1
+if { exists(move.motionSystems) && #move.motionSystems > 0 }
+    set var.newTool = { move.motionSystems[0].nextTool }
+elif { exists(state.nextTool) }
+    set var.newTool = { state.nextTool }
 
 if { var.newTool < 0 }
     abort { "tpre.g: No valid tool selected for loading" }
@@ -36,13 +41,23 @@ if { var.newTool < 0 }
 if { var.newTool == global.nxtProbeToolID }
     var probeType = { global.nxtFeatureTouchProbe ? "Touch Probe" : "Datum Tool" }
     ; ATC: replace with pick from pocket / spindle load sequence for probe
-    M291 P{"Load " ^ var.probeType ^ " (T" ^ var.newTool ^ "), and trigger to proceed."} R{"Install " ^ var.probeType} S3
     if { global.nxtFeatureTouchProbe }
         if { global.nxtTouchProbeID == null }
             abort { "tpre.g: Touch probe sensor ID (nxtTouchProbeID) is not configured" }
-        M98 P"nxt-probe-sensor-wait.g" A1
+        var msgTp = "Install Touch Probe (T" ^ var.newTool ^ ") and ensure it is connected."
+        set var.msgTp = { var.msgTp ^ " Press Continue, then manually trigger the tip until detected." }
+        M291 P{var.msgTp} R"Install Touch Probe" S4 K{"Continue", "Cancel"}
+        if { input != 0 }
+            abort { "tpre.g: Tool change cancelled" }
+        M98 P"nxt-probe-sensor-wait.g"
+    else
+        M291 P{"Please install " ^ var.probeType ^ " (T" ^ var.newTool ^ ") and confirm when ready."} R{"Install " ^ var.probeType} S4 K{"Continue", "Cancel"}
+        if { input != 0 }
+            abort { "tpre.g: Tool change cancelled" }
 else
     ; ATC: replace with pick from pocket / spindle load sequence
-    M291 P{"Please install Tool " ^ var.newTool ^ " and confirm when ready."} R"Install Tool" S3
+    M291 P{"Please install Tool " ^ var.newTool ^ " and confirm when ready."} R"Install Tool" S4 K{"Continue", "Cancel"}
+    if { input != 0 }
+        abort { "tpre.g: Tool change cancelled" }
 
 echo "tpre.g: Ready to load Tool " ^ var.newTool

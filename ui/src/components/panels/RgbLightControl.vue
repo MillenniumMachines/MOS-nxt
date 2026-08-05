@@ -1,14 +1,14 @@
 <template>
   <v-card
     v-if="showCard"
-    :variant="compact ? 'flat' : 'outlined'"
-    :class="compact ? 'pa-0' : 'mt-2'"
+    variant="outlined"
+    :class="compact ? 'nxt-rgb-status-strip' : 'mt-2'"
   >
     <v-card-subtitle v-if="!compact" class="pb-0">
       <v-icon class="mr-2" size="small">mdi-lightbulb-on</v-icon>
       {{ $t('plugins.nxt.panels.rgbLight.caption') }}
     </v-card-subtitle>
-    <v-card-text :class="compact ? 'pa-2' : 'pt-2'">
+    <v-card-text :class="compact ? 'pa-3' : 'pt-2'">
       <v-alert
         v-if="!rgbHardwareConfigured"
         type="warning"
@@ -21,10 +21,43 @@
       <v-alert v-if="!featureEnabled" type="info" density="compact" variant="outlined" class="mb-3">
         {{ $t('plugins.nxt.panels.rgbLight.enableInConfiguration') }}
       </v-alert>
-      <template v-if="featureEnabled">
-        <!-- Live light -->
+
+      <!-- Compact CNC strip: click a status to show that colour (edit on Status tab) -->
+      <template v-if="compact && featureEnabled">
+        <div class="d-flex flex-wrap align-center ga-2 mb-2">
+          <div class="text-subtitle-2">
+            <v-icon class="mr-1" size="small">mdi-traffic-light</v-icon>
+            {{ $t('plugins.nxt.panels.rgbLight.statusLight') }}
+          </div>
+        </div>
+        <p class="text-caption text-medium-emphasis mb-2">
+          {{ $t('plugins.nxt.panels.rgbLight.statusStripHint') }}
+        </p>
+        <div class="d-flex flex-wrap ga-1">
+          <v-btn
+            v-for="row in statusRows"
+            :key="row.id"
+            size="small"
+            variant="outlined"
+            class="nxt-rgb-status-btn"
+            :disabled="controlsDisabled"
+            :loading="testingId === row.id"
+            :active="activeTest === row.id"
+            @click="testStatus(row.id)"
+          >
+            <span
+              class="nxt-rgb-swatch mr-2"
+              :style="{ backgroundColor: rgbToHex(row.color.r, row.color.g, row.color.b) }"
+            />
+            {{ row.label }}
+          </v-btn>
+        </div>
+      </template>
+
+      <template v-else-if="featureEnabled">
+        <!-- Live light (Status tab full panel) -->
         <v-row density="compact" align="center">
-          <v-col cols="12" :sm="compact ? 12 : 6">
+          <v-col cols="12" sm="6">
             <v-switch
               :model-value="rgbState.on"
               :label="$t('plugins.nxt.panels.rgbLight.power')"
@@ -34,7 +67,7 @@
               @update:model-value="onPowerChange"
             />
           </v-col>
-          <v-col cols="12" :sm="compact ? 12 : 6">
+          <v-col cols="12" sm="6">
             <v-slider
               :model-value="rgbState.brightness"
               :label="$t('plugins.nxt.panels.rgbLight.brightness')"
@@ -50,11 +83,9 @@
         </v-row>
 
         <v-row density="compact">
-          <v-col cols="12" :md="compact ? 12 : 5">
+          <v-col cols="12" md="5">
             <v-color-picker
               v-model="pickerColor"
-              :hide-inputs="compact"
-              :hide-canvas="compact"
               show-swatches
               swatches-max-height="120"
               :disabled="controlsDisabled || !rgbState.on"
@@ -62,68 +93,66 @@
               @update:model-value="onPickerInput"
             />
           </v-col>
-          <v-col cols="12" :md="compact ? 12 : 7">
-            <template v-if="!compact">
-              <v-row density="compact" class="mb-2">
-                <v-col cols="12" sm="4">
-                  <v-text-field
-                    v-model="hexDraft"
-                    :label="$t('plugins.nxt.panels.rgbLight.hex')"
-                    density="compact"
-                    variant="outlined"
-                    hide-details
-                    :disabled="controlsDisabled || !rgbState.on"
-                    @change="onHexCommit"
-                    @keyup.enter="onHexCommit"
-                  />
-                </v-col>
-                <v-col cols="4" sm="2">
-                  <v-text-field
-                    v-model.number="channelDraft.r"
-                    :label="$t('plugins.nxt.panels.rgbLight.channelR')"
-                    type="number"
-                    min="0"
-                    max="255"
-                    step="1"
-                    density="compact"
-                    variant="outlined"
-                    hide-details
-                    :disabled="controlsDisabled || !rgbState.on"
-                    @change="onChannelCommit"
-                  />
-                </v-col>
-                <v-col cols="4" sm="2">
-                  <v-text-field
-                    v-model.number="channelDraft.g"
-                    :label="$t('plugins.nxt.panels.rgbLight.channelG')"
-                    type="number"
-                    min="0"
-                    max="255"
-                    step="1"
-                    density="compact"
-                    variant="outlined"
-                    hide-details
-                    :disabled="controlsDisabled || !rgbState.on"
-                    @change="onChannelCommit"
-                  />
-                </v-col>
-                <v-col cols="4" sm="2">
-                  <v-text-field
-                    v-model.number="channelDraft.b"
-                    :label="$t('plugins.nxt.panels.rgbLight.channelB')"
-                    type="number"
-                    min="0"
-                    max="255"
-                    step="1"
-                    density="compact"
-                    variant="outlined"
-                    hide-details
-                    :disabled="controlsDisabled || !rgbState.on"
-                    @change="onChannelCommit"
-                  />
-                </v-col>
-              </v-row>
-            </template>
+          <v-col cols="12" md="7">
+            <v-row density="compact" class="mb-2">
+              <v-col cols="12" sm="4">
+                <v-text-field
+                  v-model="hexDraft"
+                  :label="$t('plugins.nxt.panels.rgbLight.hex')"
+                  density="compact"
+                  variant="outlined"
+                  hide-details
+                  :disabled="controlsDisabled || !rgbState.on"
+                  @change="onHexCommit"
+                  @keyup.enter="onHexCommit"
+                />
+              </v-col>
+              <v-col cols="4" sm="2">
+                <v-text-field
+                  v-model.number="channelDraft.r"
+                  :label="$t('plugins.nxt.panels.rgbLight.channelR')"
+                  type="number"
+                  min="0"
+                  max="255"
+                  step="1"
+                  density="compact"
+                  variant="outlined"
+                  hide-details
+                  :disabled="controlsDisabled || !rgbState.on"
+                  @change="onChannelCommit"
+                />
+              </v-col>
+              <v-col cols="4" sm="2">
+                <v-text-field
+                  v-model.number="channelDraft.g"
+                  :label="$t('plugins.nxt.panels.rgbLight.channelG')"
+                  type="number"
+                  min="0"
+                  max="255"
+                  step="1"
+                  density="compact"
+                  variant="outlined"
+                  hide-details
+                  :disabled="controlsDisabled || !rgbState.on"
+                  @change="onChannelCommit"
+                />
+              </v-col>
+              <v-col cols="4" sm="2">
+                <v-text-field
+                  v-model.number="channelDraft.b"
+                  :label="$t('plugins.nxt.panels.rgbLight.channelB')"
+                  type="number"
+                  min="0"
+                  max="255"
+                  step="1"
+                  density="compact"
+                  variant="outlined"
+                  hide-details
+                  :disabled="controlsDisabled || !rgbState.on"
+                  @change="onChannelCommit"
+                />
+              </v-col>
+            </v-row>
             <div class="d-flex flex-wrap align-start">
               <v-btn
                 v-for="preset in presets"
@@ -140,147 +169,131 @@
           </v-col>
         </v-row>
 
-        <!-- Status colors (Status tab only) -->
-        <template v-if="!compact">
-          <v-divider class="my-4" />
-          <div class="text-subtitle-2 mb-1">{{ $t('plugins.nxt.panels.rgbLight.statusColors') }}</div>
-          <p class="text-caption text-grey mb-3">{{ $t('plugins.nxt.panels.rgbLight.statusColorsHint') }}</p>
+        <v-divider class="my-4" />
+        <div class="text-subtitle-2 mb-1">{{ $t('plugins.nxt.panels.rgbLight.statusColors') }}</div>
+        <p class="text-caption text-grey mb-3">{{ $t('plugins.nxt.panels.rgbLight.statusColorsHint') }}</p>
 
-          <v-row
-            v-for="row in statusRows"
-            :key="row.id"
-            density="compact"
-            align="center"
-            class="mb-1"
+        <v-row
+          v-for="row in statusRows"
+          :key="row.id"
+          density="compact"
+          align="center"
+          class="mb-1"
+        >
+          <v-col cols="12" sm="3" class="d-flex align-center">
+            <span
+              class="nxt-rgb-swatch mr-2"
+              :style="{ backgroundColor: rgbToHex(row.color.r, row.color.g, row.color.b) }"
+            />
+            <span class="text-body-2">{{ row.label }}</span>
+          </v-col>
+          <v-col cols="6" sm="2">
+            <v-text-field
+              :model-value="row.hex"
+              :label="$t('plugins.nxt.panels.rgbLight.hex')"
+              density="compact"
+              variant="outlined"
+              hide-details
+              :disabled="controlsDisabled"
+              @update:model-value="onStatusHexDraft(row.id, $event)"
+              @change="commitStatusHex(row.id)"
+            />
+          </v-col>
+          <v-col cols="2" sm="1">
+            <v-text-field
+              :model-value="row.color.r"
+              :label="$t('plugins.nxt.panels.rgbLight.channelR')"
+              type="number"
+              min="0"
+              max="255"
+              density="compact"
+              variant="outlined"
+              hide-details
+              :disabled="controlsDisabled"
+              @update:model-value="onStatusChannel(row.id, 'r', $event)"
+            />
+          </v-col>
+          <v-col cols="2" sm="1">
+            <v-text-field
+              :model-value="row.color.g"
+              :label="$t('plugins.nxt.panels.rgbLight.channelG')"
+              type="number"
+              min="0"
+              max="255"
+              density="compact"
+              variant="outlined"
+              hide-details
+              :disabled="controlsDisabled"
+              @update:model-value="onStatusChannel(row.id, 'g', $event)"
+            />
+          </v-col>
+          <v-col cols="2" sm="1">
+            <v-text-field
+              :model-value="row.color.b"
+              :label="$t('plugins.nxt.panels.rgbLight.channelB')"
+              type="number"
+              min="0"
+              max="255"
+              density="compact"
+              variant="outlined"
+              hide-details
+              :disabled="controlsDisabled"
+              @update:model-value="onStatusChannel(row.id, 'b', $event)"
+            />
+          </v-col>
+          <v-col cols="12" sm="4" class="d-flex flex-wrap">
+            <v-btn
+              size="x-small"
+              variant="tonal"
+              class="ma-1"
+              :disabled="controlsDisabled"
+              :loading="testingId === row.id"
+              @click="testStatus(row.id)"
+            >
+              {{ $t('plugins.nxt.panels.rgbLight.test') }}
+            </v-btn>
+            <v-btn
+              size="x-small"
+              variant="outlined"
+              class="ma-1"
+              :disabled="controlsDisabled"
+              @click="applyStatusToMachine(row.id)"
+            >
+              {{ $t('plugins.nxt.panels.rgbLight.apply') }}
+            </v-btn>
+          </v-col>
+        </v-row>
+
+        <div class="d-flex flex-wrap align-center mt-3 ga-1">
+          <v-btn
+            size="small"
+            variant="outlined"
+            :disabled="controlsDisabled"
+            @click="clearRgbTest"
           >
-            <v-col cols="12" sm="3" class="d-flex align-center">
-              <span
-                class="nxt-rgb-swatch mr-2"
-                :style="{ backgroundColor: rgbToHex(row.color.r, row.color.g, row.color.b) }"
-              />
-              <span class="text-body-2">{{ row.label }}</span>
-            </v-col>
-            <v-col cols="6" sm="2">
-              <v-text-field
-                :model-value="row.hex"
-                :label="$t('plugins.nxt.panels.rgbLight.hex')"
-                density="compact"
-                variant="outlined"
-                hide-details
-                :disabled="controlsDisabled"
-                @update:model-value="onStatusHexDraft(row.id, $event)"
-                @change="commitStatusHex(row.id)"
-              />
-            </v-col>
-            <v-col cols="2" sm="1">
-              <v-text-field
-                :model-value="row.color.r"
-                :label="$t('plugins.nxt.panels.rgbLight.channelR')"
-                type="number"
-                min="0"
-                max="255"
-                density="compact"
-                variant="outlined"
-                hide-details
-                :disabled="controlsDisabled"
-                @update:model-value="onStatusChannel(row.id, 'r', $event)"
-              />
-            </v-col>
-            <v-col cols="2" sm="1">
-              <v-text-field
-                :model-value="row.color.g"
-                :label="$t('plugins.nxt.panels.rgbLight.channelG')"
-                type="number"
-                min="0"
-                max="255"
-                density="compact"
-                variant="outlined"
-                hide-details
-                :disabled="controlsDisabled"
-                @update:model-value="onStatusChannel(row.id, 'g', $event)"
-              />
-            </v-col>
-            <v-col cols="2" sm="1">
-              <v-text-field
-                :model-value="row.color.b"
-                :label="$t('plugins.nxt.panels.rgbLight.channelB')"
-                type="number"
-                min="0"
-                max="255"
-                density="compact"
-                variant="outlined"
-                hide-details
-                :disabled="controlsDisabled"
-                @update:model-value="onStatusChannel(row.id, 'b', $event)"
-              />
-            </v-col>
-            <v-col cols="12" sm="4" class="d-flex flex-wrap">
-              <v-btn
-                size="x-small"
-                variant="tonal"
-                class="ma-1"
-                :disabled="controlsDisabled"
-                :loading="testingId === row.id"
-                @click="testStatus(row.id)"
-              >
-                {{ $t('plugins.nxt.panels.rgbLight.test') }}
-              </v-btn>
-              <v-btn
-                size="x-small"
-                variant="outlined"
-                class="ma-1"
-                :disabled="controlsDisabled"
-                @click="applyStatusToMachine(row.id)"
-              >
-                {{ $t('plugins.nxt.panels.rgbLight.apply') }}
-              </v-btn>
-            </v-col>
-          </v-row>
-
-          <div class="d-flex flex-wrap align-center mt-3 ga-1">
-            <v-btn
-              size="small"
-              variant="outlined"
-              :disabled="controlsDisabled"
-              @click="clearRgbTest"
-            >
-              {{ $t('plugins.nxt.panels.rgbLight.clearTest') }}
-            </v-btn>
-            <v-btn
-              size="small"
-              variant="outlined"
-              :disabled="controlsDisabled"
-              @click="resetStatusDefaults"
-            >
-              {{ $t('plugins.nxt.panels.rgbLight.resetDefaults') }}
-            </v-btn>
-            <v-btn
-              size="small"
-              color="primary"
-              :disabled="controlsDisabled"
-              :loading="saving"
-              @click="saveRgbSettings"
-            >
-              {{ $t('plugins.nxt.panels.rgbLight.save') }}
-            </v-btn>
-            <v-chip v-if="activeTest" size="small" color="warning" class="ml-2" label>
-              {{ $t('plugins.nxt.panels.rgbLight.testActive', [activeTest]) }}
-            </v-chip>
-          </div>
-        </template>
-
-        <template v-else>
+            {{ $t('plugins.nxt.panels.rgbLight.clearTest') }}
+          </v-btn>
+          <v-btn
+            size="small"
+            variant="outlined"
+            :disabled="controlsDisabled"
+            @click="resetStatusDefaults"
+          >
+            {{ $t('plugins.nxt.panels.rgbLight.resetDefaults') }}
+          </v-btn>
           <v-btn
             size="small"
             color="primary"
-            class="ma-1"
             :disabled="controlsDisabled"
             :loading="saving"
             @click="saveRgbSettings"
           >
             {{ $t('plugins.nxt.panels.rgbLight.save') }}
           </v-btn>
-        </template>
+          <v-chip v-if="activeTest" size="small" color="warning" class="ml-2" label>
+            {{ $t('plugins.nxt.panels.rgbLight.testActive', [activeTest]) }}
+          </v-chip>
+        </div>
       </template>
     </v-card-text>
   </v-card>
@@ -471,14 +484,14 @@ export default defineNxtComponent({
     featureEnabled: {
       immediate: true,
       handler(on: boolean) {
-        if (on && !this.compact) {
+        if (on) {
           this.loadStatusColorsFromOm()
         }
       }
     },
     isConnected: {
       handler(c: boolean) {
-        if (c && this.featureEnabled && !this.compact) {
+        if (c && this.featureEnabled) {
           this.loadStatusColorsFromOm()
         }
       }
@@ -594,6 +607,20 @@ export default defineNxtComponent({
       this.statusHexDraft = { ...this.statusHexDraft, [id]: v }
     },
 
+    onStatusColorInput(id: NxtRgbStatusId, ev: Event | string) {
+      const raw =
+        typeof ev === 'string'
+          ? ev
+          : (ev.target && 'value' in (ev.target as HTMLInputElement)
+              ? String((ev.target as HTMLInputElement).value)
+              : '')
+      const rgb = hexToRgb(raw)
+      if (rgb == null) {
+        return
+      }
+      this.patchStatusColor(id, { ...this.statusColors[id], ...rgb })
+    },
+
     commitStatusHex(id: NxtRgbStatusId) {
       const rgb = hexToRgb(this.statusHexDraft[id] ?? '')
       if (rgb == null) {
@@ -706,9 +733,7 @@ export default defineNxtComponent({
       }
       this.saving = true
       try {
-        if (!this.compact) {
-          await this.pushAllStatusColors()
-        }
+        await this.pushAllStatusColors()
         await this.sendCode('M98 P"nxt/nxt-save-rgb.g"')
       } catch (e) {
         console.error('nxt RGB: failed to save settings', e)
@@ -726,10 +751,13 @@ export default defineNxtComponent({
 }
 .nxt-rgb-swatch {
   display: inline-block;
-  width: 18px;
-  height: 18px;
+  width: 14px;
+  height: 14px;
   border-radius: 3px;
   border: 1px solid rgba(0, 0, 0, 0.35);
   flex-shrink: 0;
+}
+.nxt-rgb-status-btn {
+  text-transform: none;
 }
 </style>

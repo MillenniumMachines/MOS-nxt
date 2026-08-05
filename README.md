@@ -71,8 +71,8 @@ This involves configuring both of them as Z probes, which can be done with the `
 ; Max Retries A10     = retry probe a maximum of 10 times
 ; Tolerance S0.01     = when tolerance is reached, stop probing
 ; Travel Speed T1200  = travel moves run at this speed to the start of the probing location
-; Probe Speed F300:50 = initial probe speed runs at 300mm/min, subsequent at 50mm/min
-M558 K0 P5 C"probe" H2 A10 S0.01 T1200 F300:50
+; Probe Speed F200:50 = initial probe speed runs at 200mm/min, subsequent at 50mm/min
+M558 K0 P5 C"probe" H2 A10 S0.01 T1200 F200:50
 
 ; Configure the toolsetter as Z-Probe 1 on pin "xstopmax" - mainboard specific, DO NOT COPY AND PASTE!
 ; Type P8             = unfiltered digital

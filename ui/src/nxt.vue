@@ -1,7 +1,7 @@
 <template>
   <v-container fluid class="pa-2">
     <!-- nxt Main Dashboard Layout -->
-    <!-- Status strip removed: CNC dashboard override supplies its own status UI -->
+    <!-- Every-page CNC status (tool/WCS/offset) comes from registerLayout(NxtShell), not this view -->
 
     <v-row>
       <!-- Action Confirmation Widget - Full width above main content -->

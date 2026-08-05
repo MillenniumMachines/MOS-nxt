@@ -1,5 +1,5 @@
 <template>
-  <v-card v-if="spindleConfigured" class="fill-height">
+  <v-card v-if="spindleConfigured" variant="outlined" class="fill-height">
     <v-card-title class="py-2 font-weight-bold">
       <v-icon class="mr-2">mdi-rotate-right</v-icon>
       {{ $t('plugins.nxt.panels.spindleControl.caption') }}
