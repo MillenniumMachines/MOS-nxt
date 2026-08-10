@@ -29,7 +29,13 @@ else
 if { var.pSlot < 0 || var.pSlot >= #global.nxtProbeResults }
     abort { "G6510: Result slot out of range" }
 
-var axisParams = { param.X, param.Y, param.Z }
+var axisParams = { null, null, null }
+if { exists(param.X) }
+    set var.axisParams[0] = { param.X }
+if { exists(param.Y) }
+    set var.axisParams[1] = { param.Y }
+if { exists(param.Z) }
+    set var.axisParams[2] = { param.Z }
 var probeAxis = -1
 var targetCoord = 0
 
@@ -65,8 +71,6 @@ if { global.nxtProbeResults[var.pSlot] == null || #global.nxtProbeResults[var.pS
     set global.nxtProbeResults[var.pSlot] = { vector(#move.axes + 1, 0.0) }
 
 set global.nxtProbeResults[var.pSlot][var.probeAxis] = { global.nxtLastProbeResult }
-
-G27 Z1
 
 echo "G6510: Index " ^ var.pSlot ^ " " ^ move.axes[var.probeAxis].letter ^ "=" ^ global.nxtLastProbeResult
 

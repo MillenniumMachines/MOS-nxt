@@ -40,8 +40,8 @@ These features form the core of the new nxt system and must be implemented for t
 
 #### **Probing Cycles**
 - [x] These will be re-implemented to log their results to the new Probe Results Table.
-    - [x] Bore (`G6500`) - Probe both sides of the bore in X and Y and find the centre point (4 probe points total)
-    - [x] Boss (`G6501`) - Probe both sides of the boss in X and Y and find the centre point (4 probe points total)
+    - [x] Bore (`G6500`) - Three triangulated inward touches at 120° via `G6513` (`D1 H1` stay at dive Z); circumcenter fit
+    - [x] Boss (`G6501`) - Three triangulated OD touches at 120° via `G6513` with approach clearance `C`; raise between touches; circumcenter fit
     - [x] Rectangle Pocket (`G6502`) - Probe all 4 edges of the pocket in X and Y, and find the centre point (4 probe points total)
     - [x] Rectangle Block (`G6503`) - Probe 3 points on each of 4 outside faces (12 total, CCW perimeter) and find the centre
     - [x] Web (X/Y) (`G6504`) - Probe a block (web) in either X OR Y, and find the centre point on that axis (2 probe points total)

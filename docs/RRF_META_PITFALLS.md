@@ -1,0 +1,135 @@
+# RRF meta pitfalls (nxt probing / macros)
+
+Hard-won constraints from rewriting UI probe cycles (`G650x` / `G6520` / `G6550` / `G6512`) on the RRF **3.7** line. Prefer this over rediscovering faults on the machine.
+
+Related: [RRF_LINE_LENGTH.md](RRF_LINE_LENGTH.md), [CODE.md](CODE.md), [RRF_META.txt](RRF_META.txt), [RRF_3.7_MIGRATION.md](RRF_3.7_MIGRATION.md), [GCODE.md](../GCODE.md).
+
+## 1. `^` is concatenation, not power
+
+In RRF meta, **`^` concatenates strings** (and in 3.7+, arrays). It is **not** exponentiation.
+
+| Symptom | Cause |
+|---------|--------|
+| `missing expected numeric operand` on lines with `sqrt((…)^2 + …)` | `(dx)^2` is parsed as concat, then fed to `sqrt` |
+
+**Do:**
+
+```gcode
+var dx = { var.cx - var.hx }
+var dy = { var.cy - var.hy }
+var r = { sqrt(var.dx * var.dx + var.dy * var.dy) }
+; or: sqrt(pow(var.dx, 2) + pow(var.dy, 2))
+```
+
+**Do not:** `sqrt((…)^2 + (…)^2)` or `var.deltaX^2`.
+
+**Gate:** `node dist/check-rrf-caret-power.mjs` (also run by `build-plugin.sh`). Bans `^N` inside `{…}` meta expressions.
+
+## 2. Axis count — never assume A exists
+
+`#move.axes` is often **3** (Milo / no rotary). Arrays sized to `#move.axes` have no index `[3]`.
+
+| Symptom | Cause |
+|---------|--------|
+| Meta errors around `G6550` target build / `G38.3 … A{…}` | Always indexing `targetCoords[3]` or emitting `A` on a 3-axis machine |
+
+**Do (pattern from `G6512` / fixed `G6550`):**
+
+```gcode
+M5000
+var targetCoords = { global.nxtAbsPos }
+var hasA = { #var.targetCoords > 3 }
+if { var.hasA && exists(param.A) }
+    set var.targetCoords[3] = { param.A }
+if { var.hasA }
+    ; M6515 / G38.3 with A
+else
+    ; M6515 / G38.3 without A
+```
+
+Prefer `exists(param.X)` / `exists(param.Y)` / … over `{ param.X, param.Y, param.Z, param.A }` when mutating a pose vector whose length is `#move.axes`.
+
+## 3. Probe dive height — never park before capturing `startZ`
+
+`G27 Z1` does `G53 G0 Z{move.axes[2].max}`. On many machines Z max displays as **0**, so a pre-dive park looks like “raise to Z0”, and `L` then drops from **park**, not the jogged height.
+
+| Symptom | Cause |
+|---------|--------|
+| Cycle raises to Z0 / Z max then probes at the wrong height | `G27` (or Enable Probe raise) before `M5000` → `startZ` |
+
+**Contract for UI probe cycles (`G6500`…`G6520`):**
+
+1. Operator jogs to start XYZ (probe already selected).
+2. `M5000` → `startZ = nxtAbsPos[2]`.
+3. Dive: `G6550 Z{startZ - L}` only (drop by `L`; no raise).
+4. Horizontal probes at dive Z.
+5. End at `startZ` (or feature result Z for vise corner) — **not** `G27` Z max.
+
+Enable Probe may still raise to Z max **before** `T…` for tool change safety; the operator must re-jog before Execute.
+
+## 4. `nxtProbeHitXY` starts `null`
+
+Boot declares `global nxtProbeHitXY = null`. `#null` and arithmetic on slots fail with numeric-operand / length errors.
+
+`G6512 … Hn` allocates and writes hit XY only when `H` is set **and** hits were recorded. Cycles that read H0…Hn must:
+
+1. Assert buffer exists, non-null, and length sufficient **before** slot reads.
+2. Abort on null coordinates (clearer than a mid-`sqrt` fault).
+
+`G6512` itself aborts if `H` was requested but `finalHitN == 0` (do not silently skip the write).
+
+## 5. Null-safe parameter checks
+
+`!exists(param.L) || param.L <= 0` is unsafe if the letter exists with a **null** value (`null <= 0` → numeric operand).
+
+**Do:** `!exists(param.L) || param.L == null || param.L <= 0` (same for `D` / `W` / `H` as needed).
+
+## 6. Brace every assignment / expression
+
+Unbracketed aliases are brittle:
+
+```gcode
+; Bad
+var x1 = var.xPx
+; Good
+var x1 = { var.xPx }
+```
+
+See [CODE.md](CODE.md) § Expression Handling.
+
+## 7. Line length ≤ 200
+
+Overlong lines → `GCode command too long` (boot killer on `nxt.g`). Split compound `if` / long `echo` / `abort` / `M291`. Gate: `node dist/check-gcode-line-length.mjs`. Full policy: [RRF_LINE_LENGTH.md](RRF_LINE_LENGTH.md).
+
+## 8. Positive-Z shortcut in `G6550`
+
+`G6550` treats **Z-only upward** moves as unprotected `G53 G1` **only when the probe is clear**. If the stylus is already triggered on a Z-only raise, it **aborts** instead of silent `G1`. If already triggered on any other move, it first **`G1` toward the commanded target** (clear/retract direction the caller requested) — never away from target (that drove into the bore wall after `G6512.1` retract). Then the main move uses probe-protected `G38.3`. Do not pass a dive target that is **above** current Z unless you intend a raise.
+
+Probe cycles (`G6500` / `G6501`, etc.) must reposition with **`G6550`**, never bare `G0`/`G1`. Bore/boss triangulation uses **`G6513`** → **`G6512.1`** for radial contacts; other UI cycles use single-axis **`G6512`**. Post-touch backoff in **`G6512`** is feed (`G1`), not rapid.
+
+## Checklist before claiming probe-macro work done
+
+```bash
+node dist/check-gcode-line-length.mjs
+node dist/check-rrf-caret-power.mjs
+node dist/check-g6512-axis-contract.mjs
+# then build-plugin.sh <DWC> and reinstall ZIP so SD macros update
+```
+
+After install, confirm bore dive echoes `startZ` / `L` / `diveZ` with `diveZ < startZ` before XY probes.
+
+## Validation sweep (v0.7.0-beta.1-bugs)
+
+Repo scan after documenting these pitfalls:
+
+| Pitfall | Status |
+|---------|--------|
+| `^N` as power in `{…}` | Clean (`check-rrf-caret-power`) |
+| UI `G650x`/`G6510`/`G6520` pre-dive `G27` | Removed |
+| `G6550` / `G6512` A-axis without `hasA` | Gated |
+| UI cycle hit-buffer guards | Present on H-slot cycles |
+| `!exists \|\| <=` without `== null` on UI D/L/W/H/S | Hardened (`G6502`/`03`/`06`/`08`, `.1` N checks) |
+| `G6510` `{ param.X, param.Y, param.Z }` | Rewritten to `exists()` fill |
+| Deflection element `null * 1000` | Guarded in `G6512` |
+
+Still intentional (out of UI dive path): `G6511` / `G6512.1` error-path `G27 Z1` park; Enable Probe raise to Z max before `T…`.

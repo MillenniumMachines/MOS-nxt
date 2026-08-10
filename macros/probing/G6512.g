@@ -101,15 +101,18 @@ var applyAxisDefl = { var.applyTouchDefl && var.probeAxisIndex >= 0 && var.probe
 if { var.applyAxisDefl && exists(global.nxtProbeDeflection) && global.nxtProbeDeflection != null }
     var deflLen = { #global.nxtProbeDeflection }
     if { var.deflLen >= 3 }
-        set var.probeDeflectionUm = { global.nxtProbeDeflection[var.probeAxisIndex] * 1000 }
+        if { global.nxtProbeDeflection[var.probeAxisIndex] != null }
+            set var.probeDeflectionUm = { global.nxtProbeDeflection[var.probeAxisIndex] * 1000 }
     elif { var.deflLen >= 2 }
         if { var.probeAxisIndex == 1 }
-            set var.probeDeflectionUm = { global.nxtProbeDeflection[1] * 1000 }
-        else
+            if { global.nxtProbeDeflection[1] != null }
+                set var.probeDeflectionUm = { global.nxtProbeDeflection[1] * 1000 }
+        elif { global.nxtProbeDeflection[0] != null }
             ; X or legacy Z → X component
             set var.probeDeflectionUm = { global.nxtProbeDeflection[0] * 1000 }
     elif { var.deflLen >= 1 }
-        set var.probeDeflectionUm = { global.nxtProbeDeflection[0] * 1000 }
+        if { global.nxtProbeDeflection[0] != null }
+            set var.probeDeflectionUm = { global.nxtProbeDeflection[0] * 1000 }
     else
         ; Scalar legacy
         set var.probeDeflectionUm = { global.nxtProbeDeflection * 1000 }
@@ -143,7 +146,7 @@ while { var.attempt < var.outerLimit && var.toleranceOk == false }
 
     var sum = 0.0
     var count = 0
-    var speed = var.roughSpeed
+    var speed = { var.roughSpeed }
     var pairsOk = true
     var v1Um = 0.0
     var v2Um = 0.0
@@ -156,7 +159,7 @@ while { var.attempt < var.outerLimit && var.toleranceOk == false }
     while { var.innerIdx < var.retries }
         M5000
 
-        var startPos = global.nxtAbsPos
+        var startPos = { global.nxtAbsPos }
 
         if { var.hasA }
             G53 G38.2 K{param.I} F{var.speed} X{var.targetVector[0]} Y{var.targetVector[1]} Z{var.targetVector[2]} A{var.targetVector[3]}
@@ -226,10 +229,11 @@ while { var.attempt < var.outerLimit && var.toleranceOk == false }
                 set var.backoffVector[#var.backoffVector] = 0
         set var.backoffVector[var.probeAxisIndex] = var.backoffTarget
 
+        ; Feed backoff — never G0 while recovering from a touch
         if { var.hasA }
-            G53 G0 X{var.backoffVector[0]} Y{var.backoffVector[1]} Z{var.backoffVector[2]} A{var.backoffVector[3]}
+            G53 G1 F{var.speed} X{var.backoffVector[0]} Y{var.backoffVector[1]} Z{var.backoffVector[2]} A{var.backoffVector[3]}
         else
-            G53 G0 X{var.backoffVector[0]} Y{var.backoffVector[1]} Z{var.backoffVector[2]}
+            G53 G1 F{var.speed} X{var.backoffVector[0]} Y{var.backoffVector[1]} Z{var.backoffVector[2]}
 
         if { sensors.probes[param.I].recoveryTime > 0 }
             G4 P{ ceil(sensors.probes[param.I].recoveryTime * 1000) }
@@ -263,7 +267,9 @@ if { var.toleranceOk == false }
 
 set global.nxtLastProbeResult = { round(var.finalSumUm / var.finalCount) / 1000 }
 
-if { exists(param.H) && param.H != null && var.finalHitN > 0 }
+if { exists(param.H) && param.H != null }
+    if { var.finalHitN <= 0 }
+        abort { "G6512: H" ^ param.H ^ " requested but no XY hits were recorded" }
     ; nxt-vars declares nxtProbeHitXY null — never use # on null.
     if { !exists(global.nxtProbeHitXY) }
         global nxtProbeHitXY = { vector(8, 0.0) }

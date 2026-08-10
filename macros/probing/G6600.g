@@ -14,8 +14,6 @@ if { !global.nxtFeatureTouchProbe }
 if { global.nxtTouchProbeID == null }
     abort { "G6600: nxtTouchProbeID not configured" }
 
-G27 Z1
-
 var wcsNum = { move.workplaceNumber + 1 }
 if { exists(param.W) && param.W != null }
     if { param.W < 0 || param.W > 8 }
@@ -37,6 +35,13 @@ if { input == 2 }
 if { input == 1 }
     echo "G6600: Continuing after DWC probing"
     M99
+
+; Do not park before capturing start Z — jog at probe height, then G6520 L from that Z
+var nxtJogMsgA = "Please jog the probe <b>OVER</b> the vise corner at probe height and press <b>OK</b>.<br/>"
+var nxtJogMsgB = { var.nxtJogMsgA ^ "<b>CAUTION</b>: That height is the start Z; L dives relative to it." }
+M291 P{var.nxtJogMsgB} R"Workpiece probe" X1 Y1 Z1 J1 T0 S3
+if { result != 0 }
+    abort { "G6600: Vise corner probing cancelled" }
 
 var depth = 10.0
 var pSlot = { var.wcsNum - 1 }

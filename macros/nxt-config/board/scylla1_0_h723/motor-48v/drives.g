@@ -1,13 +1,5 @@
 ; drives.g - Configures motor driver settings
-
-; Physical drive 0 (X) goes forwards using default driver timings
-M569 P0 S1
-
-; Physical drive 1 (Y) goes forwards using default driver timings
-M569 P1 S1
-
-; Physical drive 2 (Z) goes backwards using default driver timings
-M569 P2 S1
+; XYZ M569 directions: machine/<profile>/drives-dir.g (after board pack)
 
 ; Set non-standard sense resistors for the BTT 5160 drivers
 M569.9 P0.0 R0.05

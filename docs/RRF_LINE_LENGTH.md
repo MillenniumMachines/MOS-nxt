@@ -70,4 +70,6 @@ Also runs automatically at the start of `dist/build-plugin.sh` and `dist/build-p
 ## Related docs
 
 - [CODE.md](CODE.md) — macro style (includes line-length summary)
-- [macros/system/RRF_META.txt](../macros/system/RRF_META.txt) — CNC meta syntax
+- [RRF_META_PITFALLS.md](RRF_META_PITFALLS.md) — `^` vs power, A-axis indexing, probe dive/`startZ`, hit buffers
+- [RRF_META.txt](RRF_META.txt) — CNC meta syntax
+- [macros/system/](../macros/system/) — boot macros

@@ -36,8 +36,12 @@ else
 if { var.pSlot < 0 || var.pSlot >= #global.nxtProbeResults }
     abort { "G6506: Result slot out of range" }
 
-if { !exists(param.N) || !exists(param.D) || !exists(param.S) || !exists(param.L) }
-    abort { "G6506: N D S L required" }
+if { !exists(param.N) || param.N == null || !exists(param.D) || param.D == null }
+    abort { "G6506: N and D are required" }
+if { !exists(param.S) || param.S == null || param.S <= 0 }
+    abort { "G6506: Spacing S is required and must be positive" }
+if { !exists(param.L) || param.L == null || param.L <= 0 }
+    abort { "G6506: Depth L is required and must be positive" }
 
 if { param.N != 0 && param.N != 1 }
     abort { "G6506: N must be 0 or 1" }
@@ -81,6 +85,13 @@ if { param.N == 0 }
     G6512 Y{var.yTgt1} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H1
     G6550 Z{var.startZ}
 
+    if { !exists(global.nxtProbeHitXY) || global.nxtProbeHitXY == null || #global.nxtProbeHitXY < 4 }
+        abort { "G6506: Missing probe hits in nxtProbeHitXY" }
+    if { global.nxtProbeHitXY[0] == null || global.nxtProbeHitXY[1] == null }
+        abort { "G6506: Null hit A — check G6512 H0 writes" }
+    if { global.nxtProbeHitXY[2] == null || global.nxtProbeHitXY[3] == null }
+        abort { "G6506: Null hit B — check G6512 H1 writes" }
+
     var xA = { global.nxtProbeHitXY[0] }
     var yA = { global.nxtProbeHitXY[1] }
     var xB = { global.nxtProbeHitXY[2] }
@@ -104,6 +115,13 @@ else
     G6550 Z{var.probeZ}
     G6512 X{var.xTgt1} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H1
     G6550 Z{var.startZ}
+
+    if { !exists(global.nxtProbeHitXY) || global.nxtProbeHitXY == null || #global.nxtProbeHitXY < 4 }
+        abort { "G6506: Missing probe hits in nxtProbeHitXY" }
+    if { global.nxtProbeHitXY[0] == null || global.nxtProbeHitXY[1] == null }
+        abort { "G6506: Null hit A — check G6512 H0 writes" }
+    if { global.nxtProbeHitXY[2] == null || global.nxtProbeHitXY[3] == null }
+        abort { "G6506: Null hit B — check G6512 H1 writes" }
 
     var xA = { global.nxtProbeHitXY[0] }
     var yA = { global.nxtProbeHitXY[1] }
@@ -134,8 +152,6 @@ if { global.nxtProbeResults[var.pSlot] == null || #global.nxtProbeResults[var.pS
 set global.nxtProbeResults[var.pSlot][0] = { var.midpointX }
 set global.nxtProbeResults[var.pSlot][1] = { var.midpointY }
 set global.nxtProbeResults[var.pSlot][#move.axes] = { var.rotationDeg }
-
-G27 Z1
 
 echo "G6506: Edge midpoint X=" ^ var.midpointX ^ " Y=" ^ var.midpointY
 echo "G6506: Edge angle vs machine X: " ^ var.rotationDeg ^ " deg"

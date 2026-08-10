@@ -1,4 +1,4 @@
-; limits.g — machine travel (M208). Endstop pins: board pack endstops.g; Y direction: endstop-y.g
+; limits.g — machine travel (M208). Pins: board endstops.g; dirs/locs: drives-dir.g + endstops.g
 
 ; Set axis limits - minima
 M208 X0 Y0 Z-120 S1

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-05T03:06:43.487Z",
+  "generatedAt": "2026-08-10T04:35:53.812Z",
   "boards": [
     {
       "shortName": "scylla1_0_h723",
@@ -295,7 +295,7 @@
     },
     {
       "id": "v1.5",
-      "title": "Milo v1.5 board packs (nxt)",
+      "title": "Milo v1.5 machine pack (nxt)",
       "hasCommonDeploy": true,
       "sysDeployFiles": [
         "homeall.g",
@@ -359,7 +359,7 @@
     },
     {
       "id": "v1.5",
-      "title": "Milo v1.5 board packs (nxt)",
+      "title": "Milo v1.5 machine pack (nxt)",
       "hasCommonDeploy": true,
       "sysDeployFiles": [
         "homeall.g",

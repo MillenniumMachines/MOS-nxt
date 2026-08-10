@@ -39,10 +39,10 @@ else
 if { var.pSlot < 0 || var.pSlot >= #global.nxtProbeResults }
     abort { "G6505: Result slot out of range" }
 
-if { !exists(param.W) || param.W <= 0 }
+if { !exists(param.W) || param.W == null || param.W <= 0 }
     abort { "G6505: W required" }
 
-if { !exists(param.L) || param.L <= 0 }
+if { !exists(param.L) || param.L == null || param.L <= 0 }
     abort { "G6505: L required" }
 
 var probeAxis = { param.N }

@@ -7,7 +7,9 @@
 ; Does NOT apply M92/M425 — Calibration UI classifies (backlash only) and applies M425.
 ; Use Phase 3 dual-dimension spans for steps/mm.
 ;
-; USAGE: G9000 X0 | Y0 | Z0
+; USAGE: G9000 X0 | Y0 | Z0 [J0] [H±1]
+;   J0: skip jog M291 (already at approach, e.g. after M5018)
+;   H: toward-surface dir (+1 / -1); required with J0, else prompted
 ; Requires: nxtFeatureTouchProbe, nxtTouchProbeID, probe tool selected.
 
 if { !inputs[state.thisInput].active }
@@ -36,20 +38,36 @@ if { var.axisIdx >= #move.axes || !move.axes[var.axisIdx].visible }
 var letter = { move.axes[var.axisIdx].letter }
 var probeId = { global.nxtTouchProbeID }
 
+var skipJog = { false }
+if { exists(param.J) && param.J == 0 }
+    set var.skipJog = { true }
+
 G90
 G21
 G94
 
 var jogA = { "G9000 on " ^ var.letter ^ ". Orient 1-2-3 with 3in ∥ X; jog near the face, then OK." }
-M291 P{var.jogA} R"nxt: G9000" X1 Y1 Z1 J1 T0 S3
-if { result != 0 }
-    abort { "G9000: Operator cancelled" }
+if { !var.skipJog }
+    M291 P{var.jogA} R"nxt: G9000" X1 Y1 Z1 J1 T0 S3
+    if { result != 0 }
+        abort { "G9000: Operator cancelled" }
+
+var dir = { 0 }
+var haveDir = { false }
+if { exists(param.H) && param.H != null }
+    if { param.H == 1 || param.H == -1 }
+        set var.dir = { param.H }
+        set var.haveDir = { true }
 
 var dirNames = { "Toward + machine", "Toward - machine" }
-M291 P"Probe direction toward the surface?" R"nxt: G9000" S4 K{var.dirNames} F0 T0
-if { result != 0 }
-    abort { "G9000: Operator cancelled" }
-var dir = { input == 0 ? 1 : -1 }
+if { !var.haveDir }
+    if { var.skipJog }
+        abort { "G9000: J0 requires H±1 (toward-surface direction)" }
+    M291 P"Probe direction toward the surface?" R"nxt: G9000" S4 K{var.dirNames} F0 T0
+    if { result != 0 }
+        abort { "G9000: Operator cancelled" }
+    set var.dir = { input == 0 ? 1 : -1 }
+
 var dirAway = { 0 - var.dir }
 
 M5000 P0

@@ -17,6 +17,8 @@ This is the **evaluation target**: PR review, macro design, and docs on branch *
 
 **Migration from 3.6:** [RRF_3.7_MIGRATION.md](RRF_3.7_MIGRATION.md)
 
+**Meta pitfalls (probing / macros):** [RRF_META_PITFALLS.md](RRF_META_PITFALLS.md) — `^` is not power, 3-axis `G6550`, dive from jogged `startZ`, `nxtProbeHitXY` null, line length.
+
 **Useful links**
 
 - [Duet3D G-code dictionary](https://docs.duet3d.com/User_manual/Reference/Gcodes) (select documentation matching the reference RRF generation)

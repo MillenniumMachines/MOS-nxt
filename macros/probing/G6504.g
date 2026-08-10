@@ -88,6 +88,11 @@ if { var.probeAxis == 0 }
     G6512 X{var.xMinusTarget} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H1
     G6550 Z{var.startZ}
 
+    if { !exists(global.nxtProbeHitXY) || global.nxtProbeHitXY == null || #global.nxtProbeHitXY < 4 }
+        abort { "G6504: Missing probe hits in nxtProbeHitXY" }
+    if { global.nxtProbeHitXY[0] == null || global.nxtProbeHitXY[2] == null }
+        abort { "G6504: Null ±X hit — check G6512 H0/H1 writes" }
+
     var calculatedCenter = { (global.nxtProbeHitXY[0] + global.nxtProbeHitXY[2]) / 2 }
     var actualWidth = { abs(global.nxtProbeHitXY[0] - global.nxtProbeHitXY[2]) }
 
@@ -115,6 +120,11 @@ else
     G6512 Y{var.yMinusTarget} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H1
     G6550 Z{var.startZ}
 
+    if { !exists(global.nxtProbeHitXY) || global.nxtProbeHitXY == null || #global.nxtProbeHitXY < 4 }
+        abort { "G6504: Missing probe hits in nxtProbeHitXY" }
+    if { global.nxtProbeHitXY[1] == null || global.nxtProbeHitXY[3] == null }
+        abort { "G6504: Null ±Y hit — check G6512 H0/H1 writes" }
+
     var calculatedCenter = { (global.nxtProbeHitXY[1] + global.nxtProbeHitXY[3]) / 2 }
     var actualWidth = { abs(global.nxtProbeHitXY[1] - global.nxtProbeHitXY[3]) }
 
@@ -129,7 +139,6 @@ set global.nxtProbeResults[var.pSlot][1] = { var.resultY }
 set global.nxtProbeResults[var.pSlot][#move.axes] = 0.0
 
 G6550 X{var.resultX} Y{var.resultY}
-G27 Z1
 
 echo "G6504: Web probe completed"
 echo "G6504: Web center along " ^ var.axisName ^ " axis: " ^ var.calculatedCenter

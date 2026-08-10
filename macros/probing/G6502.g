@@ -45,8 +45,12 @@ else
 if { var.pSlot < 0 || var.pSlot >= #global.nxtProbeResults }
     abort { "G6502: Result slot out of range" }
 
-if { !exists(param.W) || !exists(param.H) || !exists(param.L) }
-    abort { "G6502: Width (W), Height (H), and Depth (L) parameters are required" }
+if { !exists(param.W) || param.W == null || param.W <= 0 }
+    abort { "G6502: Width W is required and must be positive" }
+if { !exists(param.H) || param.H == null || param.H <= 0 }
+    abort { "G6502: Height H is required and must be positive" }
+if { !exists(param.L) || param.L == null || param.L <= 0 }
+    abort { "G6502: Depth L is required and must be positive" }
 
 ; Set parameters
 var feedRate = { exists(param.F) ? param.F : null }
@@ -107,6 +111,9 @@ G6512 Y{var.yMinusTarget} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retrie
 
 ; Chord vectors from opposing pocket walls; skew θ = angle of X chord vs machine X.
 ; Center = mean of (midpoint of X pair) and (midpoint of Y pair) — see G6500 header.
+if { !exists(global.nxtProbeHitXY) || global.nxtProbeHitXY == null || #global.nxtProbeHitXY < 8 }
+    abort { "G6502: Missing probe hits in nxtProbeHitXY" }
+
 var xPx = { global.nxtProbeHitXY[0] }
 var xPy = { global.nxtProbeHitXY[1] }
 var xMx = { global.nxtProbeHitXY[2] }
@@ -115,6 +122,11 @@ var yPx = { global.nxtProbeHitXY[4] }
 var yPy = { global.nxtProbeHitXY[5] }
 var yMx = { global.nxtProbeHitXY[6] }
 var yMy = { global.nxtProbeHitXY[7] }
+
+if { var.xPx == null || var.xPy == null || var.xMx == null || var.xMy == null }
+    abort { "G6502: Null ±X hit — check G6512 H0/H1 writes" }
+if { var.yPx == null || var.yPy == null || var.yMx == null || var.yMy == null }
+    abort { "G6502: Null ±Y hit — check G6512 H2/H3 writes" }
 
 var vx = { var.xPx - var.xMx }
 var vy = { var.xPy - var.xMy }

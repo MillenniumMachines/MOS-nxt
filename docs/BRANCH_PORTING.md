@@ -56,12 +56,12 @@ Do **not** port `ui/src/compat/dwcStore.ts` or `vueCompat.ts` to v0.6.0.
 
 - Line length ≤ **200** chars (`node dist/check-gcode-line-length.mjs`)
 - OM hygiene (`node dist/check-om-global-budget.mjs`)
-- **CDYv3 endstop:** `machine/*/endstop-y.g` must use board conditional (`PD_11` CDYv3, `PD_14` Scylla) — never copy v0.7.0 Scylla-only `endstop-y.g` to v0.6.0
+- **CDYv3 endstop:** On v0.6.0, keep board-conditional Y pins (`PD_11` CDYv3, `PD_14` Scylla) — never copy v0.7.0 Scylla-only `machine/*/endstops.g` wholesale to v0.6.0
 - Regenerate manifest if `nxt-config/` changed
 
 ## CDYv3 endstop guard
 
-v0.7.0 hard-codes Scylla `PD_14` in machine `endstop-y.g` (CDYv3 dropped). On v0.6.0, preserve:
+v0.7.0 hard-codes Scylla pins in stock `machine/*/endstops.g` (full XYZ; CDYv3 dropped). On v0.6.0, preserve board conditionals for Y (and any axis that still shares a pin map):
 
 ```gcode
 if { exists(global.nxtBoardPackShortName) && global.nxtBoardPackShortName == "scylla1_0_h723" }

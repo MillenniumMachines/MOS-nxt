@@ -1,9 +1,9 @@
-Milo v1.5 board packs (nxt)
+Milo v1.5 machine pack (nxt)
 ============================
 Homing requirements: docs/NXT_BOARD_HOMING.md (v1.5 — X min, Y max, Z top).
 
-nxt ships board-specific entry.g chains under 0:/sys/nxt-config/v1.5/boards/
-(RRF boards[0].shortName and motor supply where applicable).
+Edit under nxt-config/machine/v1.5/ for Milo v1.5 (drives-dir.g, endstops.g,
+steps.g, limits, homing deploy). Shared boards live under nxt-config/board/.
 
 Automatic pack load (opt-in) runs from nxt.g after nxt-vars.g and nxt-user-vars.g
 via macros/system/nxt-board-pack-loader.g — see docs/NXT_BOARD_CONFIG.md.
@@ -11,7 +11,7 @@ via macros/system/nxt-board-pack-loader.g — see docs/NXT_BOARD_CONFIG.md.
 1. nxt Configuration: Platform v1.5, bootstrap Auto, Save (writes nxt-user-vars.g and nxt-board-bootstrap.requested).
 2. Optionally create 0:/sys/nxt-board-bootstrap.skip to hard-disable pack load.
 3. For motor-variant boards: global nxtBoardMotorVoltage = 24 or 48 in nxt-user-vars.g.
-4. For a fully manual chain, add 0:/sys/nxt-user-board.g with M98 P"nxt-config/v1.5/boards/.../entry.g"
+4. For a fully manual chain, add 0:/sys/nxt-user-board.g with M98 P"nxt-config/board/.../entry.g"
    (see macros/system/nxt-user-board.g.example).
 
 config.g: For a thin install, call M98 P"nxt.g" early and avoid duplicating M98 lines for

@@ -93,7 +93,7 @@
               </v-window-item>
 
               <!-- Calibration Tab -->
-              <v-window-item>
+              <v-window-item eager>
                 <div class="pa-4">
                   <nxt-calibration-panel />
                 </div>

@@ -11,9 +11,37 @@
         {{ $t('plugins.nxt.panels.probingCycles.touchProbeWarning') }}
       </v-alert>
 
-      <v-alert v-else-if="!touchProbeSelected" type="info" density="compact" variant="outlined" class="mb-4">
-        <v-icon class="mr-2" size="small">mdi-information</v-icon>
-        {{ $t('plugins.nxt.panels.probingCycles.selectProbeTool', [probeToolId]) }}
+      <v-alert
+        v-else-if="probeToolId == null"
+        type="warning"
+        density="compact"
+        variant="outlined"
+        class="mb-4"
+      >
+        {{ $t('plugins.nxt.panels.probingCycles.probeToolIdUnset') }}
+      </v-alert>
+
+      <v-alert
+        v-else-if="!touchProbeSelected"
+        type="info"
+        density="compact"
+        variant="outlined"
+        class="mb-4"
+      >
+        <div class="d-flex flex-column flex-sm-row align-sm-center justify-space-between ga-3">
+          <div>
+            <v-icon class="mr-2" size="small">mdi-information</v-icon>
+            {{ $t('plugins.nxt.panels.probingCycles.selectProbeTool', [probeToolId]) }}
+          </div>
+          <v-btn
+            color="primary"
+            :loading="enableProbeBusy"
+            :disabled="uiFrozen || !isConnected || enableProbeBusy"
+            @click="enableProbe"
+          >
+            {{ $t('plugins.nxt.panels.probingCycles.enableProbe') }}
+          </v-btn>
+        </div>
       </v-alert>
 
       <v-row density="compact" class="mb-3">
@@ -126,7 +154,9 @@
               <v-col cols="12" sm="6" md="4" v-if="cycleConfig.params.includes('L')">
                 <v-text-field
                   v-model.number="params.depth"
-                  label="Depth (L)"
+                  :label="$t('plugins.nxt.panels.probingCycles.depthLabel')"
+                  :hint="$t('plugins.nxt.panels.probingCycles.depthHint')"
+                  persistent-hint
                   suffix="mm"
                   type="number"
                   variant="outlined"
@@ -217,15 +247,20 @@
                             persistent-hint
                           />
                         </v-col>
-                        <v-col cols="12" sm="6" md="4">
+                        <v-col
+                          cols="12"
+                          sm="6"
+                          md="4"
+                          v-if="cycleConfig.params.includes('C')"
+                        >
                           <v-text-field
                             v-model.number="params.clearance"
-                            label="Clearance (C)"
+                            :label="$t('plugins.nxt.panels.probingCycles.approachClearance')"
+                            :hint="$t('plugins.nxt.panels.probingCycles.approachClearanceHint')"
                             suffix="mm"
                             type="number"
                             variant="outlined"
                             density="compact"
-                            hint="Default: 5.0mm"
                             persistent-hint
                           />
                         </v-col>
@@ -286,6 +321,12 @@
 
 <script lang="ts">
 import { defineNxtComponent } from '../base/BaseComponent.vue'
+import {
+  enableNxtProbeTool,
+  isNxtFeatureTouchProbe,
+  isNxtProbeToolLoaded,
+  resolveNxtProbeToolId
+} from '../../utils/nxtEnableProbe'
 
 interface CycleConfig {
   gcode: string
@@ -321,6 +362,7 @@ export default defineNxtComponent({
       jogCapableCycles: ['G6500', 'G6501', 'G6502', 'G6503', 'G6504', 'G6505', 'G6508', 'G6510', 'G6520'],
       formValid: false,
       executing: false,
+      enableProbeBusy: false,
       params: {
         diameter: null,
         width: null,
@@ -353,23 +395,25 @@ export default defineNxtComponent({
         G6500: {
           gcode: 'G6500',
           name: 'Bore Probe',
-          description: 'Probes a circular bore by probing in 4 directions (±X, ±Y) to find the center.',
+          description:
+            'Three triangulated inward touches at 120° (G6513); circumcenter fit. Stays at dive Z between touches (D1 H1). No approach clearance (start inside).',
           icon: 'mdi-circle-outline',
           params: ['D', 'L']
         },
         G6501: {
           gcode: 'G6501',
           name: 'Boss Probe',
-          description: 'Probes a circular boss from outside in 4 directions (±X, ±Y) to find the center.',
+          description:
+            'Three triangulated OD touches at 120° (G6513) with outside approach clearance C; circumcenter fit. Raises to start Z between touches.',
           icon: 'mdi-circle',
-          params: ['D', 'L']
+          params: ['D', 'L', 'C']
         },
         G6502: {
           gcode: 'G6502',
           name: 'Rectangle Pocket',
           description: 'Probes all 4 edges of a rectangular pocket in X and Y to find the center.',
           icon: 'mdi-rectangle-outline',
-          params: ['W', 'H', 'L']
+          params: ['W', 'H', 'L', 'C']
         },
         G6503: {
           gcode: 'G6503',
@@ -377,21 +421,21 @@ export default defineNxtComponent({
           description:
             'Probes 3 points on each of 4 outside faces (12 total, CCW perimeter) to find the block center.',
           icon: 'mdi-rectangle',
-          params: ['W', 'H', 'L']
+          params: ['W', 'H', 'L', 'C']
         },
         G6504: {
           gcode: 'G6504',
           name: 'Web (X/Y)',
           description: 'Probes a web (block) in either X or Y to find the center point on that axis.',
           icon: 'mdi-arrow-left-right',
-          params: ['N', 'W', 'L']
+          params: ['N', 'W', 'L', 'C']
         },
         G6505: {
           gcode: 'G6505',
           name: 'Pocket (X/Y)',
           description: 'Probes a pocket in either X or Y to find the center point on that axis.',
           icon: 'mdi-arrow-expand-horizontal',
-          params: ['N', 'W', 'L']
+          params: ['N', 'W', 'L', 'C']
         },
         G6506: {
           gcode: 'G6506',
@@ -405,14 +449,14 @@ export default defineNxtComponent({
           name: 'Outside Corner',
           description: 'Probes an assumed-90-degree outside corner to find the intersection point.',
           icon: 'mdi-arrow-top-left',
-          params: ['L']
+          params: ['L', 'C']
         },
         G6509: {
           gcode: 'G6509',
           name: 'Inside Corner',
           description: 'Probes an assumed-90-degree inside corner to find the intersection point.',
           icon: 'mdi-arrow-bottom-right',
-          params: ['L']
+          params: ['L', 'C']
         },
         G6510: {
           gcode: 'G6510',
@@ -426,7 +470,7 @@ export default defineNxtComponent({
           name: 'Vise Corner',
           description: 'Z probe for vise top, then outside corner probe for X/Y position (3 probes total).',
           icon: 'mdi-desk',
-          params: ['L']
+          params: ['L', 'C']
         }
       } as Record<string, CycleConfig>,
       axisOptions: [
@@ -446,13 +490,17 @@ export default defineNxtComponent({
   },
   computed: {
     touchProbeEnabled(): boolean {
-      return this.globals.nxtFeatureTouchProbe === true
+      return isNxtFeatureTouchProbe(this.$store.state.machine.model.global)
     },
-    probeToolId(): number {
-      return this.globals.nxtProbeToolID
+    probeToolId(): number | null {
+      return resolveNxtProbeToolId(this.$store.state.machine.model.global)
     },
     touchProbeSelected(): boolean {
-      return this.$store.state.machine.model?.state?.currentTool === this.probeToolId
+      const cur = this.$store.state.machine.model?.state?.currentTool
+      const idx = typeof cur === 'number' ? cur : null
+      const toolNumRaw = this.currentTool?.number
+      const toolNum = typeof toolNumRaw === 'number' ? toolNumRaw : null
+      return isNxtProbeToolLoaded(idx, this.probeToolId, toolNum)
     },
     wcsOptions(): { text: string; value: number }[] {
       // 1–9 = G54–G59.3 (M6520 W / probe U). WCS1 = G54, WCS2 = G55, …
@@ -505,6 +553,31 @@ export default defineNxtComponent({
     }
   },
   methods: {
+    async enableProbe() {
+      const id = this.probeToolId
+      if (id == null) {
+        this.$store.dispatch('machine/showMessage', {
+          type: 'error',
+          message: this.$t('plugins.nxt.panels.probingCycles.probeToolIdUnset').toString()
+        })
+        return
+      }
+      this.enableProbeBusy = true
+      try {
+        await enableNxtProbeTool((c: string) => this.sendCode(c), id)
+        this.$store.dispatch('machine/showMessage', {
+          type: 'success',
+          message: this.$t('plugins.nxt.panels.probingCycles.enableProbeDone', [id]).toString()
+        })
+      } catch (error) {
+        this.$store.dispatch('machine/showMessage', {
+          type: 'error',
+          message: `${this.$t('plugins.nxt.panels.probingCycles.enableProbe').toString()} failed: ${error}`
+        })
+      } finally {
+        this.enableProbeBusy = false
+      }
+    },
     async executeCycle() {
       if (!this.canExecute || !this.selectedCycle) return
 

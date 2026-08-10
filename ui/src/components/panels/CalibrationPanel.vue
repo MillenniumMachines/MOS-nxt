@@ -59,11 +59,11 @@
               block
               color="secondary"
               variant="outlined"
-              :disabled="uiFrozen || !isConnected || !deltaMachineSet"
+              :disabled="uiFrozen || !isConnected"
               :loading="probeLoadBusy"
               @click="parkAndLoadProbe"
             >
-              {{ $t('plugins.nxt.panels.calibration.parkLoadProbe') }}
+              {{ $t('plugins.nxt.panels.calibration.enableProbe') }}
             </v-btn>
           </v-col>
           <v-col cols="12" md="4">
@@ -79,6 +79,29 @@
           </v-col>
         </v-row>
       </v-card>
+
+      <v-alert
+        v-if="touchProbeReady && probeToolIdResolved != null && !probeToolLoaded"
+        type="info"
+        density="compact"
+        variant="outlined"
+        class="mb-3"
+      >
+        <div class="d-flex flex-wrap align-center justify-space-between ga-2">
+          <span>
+            {{ $t('plugins.nxt.panels.calibration.probeNotInstalled', [probeToolIdResolved]) }}
+          </span>
+          <v-btn
+            size="small"
+            color="primary"
+            :loading="probeLoadBusy"
+            :disabled="uiFrozen || !isConnected || probeLoadBusy"
+            @click="parkAndLoadProbe"
+          >
+            {{ $t('plugins.nxt.panels.calibration.enableProbe') }}
+          </v-btn>
+        </div>
+      </v-alert>
 
       <v-alert
         v-if="needsProbeDatumSetup"
@@ -183,7 +206,7 @@
       </v-card>
 
       <!-- Probe mode: deflection gate + G9000 -->
-      <template v-if="calMode === 'probe' && !needsProbeDatumSetup">
+      <template v-if="calMode === 'probe'">
         <v-alert type="info" density="compact" variant="tonal" class="mb-3">
           {{ $t('plugins.nxt.panels.calibration.probeCapabilityHint') }}
         </v-alert>
@@ -683,7 +706,7 @@
                 <v-btn
                   block
                   variant="outlined"
-                  :disabled="!touchProbeReady || uiFrozen || needsProbeDatumSetup || touchProbeBlocksLaterPhases"
+                  :disabled="!touchProbeReady || uiFrozen || touchProbeBlocksLaterPhases || !probeToolLoaded"
                   @click="sendG6512"
                 >
                   {{ $t('plugins.nxt.panels.calibration.runG6512Jog') }}
@@ -748,6 +771,9 @@
                 </v-btn>
               </v-col>
             </v-row>
+            <p v-if="calMode === 'probe'" class="text-caption text-grey mt-1">
+              {{ $t('plugins.nxt.panels.calibration.phase2ProbeCaptureHint') }}
+            </p>
             <p v-if="calMode === 'manual'" class="text-caption text-grey mt-1">{{ $t('plugins.nxt.panels.calibration.runG6512JogHint') }}</p>
             <div class="d-flex align-center justify-space-between mt-3">
               <span class="text-caption">{{ p2Preview }}</span>
@@ -932,6 +958,20 @@ import {
 } from '../../utils/nxtUserVarsPersistence'
 import { persistNxtUserConfig } from '../../utils/nxtUserConfigPersist'
 import { ensureSetFirmwareGlobal, formatOmRhs } from '../../utils/nxtOmEnsureSet'
+import {
+  applyCalSessionToPanel,
+  clearWizardProgressKeepConfirm,
+  pickCalSessionFromPanel,
+  readNxtCalSession,
+  reconcileDeflectionConfirm,
+  writeNxtCalSession,
+  type NxtCalSessionPanelFields
+} from '../../utils/nxtCalSession'
+import {
+  enableNxtProbeTool,
+  isNxtProbeToolLoaded,
+  resolveNxtProbeToolId
+} from '../../utils/nxtEnableProbe'
 
 type AxisLetter = 'X' | 'Y' | 'Z' | 'A'
 
@@ -950,6 +990,11 @@ export default defineNxtComponent({
       statusType: 'info' as 'info' | 'success' | 'error' | 'warning',
       sessionDeflectionOk: false,
       needsDeflectionRecheck: false,
+      /** Last confirmed/applied D fingerprint for session restore */
+      confirmedDeflection: null as number[] | null,
+      /** Skip axis/mode watchers while hydrating from nxtCalSession */
+      calSessionHydrating: false,
+      calSessionPersistTimer: null as ReturnType<typeof setTimeout> | null,
       travelLegs: [] as TravelLeg[],
       travelClassification: null as TravelClassification | null,
       // Phase 1 — zero / 8-16-24 / return (face away dir + optional 3×)
@@ -1066,6 +1111,16 @@ export default defineNxtComponent({
         readFirmwareGlobal(g, 'nxtFeatureTouchProbe') === true &&
         typeof readFirmwareGlobal(g, 'nxtTouchProbeID') === 'number'
       )
+    },
+    probeToolIdResolved(): number | null {
+      return resolveNxtProbeToolId(this.$store.state.machine.model.global)
+    },
+    probeToolLoaded(): boolean {
+      const cur = this.$store.state.machine.model?.state?.currentTool
+      const idx = typeof cur === 'number' ? cur : null
+      const toolNumRaw = this.currentTool?.number
+      const toolNum = typeof toolNumRaw === 'number' ? toolNumRaw : null
+      return isNxtProbeToolLoaded(idx, this.probeToolIdResolved, toolNum)
     },
     touchProbeId(): number | null {
       const v = readFirmwareGlobal(this.$store.state.machine.model.global, 'nxtTouchProbeID')
@@ -1355,7 +1410,7 @@ export default defineNxtComponent({
       return !this.touchProbeRefPosSet || !this.deltaMachineSet
     },
     probeModeSelectable(): boolean {
-      return this.touchProbeReady && !this.needsProbeDatumSetup
+      return this.touchProbeReady
     },
     rawDeflectionValue(): number[] | null {
       return readConfigDeflectionXY(readFirmwareGlobal(this.globalOm, 'nxtProbeDeflection'))
@@ -1390,22 +1445,26 @@ export default defineNxtComponent({
       return !isFactoryZeroDeflection(v)
     },
     canRunG9000(): boolean {
+      const xyReady =
+        (this.selectedAxis === 'X' || this.selectedAxis === 'Y') && this.p4DiveMm > 0
+      const zOk = this.selectedAxis === 'Z'
       return (
         this.calMode === 'probe' &&
-        !this.needsProbeDatumSetup &&
+        this.probeToolLoaded &&
         this.probeDeflectionReady &&
         !this.needsDeflectionRecheck &&
         this.isConnected &&
         !this.uiFrozen &&
         this.selectedAxis !== 'A' &&
-        this.touchProbeReady
+        this.touchProbeReady &&
+        (xyReady || zOk)
       )
     },
     canRunM5017(): boolean {
       return (
         this.calMode === 'probe' &&
         this.touchProbeReady &&
-        !this.needsProbeDatumSetup &&
+        this.probeToolLoaded &&
         this.isConnected &&
         !this.uiFrozen &&
         this.p4DiveMm > 0
@@ -1415,11 +1474,13 @@ export default defineNxtComponent({
       if (!this.isConnected) return false
       if (this.touchProbeBlocksLaterPhases) return false
       if (this.calMode !== 'probe') return true
+      // Phase 3 approach assist (M5018) is XY-only; Z fine span remains deferred
+      if (this.selectedAxis !== 'X' && this.selectedAxis !== 'Y') return false
       return (
         this.touchProbeReady &&
+        this.probeToolLoaded &&
         !this.uiFrozen &&
-        !this.needsProbeDatumSetup &&
-        this.selectedAxis !== 'A'
+        this.p4DiveMm > 0
       )
     },
     canAddBacklashSample(): boolean {
@@ -1429,11 +1490,17 @@ export default defineNxtComponent({
         this.selectedAxis !== 'A' &&
         !this.touchProbeBlocksLaterPhases
       )
+    },
+    /** Deep-watched blob for debounced nxtCalSession persist */
+    calSessionSnapshot(): NxtCalSessionPanelFields {
+      return pickCalSessionFromPanel(this as unknown as NxtCalSessionPanelFields)
     }
   },
   watch: {
     selectedAxis(axis: AxisLetter) {
+      if (this.calSessionHydrating) return
       this.apply123DefaultsForAxis(axis)
+      this.schedulePersistCalSession()
     },
     probeModeSelectable(ready: boolean) {
       if (!ready && this.calMode === 'probe') {
@@ -1441,6 +1508,7 @@ export default defineNxtComponent({
       }
     },
     calMode(mode: string) {
+      if (this.calSessionHydrating) return
       if (mode === 'probe') {
         this.p2UseManualSpans = false
         this.openPhase = this.probeDeflectionReady && !this.needsDeflectionRecheck ? null : '1'
@@ -1451,14 +1519,89 @@ export default defineNxtComponent({
             ? '1'
             : '2'
       }
+      this.schedulePersistCalSession()
+    },
+    calSessionSnapshot: {
+      deep: true,
+      handler(this: {
+        calSessionHydrating: boolean
+        schedulePersistCalSession: () => void
+      }) {
+        if (this.calSessionHydrating) return
+        this.schedulePersistCalSession()
+      }
     }
   },
   mounted() {
+    this.hydrateCalSession()
     if (this.touchProbeReady && (!this.probeDeflectionReady || this.needsDeflectionRecheck)) {
       this.openPhase = '1'
     }
   },
+  beforeUnmount() {
+    this.flushPersistCalSession()
+  },
   methods: {
+    schedulePersistCalSession() {
+      if (this.calSessionHydrating) return
+      if (this.calSessionPersistTimer != null) {
+        clearTimeout(this.calSessionPersistTimer)
+      }
+      this.calSessionPersistTimer = setTimeout(() => {
+        this.calSessionPersistTimer = null
+        this.flushPersistCalSession()
+      }, 250)
+    },
+    flushPersistCalSession() {
+      if (this.calSessionPersistTimer != null) {
+        clearTimeout(this.calSessionPersistTimer)
+        this.calSessionPersistTimer = null
+      }
+      if (this.calSessionHydrating) return
+      try {
+        writeNxtCalSession(pickCalSessionFromPanel(this as unknown as NxtCalSessionPanelFields))
+      } catch {
+        /* settings store may be unavailable during teardown */
+      }
+    },
+    hydrateCalSession() {
+      this.calSessionHydrating = true
+      try {
+        const snap = readNxtCalSession(this.$store.state.settings?.plugins)
+        if (snap != null) {
+          applyCalSessionToPanel(this as unknown as NxtCalSessionPanelFields, snap)
+        }
+        const live = this.rawDeflectionValue
+        const gate = reconcileDeflectionConfirm({
+          liveOm: live,
+          confirmedDeflection: this.confirmedDeflection,
+          sessionDeflectionOk: this.sessionDeflectionOk,
+          needsDeflectionRecheck: this.needsDeflectionRecheck
+        })
+        this.sessionDeflectionOk = gate.sessionDeflectionOk
+        this.needsDeflectionRecheck = gate.needsDeflectionRecheck
+        if (this.travelLegs.length === 0) {
+          const travelAxis = readFirmwareGlobal(this.globalOm, 'nxtCalTravelAxis')
+          const axisStr =
+            travelAxis != null && travelAxis !== '' ? String(travelAxis).toUpperCase() : ''
+          if (axisStr === this.selectedAxis) {
+            const cmd = this.readTravelVector('nxtCalTravelCmd')
+            const meas = this.readTravelVector('nxtCalTravelMeas')
+            if (this.travelVectorsReady(cmd, meas)) {
+              this.applyTravelLegsFromVectors(cmd, meas)
+            }
+          }
+        }
+      } finally {
+        this.calSessionHydrating = false
+      }
+    },
+    markDeflectionConfirmed(vector: number[]) {
+      this.confirmedDeflection = vector.slice(0, 3)
+      this.sessionDeflectionOk = true
+      this.needsDeflectionRecheck = false
+      this.schedulePersistCalSession()
+    },
     apply123DefaultsForAxis(axis: AxisLetter) {
       const d = nxt123DefaultsForAxis(axis)
       this.blockFacePair = d.facePair
@@ -1555,8 +1698,7 @@ export default defineNxtComponent({
       try {
         await ensureSetFirmwareGlobal('nxtProbeDeflection', formatOmRhs(next), (c) => this.sendCode(c))
         this.pendingDeflection = next
-        this.sessionDeflectionOk = true
-        this.needsDeflectionRecheck = false
+        this.markDeflectionConfirmed(next)
         this.show(`Probe deflection updated ${label}`, 'success')
       } catch (e: any) {
         this.show(e?.message ?? 'Failed to set deflection', 'error')
@@ -1571,8 +1713,7 @@ export default defineNxtComponent({
         this.openPhase = '1'
         return
       }
-      this.sessionDeflectionOk = true
-      this.needsDeflectionRecheck = false
+      this.markDeflectionConfirmed(v)
       this.show(
         `Using deflection X ${v[0].toFixed(4)} / Y ${v[1].toFixed(4)} / Z ${z.toFixed(4)} mm`,
         'success'
@@ -1613,20 +1754,22 @@ export default defineNxtComponent({
       }
     },
     async parkAndLoadProbe() {
-      const toolId = readConfigNumber(readFirmwareGlobal(this.globalOm, 'nxtProbeToolID'))
+      const toolId = this.probeToolIdResolved
       if (toolId == null) {
-        this.show('nxtProbeToolID is not set', 'error')
+        this.show(this.$t('plugins.nxt.panels.calibration.probeToolIdUnset').toString(), 'error')
         return
       }
       this.probeLoadBusy = true
       try {
-        await this.sendCode('G27 Z1')
-        await this.sendCode(`T${toolId}`)
+        await enableNxtProbeTool((c: string) => this.sendCode(c), toolId)
         const rz = readConfigNumber(readFirmwareGlobal(this.globalOm, 'nxtCalDefZ'))
         if (rz != null) this.defProposedZEdit = rz
-        this.show(`Loaded probe tool T${toolId} (tpost/G6511)`, 'success')
+        this.show(
+          this.$t('plugins.nxt.panels.calibration.enableProbeDone', [toolId]).toString(),
+          'success'
+        )
       } catch (e: any) {
-        this.show(e?.message ?? 'Park / probe load failed', 'error')
+        this.show(e?.message ?? 'Enable Probe failed', 'error')
       } finally {
         this.probeLoadBusy = false
       }
@@ -1696,7 +1839,26 @@ export default defineNxtComponent({
       this.travelLegs = []
       this.travelClassification = null
       try {
-        await this.sendCode(`G9000 ${axis}0`)
+        if (axis === 'X' || axis === 'Y') {
+          // Save center, M5018 R0 (outside + find, stay out), G9000, return to center
+          const sizeMm = nxt123DefaultsForAxis(axis).primaryMm
+          const approachDir = -1
+          const clearance = 15
+          const toward = 1
+          const centerBefore = this.axisMachinePosition()
+          await this.sendCode(
+            `M5018 ${axis}${approachDir} O${clearance} S${sizeMm} D${this.p4DiveMm} R0`
+          )
+          await this.sendCode(`G9000 ${axis}0 J0 H${toward}`)
+          if (centerBefore != null) {
+            await this.sendCode('G90')
+            await this.sendCode(`G91 G0 Z${this.p4DiveMm}`)
+            await this.sendCode('G90')
+            await this.sendCode(`G53 G0 ${axis}${centerBefore}`)
+          }
+        } else {
+          await this.sendCode(`G9000 ${axis}0`)
+        }
         await this.loadTravelResultsFromGlobals()
       } catch (e: any) {
         this.show(e?.message ?? 'G9000 failed', 'error')
@@ -1793,8 +1955,7 @@ export default defineNxtComponent({
       try {
         await ensureSetFirmwareGlobal('nxtProbeDeflection', formatOmRhs(next), (c) => this.sendCode(c))
         this.pendingDeflection = next
-        this.sessionDeflectionOk = true
-        this.needsDeflectionRecheck = false
+        this.markDeflectionConfirmed(next)
         this.show(`Probe deflection updated ${label}`, 'success')
       } catch (e: any) {
         this.show(e?.message ?? 'Failed to set deflection', 'error')
@@ -1838,20 +1999,17 @@ export default defineNxtComponent({
     async probeAndCaptureFace(slot: 'l1' | 'r1' | 'l2' | 'r2') {
       if (!this.canProbeCaptureFace || this.calMode !== 'probe') return
       const axis = this.selectedAxis as AxisLetter
-      if (axis !== 'X' && axis !== 'Y' && axis !== 'Z') return
+      if (axis !== 'X' && axis !== 'Y') return
       if (this.touchProbeId == null) return
-      const cur = this.axisMachinePosition()
-      if (cur == null) {
-        this.show('Cannot read machine position for probe target', 'error')
-        return
-      }
-      const overshoot = 30
-      const towardPlus = slot === 'r1' || slot === 'r2'
-      const target = towardPlus ? cur + overshoot : cur - overshoot
+      const sizeMm = slot === 'l1' || slot === 'r1' ? this.refDim1 : this.refDim2
+      const dir = slot === 'r1' || slot === 'r2' ? 1 : -1
+      const clearance = 15
       this.p2CaptureBusy = slot
       try {
-        const code = `M5015 ${axis}${target} I${this.touchProbeId}`
-        await this.sendCode(code)
+        // Raise→outside→dive→G6512 find→return to center (M5018 default)
+        await this.sendCode(
+          `M5018 ${axis}${dir} O${clearance} S${sizeMm} D${this.p4DiveMm}`
+        )
         this.captureProbeFace(slot)
       } catch (e: any) {
         this.show(e?.message ?? 'Probe + capture failed', 'error')
@@ -1923,6 +2081,8 @@ export default defineNxtComponent({
           isConnected: this.isConnected,
           deployCustomPack: this.isCustomPlatform
         })
+        clearWizardProgressKeepConfirm(this as unknown as NxtCalSessionPanelFields)
+        this.flushPersistCalSession()
         this.show(
           'Calibration saved to nxt-user-vars.g' +
             (result.customDeployed.length > 0 ? ' + custom overlays' : ''),

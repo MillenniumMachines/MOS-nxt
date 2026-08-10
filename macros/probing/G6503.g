@@ -35,8 +35,12 @@ else
 if { var.pSlot < 0 || var.pSlot >= #global.nxtProbeResults }
     abort { "G6503: Result slot out of range" }
 
-if { !exists(param.W) || !exists(param.H) || !exists(param.L) }
-    abort { "G6503: Width (W), Height (H), and Depth (L) parameters are required" }
+if { !exists(param.W) || param.W == null || param.W <= 0 }
+    abort { "G6503: Width W is required and must be positive" }
+if { !exists(param.H) || param.H == null || param.H <= 0 }
+    abort { "G6503: Height H is required and must be positive" }
+if { !exists(param.L) || param.L == null || param.L <= 0 }
+    abort { "G6503: Depth L is required and must be positive" }
 
 var feedRate = { exists(param.F) ? param.F : null }
 var retries = { exists(param.R) ? param.R : global.nxtProbeInnerSampleCount }
@@ -94,7 +98,6 @@ var sumXnAlongY = 0
 
 ; --- Face −Y: 3 pts along +X at dive Z ---
 echo "G6503: Face -Y (3 pts along +X)"
-G6550 Z{var.startZ}
 G6550 X{var.xLow} Y{var.yOutN}
 G6550 Z{var.probeZ}
 G6512 Y{var.yTgtN} I{var.probeId} F{var.feedRate} R{var.retries}
@@ -230,7 +233,6 @@ set global.nxtProbeResults[var.pSlot][1] = { var.solvedCy }
 set global.nxtProbeResults[var.pSlot][#move.axes] = { var.thetaDeg }
 
 G6550 X{var.solvedCx} Y{var.solvedCy}
-G27 Z1
 
 echo "G6503: Rectangle block probe completed (12 pts)"
 echo "G6503: Block center at X=" ^ var.solvedCx ^ " Y=" ^ var.solvedCy

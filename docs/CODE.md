@@ -23,6 +23,7 @@ This document outlines the coding conventions and style guidelines to be followe
 ## 3. Expression Handling 
 
 - **Universal Requirement:** ALL expressions in RepRapFirmware meta G-code must be wrapped in curly braces `{}` to ensure proper parsing and prevent ambiguities.
+- **`^` is concatenation, not power:** In RRF meta, `^` joins strings/arrays. Squaring uses `dx * dx` or `pow(dx, 2)` (never `dx^2`). `dist/check-rrf-caret-power.mjs` bans `^N` inside `{…}`. Full probing/macro pitfalls: [RRF_META_PITFALLS.md](RRF_META_PITFALLS.md).
 - **This applies to:**
   - Conditional expressions in `if` statements
   - Variable assignments and operations

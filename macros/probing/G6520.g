@@ -34,7 +34,7 @@ else
 if { var.pSlot < 0 || var.pSlot >= #global.nxtProbeResults }
     abort { "G6520: Result slot out of range" }
 
-if { !exists(param.L) || param.L <= 0 }
+if { !exists(param.L) || param.L == null || param.L <= 0 }
     abort { "G6520: Depth L required" }
 
 var probeID = { exists(param.I) ? param.I : global.nxtTouchProbeID }
@@ -94,7 +94,6 @@ set global.nxtProbeResults[var.pSlot][2] = { var.cornerZ }
 set global.nxtProbeResults[var.pSlot][#move.axes] = 0.0
 
 G6550 X{var.cornerX} Y{var.cornerY} Z{var.cornerZ}
-G27 Z1
 
 echo "G6520: Corner X=" ^ var.cornerX ^ " Y=" ^ var.cornerY ^ " Z=" ^ var.cornerZ
 

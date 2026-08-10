@@ -22,6 +22,7 @@
 
 import { registerRoute, registerPluginMessages, registerLayout } from '@/plugins'
 import { registerPluginData, PluginDataType } from './compat/dwcStore'
+import { defaultNxtCalSessionPluginData } from './utils/nxtCalSession'
 import i18n from '@/i18n'
 
 // Import main components
@@ -69,6 +70,13 @@ function registerNxtSideEffects(): void {
       brightness: 100,
       on: true
     })
+
+    registerPluginData(
+      'nxt',
+      PluginDataType.globalSetting,
+      'nxtCalSession',
+      defaultNxtCalSessionPluginData()
+    )
 
     registerRoute(nxt, {
       Control: {

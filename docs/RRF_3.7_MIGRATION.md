@@ -132,7 +132,9 @@ RRF 3.7 returns `false`/`null` instead of errors in some cases:
 
 In 3.7, `e1 ^ e2` concatenates **arrays** when both operands are arrays (3.6 coerced both to strings).
 
-**nxt impact:** Low. nxt uses `^` almost exclusively for **string** `echo`/`abort`/`M291` messages. Do not use `^` between two array expressions; build strings element-wise (see `nxt-mos-import.g`).
+**nxt impact:** Low for message building. **Critical for math:** `^` is **never** exponentiation — `(dx)^2` inside `sqrt` yields `missing expected numeric operand`. Use `dx * dx` or `pow(dx, 2)`. See [RRF_META_PITFALLS.md](RRF_META_PITFALLS.md).
+
+**nxt usage:** `^` almost exclusively for **string** `echo`/`abort`/`M291` messages. Do not use `^` between two array expressions; build strings element-wise (see `nxt-mos-import.g`). Gate: `node dist/check-rrf-caret-power.mjs`.
 
 ### Array literals `[ ]` vs `{ }`
 

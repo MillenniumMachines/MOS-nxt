@@ -17,12 +17,14 @@ nxt-config/
     <machineId>/              global.nxtPlatformProfile (e.g. v1.5, v1.6, v2.0, custom)
       OVERVIEW.txt
       entry.g                 Machine motion chain (no homing at boot)
-      movement.g, limits.g, general.g, network-default.g
-      drives-overlay.g, endstops.g, steps.g   Custom: M584/M569/M906/M574/M92 overlays
+      movement.g, limits.g, general.g, network-default.g, steps.g
+      drives-dir.g, endstops.g   Stock Milo: M569 dirs + M574 min/max (after board)
+      drives-overlay.g, endstops.g, steps.g   Custom stubs → nxt-user-custom/
       homeall.g, homex.g, …   Deploy-only → 0:/sys/
       sys-deploy-manifest.txt
 ```
 
+**Ownership:** Board packs own controller **pins**, sense resistors, `M584`/`M350`/`M906`. Stock machine packs own XYZ **driver direction** (`drives-dir.g`) and endstop **min/max** (`endstops.g`, re-issuing `M574` with board pins). Custom regenerates full overlays under `0:/sys/nxt-user-custom/`.
 Build-time manifest: `dist/generate-nxt-config-manifest.mjs` → `ui/src/generated/nxtConfigManifest.json`.
 
 | Machine | Homing deploy | Boards (shared) |
@@ -86,7 +88,7 @@ The Configuration UI does **not** deploy `network.g` (only homing via sys-deploy
 | `nxtPlatformProfile` | Machine id → `nxt-config/machine/<id>/` |
 | `nxtBoardShortNameOverride` | Optional board shortName override |
 | `nxtBoardMotorVoltage` | `24` or `48` for motor variant dirs |
-| `nxtBoardPackShortName` | Set during pack load (machine `endstop-y.g`) |
+| `nxtBoardPackShortName` | Set during pack resolve (`nxt-board-pack-resolve.g`) |
 | `nxtBoardPackEntry` | Last board entry path loaded |
 | `nxtBoardPackExpectedEntry` | Saved board entry path (Configuration Save) |
 

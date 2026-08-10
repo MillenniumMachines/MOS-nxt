@@ -31,8 +31,8 @@ else
 if { var.pSlot < 0 || var.pSlot >= #global.nxtProbeResults }
     abort { "G6509: Result slot out of range" }
 
-if { !exists(param.L) || param.L <= 0 }
-    abort { "G6509: L required" }
+if { !exists(param.L) || param.L == null || param.L <= 0 }
+    abort { "G6509: Depth L required" }
 
 var clearance = { exists(param.C) ? param.C : 5.0 }
 var feedRate = { exists(param.F) ? param.F : null }
@@ -78,8 +78,6 @@ if { global.nxtProbeResults[var.pSlot] == null || #global.nxtProbeResults[var.pS
 set global.nxtProbeResults[var.pSlot][0] = { var.cornerX }
 set global.nxtProbeResults[var.pSlot][1] = { var.cornerY }
 set global.nxtProbeResults[var.pSlot][#move.axes] = 0.0
-
-G27 Z1
 
 echo "G6509: Corner X=" ^ var.cornerX ^ " Y=" ^ var.cornerY
 

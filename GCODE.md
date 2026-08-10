@@ -45,27 +45,29 @@ Measures the active tool on the configured toolsetter (single **G6512** Z probe 
 
 ### G6500: Bore Probe
 
-Uses **three** inward touches (+X, −X, +Y) on the bore wall; the circle center is the **circumcenter** of the three contacts (minimum geometry for a circle in 2D). Skew is still derived from the ±X chord vs machine **X**.
+Uses **three triangulated** inward touches at **0° / 120° / 240°** via **`G6513`** (same geometry family as **`G6500.1`**). The circle center is the **circumcenter** of the three contacts. Stays at dive Z between touches (`D1 H1` — no raise to start Z while triangulating). Repositioning uses **`G6550`** protected moves; each radial contact uses **`G6512.1`**. No approach clearance (start inside the bore) — use accurate **`D`** + **`O`**. Ends at the circumcenter XY at start Z.
 
 **Usage:** `G6500 P|U D<diameter> L<depth> [F<speed>] [R<retries>] [O<overtravel>] [T] [Q]`
 
 **Parameters:**
 - `P` or `U`: Result row **`P`** (0–9) **or** target workplace **`U`** (1–9) — **REQUIRED** (one of)
 - `D`: Bore diameter for move planning (mm) - **REQUIRED**
-- `L`: Depth to move down into bore before probing (mm) - **REQUIRED**
-- `F`: Optional speed override (mm/min)
-- `R`: Inner sample count per **`G6512`** touch (default: `global.nxtProbeInnerSampleCount`)
-- `O`: Overtravel distance beyond expected surface (default: 2mm)
-- `T`: Max |skew| in degrees (default: `global.nxtProbeMaxSkewDeg`)
+- `L`: Depth to **drop** into bore before probing (mm), relative to **current machine Z at execute time**. Cycles do not park/raise before the dive — jog to start height first. - **REQUIRED**
+- `F`: Optional speed override (mm/min; reserved — radial probes use probe `M558` speeds via **`G6512.1`**)
+- `R`: Retry / sample budget passed through to **`G6513`** / **`G6512.1`** (default: `global.nxtProbeInnerSampleCount`)
+- `O`: Overtravel distance beyond expected surface (default: 2mm; reduced by tool radius when available)
+- `T`: Max |skew| in degrees — angular registration of the 0° hit vs **+X** from the circumcenter (default: `global.nxtProbeMaxSkewDeg`)
 - `Q`: **`M6520`** rotation policy when **`U`** is used
 
 **Results:** Stores X and Y center coordinates in the probe results table.
+
+> **RRF meta note:** `^` is string/array **concatenation**, not exponentiation. Probe geometry uses `dx*dx` / `pow(dx,2)` for squares. See [docs/RRF_META_PITFALLS.md](docs/RRF_META_PITFALLS.md) for dive/`startZ`, A-axis, and hit-buffer constraints.
 
 ---
 
 ### G6501: Boss Probe
 
-Probes a circular boss from the outside with **three** OD touches (+X, −X, +Y at the X midpoint), then the same **circumcenter** fit as **`G6500`**.
+Probes a circular boss from the outside with **three triangulated** OD touches at **0° / 120° / 240°** via **`G6513`** (same geometry family as **`G6501.1`**), then the same **circumcenter** fit as **`G6500`**. Raises to jogged **start Z** between touches. Repositioning uses **`G6550`** protected moves; each radial contact uses **`G6512.1`**. Ends at the circumcenter XY at start Z.
 
 **Usage:** `G6501 P|U D<diameter> L<depth> [F<speed>] [R<retries>] [C<clearance>] [O<overtravel>] [T] [Q]`
 
@@ -73,10 +75,10 @@ Probes a circular boss from the outside with **three** OD touches (+X, −X, +Y 
 - `P` or `U`: Result row **`P`** (0–9) **or** target workplace **`U`** (1–9) — **REQUIRED** (one of)
 - `D`: Boss diameter for move planning (mm) - **REQUIRED**
 - `L`: Depth to move down before probing (mm) - **REQUIRED**
-- `F`: Optional speed override (mm/min)
-- `R`: Inner sample count per **`G6512`** touch (default: `global.nxtProbeInnerSampleCount`)
-- `C`: Clearance distance from boss edge for starting position (default: 5mm)
-- `O`: Overtravel distance beyond expected surface (default: 2mm)
+- `F`: Optional speed override (mm/min; reserved — see **`G6500`**)
+- `R`: Retry / sample budget passed through to **`G6513`** / **`G6512.1`** (default: `global.nxtProbeInnerSampleCount`)
+- `C`: **Approach clearance** — outside air gap before OD touch (default: **5** mm; same role as **G6503** outside clearance; tool radius is added when available)
+- `O`: Overtravel distance beyond expected surface (default: 2mm; reduced by tool radius when available)
 - `T`, `Q`: Same as **`G6500`**
 
 **Results:** Stores X and Y center coordinates in the probe results table.
@@ -293,6 +295,23 @@ Low-level single-axis probe move with compensation and averaging. Used by all pr
 
 ---
 
+### G9000: Probe Travel Backlash (8 / 16 / 24)
+
+Probe-mode travel residual test on one axis (TR8×8 legs). Estimates **backlash only** — use Phase 3 dual spans for steps/mm.
+
+**Usage:** `G9000 X0 | Y0 | Z0 [J0] [H±1]`
+
+**Parameters:**
+- Exactly one of `X|Y|Z` (value ignored; axis select only)
+- `J0`: skip jog `M291` when already at approach (e.g. after `M5018`)
+- `H`: toward-surface direction (`+1` / `-1`); **required with `J0`**, otherwise prompted
+
+**Calibration UI (XY):** save center → `M5018` to the − face (`O=15`, dive, probe-find, `R0` stay out) → `G9000 {axis}0 J0 H1` → raise + park at saved center. Z still uses the jog prompt.
+
+**Results:** `global.nxtCalTravelCmd`, `nxtCalTravelMeas`, `nxtCalTravelAxis`.
+
+---
+
 ### G6520: Vise Corner Probe
 
 Runs a single surface Z probe for vise top, then outside corner probe for X/Y position.
@@ -318,6 +337,8 @@ Runs a single surface Z probe for vise top, then outside corner probe for X/Y po
 
 Performs a protected move with probe-aware safety checks. If a touch probe is triggered unexpectedly during movement, the move is aborted immediately.
 
+If the stylus is **already triggered** when `G6550` starts (non–Z-only raise), it first **`G1` toward the commanded target** by up to the probe dive-height (clear/retract). Callers such as **`G6512.1`** pass the post-touch retract point as that target. It must **never** step away from the target while triggered — that drove into the bore wall after a hit.
+
 **Usage:** `G6550 [X<pos>] [Y<pos>] [Z<pos>] [A<pos>] [I<probeID>] [F<speed>]`
 
 **Parameters:**
@@ -329,7 +350,7 @@ Performs a protected move with probe-aware safety checks. If a touch probe is tr
 
 ### G6600: Workpiece Probing Gateway
 
-Emitted by Fusion/FreeCAD post-processors during job preamble / WCS changes. Pauses CAM setup for operator WCS probing. Primary workflow: **DWC nxt → Probing Cycles**. On-machine menu offers vise corner (**G6520**) or handoff after DWC probing.
+Emitted by Fusion/FreeCAD post-processors during job preamble / WCS changes. Pauses CAM setup for operator WCS probing. Primary workflow: **DWC nxt → Probing Cycles**. On-machine menu offers vise corner (**G6520**) or handoff after DWC probing. The vise-corner path prompts a jog first so **G6520** `L` dives from the jogged machine Z (no pre-probe park).
 
 **Usage:** `G6600 [W<0..8>]`
 
@@ -431,6 +452,19 @@ Retrieves the current tool-compensated machine position for all axes and stores 
 
 ---
 
+### M5015: Calibration Probe Assist (jog / G6512 / return)
+
+Phase 3 face capture helper: optional jog-confirm near a face → `G6512` to target → return to approach.
+
+**Usage:** `M5015 X|Y|Z<target> I<probeId> [J0]`
+
+**Parameters:**
+- Exactly one of `X|Y|Z`: machine-coordinate probe target
+- `I`: probe tool / sensor ID (required)
+- `J0`: skip the jog `M291` when already at approach (e.g. after `M5018`)
+
+---
+
 ### M5017: Probe XY External Spans (deflection assist)
 
 Phase 1 probe-mode assist: dive by `D`, **3-point CCW perimeter** on a 1-2-3 block (3″∥X), raise Z only between faces, park at probed XY center at the original safe Z.
@@ -445,6 +479,26 @@ Phase 1 probe-mode assist: dive by `D`, **3-point CCW perimeter** on a 1-2-3 blo
 **Behavior:** Operator jogs to approx **XY center at safe Z**. Starts at −Y/−X outside corner, probes 3 points along each face (stay at dive Z along the face), raises only when changing faces. Spans from **means** of the three hits per face (~76.2 mm X / ~50.8 mm Y). Echoes tip radius, current deflection, shortfalls, and proposed Dx/Dy; warns if proposed D > 0.5 mm or tip R ≥ 2.
 
 **Results:** `global.nxtCalDefSpanX`, `global.nxtCalDefSpanY`; `nxtCalDefSpan` = X for compat. Calibration UI applies deflection math (+ rough `nxtCalDefZ` from G6511).
+
+---
+
+### M5018: Phase 3 Safe Outside + Probe-Find Face
+
+Safe helper for Phase 3 face capture (and G9000 pre-position). Assumes the probe is at **XY center / safe Z** after `M5017`. Raises, moves **outside** past the nominal face, dives, **G6512**-finds the edge, then either returns to the saved center or stays outside (`R0`).
+
+**Usage:** `M5018 X|Y{±1} S<sizeMm> [O<clearanceMm>] [D<diveMm>] [I<probeId>] [R0]`
+
+**Parameters:**
+- Exactly one of `X|Y` with dir **`1`** (plus face) or **`-1`** (minus face)
+- `S`: full nominal face length along that axis (e.g. 50.8 / 76.2) — required
+- `O`: outside clearance beyond the face (default **15** mm)
+- `D`: optional Z dive from safe Z (same meaning as `M5017 D`)
+- `I`: probe tool ID (default `nxtTouchProbeID`)
+- `R0`: stay at outside approach after find (for chaining `G9000`); default returns to saved center
+
+**Behavior:** Confirm still at post-`M5017` center → save pose → raise → XY to `center ± (S/2 + O)` → optional dive → `G6512` toward face (`half − 2` mm into nominal) → backoff to outside → unless `R0`, raise and return to saved center. Result in `nxtLastProbeResult`.
+
+**Locked pose:** X faces = 3″ ends; Y faces = 2″ sides — no reorient required for that primary size.
 
 ---
 

@@ -17,7 +17,7 @@ if { !exists(param.J) || !exists(param.K) || !exists(param.L) }
 if { !exists(param.Z) }
     abort { "Must provide a probe position using the Z parameter!" }
 
-if { !exists(param.N) || param.N < 0 || param.N > 1 }
+if { !exists(param.N) || param.N == null || param.N < 0 || param.N > 1 }
     abort { "Must provide an axis to probe (N...), X=0, Y=1" }
 
 if { !exists(param.H) }
