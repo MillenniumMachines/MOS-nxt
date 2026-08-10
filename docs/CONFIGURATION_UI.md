@@ -109,11 +109,11 @@ Configure GPIO outputs from **named board pins** (Mist, Coolant, Relay, Aux, …
 
 | Setting | Description | Example (Scylla preferred) |
 |---------|-------------|----------------------------|
-| Relay | Motor/VFD contactor (24 V) | Relay J5 (`D.5`) |
-| Aux 0 / 1 / 2 | Spare aux MOSFET outputs (24 V) | Aux0 J0 / Aux1 J1 / Aux2 J2 |
+| Relay | Motor/VFD contactor (24 V) | Relay P5 (`D.5`) |
+| Aux 0 / 1 / 2 | Spare aux MOSFET outputs (24 V) | Aux0 P0 / Aux1 P1 / Aux2 P2 |
 | Air Blast | Any free named gpOut | — |
-| Mist Coolant | Prefer Mist pin | Mist J4 (`A.7`) |
-| Flood / Coolant | Prefer Coolant pin | Coolant J3 (`C.4`) |
+| Mist Coolant | Prefer Mist pin | Mist P4 (`A.7`) |
+| Flood / Coolant | Prefer Coolant pin | Coolant P3 (`C.4`) |
 | Board pins as fans | Multi-select → `M950 F` instead of gpOut | Default Aux0 (any motor voltage) |
 | UART accessory | Single device on PD8/PD9 | Off / PanelDue / TFT / Pendant |
 

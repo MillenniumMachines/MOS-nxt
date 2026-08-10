@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-10T04:35:53.812Z",
+  "generatedAt": "2026-08-10T23:43:15.157Z",
   "boards": [
     {
       "shortName": "scylla1_0_h723",
@@ -172,7 +172,7 @@
               "aux0",
               "aux0pwm"
             ],
-            "note": "Preferred J0. 24V rail. Default tool fan (nxtBoardFanPins) at any motor voltage."
+            "note": "Preferred P0. 24V rail. Default tool fan (nxtBoardFanPins) at any motor voltage."
           },
           {
             "id": "aux1",
@@ -184,7 +184,7 @@
               "aux1",
               "aux1pwm"
             ],
-            "note": "Preferred J1. 24V rail. May be created as fan instead via nxtBoardFanPins."
+            "note": "Preferred P1. 24V rail. May be created as fan instead via nxtBoardFanPins."
           },
           {
             "id": "aux2",
@@ -196,7 +196,7 @@
               "aux2",
               "aux2pwm"
             ],
-            "note": "Preferred J2. 24V rail. May be created as fan instead via nxtBoardFanPins."
+            "note": "Preferred P2. 24V rail. May be created as fan instead via nxtBoardFanPins."
           },
           {
             "id": "coolant",
@@ -209,7 +209,7 @@
               "cool",
               "coolantpwm"
             ],
-            "note": "Preferred J3. May be created as fan instead via nxtBoardFanPins."
+            "note": "Preferred P3. May be created as fan instead via nxtBoardFanPins."
           },
           {
             "id": "mist",
@@ -221,7 +221,7 @@
               "mist",
               "mistpwm"
             ],
-            "note": "Preferred J4. May be created as fan instead via nxtBoardFanPins."
+            "note": "Preferred P4. May be created as fan instead via nxtBoardFanPins."
           },
           {
             "id": "relay",
@@ -233,7 +233,7 @@
               "relay",
               "relayctr"
             ],
-            "note": "Preferred J5. 24V rail. Motor/VFD contactor."
+            "note": "Preferred P5. 24V rail. Motor/VFD contactor."
           },
           {
             "id": "probe",

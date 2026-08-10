@@ -120,7 +120,7 @@
       "gpOutIndex": 0,
       "pin": "A.4",
       "aliases": ["aux0", "aux0pwm"],
-      "note": "Preferred J0. 24V rail. Default tool fan (nxtBoardFanPins) at any motor voltage."
+      "note": "Preferred P0. 24V rail. Default tool fan (nxtBoardFanPins) at any motor voltage."
     },
     {
       "id": "aux1",
@@ -129,7 +129,7 @@
       "gpOutIndex": 1,
       "pin": "A.5",
       "aliases": ["aux1", "aux1pwm"],
-      "note": "Preferred J1. 24V rail. May be created as fan instead via nxtBoardFanPins."
+      "note": "Preferred P1. 24V rail. May be created as fan instead via nxtBoardFanPins."
     },
     {
       "id": "aux2",
@@ -138,7 +138,7 @@
       "gpOutIndex": 2,
       "pin": "A.6",
       "aliases": ["aux2", "aux2pwm"],
-      "note": "Preferred J2. 24V rail. May be created as fan instead via nxtBoardFanPins."
+      "note": "Preferred P2. 24V rail. May be created as fan instead via nxtBoardFanPins."
     },
     {
       "id": "coolant",
@@ -147,7 +147,7 @@
       "gpOutIndex": 3,
       "pin": "C.4",
       "aliases": ["coolant", "cool", "coolantpwm"],
-      "note": "Preferred J3. May be created as fan instead via nxtBoardFanPins."
+      "note": "Preferred P3. May be created as fan instead via nxtBoardFanPins."
     },
     {
       "id": "mist",
@@ -156,7 +156,7 @@
       "gpOutIndex": 4,
       "pin": "A.7",
       "aliases": ["mist", "mistpwm"],
-      "note": "Preferred J4. May be created as fan instead via nxtBoardFanPins."
+      "note": "Preferred P4. May be created as fan instead via nxtBoardFanPins."
     },
     {
       "id": "relay",
@@ -165,7 +165,7 @@
       "gpOutIndex": 5,
       "pin": "D.5",
       "aliases": ["relay", "relayctr"],
-      "note": "Preferred J5. 24V rail. Motor/VFD contactor."
+      "note": "Preferred P5. 24V rail. Motor/VFD contactor."
     },
     {
       "id": "probe",

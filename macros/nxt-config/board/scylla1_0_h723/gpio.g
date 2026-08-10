@@ -1,9 +1,9 @@
 ; gpio.g — Scylla named outputs (aux0, aux1, aux2, coolant, mist, relay)
 ;
 ; Preferred gpOut indices when pin is NOT a fan:
-;   aux0=J0 aux1=J1 aux2=J2 coolant=J3 mist=J4 relay=J5
+;   aux0=P0 aux1=P1 aux2=P2 coolant=P3 mist=P4 relay=P5
 ; Aux0–2 and relay are 24V rails (independent of motor pack voltage).
-; Pins listed in global.nxtBoardFanPins are created as M950 F (not J).
+; Pins listed in global.nxtBoardFanPins are created as M950 F (not P).
 ; Default when null/missing: always "aux0".
 ; Explicit none: "" or "none". Persist form: CSV string ("aux0" / "mist,aux1").
 ; Legacy single-pin vectors { "aux0" } still recognized. No array indexing.
@@ -92,7 +92,7 @@ if { var.aux0 }
     M106 P{var.nextFan} S1 H-1
     set var.nextFan = { var.nextFan + 1 }
 else
-    M950 J0 C"aux0"
+    M950 P0 C"aux0"
 
 ; aux1 — PA_5 / aux1 (24V)
 if { var.aux1 }
@@ -100,7 +100,7 @@ if { var.aux1 }
     M106 P{var.nextFan} S1 H-1
     set var.nextFan = { var.nextFan + 1 }
 else
-    M950 J1 C"aux1"
+    M950 P1 C"aux1"
 
 ; aux2 — PA_6 / aux2 (24V)
 if { var.aux2 }
@@ -108,7 +108,7 @@ if { var.aux2 }
     M106 P{var.nextFan} S1 H-1
     set var.nextFan = { var.nextFan + 1 }
 else
-    M950 J2 C"aux2"
+    M950 P2 C"aux2"
 
 ; coolant — PC_4 / coolant
 if { var.coolant }
@@ -116,7 +116,7 @@ if { var.coolant }
     M106 P{var.nextFan} S1 H-1
     set var.nextFan = { var.nextFan + 1 }
 else
-    M950 J3 C"coolant"
+    M950 P3 C"coolant"
 
 ; mist — PA_7 / mist
 if { var.mist }
@@ -124,7 +124,7 @@ if { var.mist }
     M106 P{var.nextFan} S1 H-1
     set var.nextFan = { var.nextFan + 1 }
 else
-    M950 J4 C"mist"
+    M950 P4 C"mist"
 
 ; relay — PD_5 / relay (24V)
 if { var.relay }
@@ -132,4 +132,4 @@ if { var.relay }
     M106 P{var.nextFan} S1 H-1
     set var.nextFan = { var.nextFan + 1 }
 else
-    M950 J5 C"relay"
+    M950 P5 C"relay"
