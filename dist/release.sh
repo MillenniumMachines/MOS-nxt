@@ -9,6 +9,8 @@ WD="${PWD}"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 echo "Checking RRF macro line lengths (max 200)..."
 node "${ROOT}/dist/check-gcode-line-length.mjs" || exit 1
+echo "Checking M98 must not invoke numbered M####/G#### macros..."
+node "${ROOT}/dist/check-m98-numbered-meta.mjs" || exit 1
 echo "Checking G6512 single-axis call contract..."
 node "${ROOT}/dist/check-g6512-axis-contract.mjs" || exit 1
 echo "Checking G6512 deflection math..."

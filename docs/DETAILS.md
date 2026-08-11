@@ -6,7 +6,7 @@ This document outlines the custom G and M codes implemented in nxt, detailing th
 
 ## nxt native probing: workplace `U`, skew, and `M6520`
 
-nxt **`G650x`** cycle macros accept **`U1`–`U9`** to select the target workplace (same numbering as **`M6520 W`** / `G10 L2 P`: **1 = G54**, …, **9** last standard offset). The probe result is stored at row **`P = U − 1`** in **`global.nxtProbeResults`**. With **`U`** set, the cycle ends by calling **`M6520.g`** with **`P`**, **`W=U`**, and the appropriate axis flags (`X` `Y`, etc.), so the operator does not run **`M6520`** as a separate step.
+nxt **`G650x`** cycle macros accept **`U1`–`U9`** to select the target workplace (same numbering as **`M6520 W`** / `G10 L2 P`: **1 = G54**, …, **9** last standard offset). The probe result is stored at row **`P = U − 1`** in **`global.nxtProbeResults`**. With **`U`** set, the cycle ends by calling **`M6520`** directly with **`P`**, **`W=U`**, and the appropriate axis flags (`X` `Y`, etc.) — not via **`M98`** (which cannot pass **`P`**) — so the operator does not run **`M6520`** as a separate step.
 
 **Legacy:** omit **`U`** and pass **`P`** only to store results without applying a WCS.
 

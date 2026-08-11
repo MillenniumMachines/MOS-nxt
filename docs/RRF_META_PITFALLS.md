@@ -25,6 +25,19 @@ var r = { sqrt(var.dx * var.dx + var.dy * var.dy) }
 
 **Gate:** `node dist/check-rrf-caret-power.mjs` (also run by `build-plugin.sh`). Bans `^N` inside `{…}` meta expressions.
 
+## 1b. Never `M98` numbered `M####` / `G####` files
+
+Release sync places `macros/**/M6520.g` (etc.) on **`0:/sys/`**. RRF runs them as meta commands **`M6520`**, **`G6503`**, …
+
+| Symptom | Cause |
+|---------|--------|
+| `M6520: Result index parameter P is required` after a probe U-chain | `M98 P"M6520.g" P{slot} …` — **`P` is M98’s filename**, not a nested param |
+
+**Do:** `M6520 P{var.pSlot} W{param.U} X Y`  
+**Do not:** `M98 P"M6520.g" P{…}` (or any `M98 P"M….g"` / `G….g"`)
+
+**Gate:** `node dist/check-m98-numbered-meta.mjs` (also run by `build-plugin.sh`). Named helpers (`M98 P"nxt-….g"`) remain OK.
+
 ## 2. Axis count — never assume A exists
 
 `#move.axes` is often **3** (Milo / no rotary). Arrays sized to `#move.axes` have no index `[3]`.
@@ -111,6 +124,7 @@ Probe cycles (`G6500` / `G6501`, etc.) must reposition with **`G6550`**, never b
 
 ```bash
 node dist/check-gcode-line-length.mjs
+node dist/check-m98-numbered-meta.mjs
 node dist/check-rrf-caret-power.mjs
 node dist/check-g6512-axis-contract.mjs
 # then build-plugin.sh <DWC> and reinstall ZIP so SD macros update
@@ -125,6 +139,7 @@ Repo scan after documenting these pitfalls:
 | Pitfall | Status |
 |---------|--------|
 | `^N` as power in `{…}` | Clean (`check-rrf-caret-power`) |
+| `M98 P"M…/G….g"` for numbered meta | Banned (`check-m98-numbered-meta`) |
 | UI `G650x`/`G6510`/`G6520` pre-dive `G27` | Removed |
 | `G6550` / `G6512` A-axis without `hasA` | Gated |
 | UI cycle hit-buffer guards | Present on H-slot cycles |

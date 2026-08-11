@@ -16,4 +16,4 @@ if { param.V != global.nxtVersion }
     abort { "Post-processor version mismatch: need " ^ global.nxtVersion ^ ", got " ^ param.V }
 
 ; Touch-probe machines must have deflection calibrated before CAM jobs
-M98 P"M4006.g"
+M4006

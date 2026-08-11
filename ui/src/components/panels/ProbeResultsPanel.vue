@@ -35,19 +35,19 @@
         item-value="index"
       >
         <template v-slot:item.x="{ item }: { item: any }">
-          {{ formatCoordinate(item.x) }}
+          {{ formatCoordinate(item.x, item.hasData) }}
         </template>
         <template v-slot:item.y="{ item }: { item: any }">
-          {{ formatCoordinate(item.y) }}
+          {{ formatCoordinate(item.y, item.hasData) }}
         </template>
         <template v-slot:item.z="{ item }: { item: any }">
-          {{ formatCoordinate(item.z) }}
+          {{ formatCoordinate(item.z, item.hasData) }}
         </template>
         <template v-slot:item.a="{ item }: { item: any }">
-          {{ formatCoordinate(item.a) }}
+          {{ formatCoordinate(item.a, item.hasData) }}
         </template>
         <template v-slot:item.rotation="{ item }: { item: any }">
-          {{ formatRotation(item.rotation) }}
+          {{ formatRotation(item.rotation, item.hasData) }}
         </template>
         <template v-slot:item.actions="{ item }: { item: any }">
           <v-btn
@@ -94,7 +94,7 @@
                     density="compact"
                     hide-details
                     class="my-1"
-                    :disabled="!selectedResultData.x"
+                    :disabled="!selectedResultData.hasData"
                   />
                   <v-checkbox
                     v-model="pushAxes.y"
@@ -102,7 +102,7 @@
                     density="compact"
                     hide-details
                     class="my-1"
-                    :disabled="!selectedResultData.y"
+                    :disabled="!selectedResultData.hasData"
                   />
                   <v-checkbox
                     v-model="pushAxes.z"
@@ -110,7 +110,7 @@
                     density="compact"
                     hide-details
                     class="my-1"
-                    :disabled="!selectedResultData.z"
+                    :disabled="!selectedResultData.hasData"
                   />
                   <v-checkbox
                     v-if="hasAAxis"
@@ -119,7 +119,7 @@
                     density="compact"
                     hide-details
                     class="my-1"
-                    :disabled="!selectedResultData.a"
+                    :disabled="!selectedResultData.hasData"
                   />
                   <v-btn
                     size="small"
@@ -290,12 +290,12 @@ export default defineNxtComponent({
     }
   },
   methods: {
-    formatCoordinate(value: number): string {
-      if (!value || value === 0) return '-'
+    formatCoordinate(value: number, hasData: boolean): string {
+      if (!hasData) return '-'
       return value.toFixed(3)
     },
-    formatRotation(value: number): string {
-      if (!value || value === 0) return '-'
+    formatRotation(value: number, hasData: boolean): string {
+      if (!hasData) return '-'
       return value.toFixed(2)
     },
     async clearResult(index: number) {

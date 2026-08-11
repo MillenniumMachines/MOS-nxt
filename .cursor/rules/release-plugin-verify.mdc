@@ -15,11 +15,12 @@ alwaysApply: true
 
 1. Run `./dist/audit-naming.sh` and `node dist/verify-nxt-plugin-contract.mjs` from the **MOS-nxt repo root**.
 2. Run `./dist/check-macro-line-length.sh` from the **MOS-nxt repo root** (all `macros/**/*.g` lines ≤255 characters — RRF G-code line limit).
-3. Run `node dist/check-om-global-budget.mjs` from the **MOS-nxt repo root** (SBC `global` OM ~8KB hygiene — see [om-global-size.mdc](om-global-size.mdc)).
-4. Run `./dist/check-line-endings.sh` from the **MOS-nxt repo root** (no CRLF in tracked text files).
-5. If **`macros/nxt-config/`**, **manifest generator**, or **UI path helpers** changed: run `node dist/generate-nxt-config-manifest.mjs` and follow [plugin-ui-paths.mdc](plugin-ui-paths.mdc) (grep `nxt/config`, confirm `platforms[].machineEntryPath`, ZIP contains `dwc/js/nxt.*.js`).
-6. Run `./dist/verify-dwc-build-alignment.sh <path-to-DuetWebControl>` then `./dist/build-plugin.sh <same-DWC>` from the **MOS-nxt repo root**; confirm **exit code 0**. The shipped ZIP’s `plugin.json` `dwcVersion` must match the printer’s DWC version (e.g. `3.7.0-beta.1`, not merely “3.7.x”). If the host is a different patch, rebuild the plugin against that DWC tree. **UI changes must pass the DWC vue-tsc gate** — do not ship with `NXT_SKIP_DWC_TYPECHECK=1`.
-7. **Manual verification:** Do not commit or tag a release until the user has **explicitly confirmed** the plugin **loads and works** in DWC on the target line (install ZIP, start plugin, smoke-test). Treat CI success as necessary but **not sufficient**.
+3. Run `node dist/check-m98-numbered-meta.mjs` from the **MOS-nxt repo root** (no `M98 P"M….g"` / `G….g"` — see [rrf-numbered-meta-m98.mdc](rrf-numbered-meta-m98.mdc)).
+4. Run `node dist/check-om-global-budget.mjs` from the **MOS-nxt repo root** (SBC `global` OM ~8KB hygiene — see [om-global-size.mdc](om-global-size.mdc)).
+5. Run `./dist/check-line-endings.sh` from the **MOS-nxt repo root** (no CRLF in tracked text files).
+6. If **`macros/nxt-config/`**, **manifest generator**, or **UI path helpers** changed: run `node dist/generate-nxt-config-manifest.mjs` and follow [plugin-ui-paths.mdc](plugin-ui-paths.mdc) (grep `nxt/config`, confirm `platforms[].machineEntryPath`, ZIP contains `dwc/js/nxt.*.js`).
+7. Run `./dist/verify-dwc-build-alignment.sh <path-to-DuetWebControl>` then `./dist/build-plugin.sh <same-DWC>` from the **MOS-nxt repo root**; confirm **exit code 0**. The shipped ZIP’s `plugin.json` `dwcVersion` must match the printer’s DWC version (e.g. `3.7.0-beta.1`, not merely “3.7.x”). If the host is a different patch, rebuild the plugin against that DWC tree. **UI changes must pass the DWC vue-tsc gate** — do not ship with `NXT_SKIP_DWC_TYPECHECK=1`.
+8. **Manual verification:** Do not commit or tag a release until the user has **explicitly confirmed** the plugin **loads and works** in DWC on the target line (install ZIP, start plugin, smoke-test). Treat CI success as necessary but **not sufficient**.
 
 ## Tagging conventions (this repo)
 

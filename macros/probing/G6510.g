@@ -77,16 +77,16 @@ echo "G6510: Index " ^ var.pSlot ^ " " ^ move.axes[var.probeAxis].letter ^ "=" ^
 if { exists(param.U) && param.U != null }
     if { var.probeAxis == 0 }
         if { exists(param.Q) && param.Q != null }
-            M98 P"M6520.g" P{var.pSlot} W{param.U} X Q{param.Q}
+            M6520 P{var.pSlot} W{param.U} X Q{param.Q}
         else
-            M98 P"M6520.g" P{var.pSlot} W{param.U} X
+            M6520 P{var.pSlot} W{param.U} X
     elif { var.probeAxis == 1 }
         if { exists(param.Q) && param.Q != null }
-            M98 P"M6520.g" P{var.pSlot} W{param.U} Y Q{param.Q}
+            M6520 P{var.pSlot} W{param.U} Y Q{param.Q}
         else
-            M98 P"M6520.g" P{var.pSlot} W{param.U} Y
+            M6520 P{var.pSlot} W{param.U} Y
     else
         if { exists(param.Q) && param.Q != null }
-            M98 P"M6520.g" P{var.pSlot} W{param.U} Z Q{param.Q}
+            M6520 P{var.pSlot} W{param.U} Z Q{param.Q}
         else
-            M98 P"M6520.g" P{var.pSlot} W{param.U} Z
+            M6520 P{var.pSlot} W{param.U} Z

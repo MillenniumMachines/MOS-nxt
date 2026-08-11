@@ -4,8 +4,10 @@
 			<!-- Status Information -->
 			<v-col cols="12" md="5" lg="4" class="d-flex">
 				<v-card variant="outlined" class="nxt-cnc-status__card flex-grow-1">
-					<v-card-title class="py-2 font-weight-bold text-body-1">
-						{{ $t("panel.status.caption") }}
+					<v-card-title class="py-2 font-weight-bold text-body-1 d-flex align-center">
+						<span>{{ $t("panel.status.caption") }}</span>
+						<v-spacer />
+						<StatusLabel v-if="hasMachineStatus" />
 					</v-card-title>
 					<v-card-text class="pt-0">
 						<template v-if="isConnected && visibleAxes.length > 0">
@@ -216,6 +218,7 @@
 <script lang="ts">
 import { defineNxtComponent } from "../../base/BaseComponent.vue";
 import { Probe, Axis, Spindle, SpindleState } from "@duet3d/objectmodel";
+import { StatusLabel } from "DuetWebControl/components";
 import { display } from "@/utils/display";
 import store from "../../../compat/dwcStore";
 import { readFirmwareGlobal } from "../../../utils/nxtToolChangerOm";
@@ -240,6 +243,7 @@ export default defineNxtComponent({
 	components: {
 		RgbLightControl,
 		Spindle0ControlPanel,
+		StatusLabel,
 	},
 
 	methods: {
@@ -274,8 +278,8 @@ export default defineNxtComponent({
 			return translated === key ? 'Tool Position' : translated;
 		},
 
-		status(): string {
-			return store.state.machine.model.state.status;
+		hasMachineStatus(): boolean {
+			return !!store.state.machine.model.state.status;
 		},
 
 		visibleAxes(): Array<Axis> {

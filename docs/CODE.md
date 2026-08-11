@@ -110,6 +110,7 @@ var gcode = {"G0 X" ^ var.x ^ " Y" ^ var.y}
 - **Modular Code:** Break down complex logic into smaller, reusable functions or macros.
 - **Testing:** Write code with testing in mind; ensure macros can be tested independently.
 - **Line Length (mandatory):** Keep every non-comment `.g` line **≤ 200 characters**. RRF errors with `GCode command too long` and aborts boot macros (e.g. `nxt.g`), so `global.nxtLoaded` stays false. Split long `if` / `echo` / `abort` / `M291` into `var` steps — see [RRF_LINE_LENGTH.md](RRF_LINE_LENGTH.md). Run `node dist/check-gcode-line-length.mjs` before build/release; **do not** split one logical expression across multiple physical lines without `var` (RRF does not support line continuation).
+- **Numbered G/M via M98 (mandatory):** Never `M98 P"M….g"` / `M98 P"G….g"`. Call `M6520` / `G6503` / … directly (`0:/sys/` meta files; `M98` steals `P`). Gate: `node dist/check-m98-numbered-meta.mjs`. See [RRF_META_PITFALLS.md](RRF_META_PITFALLS.md).
 - **Loop Iterations:** Use RRF's built-in `iterations` variable instead of creating custom counters.
 - **Required Parameters:** Parameters that depend on workpiece dimensions (width, height, depth) must be required, not defaulted.
 - **Variable Consistency:** Use consistent variable names for the same concepts across macros (e.g., `feedRate`, `retries`, `overtravel`).

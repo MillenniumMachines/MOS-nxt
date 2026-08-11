@@ -242,6 +242,6 @@ echo "G6503: Result logged to table index " ^ var.pSlot
 
 if { exists(param.U) && param.U != null }
     if { exists(param.Q) && param.Q != null }
-        M98 P"M6520.g" P{var.pSlot} W{param.U} X Y T{var.skewLimit} Q{param.Q}
+        M6520 P{var.pSlot} W{param.U} X Y T{var.skewLimit} Q{param.Q}
     else
-        M98 P"M6520.g" P{var.pSlot} W{param.U} X Y T{var.skewLimit}
+        M6520 P{var.pSlot} W{param.U} X Y T{var.skewLimit}

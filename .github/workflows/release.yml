@@ -44,6 +44,9 @@ jobs:
       - name: Check RRF macro line lengths
         run: node dist/check-gcode-line-length.mjs
 
+      - name: Check M98 must not invoke numbered M/G macros
+        run: node dist/check-m98-numbered-meta.mjs
+
       - name: Check G6512 single-axis call contract
         run: node dist/check-g6512-axis-contract.mjs
 

@@ -5,7 +5,7 @@
 ;   2. Probe X-facing jaw along X at fixed probe Z (retracted from top hit)
 ;   3. Clear along X, probe Y-facing jaw along Y
 ; Corner XY = intersection of the two vertical faces. Optional X/Y args bias probe targets.
-; With U, M98 P"M6520.g" runs the *utility* macro that applies G10/M6520 WCS (not this file).
+; With U, call M6520 (utilities/M6520.g) for G10 WCS apply — not this G6520 cycle file.
 ;
 ; USAGE: G6520 P|U L<depth> [X] [Y] [I] [F] [R] [C] [O] [Q]
 
@@ -99,6 +99,6 @@ echo "G6520: Corner X=" ^ var.cornerX ^ " Y=" ^ var.cornerY ^ " Z=" ^ var.corner
 
 if { exists(param.U) && param.U != null }
     if { exists(param.Q) && param.Q != null }
-        M98 P"M6520.g" P{var.pSlot} W{param.U} X Y Z Q{param.Q}
+        M6520 P{var.pSlot} W{param.U} X Y Z Q{param.Q}
     else
-        M98 P"M6520.g" P{var.pSlot} W{param.U} X Y Z
+        M6520 P{var.pSlot} W{param.U} X Y Z

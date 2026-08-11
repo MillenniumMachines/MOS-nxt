@@ -119,6 +119,8 @@ fi
 
 echo "Checking RRF macro line lengths (max 200)..."
 node "${ROOT}/dist/check-gcode-line-length.mjs" || exit 1
+echo "Checking M98 must not invoke numbered M####/G#### macros..."
+node "${ROOT}/dist/check-m98-numbered-meta.mjs" || exit 1
 echo "Checking RRF caret-as-power misuse..."
 node "${ROOT}/dist/check-rrf-caret-power.mjs" || exit 1
 echo "Checking G6512 single-axis call contract..."

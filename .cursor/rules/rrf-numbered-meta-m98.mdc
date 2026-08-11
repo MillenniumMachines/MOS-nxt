@@ -1,0 +1,43 @@
+---
+description: Hard stop — never M98 numbered M####/G#### macros (call them as meta commands)
+alwaysApply: true
+---
+
+# Numbered G/M macros: call directly (hard stop)
+
+RepRapFirmware loads **`0:/sys/M####.g`** / **`0:/sys/G####.g`** as numbered meta commands. Release sync flattens [`macros/`](../../macros/) into **`0:/sys/`**, so **`M6520`**, **`G6503`**, **`M4006`**, etc. run as themselves.
+
+## Why not `M98`
+
+1. **`M98` reserves `P` for the filename** — you cannot pass nested **`P`** (e.g. result index). That caused the probe U-chain abort: `M6520: Result index parameter P is required`.
+2. Extra path indirection is unnecessary when the file is already on `0:/sys/`.
+
+## Rules for every agent (mandatory)
+
+1. **Do not** write `M98 P"M….g"` or `M98 P"G….g"` (any path whose basename is `M`/`G` + digits, optional `.N`, + `.g`).
+2. **Do** invoke the numbered command directly and pass real parameters:
+
+```gcode
+; ❌ BAD — M98; P cannot be a nested param
+M98 P"M6520.g" P{var.pSlot} W{param.U} X Y
+
+; ✅ GOOD — meta command; P is M6520's result index
+M6520 P{var.pSlot} W{param.U} X Y
+
+; ❌ BAD
+M98 P"M4006.g"
+
+; ✅ GOOD
+M4006
+
+; ✅ OK — named helper (not a numbered G/M code)
+M98 P"nxt-probe-sensor-wait.g"
+```
+
+3. **Before** claiming macro work done, run: `node dist/check-m98-numbered-meta.mjs` — must exit 0.
+4. Prefer **`M98`** only for **named** helpers (`nxt-*.g`, board packs, etc.), not for codes listed in [`GCODE.md`](../../GCODE.md).
+
+## Related
+
+- [macros-editing.mdc](macros-editing.mdc)
+- Probe WCS apply: [`macros/utilities/M6520.g`](../../macros/utilities/M6520.g)

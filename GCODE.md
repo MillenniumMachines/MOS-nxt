@@ -532,7 +532,7 @@ Sets a Work Coordinate System (WCS) origin using coordinates from the probe resu
 
 **Job scope:** When **G68** is applied, nxt stores **`nxtJobG68Deg`** / **`nxtJobG68Wcs`** for the current job. Rotation **persists across toolchanges** (`tpost` re-asserts via `nxt-job-g68-restore.g` after paths that may `G69`). It is **cleared on cancel** and on **job finish** via `stop.g` (not while paused). Not written to `nxt-user-vars.g`.
 
-**Probe cycles:** With **`U`** on **G650x**/`G6510`, the macro stores results at row **`U−1`** and calls **`M6520`** via **`M98`** at the end so the operator does not run **M6520** separately.
+**Probe cycles:** With **`U`** on **G650x**/`G6510`, the macro stores results at row **`U−1`** and calls **`M6520 P{U−1} W{U} …`** directly at the end (not via **`M98`**, which cannot pass **`P`**) so the operator does not run **M6520** separately.
 
 **Example:**
 ```gcode
