@@ -8,6 +8,7 @@
 ; Explicit none: "" or "none". Persist form: CSV string ("aux0" / "mist,aux1").
 ; Legacy single-pin vectors { "aux0" } still recognized. No array indexing.
 ; Local vars mist/coolant/aux*/relay mean "create this alias as M950 F".
+; When 0:/sys/estop.g exists, skip relay (P5 / PD_5) — estop owns that pin.
 
 ; --- Normalize missing/null → default aux0 (CSV string) ---
 if { !exists(global.nxtBoardFanPins) }
@@ -126,10 +127,12 @@ if { var.mist }
 else
     M950 P4 C"mist"
 
-; relay — PD_5 / relay (24V)
-if { var.relay }
-    M950 F{var.nextFan} C"PD_5" Q500
-    M106 P{var.nextFan} S1 H-1
-    set var.nextFan = { var.nextFan + 1 }
-else
-    M950 P5 C"relay"
+; relay — PD_5 / relay (24V); skipped when estop.g already claimed the pin
+var skipRelay = { fileexists("0:/sys/estop.g") }
+if { !var.skipRelay }
+    if { var.relay }
+        M950 F{var.nextFan} C"PD_5" Q500
+        M106 P{var.nextFan} S1 H-1
+        set var.nextFan = { var.nextFan + 1 }
+    else
+        M950 P5 C"relay"

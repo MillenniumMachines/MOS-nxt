@@ -3,6 +3,7 @@
 ; Preferred: aux0=0 aux1=1 aux2=2 coolant=3 mist=4 relay=5
 ; UI maps: Aux0→nxtAux1ID, Aux1→nxtAux2ID, Aux2→nxtAux3ID
 ; Aux0–2 and relay are 24V rails; default tool fan is aux0 (any motor voltage).
+; When 0:/sys/estop.g exists, skip nxtRelayID default — estop owns relay.
 ;
 ; Fan membership must match gpio.g (CSV / scalar / legacy single-pin vectors; no []).
 ; Local vars mist/coolant/aux*/relay mean "created as M950 F" for that alias.
@@ -102,7 +103,9 @@ if { !var.mist }
     elif { global.nxtCoolantMistID == null }
         set global.nxtCoolantMistID = 4
 
-if { !var.relay }
+; Skip nxtRelayID when estop.g owns the relay pin (matches gpio.g)
+var skipRelay = { fileexists("0:/sys/estop.g") }
+if { !var.skipRelay && !var.relay }
     if { !exists(global.nxtRelayID) }
         global nxtRelayID = 5
     elif { global.nxtRelayID == null }

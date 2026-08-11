@@ -123,7 +123,7 @@ Create order and preferred **gpOut** indices when the pin is **not** a fan ([`gp
 | 5 | mist | P4 | `nxtCoolantMistID` |
 | 6 | relay | P5 | `nxtRelayID` |
 
-After create, [`gpio-role-defaults.g`](../macros/nxt-config/board/scylla1_0_h723/gpio-role-defaults.g) fills those globals **only when still null** (user-vars win).
+After create, [`gpio-role-defaults.g`](../macros/nxt-config/board/scylla1_0_h723/gpio-role-defaults.g) fills those globals **only when still null** (user-vars win). When `0:/sys/estop.g` exists (loaded before gpio in the board pack), the pack **skips** creating P5 / PD_5 and does **not** default `nxtRelayID` — estop owns that pin.
 
 **Fans:** `global.nxtBoardFanPins` lists aliases created as `M950 F` instead of `M950 P`. Default when null: always **`aux0`** (any motor voltage). Persist as a CSV string (`"aux0"` / `"mist,aux1"`); explicit none is `""`. Legacy single-pin vectors still work at boot. Hold-to-test uses `M106` for fan-mode pins and `M42` for gpOut roles.
 
