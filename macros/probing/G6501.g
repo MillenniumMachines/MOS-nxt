@@ -162,6 +162,6 @@ echo "G6501: Result index " ^ var.pSlot
 
 if { exists(param.U) && param.U != null }
     if { exists(param.Q) && param.Q != null }
-        M6520 P{var.pSlot} W{param.U} X Y T{var.skewLimit} Q{param.Q}
+        M6520 P{var.pSlot} W{param.U} X1 Y1 T{var.skewLimit} Q{param.Q}
     else
-        M6520 P{var.pSlot} W{param.U} X Y T{var.skewLimit}
+        M6520 P{var.pSlot} W{param.U} X1 Y1 T{var.skewLimit}

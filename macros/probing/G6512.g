@@ -1,6 +1,7 @@
 ; G6512.g: SINGLE-AXIS PROBING
 ;
 ; Deflection/tip compensation + optional multi-sample repeatability.
+; X/Y: tip radius + deflection → surface. Z: raw trigger (no D, no tip R) for now.
 ; Touch probe IDs: probe feeds clamped to ≤200 / ≤50 mm/min (G6511 caps).
 ; Defaults: macros/system/nxt-vars.g (Probe repeatability).
 ; When nxtProbeMaxSampleSpreadMm > 0: strict consecutive-pair tolerance, 3 touches, R ignored.
@@ -67,10 +68,15 @@ set var.targetVector[2] = { exists(param.Z) ? param.Z : var.targetVector[2] }
 if { var.hasA }
     set var.targetVector[3] = { exists(param.A) ? param.A : var.targetVector[3] }
 
-if { var.hasA }
-    M6515 X{var.targetVector[0]} Y{var.targetVector[1]} Z{var.targetVector[2]} A{var.targetVector[3]}
-else
-    M6515 X{var.targetVector[0]} Y{var.targetVector[1]} Z{var.targetVector[2]}
+; Limit-check only the probed axis (held axes stay at current pose for G38)
+if { var.probeAxisIndex == 0 }
+    M6515 X{var.targetVector[0]}
+elif { var.probeAxisIndex == 1 }
+    M6515 Y{var.targetVector[1]}
+elif { var.probeAxisIndex == 2 }
+    M6515 Z{var.targetVector[2]}
+elif { var.probeAxisIndex == 3 }
+    M6515 A{var.targetVector[3]}
 
 var roughSpeed = { exists(param.F) ? param.F : sensors.probes[param.I].speeds[0] }
 var fineSpeed = { exists(param.F) ? param.F : sensors.probes[param.I].speeds[1] }
@@ -89,15 +95,16 @@ if { var.isTouchProbe }
     if { var.fineSpeed > 50 || var.fineSpeed <= 0 }
         set var.fineSpeed = 50
 
-; Resolve touch-probe deflection (µm). nxtProbeDeflection is {X,Y,Z} positive magnitudes.
-; Legacy: scalar, {x}, or {x,y} (Z falls back to X). Toolsetter must NOT apply stylus defl.
-; A-axis: no linear tip/deflection compensation.
+; Resolve touch-probe deflection (µm). nxtProbeDeflection is {X,Y,Z}; Z unused for now.
+; Legacy: scalar, {x}, or {x,y}. Toolsetter must NOT apply stylus defl.
+; A-axis / Z: no linear tip/deflection compensation (Z = raw trigger).
 var probeDeflectionUm = 0
 var applyTouchDefl = false
 if { exists(param.I) && exists(global.nxtTouchProbeID) && global.nxtTouchProbeID != null }
     if { param.I == global.nxtTouchProbeID }
         set var.applyTouchDefl = true
-var applyAxisDefl = { var.applyTouchDefl && var.probeAxisIndex >= 0 && var.probeAxisIndex <= 2 }
+; XY only — Z deflection discarded for now
+var applyAxisDefl = { var.applyTouchDefl && (var.probeAxisIndex == 0 || var.probeAxisIndex == 1) }
 if { var.applyAxisDefl && exists(global.nxtProbeDeflection) && global.nxtProbeDeflection != null }
     var deflLen = { #global.nxtProbeDeflection }
     if { var.deflLen >= 3 }
@@ -108,7 +115,6 @@ if { var.applyAxisDefl && exists(global.nxtProbeDeflection) && global.nxtProbeDe
             if { global.nxtProbeDeflection[1] != null }
                 set var.probeDeflectionUm = { global.nxtProbeDeflection[1] * 1000 }
         elif { global.nxtProbeDeflection[0] != null }
-            ; X or legacy Z → X component
             set var.probeDeflectionUm = { global.nxtProbeDeflection[0] * 1000 }
     elif { var.deflLen >= 1 }
         if { global.nxtProbeDeflection[0] != null }
@@ -118,7 +124,7 @@ if { var.applyAxisDefl && exists(global.nxtProbeDeflection) && global.nxtProbeDe
         set var.probeDeflectionUm = { global.nxtProbeDeflection * 1000 }
 
 var probeTipRadiusUm = 0
-if { var.applyAxisDefl && var.probeAxisIndex != 2 }
+if { var.applyAxisDefl }
     if { exists(global.nxtProbeTipRadius) && global.nxtProbeTipRadius != null }
         set var.probeTipRadiusUm = { global.nxtProbeTipRadius * 1000 }
 
@@ -173,12 +179,9 @@ while { var.attempt < var.outerLimit && var.toleranceOk == false }
 
         var triggeredPos = global.nxtAbsPos[var.probeAxisIndex]
         var direction = { var.targetVector[var.probeAxisIndex] > var.startPos[var.probeAxisIndex] ? 1 : -1 }
-        ; X/Y: surface = T + dir*(R − D). Z: tip-center = T − dir*D (no tip radius).
-        ; A: leave trigger uncompensated (probeDeflectionUm / tip = 0).
+        ; X/Y: surface = T + dir*(R − D). Z: raw trigger (no D, no tip R). A: raw.
         var compensated = { var.triggeredPos * 1000 }
-        if { var.probeAxisIndex == 2 }
-            set var.compensated = { var.compensated - (var.probeDeflectionUm * var.direction) }
-        elif { var.probeAxisIndex == 0 || var.probeAxisIndex == 1 }
+        if { var.probeAxisIndex == 0 || var.probeAxisIndex == 1 }
             var tipMinusDefl = { var.probeTipRadiusUm - var.probeDeflectionUm }
             set var.compensated = { var.compensated + (var.tipMinusDefl * var.direction) }
 
@@ -219,7 +222,17 @@ while { var.attempt < var.outerLimit && var.toleranceOk == false }
             set var.hitN = { var.hitN + 1 }
 
         var backoffDistance = { var.innerIdx == 0 ? sensors.probes[param.I].diveHeights[0] : sensors.probes[param.I].diveHeights[1] }
-        var backoffTarget = { var.triggeredPos - (var.direction * var.backoffDistance) }
+        var backoffRequested = { var.triggeredPos - (var.direction * var.backoffDistance) }
+        var backoffTarget = { var.backoffRequested }
+        var axisMin = { move.axes[var.probeAxisIndex].min }
+        var axisMax = { move.axes[var.probeAxisIndex].max }
+        if { var.backoffTarget < var.axisMin }
+            set var.backoffTarget = { var.axisMin }
+        elif { var.backoffTarget > var.axisMax }
+            set var.backoffTarget = { var.axisMax }
+        if { var.backoffTarget != var.backoffRequested }
+            var boAxis = { move.axes[var.probeAxisIndex].letter }
+            echo "G6512: backoff " ^ var.boAxis ^ " clamped " ^ var.backoffRequested ^ " -> " ^ var.backoffTarget
 
         set var.speed = { var.fineSpeed }
 

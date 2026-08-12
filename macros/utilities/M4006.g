@@ -1,8 +1,9 @@
 ; M4006.g: REQUIRE TOUCH-PROBE DEFLECTION CALIBRATED
 ;
 ; When nxtFeatureTouchProbe is on, abort unless nxtProbeDeflection is a
-; non-zero {X,Y,Z} vector (factory {0,0,0} / null = not calibrated).
-; Called from M4005 after version check so CAM jobs cannot start without D.
+; non-zero {X,Y,Z} vector with X or Y calibrated (factory {0,0,0} / null = not
+; calibrated). Z channel is unused (may be 0). Called from M4005 after version
+; check so CAM jobs cannot start without XY D.
 
 if { !inputs[state.thisInput].active }
     M99

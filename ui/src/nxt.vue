@@ -68,6 +68,47 @@
               </span>
             </v-alert>
 
+            <!-- Pause daemon before DWC plugin ZIP upgrade (open daemon.g lock) -->
+            <v-alert
+              :type="daemonPausedForUpdate || !daemonEnabled ? 'warning' : 'info'"
+              variant="outlined"
+              class="mb-4"
+            >
+              <div class="font-weight-medium mb-1">
+                <v-icon class="mr-2">mdi-update</v-icon>
+                {{ $t('plugins.nxt.messages.pluginUpdateTitle') }}
+              </div>
+              <div class="text-caption mb-3">
+                {{
+                  daemonPausedForUpdate || !daemonEnabled
+                    ? $t('plugins.nxt.messages.pluginUpdatePaused')
+                    : $t('plugins.nxt.messages.pluginUpdateHint')
+                }}
+              </div>
+              <div class="d-flex flex-wrap">
+                <v-btn
+                  color="warning"
+                  variant="outlined"
+                  class="mr-2 mb-2"
+                  :disabled="!isConnected || daemonBusy"
+                  :loading="preparingDaemon"
+                  @click="preparePluginUpdate"
+                >
+                  {{ $t('plugins.nxt.messages.pluginUpdatePrepare') }}
+                </v-btn>
+                <v-btn
+                  color="primary"
+                  variant="outlined"
+                  class="mb-2"
+                  :disabled="!isConnected || daemonBusy || (daemonEnabled && !daemonPausedForUpdate)"
+                  :loading="resumingDaemon"
+                  @click="resumeDaemon"
+                >
+                  {{ $t('plugins.nxt.messages.pluginUpdateResume') }}
+                </v-btn>
+              </div>
+            </v-alert>
+
             <!-- Tab Navigation for different sections -->
             <v-tabs v-model="activeTab" grow>
               <v-tab>{{ $t('plugins.nxt.panels.status.caption') }}</v-tab>
@@ -160,6 +201,9 @@ export default defineNxtComponent({
     return {
       activeTab: 0,
       restarting: false,
+      preparingDaemon: false,
+      resumingDaemon: false,
+      daemonPausedForUpdate: false,
     }
   },
 
@@ -169,6 +213,20 @@ export default defineNxtComponent({
      */
     isConnected(): boolean {
       return this.$store.getters["isConnected"]
+    },
+
+    daemonBusy(): boolean {
+      return this.preparingDaemon || this.resumingDaemon
+    },
+
+    /** Live OM: false while M6525 pause is active (or operator disabled daemon). */
+    daemonEnabled(): boolean {
+      if (!this.isConnected) {
+        return true
+      }
+      const g = this.$store.state.machine.model.global
+      const v = readFirmwareGlobal(g, 'nxtDaemonEnabled')
+      return v !== false && v !== 0
     },
 
     /**
@@ -269,6 +327,32 @@ export default defineNxtComponent({
         console.error('nxt: Failed to restart machine:', error)
         // Reset loading state if restart fails
         this.restarting = false
+      }
+    },
+
+    /** Pause daemon forever-loop so DSF can replace open daemon.g (M6525). */
+    async preparePluginUpdate() {
+      this.preparingDaemon = true
+      try {
+        await this.sendCode('M6525')
+        this.daemonPausedForUpdate = true
+      } catch (error) {
+        console.error('nxt: M6525 prepare failed:', error)
+      } finally {
+        this.preparingDaemon = false
+      }
+    },
+
+    /** Apply daemon.install if pending and re-enable daemon (M6525 S1). */
+    async resumeDaemon() {
+      this.resumingDaemon = true
+      try {
+        await this.sendCode('M6525 S1')
+        this.daemonPausedForUpdate = false
+      } catch (error) {
+        console.error('nxt: M6525 S1 resume failed:', error)
+      } finally {
+        this.resumingDaemon = false
       }
     }
   },

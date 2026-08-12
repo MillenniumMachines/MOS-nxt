@@ -97,7 +97,7 @@ else
     else
         set var.outerRetries = { global.nxtProbeSampleOuterRetries }
 
-var safeZ = { var.refZ + 50 }
+var safeZ = { move.axes[2].max }
 M5000
 M6515 X{var.refX} Y{var.refY} Z{var.refZ}
 M6515 Z{var.safeZ}

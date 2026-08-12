@@ -7,6 +7,8 @@
 ; ATC integration: Default path uses M291 for manual load. Automatic changer:
 ; replace prompts with pick-from-pocket motion or M98 to extension macros
 ; (docs/TOOLCHANGING.md). Preserve nxtToolChangeState (2 -> 3).
+; Operator Cancel: do not abort (RRF would still run tpost and measure).
+; Set nxtToolChangeCancelled and M99 so tpost skips measure. Never issue T.
 ;
 ; NO PARAMETERS - called automatically by RRF
 
@@ -15,13 +17,24 @@
 if { state.currentTool >= 0 && global.nxtToolChangeState != 2 }
     abort { "tpre.g: Tool change state invalid. tfree.g must complete before tpre.g" }
 
+; Fresh first-tool select (tfree skipped): drop a leftover cancel flag.
+if { global.nxtToolChangeState != 2 }
+    if { exists(global.nxtToolChangeCancelled) }
+        set global.nxtToolChangeCancelled = false
+
 ; Validate all axes are homed
 while { iterations < #move.axes }
     if { !move.axes[iterations].homed }
         abort { "tpre.g: Axis " ^ move.axes[iterations].letter ^ " must be homed before tool change" }
 
-; Set tool change state to indicate tpre.g started
-set global.nxtToolChangeState = 3
+; tfree Cancel: skip park and install; tpost skips measure.
+var nxtTcCancel = false
+if { exists(global.nxtToolChangeCancelled) && global.nxtToolChangeCancelled }
+    set var.nxtTcCancel = true
+if { var.nxtTcCancel }
+    set global.nxtToolChangeState = 3
+    echo "tpre.g: tool change cancelled — skipping install"
+    M99
 
 ; Stop and park spindle for safety
 G27 Z1
@@ -35,7 +48,8 @@ elif { exists(state.nextTool) }
     set var.newTool = { state.nextTool }
 
 if { var.newTool < 0 }
-    abort { "tpre.g: No valid tool selected for loading" }
+    echo "tpre.g: no pending tool — skipping install"
+    M99
 
 ; Prompt user to install the new tool
 if { var.newTool == global.nxtProbeToolID }
@@ -48,16 +62,27 @@ if { var.newTool == global.nxtProbeToolID }
         set var.msgTp = { var.msgTp ^ " Press Continue, then manually trigger the tip until detected." }
         M291 P{var.msgTp} R"Install Touch Probe" S4 K{"Continue", "Cancel"}
         if { input != 0 }
-            abort { "tpre.g: Tool change cancelled" }
+            set global.nxtToolChangeCancelled = true
+            set global.nxtToolChangeState = 3
+            echo "tpre.g: tool change cancelled"
+            M99
         M98 P"nxt-probe-sensor-wait.g"
     else
         M291 P{"Please install " ^ var.probeType ^ " (T" ^ var.newTool ^ ") and confirm when ready."} R{"Install " ^ var.probeType} S4 K{"Continue", "Cancel"}
         if { input != 0 }
-            abort { "tpre.g: Tool change cancelled" }
+            set global.nxtToolChangeCancelled = true
+            set global.nxtToolChangeState = 3
+            echo "tpre.g: tool change cancelled"
+            M99
 else
     ; ATC: replace with pick from pocket / spindle load sequence
     M291 P{"Please install Tool " ^ var.newTool ^ " and confirm when ready."} R"Install Tool" S4 K{"Continue", "Cancel"}
     if { input != 0 }
-        abort { "tpre.g: Tool change cancelled" }
+        set global.nxtToolChangeCancelled = true
+        set global.nxtToolChangeState = 3
+        echo "tpre.g: tool change cancelled"
+        M99
+
+set global.nxtToolChangeState = 3
 
 echo "tpre.g: Ready to load Tool " ^ var.newTool

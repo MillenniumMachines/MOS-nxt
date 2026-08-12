@@ -84,16 +84,16 @@ export function runAllNxtUserVarsPersistenceTests(): void {
   }
 
   const deflScalar = readConfigDeflectionXY(0.025)
-  if (!deflScalar || deflScalar.join(',') !== '0.025,0.025,0.025') {
-    throw new Error('readConfigDeflectionXY scalar normalize failed')
+  if (!deflScalar || deflScalar.join(',') !== '0.025,0.025,0') {
+    throw new Error('readConfigDeflectionXY scalar normalize failed (Z must be 0)')
   }
   const deflVecXY = readConfigDeflectionXY({ 0: 0.01, 1: 0.02 })
-  if (!deflVecXY || deflVecXY.join(',') !== '0.01,0.02,0.01') {
-    throw new Error('readConfigDeflectionXY legacy XY→XYZ (Z=X) failed')
+  if (!deflVecXY || deflVecXY.join(',') !== '0.01,0.02,0') {
+    throw new Error('readConfigDeflectionXY legacy XY→XYZ (Z=0) failed')
   }
   const deflVecXYZ = readConfigDeflectionXY({ 0: 0.01, 1: 0.02, 2: 0.03 })
-  if (!deflVecXYZ || deflVecXYZ.join(',') !== '0.01,0.02,0.03') {
-    throw new Error('readConfigDeflectionXY XYZ vector failed')
+  if (!deflVecXYZ || deflVecXYZ.join(',') !== '0.01,0.02,0') {
+    throw new Error('readConfigDeflectionXY XYZ vector must force Z=0')
   }
 
   const snap = snapshotConfigFromOm({
@@ -105,16 +105,16 @@ export function runAllNxtUserVarsPersistenceTests(): void {
   if (!snap.nxtFeatureTouchProbe || snap.nxtSpindleID !== 0) {
     throw new Error('snapshotConfigFromOm failed')
   }
-  if (!snap.nxtProbeDeflection || snap.nxtProbeDeflection.join(',') !== '0.01,0.02,0.03') {
-    throw new Error('snapshotConfigFromOm deflection XYZ failed')
+  if (!snap.nxtProbeDeflection || snap.nxtProbeDeflection.join(',') !== '0.01,0.02,0') {
+    throw new Error('snapshotConfigFromOm deflection XYZ failed (Z must be 0)')
   }
 
   const deflGcode = buildNxtUserVarsGcode({
     ...emptyConfigDraft(),
     nxtProbeDeflection: [0.01, 0.02, 0.03]
   })
-  if (!deflGcode.includes('set global.nxtProbeDeflection = {0.01, 0.02, 0.03}')) {
-    throw new Error('buildNxtUserVarsGcode should persist deflection as XYZ vector')
+  if (!deflGcode.includes('set global.nxtProbeDeflection = {0.01, 0.02, 0}')) {
+    throw new Error('buildNxtUserVarsGcode should persist deflection with Z=0')
   }
 
   const singleton = emptyConfigDraft()
@@ -156,7 +156,7 @@ export function runAllNxtUserVarsPersistenceTests(): void {
   if (fromMos.nxtSpindleID !== 0 || fromMos.nxtTouchProbeID !== 1 || !fromMos.nxtFeatureTouchProbe) {
     throw new Error('buildInitialConfigDraft MOS mapping failed')
   }
-  if (!fromMos.nxtProbeDeflection || fromMos.nxtProbeDeflection.join(',') !== '0.03,0.04,0.03') {
-    throw new Error('buildInitialConfigDraft MOS deflection mapping failed')
+  if (!fromMos.nxtProbeDeflection || fromMos.nxtProbeDeflection.join(',') !== '0.03,0.04,0') {
+    throw new Error('buildInitialConfigDraft MOS deflection mapping failed (Z must be 0)')
   }
 }

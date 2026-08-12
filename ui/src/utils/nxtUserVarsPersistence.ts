@@ -243,26 +243,27 @@ export function readConfigVector(value: unknown): number[] | null {
 
 /**
  * Probe deflection as {X,Y,Z} positive magnitudes.
- * Legacy: scalar / {n} → [n,n,n]; {x,y} → [x,y,x] (Z falls back to X).
+ * Legacy: scalar / {n} → [n,n,0]; {x,y} → [x,y,0].
+ * Z channel is unused for now — always force [2] = 0.
  */
 export function readConfigDeflectionXY(value: unknown): number[] | null {
   if (value == null) {
     return null
   }
   if (typeof value === 'number' && Number.isFinite(value)) {
-    return [value, value, value]
+    return [value, value, 0]
   }
   const vec = readConfigVector(value)
   if (!vec || vec.length === 0) {
     return null
   }
   if (vec.length === 1) {
-    return [vec[0], vec[0], vec[0]]
+    return [vec[0], vec[0], 0]
   }
   if (vec.length === 2) {
-    return [vec[0], vec[1], vec[0]]
+    return [vec[0], vec[1], 0]
   }
-  return [vec[0], vec[1], vec[2]]
+  return [vec[0], vec[1], 0]
 }
 
 /** @deprecated Alias — use readConfigDeflectionXY (now returns XYZ). */
@@ -792,7 +793,11 @@ export function buildNxtUserVarsGcode(config: NxtUserConfigDraft): string {
       : []),
     `set global.nxtTouchProbeInvert = ${formatPersistedBool(config.nxtTouchProbeInvert)}`,
     `set global.nxtProbeTipRadius = ${formatPersistedNumber(config.nxtProbeTipRadius)}`,
-    `set global.nxtProbeDeflection = ${formatPersistedVector(config.nxtProbeDeflection)}`,
+    `set global.nxtProbeDeflection = ${formatPersistedVector(
+      config.nxtProbeDeflection != null && config.nxtProbeDeflection.length >= 2
+        ? [config.nxtProbeDeflection[0], config.nxtProbeDeflection[1], 0]
+        : config.nxtProbeDeflection
+    )}`,
     '; Probe repeatability: defaults in nxt-vars.g; optional 0:/sys/nxt-user-overrides.g',
     '',
     '; Tool Setter Configuration',
@@ -903,15 +908,16 @@ export function buildNxtUserVarsGcode(config: NxtUserConfigDraft): string {
   const customLines: string[] = []
   for (const [k, v] of customPairs) {
     if (v == null || v === '') continue
-    // Declare happens in nxt.g via nxt-custom-globals.g — user-vars only overlays with set.
-    customLines.push(
-      typeof v === 'number'
-        ? `set global.${k} = ${formatPersistedNumber(v)}`
-        : `set global.${k} = ${formatPersistedString(v as string)}`
-    )
+    // ensure-set: survives missing nxt-custom.requested once (boot would otherwise unknown-variable).
+    const rhs =
+      typeof v === 'number' ? formatPersistedNumber(v) : formatPersistedString(v as string)
+    customLines.push(gcodeEnsureSetGlobal(k, rhs))
   }
   if (customLines.length) {
-    lines.push('', '; Custom platform (set overlay — declared in nxt-custom-globals.g at boot)')
+    lines.push(
+      '',
+      '; Custom platform (ensure-set — nxt-custom-globals.g declares at boot when Custom active)'
+    )
     lines.push(...customLines)
   }
 
@@ -930,6 +936,18 @@ export function runNxtUserVarsPersistenceSelfTest(): void {
   }
   if (gcode.includes('set global.nxtCustomXMin = null')) {
     throw new Error('nxt-user-vars.g must not persist null custom platform keys (OM size)')
+  }
+  const customDraft = emptyConfigDraft()
+  customDraft.nxtCustomXBacklash = 0.05
+  const customGcode = buildNxtUserVarsGcode(customDraft)
+  if (!customGcode.includes('if { !exists(global.nxtCustomXBacklash) }')) {
+    throw new Error('custom keys must use gcodeEnsureSetGlobal (declare-or-set)')
+  }
+  if (
+    customGcode.includes('set global.nxtCustomXBacklash = 0.05') &&
+    !customGcode.includes('global nxtCustomXBacklash = 0.05')
+  ) {
+    throw new Error('ensure-set must declare before set for nxtCustomXBacklash')
   }
   if (gcode.includes('set global.nxtBoardKitKey = null')) {
     throw new Error('nxt-user-vars.g must not persist null nxtBoardKitKey (OM size)')

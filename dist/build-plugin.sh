@@ -121,6 +121,10 @@ echo "Checking RRF macro line lengths (max 200)..."
 node "${ROOT}/dist/check-gcode-line-length.mjs" || exit 1
 echo "Checking M98 must not invoke numbered M####/G#### macros..."
 node "${ROOT}/dist/check-m98-numbered-meta.mjs" || exit 1
+echo "Checking M6520 axis flags must be X1/Y1/Z1/A1 (not bare X)..."
+node "${ROOT}/dist/check-m6520-axis-flags.mjs" || exit 1
+echo "Checking no dynamic G{/M{ command numbers (T{ only)..."
+node "${ROOT}/dist/check-no-dynamic-gm-codes.mjs" || exit 1
 echo "Checking RRF caret-as-power misuse..."
 node "${ROOT}/dist/check-rrf-caret-power.mjs" || exit 1
 echo "Checking G6512 single-axis call contract..."
@@ -294,6 +298,13 @@ fi
 if [[ -d "${ROOT}/macros/nxt-config" ]]; then
   mkdir -p "${TMP_DIR}/sd/sys/nxt-config"
   "${SYNC_CMD[@]}" "${ROOT}/macros/nxt-config/" "${TMP_DIR}/sd/sys/nxt-config/"
+fi
+
+# Ship daemon as daemon.install so DSF upgrade does not overwrite/delete the live
+# forever-loop 0:/sys/daemon.g (open while nxtDaemonEnabled). nxt.g applies the rename.
+if [[ -f "${TMP_DIR}/sd/sys/daemon.g" ]]; then
+  echo "Staging daemon.g as sd/sys/daemon.install (applied by nxt.g)..."
+  mv -f "${TMP_DIR}/sd/sys/daemon.g" "${TMP_DIR}/sd/sys/daemon.install"
 fi
 
 if [[ -f "${TMP_DIR}/sd/sys/nxt.g" ]]; then

@@ -49,7 +49,7 @@ The information contained here is for advanced users who want to understand furt
 - You _must_ be using RRF **3.7.x** on branch **`v0.7.0`** (minimum **3.7.0-beta.1** while upstream is in beta). nxt uses meta G-code features that do not exist in earlier versions. For **3.6.x** machines, stay on nxt **`v0.6.0`** releases.
 
 **Reference firmware for development:** When reviewing or extending nxt on branch **`v0.7.0`**, treat **[RepRapFirmware 3.7.0-beta.1](docs/RRF_REFERENCE.md)** as the evaluation baseline. See [`docs/RRF_REFERENCE.md`](docs/RRF_REFERENCE.md) and [`docs/VERSIONING.md`](docs/VERSIONING.md).
-- nxt includes its own `daemon.g` file for repetitive tasks (VSSC is planned but not yet implemented). If you want to implement your own repetitive tasks, create a `user-daemon.g` file in the `/sys` directory, which nxt will run during its daemon loop. Do not use long-running loops inside `user-daemon.g` as this will interfere with nxt's daemon behaviour.
+- nxt includes a background daemon loop (source [`macros/system/daemon.g`](macros/system/daemon.g)). Plugin ZIPs ship it as `sd/sys/daemon.install`; [`nxt.g`](macros/system/nxt.g) renames it to `0:/sys/daemon.g` so DSF upgrades do not overwrite an open forever-loop file. If an older install still lists `daemon.g` in the plugin file list, use **Prepare for plugin update** in the UI (or `M6525`) once before upgrading — see [docs/PLUGIN_LOAD_TROUBLESHOOTING.md](docs/PLUGIN_LOAD_TROUBLESHOOTING.md). For custom background tasks, create `user-daemon.g` in `/sys` (nxt runs it each daemon tick). Do not use long-running loops inside `user-daemon.g`.
 
 ### RRF Config
 

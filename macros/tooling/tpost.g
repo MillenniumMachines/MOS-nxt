@@ -10,6 +10,17 @@
 ; nxtToolChangeState (3 -> null) at the end.
 ;
 ; NO PARAMETERS - called automatically by RRF
+;
+; Operator Cancel in tpre/tfree: skip measure. Do not abort (abort in
+; tool-change macros leaves Tn in an unknown state). Do not issue T —
+; nested T re-runs tpre (Install prompt) and can crash RRF. Leave the
+; tool RRF already selected. Console T-1 P0 if the operator wants none.
+
+if { exists(global.nxtToolChangeCancelled) && global.nxtToolChangeCancelled }
+    set global.nxtToolChangeCancelled = false
+    set global.nxtToolChangeState = null
+    echo "tpost.g: tool change cancelled — skip measure"
+    M99
 
 ; Validate that tpre.g completed properly
 if { global.nxtToolChangeState != 3 }

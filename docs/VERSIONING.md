@@ -36,7 +36,7 @@ When upstream ships a stable **3.7.0** (or newer 3.7.x patch), bump `ci/dwc-buil
 3. **Release candidates:** `v0.7.0-rcN` (no dot before `rc`).
 4. **Stable:** `v0.7.0` on branch `v0.7.0`.
 5. **ZIP naming:** `nxt-<version>.zip` ([NAMING.md](NAMING.md)).
-6. **`global.nxtVersion`** and CAM post-processors (`M4005`) match the installed release from this line.
+6. **`global.nxtVersion`** may be the full tag (`v0.7.0-beta.1`); CAM posts (`M4005`) match the **line** (`0.M` / major.minor), not the exact tag.
 
 ## Starting a new RRF generation (e.g. 3.8)
 

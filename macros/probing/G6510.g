@@ -4,6 +4,7 @@
 ; that axis, others stay at current. Writes only the probed axis into nxtProbeResults[row];
 ; θ slot unchanged unless zero-filled on first use — M6520 with X/Y/Z singly does not apply G68.
 ; U chains M6520 with the matching axis letter(s) for WCS update.
+; Z: G6512 raw trigger (no D, no tip R); M6520 Z1 sets WCS; return to startZ.
 ;
 ; USAGE: G6510 P|U [X|Y|Z] [F] [R] [Q]
 
@@ -55,6 +56,7 @@ if { state.currentTool != global.nxtProbeToolID }
 echo "G6510: Single surface " ^ move.axes[var.probeAxis].letter
 
 M5000
+var startZ = { global.nxtAbsPos[2] }
 
 var probeFeed = { exists(param.F) ? param.F : null }
 var probeRetries = { exists(param.R) ? param.R : global.nxtProbeInnerSampleCount }
@@ -77,16 +79,23 @@ echo "G6510: Index " ^ var.pSlot ^ " " ^ move.axes[var.probeAxis].letter ^ "=" ^
 if { exists(param.U) && param.U != null }
     if { var.probeAxis == 0 }
         if { exists(param.Q) && param.Q != null }
-            M6520 P{var.pSlot} W{param.U} X Q{param.Q}
+            M6520 P{var.pSlot} W{param.U} X1 Q{param.Q}
         else
-            M6520 P{var.pSlot} W{param.U} X
+            M6520 P{var.pSlot} W{param.U} X1
     elif { var.probeAxis == 1 }
         if { exists(param.Q) && param.Q != null }
-            M6520 P{var.pSlot} W{param.U} Y Q{param.Q}
+            M6520 P{var.pSlot} W{param.U} Y1 Q{param.Q}
         else
-            M6520 P{var.pSlot} W{param.U} Y
+            M6520 P{var.pSlot} W{param.U} Y1
     else
         if { exists(param.Q) && param.Q != null }
-            M6520 P{var.pSlot} W{param.U} Z Q{param.Q}
+            M6520 P{var.pSlot} W{param.U} Z1 Q{param.Q}
         else
-            M6520 P{var.pSlot} W{param.U} Z
+            M6520 P{var.pSlot} W{param.U} Z1
+        ; Return to jog start height (not work Z0 / Z max)
+        G53 G0 Z{var.startZ}
+        echo "G6510: Returned to start Z=" ^ var.startZ
+elif { var.probeAxis == 2 }
+    ; No U — still leave Z at start height after probe
+    G53 G0 Z{var.startZ}
+    echo "G6510: Returned to start Z=" ^ var.startZ

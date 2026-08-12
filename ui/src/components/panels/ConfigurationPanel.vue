@@ -18,6 +18,49 @@
         Changes are saved immediately to the object model. Use "Save Configuration" to persist to nxt-user-vars.g
       </v-alert>
 
+      <v-alert
+        :type="daemonPausedForUpdate || !daemonEnabled ? 'warning' : 'info'"
+        variant="outlined"
+        density="compact"
+        class="mb-4"
+      >
+        <div class="font-weight-medium mb-1">
+          <v-icon class="mr-2" size="small">mdi-update</v-icon>
+          {{ $t('plugins.nxt.messages.pluginUpdateTitle') }}
+        </div>
+        <div class="text-caption mb-2">
+          {{
+            daemonPausedForUpdate || !daemonEnabled
+              ? $t('plugins.nxt.messages.pluginUpdatePaused')
+              : $t('plugins.nxt.messages.pluginUpdateHint')
+          }}
+        </div>
+        <div class="d-flex flex-wrap">
+          <v-btn
+            size="small"
+            color="warning"
+            variant="outlined"
+            class="mr-2 mb-1"
+            :disabled="!isConnected || !configurationUiAllowed || daemonBusy"
+            :loading="preparingDaemon"
+            @click="preparePluginUpdate"
+          >
+            {{ $t('plugins.nxt.messages.pluginUpdatePrepare') }}
+          </v-btn>
+          <v-btn
+            size="small"
+            color="primary"
+            variant="outlined"
+            class="mb-1"
+            :disabled="!isConnected || !configurationUiAllowed || daemonBusy || (daemonEnabled && !daemonPausedForUpdate)"
+            :loading="resumingDaemon"
+            @click="resumeDaemon"
+          >
+            {{ $t('plugins.nxt.messages.pluginUpdateResume') }}
+          </v-btn>
+        </div>
+      </v-alert>
+
       <!-- Configuration Sections -->
       <v-expansion-panels v-model="openPanels" multiple class="mb-4">
         <!-- Board & kit -->
@@ -826,15 +869,13 @@
               </v-col>
               <v-col cols="12" md="3">
                 <v-text-field
-                  :model-value="probeDeflectionZ"
-                  label="Deflection Z (mm) *"
+                  :model-value="0"
+                  label="Deflection Z (mm)"
                   type="number"
                   step="0.001"
-                  :disabled="uiFrozen"
-                  @update:model-value="onProbeDeflectionComponent(2, $event)"
-                  hint="Z-axis touch-probe deflection (0 if not measured)"
+                  disabled
+                  hint="Unused — Z probes use raw trigger (no deflection)"
                   persistent-hint
-                  :error="!probeDeflectionConfigured"
                 />
               </v-col>
             </v-row>
@@ -1741,6 +1782,10 @@ export default defineNxtComponent({
       boardPackWarnings: [] as string[],
       sdConfigWarnings: [] as string[],
 
+      preparingDaemon: false,
+      resumingDaemon: false,
+      daemonPausedForUpdate: false,
+
       configDraft: emptyConfigDraft() as NxtUserConfigDraft,
 
       NXT_SCYLLA_MOTOR_VOLTAGE_ITEMS
@@ -1760,6 +1805,19 @@ export default defineNxtComponent({
         readFirmwareGlobal(globalVal, 'nxtVarsLoaded') === true ||
         readFirmwareGlobal(globalVal, 'nxtVarsLoaded') === 1
       )
+    },
+
+    daemonBusy(): boolean {
+      return this.preparingDaemon || this.resumingDaemon
+    },
+
+    daemonEnabled(): boolean {
+      if (!this.isConnected) {
+        return true
+      }
+      const g = this.$store.state.machine.model.global
+      const v = readFirmwareGlobal(g, 'nxtDaemonEnabled')
+      return v !== false && v !== 0
     },
 
     formatToolSetterPos(): string {
@@ -2436,6 +2494,30 @@ export default defineNxtComponent({
   },
 
   methods: {
+    async preparePluginUpdate() {
+      this.preparingDaemon = true
+      try {
+        await this.sendCode('M6525')
+        this.daemonPausedForUpdate = true
+      } catch (error) {
+        console.error('nxt: M6525 prepare failed:', error)
+      } finally {
+        this.preparingDaemon = false
+      }
+    },
+
+    async resumeDaemon() {
+      this.resumingDaemon = true
+      try {
+        await this.sendCode('M6525 S1')
+        this.daemonPausedForUpdate = false
+      } catch (error) {
+        console.error('nxt: M6525 S1 resume failed:', error)
+      } finally {
+        this.resumingDaemon = false
+      }
+    },
+
     syncConfigDraftFromOm() {
       this.configDraft = snapshotConfigFromOm(this.$store.state.machine.model.global)
       applySingletonDefaults(this.configDraft, {
@@ -2754,6 +2836,10 @@ export default defineNxtComponent({
     },
 
     async onProbeDeflectionComponent(index: 0 | 1 | 2, raw: string | number | null) {
+      if (index === 2) {
+        // Z deflection discarded — keep channel at 0
+        return
+      }
       let v: number | null =
         raw === '' || raw === null || raw === undefined ? null : typeof raw === 'number' ? raw : Number(raw)
       if (v !== null && !Number.isFinite(v)) {
@@ -2763,7 +2849,7 @@ export default defineNxtComponent({
       const next: number[] = [
         prev != null && prev.length >= 1 && Number.isFinite(prev[0]) ? prev[0] : 0,
         prev != null && prev.length >= 2 && Number.isFinite(prev[1]) ? prev[1] : 0,
-        prev != null && prev.length >= 3 && Number.isFinite(prev[2]) ? prev[2] : 0
+        0
       ]
       if (v === null) {
         // Clearing one axis clears the whole vector (required XYZ)

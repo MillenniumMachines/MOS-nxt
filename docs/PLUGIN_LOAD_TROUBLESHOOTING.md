@@ -82,7 +82,7 @@ node dist/trace-plugin-404.mjs dist/nxt-*.zip
 node dist/trace-plugin-404.mjs dist/nxt-*.zip dwc-plugins.json
 ```
 
-**Steps:**
+**Steps (404):**
 
 1. **Uninstall** nxt in DWC → Settings → Plugins (if listed).  
 2. **Re-upload** the latest `dist/nxt-*.zip` and wait until install finishes.  
@@ -102,6 +102,20 @@ node dist/trace-plugin-404.mjs dist/nxt-*.zip dwc-plugins.json
 ./dist/build-plugin.sh /path/to/DuetWebControl   # same major line as printer
 node dist/verify-plugin-zip.mjs dist/nxt-*.zip
 ```
+
+## Install fails: `daemon.g` in use / cannot write or delete
+
+**Cause:** RRF keeps `0:/sys/daemon.g` open while the forever-loop runs (`global.nxtDaemonEnabled`). DSF plugin upgrade uninstalls the previous file list first; if that list still includes `daemon.g`, delete/overwrite fails.
+
+**Current ZIPs:** Ship `sd/sys/daemon.install` (not a live `daemon.g`). [`nxt.g`](../macros/system/nxt.g) applies it via [`nxt-daemon-install.g`](../macros/system/nxt-daemon-install.g) (pause → `M471` rename → restore). After that migration, routine upgrades replace `daemon.install` only and leave the running loop file alone.
+
+**One-time migration from older ZIPs that listed `daemon.g`:**
+
+1. In nxt UI: **Prepare for plugin update** (or console `M6525`).
+2. Install/upgrade the ZIP in DWC **Settings → Plugins**.
+3. **Resume daemon** (`M6525 S1`) or reboot / `M98 P"nxt.g"` so pending `daemon.install` becomes `daemon.g`.
+
+Later updates normally do **not** need a pause. See [`GCODE.md`](../GCODE.md) **M6525**.
 
 ## 2) Fix: `dwcFiles` empty or wrong
 

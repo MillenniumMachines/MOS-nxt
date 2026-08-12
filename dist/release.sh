@@ -170,6 +170,13 @@ if [[ -d "${WD}/macros/nxt-config" ]]; then
     ${SYNC_CMD} "${WD}/macros/nxt-config/" "${TMP_DIR}/sd/sys/nxt-config/"
 fi
 
+# Ship daemon as daemon.install so DSF upgrade does not overwrite/delete the live
+# forever-loop 0:/sys/daemon.g (open while nxtDaemonEnabled). nxt.g applies the rename.
+if [[ -f "${TMP_DIR}/sd/sys/daemon.g" ]]; then
+    echo "Staging daemon.g as sd/sys/daemon.install (applied by nxt.g)..."
+    mv -f "${TMP_DIR}/sd/sys/daemon.g" "${TMP_DIR}/sd/sys/daemon.install"
+fi
+
 [[ -f "${PLUGIN_PATH}" ]] && rm "${PLUGIN_PATH}"
 
 cd "${TMP_DIR}"

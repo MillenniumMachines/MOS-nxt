@@ -5,8 +5,8 @@
 ; selection (tip wait already done in tpre for probe installs).
 ;
 ; Speeds capped: fast ≤200 mm/min, slow ≤50 mm/min.
-; Motion: Z0 → ref XY → refZ+50 → fast find → short slow validate → rough Dz.
-; V2 probe target uses Z_act−8; V1 targets saved refZ.
+; Motion: Z0 → ref XY → Z max → fast find → short slow validate.
+; Clears Z deflection channel (unused). V2 target Z_act−8; V1 targets saved refZ.
 ; No per-call jog-confirm — ref XYZ from Phase 0 / M5016 + Save.
 ;
 ; USAGE: G6511 [R1] [S0]
@@ -60,25 +60,21 @@ if { exists(global.nxtTouchProbeSampleOuterRetries) }
     if { global.nxtTouchProbeSampleOuterRetries >= 0 }
         set var.tpOuter = { floor(global.nxtTouchProbeSampleOuterRetries) }
 
-; Zero Z deflection for raw-ish hits (restore after); XY unchanged
+; Keep XY deflection during hits; Z channel unused (force 0 on restore)
 var dxKeep = 0
 var dyKeep = 0
-var dzKeep = 0
 if { exists(global.nxtProbeDeflection) && global.nxtProbeDeflection != null }
     if { #global.nxtProbeDeflection >= 1 }
         set var.dxKeep = { global.nxtProbeDeflection[0] }
     if { #global.nxtProbeDeflection >= 2 }
         set var.dyKeep = { global.nxtProbeDeflection[1] }
-    if { #global.nxtProbeDeflection >= 3 }
-        set var.dzKeep = { global.nxtProbeDeflection[2] }
 set global.nxtProbeDeflection = { var.dxKeep, var.dyKeep, 0 }
 
 var isV2 = false
 if { exists(global.nxtToolSetterV2) && global.nxtToolSetterV2 }
     set var.isV2 = true
 
-var approachClearance = 50
-var approachZ = { var.refZ + var.approachClearance }
+var approachZ = { move.axes[2].max }
 var probeTargetZ = { var.refZ }
 
 if { var.isV2 }
@@ -96,7 +92,7 @@ M6515 Z0
 M6515 Z{var.probeTargetZ}
 
 var nxtG6511Mode = { var.isV2 ? "V2" : "V1" }
-echo { "G6511: " ^ var.nxtG6511Mode ^ " refZ+50 fast≤" ^ var.fastSpd ^ " slow≤" ^ var.slowSpd }
+echo { "G6511: " ^ var.nxtG6511Mode ^ " Zmax=" ^ var.approachZ ^ " fast≤" ^ var.fastSpd ^ " slow≤" ^ var.slowSpd }
 
 G53 G0 Z0
 G53 G0 X{var.refX} Y{var.refY}
@@ -114,24 +110,17 @@ G6512 Z{var.shortTarget} I{var.probeId} F{var.slowSpd} L{var.tpTol} O{var.tpOute
 var meanZ = { global.nxtLastProbeResult }
 echo { "G6511: slow validate mean Z=" ^ var.meanZ ^ " mm" }
 
-set global.nxtProbeDeflection = { var.dxKeep, var.dyKeep, var.dzKeep }
+; Clear baked Z D (tipR-era) — Z deflection discarded for now
+set global.nxtProbeDeflection = { var.dxKeep, var.dyKeep, 0 }
 set global.nxtLastProbeResult = { var.meanZ }
 
-var tipR = 0
-if { exists(global.nxtProbeTipRadius) && global.nxtProbeTipRadius != null }
-    set var.tipR = { global.nxtProbeTipRadius }
-; Rough Dz: tip-center ≈ refZ+R with D=0; stylus pre-travel lowers trigger
-var roughDz = { (var.refZ + var.tipR) - var.meanZ }
-if { var.roughDz < 0 }
-    set var.roughDz = 0
-
 if { !exists(global.nxtCalDefZ) }
-    global nxtCalDefZ = { var.roughDz }
+    global nxtCalDefZ = null
 else
-    set global.nxtCalDefZ = { var.roughDz }
+    set global.nxtCalDefZ = null
 
 set global.nxtRefSurfaceProbed = true
-echo { "G6511: mean Z=" ^ var.meanZ ^ " roughDz=" ^ var.roughDz }
+echo { "G6511: mean Z=" ^ var.meanZ ^ " mm (Z deflection unused)" }
 echo "G6511: Reference surface Z=" ^ global.nxtLastProbeResult ^ " mm"
 
 G27 Z1

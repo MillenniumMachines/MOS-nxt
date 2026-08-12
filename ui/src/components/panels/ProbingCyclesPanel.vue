@@ -187,15 +187,43 @@
                   :rules="[v => v != null || 'Required']"
                 />
               </v-col>
-              <v-col cols="12" sm="6" md="4" v-if="cycleConfig.params.includes('SURF')">
+              <v-col
+                cols="12"
+                sm="6"
+                md="4"
+                v-if="cycleConfig.params.includes('SURF') && params.axis === 2"
+              >
                 <v-text-field
-                  v-model.number="params.surfaceTarget"
-                  label="Target (machine)"
+                  v-model.number="params.surfaceTravel"
+                  :label="$t('plugins.nxt.panels.probingCycles.surfaceTravel')"
                   suffix="mm"
                   type="number"
                   variant="outlined"
                   density="compact"
-                  :rules="[v => v != null || 'Required']"
+                  :hint="$t('plugins.nxt.panels.probingCycles.surfaceTravelHint')"
+                  persistent-hint
+                  :rules="[
+                    (v: number | null) => (v != null && !Number.isNaN(Number(v))) || 'Required',
+                    (v: number | null) => (Number(v) > 0) || 'Must be positive'
+                  ]"
+                />
+              </v-col>
+              <v-col
+                cols="12"
+                sm="6"
+                md="4"
+                v-if="cycleConfig.params.includes('SURF') && params.axis != null && params.axis !== 2"
+              >
+                <v-text-field
+                  v-model.number="params.surfaceTarget"
+                  :label="$t('plugins.nxt.panels.probingCycles.surfaceTarget')"
+                  suffix="mm"
+                  type="number"
+                  variant="outlined"
+                  density="compact"
+                  :hint="$t('plugins.nxt.panels.probingCycles.surfaceTargetHint')"
+                  persistent-hint
+                  :rules="[(v: number | null) => v != null || 'Required']"
                 />
               </v-col>
               <v-col cols="12" sm="6" md="4" v-if="cycleConfig.params.includes('N')">
@@ -327,6 +355,7 @@ import {
   isNxtProbeToolLoaded,
   resolveNxtProbeToolId
 } from '../../utils/nxtEnableProbe'
+import { writeNxtUiSelectedResultIndex } from '../../utils/nxtProbeResultsUi'
 
 interface CycleConfig {
   gcode: string
@@ -343,7 +372,10 @@ interface CycleParams {
   depth: number | null
   spacing: number | null
   zTarget: number | null
+  /** Absolute machine X/Y for G6510 single-surface */
   surfaceTarget: number | null
+  /** Positive travel toward table/work for G6510 Z (converted to abs Z at execute) */
+  surfaceTravel: number | null
   axis: number | null
   direction: number | null
   overtravel: number | null
@@ -351,6 +383,8 @@ interface CycleParams {
   feedRate: number | null
   retries: number | null
 }
+
+const DEFAULT_SURFACE_TRAVEL_MM = 5
 
 export default defineNxtComponent({
   data() {
@@ -371,6 +405,7 @@ export default defineNxtComponent({
         spacing: null,
         zTarget: null,
         surfaceTarget: null,
+        surfaceTravel: DEFAULT_SURFACE_TRAVEL_MM,
         axis: null,
         direction: null,
         overtravel: null,
@@ -461,14 +496,14 @@ export default defineNxtComponent({
         G6510: {
           gcode: 'G6510',
           name: 'Single Surface',
-          description: 'Probes one surface in X, Y, or Z to find the surface location.',
+          description: 'Probes one surface in X, Y, or Z. Z is surface contact (no tip radius); WCS apply sets work Z0 then returns to start Z.',
           icon: 'mdi-arrow-right',
           params: ['SURF']
         },
         G6520: {
           gcode: 'G6520',
           name: 'Vise Corner',
-          description: 'Z probe for vise top, then outside corner probe for X/Y position (3 probes total).',
+          description: 'Z surface-contact probe for vise top, then outside corner for X/Y (3 probes).',
           icon: 'mdi-desk',
           params: ['L', 'C']
         }
@@ -543,6 +578,7 @@ export default defineNxtComponent({
         spacing: null,
         zTarget: null,
         surfaceTarget: null,
+        surfaceTravel: DEFAULT_SURFACE_TRAVEL_MM,
         axis: null,
         direction: null,
         overtravel: null,
@@ -553,6 +589,16 @@ export default defineNxtComponent({
     }
   },
   methods: {
+    /** Live machine Z (mm); null if OM position unavailable. */
+    machineZPosition(): number | null {
+      const axes = this.$store.state.machine.model.move?.axes
+      if (!Array.isArray(axes)) return null
+      const ax = axes[2] as { machinePosition?: number; userPosition?: number } | undefined
+      const mp = ax?.machinePosition
+      if (typeof mp === 'number' && Number.isFinite(mp)) return mp
+      const up = ax?.userPosition
+      return typeof up === 'number' && Number.isFinite(up) ? up : null
+    },
     async enableProbe() {
       const id = this.probeToolId
       if (id == null) {
@@ -586,9 +632,31 @@ export default defineNxtComponent({
       try {
         const gcode = this.buildGcode()
         await this.sendCode(gcode)
+        // U → table slot U-1; ProbeResultsPanel watches nxtUiState.selectedResultIndex
+        writeNxtUiSelectedResultIndex(
+          this.targetWcs - 1,
+          this.$store.state.settings?.plugins
+        )
+        let wcsNote = ''
+        if (!this.guidedJogMode) {
+          if (this.selectedCycle === 'G6510') {
+            const ax = this.params.axis
+            if (ax === 2) {
+              wcsNote = ` — WCS${this.targetWcs} applied (WCS Z set; returned to start Z)`
+            } else if (ax === 0) {
+              wcsNote = ` — WCS${this.targetWcs} applied (X0; other axes unchanged)`
+            } else if (ax === 1) {
+              wcsNote = ` — WCS${this.targetWcs} applied (Y0; other axes unchanged)`
+            } else {
+              wcsNote = ` — WCS${this.targetWcs} applied`
+            }
+          } else {
+            wcsNote = ` — WCS${this.targetWcs} applied (X0 Y0 at start Z)`
+          }
+        }
         this.$store.dispatch('machine/showMessage', {
           type: 'success',
-          message: `${this.selectedCycle} completed successfully`
+          message: `${this.selectedCycle} completed successfully${wcsNote}`
         })
       } catch (error) {
         this.$store.dispatch('machine/showMessage', {
@@ -611,9 +679,26 @@ export default defineNxtComponent({
       gcode += ` Q${this.rotationPolicy}`
 
       if (this.selectedCycle === 'G6510') {
-        if (this.params.axis === 0 && this.params.surfaceTarget != null) gcode += ` X${this.params.surfaceTarget}`
-        else if (this.params.axis === 1 && this.params.surfaceTarget != null) gcode += ` Y${this.params.surfaceTarget}`
-        else if (this.params.axis === 2 && this.params.surfaceTarget != null) gcode += ` Z${this.params.surfaceTarget}`
+        if (this.params.axis === 0 && this.params.surfaceTarget != null) {
+          gcode += ` X${this.params.surfaceTarget}`
+        } else if (this.params.axis === 1 && this.params.surfaceTarget != null) {
+          gcode += ` Y${this.params.surfaceTarget}`
+        } else if (this.params.axis === 2) {
+          const travel = this.params.surfaceTravel
+          if (travel == null || !(travel > 0)) {
+            throw new Error(
+              this.$t('plugins.nxt.panels.probingCycles.surfaceTravelRequired').toString()
+            )
+          }
+          const machineZ = this.machineZPosition()
+          if (machineZ == null) {
+            throw new Error(
+              this.$t('plugins.nxt.panels.probingCycles.machineZUnavailable').toString()
+            )
+          }
+          // Probe down toward table/work (same sense as G6510.1)
+          gcode += ` Z${machineZ - travel}`
+        }
       } else if (this.params.axis != null) {
         gcode += ` N${this.params.axis}`
       }

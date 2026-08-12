@@ -132,7 +132,7 @@ What the Calibration tab (and related cycles) can and cannot do with a touch pro
 | Tip radius R | — | Configuration only | Wrong R (diameter as radius) poisons D; fix R before Apply |
 | Phase 0 datum | Mixed | Jog + `M5016` / toolsetter | V1/V2 ref confirm before probe-assisted work |
 | Phase 1 XY deflection | Yes — `M5017` | Single-axis span entry | `newD = currentD + (actual − measured) / 2` |
-| Phase 1 Z deflection | Rough only — `G6511` | — | Fine 1″ Z span **deferred**; `nxtCalDefZ ≈ max(0, refZ+R − meanZ)`. G6512 Z uses tip-center **without** tip radius |
+| Phase 1 Z deflection | **Discarded** | — | Not calibrated or applied; G6512 Z = raw trigger (no D, no tip R). `nxtProbeDeflection[2]` forced 0 |
 | Phase 2 travel backlash | — | Dial `M5014` | Manual dial path; round-trip ≠ steps/mm |
 | Probe travel backlash | Yes — `G9000` | — | Preferred on solid faces; tip/D cancel in R; UI → **M425** |
 | Phase 3 dual-span M92 | Yes — `M5018` outside + G6512 find | Manual span override | Constant δ+b cancel in span difference; not on A |
@@ -308,16 +308,7 @@ Backlash causes repeated measurements of the same feature to cluster into two gr
 **UI:** Calibration tab — Probe: Run G9000 then optional Phase 4 samples; Manual: M5014 and/or Phase 4 typed means.
 ### 3.6 Phase 1: Probe Deflection Measurement (required first)
 
-**Goal**: Measure touch-probe deflection. **XY** from a 1-2-3 block; **rough Z** from G6511 reference probing (not a 1″ block span in this pass). Runs **before** Phase 2–4 when the touch probe is enabled (see §3.2).
-
-**Z (rough) — every probe install:**
-1. Tip install + trigger confirm (`tpre` / sensor wait)
-2. `G6511` uses **saved** ref (no location jog-confirm); feeds capped at **200 / 50** mm/min
-3. `Z0` → ref XY → `refZ+50` → fast find → short slow validate  
-   (V1 target `refZ`; V2 target `Z_act−8`)
-4. `nxtCalDefZ ≈ max(0, (refZ + tipRadius) − meanMeasuredZ)` (approximate; G6512 Z uses tip-center compensation without tip radius)
-
-**Cannot with probe (this phase):** fine Z deflection via a 1″ block height span — deferred. Do not treat rough Dz as a precision calibration of Z D.
+**Goal**: Measure touch-probe **XY** deflection. Runs **before** Phase 2–4 when the touch probe is enabled (see §3.2). **Z deflection is not calibrated or applied** (G6512 Z uses the raw trigger; `nxtProbeDeflection[2]` stays 0).
 
 **XY — Calibration Probe mode (`M5017 D…`):**
 1. Place 1-2-3 with **3″ facing operator (∥ X)**, 2″ ∥ Y
@@ -325,7 +316,9 @@ Backlash causes repeated measurements of the same feature to cluster into two gr
 3. **3-point CCW perimeter:** start −Y near −X; on each face probe near-corner / mid / far-corner (**10 mm** inset from assumed edges); stay at dive Z along the face; raise only between faces
 4. Spans from **means** of the three hits per opposing face pair; park at probed center at original safe Z
 5. `newD = currentD + (nominal − measured) / 2` per axis
-6. Apply `{Dx, Dy, Dz}` with Dz from `nxtCalDefZ` (editable in UI) only when proposed D is plausible (typically **0.01–0.05 mm**; **> 0.5 mm** usually means tip **radius** was entered as tip **diameter**)
+6. Apply `{Dx, Dy, 0}` only when proposed XY D is plausible (typically **0.01–0.05 mm**; **> 0.5 mm** usually means tip **radius** was entered as tip **diameter**)
+
+**G6511 (probe load):** Still probes the reference surface for tool-length / delta workflows, but does **not** propose rough Dz; it clears the Z deflection channel.
 
 **Span identity** (G6512 tip on; \(R\) = configured tip radius, \(D\) = configured deflection):
 
@@ -335,7 +328,7 @@ S = L + 2(R_{\mathrm{true}} - R) + 2(D - D_{\mathrm{phys}})
 
 Shortfall \(\Delta = L - S = 2[(R - R_{\mathrm{true}}) + (D_{\mathrm{phys}} - D)]\). Entering tip diameter as radius (e.g. `2` for a 2 mm ball → true \(R=1\)) shortens both spans by ~**2 mm** and makes naive \(D\) look ~1 mm — fix tip radius and re-run before Apply.
 
-**Update nxt:** Persist via Calibration / Configuration **Save** → `nxt-user-vars.g`. A-axis has no linear tip/deflection channel. Fine Z via 1″ block span is deferred.
+**Update nxt:** Persist via Calibration / Configuration **Save** → `nxt-user-vars.g`. A-axis has no linear tip/deflection channel. Z deflection discarded for now.
 
 ### 3.7 Phase 5: Verification & Refinement
 
@@ -398,8 +391,8 @@ The **Calibration** tab on the main nxt dashboard (`ui/src/nxt.vue` → `Calibra
 
 1. Tip radius (Configuration)
 2. Phase 0 datum (with location confirms) — Save ref before height checks
-3. Load probe (tip confirm + G6511 → rough Dz; `refZ+50` / fast@≤200 then slow@≤50)
-4. **Phase 1 deflection — required**: XY via `M5017 D…` (dive + 5 mm face clearance, 10 mm corner inset); Apply Dx/Dy + rough Dz
+3. Load probe (tip confirm + G6511; clears Z D channel)
+4. **Phase 1 deflection — required**: XY via `M5017 D…` (dive + 5 mm face clearance, 10 mm corner inset); Apply `{Dx, Dy, 0}`
 5. Manual: P2 travel → P3 M92 → P4 backlash refine — **or** Probe: `G9000` → P3 → optional P4 cluster refine → re-check D after M92
 6. Phase 5 verify + Save
 
@@ -411,7 +404,7 @@ The **Calibration** tab on the main nxt dashboard (`ui/src/nxt.vue` → `Calibra
 
 **Manual XYZ (phases after D):** Assumes a **1-2-3 block** with **3″∥X, 2″∥Y, 1″∥Z**. Phase 2 (`M5014`): pick block face → zero dial → away/return at **8 / 16 / 24 mm** → enter residual. Optional **3×** average per leg. UI estimates **M425 backlash only** — use Phase 3 for steps/mm. Phase 3 assist (`M5018` outside + probe-find): capture opposing faces (L1/R1/L2/R2) and compute spans — X uses 3″ ends, Y uses 2″ sides in the locked pose (no reorient required for that size). Phase 4: ±-direction samples or typed means → M425.
 
-**Probe mode:** Phase 1 (rough Dz from G6511 + XY `M5017`) → `G9000` travel backlash → Phase 3 dual spans → optional Phase 4 cluster refine → re-check D → Phase 5. Deflection must be confirmed before `G9000`.
+**Probe mode:** Phase 1 (XY `M5017`; Z D unused) → `G9000` travel backlash → Phase 3 dual spans → optional Phase 4 cluster refine → re-check D → Phase 5. Deflection must be confirmed before `G9000`.
 
 **Session persistence (UI):** Mid-wizard values (face captures, travel table, `pending*` Apply bridge, mode/axis) and a **deflection confirm fingerprint** live in DWC plugin settings as `nxtCalSession`. Leaving the Calibration tab or `/nxt` restores that progress on return. **Confirm deflection** is not re-prompted while OM `nxtProbeDeflection` still matches the last confirmed vector (unless M92 set a recheck). Durable machine values still require **Apply** + **Save** (`nxt-user-vars.g`). After a successful Save, wizard captures clear but the confirm fingerprint is kept.
 
@@ -431,11 +424,11 @@ The **Calibration** tab on the main nxt dashboard (`ui/src/nxt.vue` → `Calibra
 | `M5016` | Phase 0 static datum (jog-confirm when establishing ref) |
 | `M5017` | Phase 1 XY spans: `D` dive, O=5 face clearance, 10 mm corner inset, 3-pt perimeter |
 | `M5018` | Phase 3: raise → outside O=15 → dive → G6512 find edge; default return to center; `R0` stay out (G9000) |
-| `G6511` | Ref Z after probe load: `refZ+50` fast@≤200 then slow@≤50; V2 target `Z_act−8`; rough `nxtCalDefZ` |
+| `G6511` | Ref Z after probe load: Z max → fast@≤200 then slow@≤50; V2 target `Z_act−8`; clears Z D / `nxtCalDefZ` |
 | `G9000` | Probe-mode 8/16/24: probe → away → re-probe ×3 per leg (backlash only); XY via `M5018 … R0` then `J0 H±1` |
 | `M4005` / `M4006` | Job preamble: version check + require non-zero deflection when touch probe on |
 
-**Save calibration:** uploads `nxt-user-vars.g` (`nxtCustom*Steps`, `nxtCustom*Backlash`, `nxtProbeDeflection`, `nxtTouchProbeRefPos`, `nxtToolSetterPos`, `nxtDeltaMachine`). Blocked when touch probe is on and D is unset / factory zero / recheck pending. On **Custom** platform, also regenerates pack overlays (`steps.g`, `drives-overlay.g` with `M425`).
+**Save calibration:** uploads `nxt-user-vars.g` (`nxtProbeDeflection`, `nxtTouchProbeRefPos`, `nxtToolSetterPos`, `nxtDeltaMachine`; on **Custom** also `nxtCustom*Steps` / `nxtCustom*Backlash`). Blocked when touch probe is on and D is unset / factory zero / recheck pending. On **Custom** platform, also regenerates pack overlays (`steps.g`, `drives-overlay.g` with `M425`).
 
 ### 4.2 Implementation Approach
 
@@ -513,7 +506,7 @@ Two implementation approaches are possible:
    ```
 
 3. **Calibration Results Storage**:
-   - `0:/sys/nxt-user-vars.g` for globals (`nxtCustomX/Y/Z/ASteps`, `nxtCustom*Backlash`, `nxtProbeDeflection`)
+   - `0:/sys/nxt-user-vars.g` for globals (`nxtProbeDeflection`; Custom: `nxtCustomX/Y/Z/ASteps`, `nxtCustom*Backlash`)
    - Custom platform: regenerate `0:/sys/nxt-user-custom/steps.g` and `drives-overlay.g` (`M92` / `M425`)
    - A steps also kept consistent with MosFourthAxis via live `M4806`
 

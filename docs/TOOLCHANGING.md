@@ -29,6 +29,8 @@ nxt ships example tooling hooks under:
 
 …which you wire in **config.g** / tool definitions as appropriate for your machine. Those files are the right place to integrate with **your** physical changer logic.
 
+**Operator Cancel:** Install (`tpre`) and Remove (`tfree`) use **`M291 S4`** with **`K{"Continue", "Cancel"}`** — **not** `S3`. On RRF, **`S3` Cancel aborts the file**, which can take down DCS on **USB SBC** (DSF 3.7-beta `USB.ResendPacket` bounds bug). Cancel sets **`global.nxtToolChangeCancelled`** and **`M99`** (do **not** `abort` — that leaves `Tn` with the new tool active and still runs `tpost.g`, which would measure). RRF **still finishes** `Tn` and runs `tpost.g`; `tpost.g` skips toolsetter/probe/`G37.1`, **clears the flag**, and **does not issue `T`** (nested `T` from `tpost` or `daemon.g` re-runs `tpre` and can crash RRF). RRF keeps the tool it already selected. To deselect with no further prompts, send **`T-1 P0`** from the console. If Cancel on S4 still kills DCS, that is an upstream DSF USB-link bug — avoid cancelling mid-T until fixed, or continue the dialog instead.
+
 ---
 
 ## 2. nxt base install vs optional extension

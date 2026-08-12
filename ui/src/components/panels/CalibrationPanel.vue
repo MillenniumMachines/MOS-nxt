@@ -330,8 +330,7 @@
             <p class="text-caption text-grey mb-2">{{ $t('plugins.nxt.panels.calibration.phase4RequiredHint') }}</p>
 
             <v-alert density="compact" variant="outlined" class="mb-3" type="info">
-              {{ $t('plugins.nxt.panels.calibration.roughDzHint') }}
-              <strong class="ml-1">{{ roughDzDisplay }}</strong>
+              {{ $t('plugins.nxt.panels.calibration.zDeflectionUnusedHint') }}
             </v-alert>
 
             <!-- Probe mode: XY dual span + dive -->
@@ -394,18 +393,7 @@
                     readonly
                   />
                 </v-col>
-                <v-col cols="6" md="3">
-                  <v-text-field
-                    v-model.number="defProposedZEdit"
-                    type="number"
-                    step="0.001"
-                    density="compact"
-                    variant="outlined"
-                    :label="$t('plugins.nxt.panels.calibration.roughDzEdit')"
-                    hide-details
-                  />
-                </v-col>
-                <v-col cols="12" md="3" class="d-flex align-center">
+                <v-col cols="12" md="6" class="d-flex align-center">
                   <span class="text-caption">{{ xyDefPreview }}</span>
                 </v-col>
               </v-row>
@@ -1005,7 +993,6 @@ export default defineNxtComponent({
       p4DiveMm: 10 as number,
       defMeasuredX: null as number | null,
       defMeasuredY: null as number | null,
-      defProposedZEdit: null as number | null,
       p2CaptureBusy: null as null | 'l1' | 'r1' | 'l2' | 'r2',
       // Kept for axis-default sync / A rotary commanded elsewhere
       p1Commanded: NXT_123_AXIS_DEFAULTS.X.p1Commanded as number | null,
@@ -1253,13 +1240,6 @@ export default defineNxtComponent({
         { value: 12.7, title: '12.7 mm (½″)' }
       ]
     },
-    roughDzFromOm(): number | null {
-      return readConfigNumber(readFirmwareGlobal(this.globalOm, 'nxtCalDefZ'))
-    },
-    roughDzDisplay(): string {
-      const z = this.defProposedZEdit ?? this.roughDzFromOm
-      return z != null && Number.isFinite(z) ? `${z.toFixed(4)} mm` : '— (load probe / G6511)'
-    },
     defProposedX(): number | null {
       if (this.defMeasuredX == null) return null
       const cur = this.currentDeflection
@@ -1275,12 +1255,10 @@ export default defineNxtComponent({
     xyDefPreview(): string {
       const dx = this.defProposedX
       const dy = this.defProposedY
-      const dz = this.defProposedZEdit ?? this.roughDzFromOm
-      if (dx == null && dy == null && dz == null) return ''
+      if (dx == null && dy == null) return ''
       const xs = dx != null ? dx.toFixed(4) : '—'
       const ys = dy != null ? dy.toFixed(4) : '—'
-      const zs = dz != null ? Number(dz).toFixed(4) : '—'
-      return `→ {${xs}, ${ys}, ${zs}}`
+      return `→ {${xs}, ${ys}, 0}`
     },
     probeTipRadiusFromOm(): number | null {
       return readConfigNumber(readFirmwareGlobal(this.globalOm, 'nxtProbeTipRadius'))
@@ -1440,9 +1418,9 @@ export default defineNxtComponent({
     },
     canConfirmExistingDeflection(): boolean {
       const v = this.rawDeflectionValue
-      if (v == null || v.length < 3) return false
-      if (!Number.isFinite(v[0]) || !Number.isFinite(v[1]) || !Number.isFinite(v[2])) return false
-      return !isFactoryZeroDeflection(v)
+      if (v == null || v.length < 2) return false
+      if (!Number.isFinite(v[0]) || !Number.isFinite(v[1])) return false
+      return !isFactoryZeroDeflection([v[0], v[1], 0])
     },
     canRunG9000(): boolean {
       const xyReady =
@@ -1683,16 +1661,19 @@ export default defineNxtComponent({
         this.show('A-axis has no linear probe deflection channel', 'warning')
         return
       }
+      if (axis === 'Z') {
+        this.show(this.$t('plugins.nxt.panels.calibration.zDeflectionUnusedHint').toString(), 'warning')
+        return
+      }
       const cur = this.currentDeflection ?? [0, 0, 0]
       const next: number[] = [
         cur.length >= 1 ? cur[0] : 0,
         cur.length >= 2 ? cur[1] : 0,
-        cur.length >= 3 ? cur[2] : cur.length >= 1 ? cur[0] : 0
+        0
       ]
       if (axis === 'X') next[0] = this.defProposed
       else if (axis === 'Y') next[1] = this.defProposed
-      else if (axis === 'Z') next[2] = this.defProposed
-      const label = `{${next[0].toFixed(4)}, ${next[1].toFixed(4)}, ${next[2].toFixed(4)}}`
+      const label = `{${next[0].toFixed(4)}, ${next[1].toFixed(4)}, 0}`
       if (!window.confirm(`Set nxtProbeDeflection = ${label}?`)) return
       this.prevDeflection = cur
       try {
@@ -1707,15 +1688,19 @@ export default defineNxtComponent({
     confirmExistingDeflection() {
       const v = this.rawDeflectionValue
       if (v == null) return
-      const z = v.length >= 3 ? v[2] : v[0]
-      if (isFactoryZeroDeflection(v)) {
+      const normalized: number[] = [
+        v.length >= 1 ? v[0] : 0,
+        v.length >= 2 ? v[1] : 0,
+        0
+      ]
+      if (isFactoryZeroDeflection(normalized)) {
         this.show(this.$t('plugins.nxt.panels.calibration.confirmZeroDeflection').toString(), 'error')
         this.openPhase = '1'
         return
       }
-      this.markDeflectionConfirmed(v)
+      this.markDeflectionConfirmed(normalized)
       this.show(
-        `Using deflection X ${v[0].toFixed(4)} / Y ${v[1].toFixed(4)} / Z ${z.toFixed(4)} mm`,
+        `Using deflection X ${normalized[0].toFixed(4)} / Y ${normalized[1].toFixed(4)} / Z 0 mm`,
         'success'
       )
     },
@@ -1762,8 +1747,6 @@ export default defineNxtComponent({
       this.probeLoadBusy = true
       try {
         await enableNxtProbeTool((c: string) => this.sendCode(c), toolId)
-        const rz = readConfigNumber(readFirmwareGlobal(this.globalOm, 'nxtCalDefZ'))
-        if (rz != null) this.defProposedZEdit = rz
         this.show(
           this.$t('plugins.nxt.panels.calibration.enableProbeDone', [toolId]).toString(),
           'success'
@@ -1935,15 +1918,8 @@ export default defineNxtComponent({
     async applyXyDeflection() {
       if (!this.canApplyXyDeflection || this.defProposedX == null || this.defProposedY == null) return
       const cur = this.currentDeflection ?? [0, 0, 0]
-      const dzRaw = this.defProposedZEdit ?? this.roughDzFromOm
-      const dz =
-        dzRaw != null && Number.isFinite(dzRaw)
-          ? Number(dzRaw)
-          : cur.length >= 3
-            ? cur[2]
-            : 0
-      const next: number[] = [this.defProposedX, this.defProposedY, dz]
-      const label = `{${next[0].toFixed(4)}, ${next[1].toFixed(4)}, ${next[2].toFixed(4)}}`
+      const next: number[] = [this.defProposedX, this.defProposedY, 0]
+      const label = `{${next[0].toFixed(4)}, ${next[1].toFixed(4)}, 0}`
       let confirmMsg = `Set nxtProbeDeflection = ${label}?`
       if (this.xyDeflectionImplausible) {
         confirmMsg =
@@ -1977,8 +1953,6 @@ export default defineNxtComponent({
         }
         this.defMeasuredX = sx
         this.defMeasuredY = sy
-        const rz = this.roughDzFromOm
-        if (rz != null) this.defProposedZEdit = rz
         this.show(
           `Spans X ${sx.toFixed(4)} / Y ${sy.toFixed(4)} mm — review and Apply`,
           'success'
@@ -2048,15 +2022,26 @@ export default defineNxtComponent({
       }
     },
     mergePendingIntoDraft(draft: NxtUserConfigDraft): void {
-      if (this.pendingSteps.X != null) draft.nxtCustomXSteps = this.pendingSteps.X
-      if (this.pendingSteps.Y != null) draft.nxtCustomYSteps = this.pendingSteps.Y
-      if (this.pendingSteps.Z != null) draft.nxtCustomZSteps = this.pendingSteps.Z
-      if (this.pendingSteps.A != null) draft.nxtCustomASteps = this.pendingSteps.A
-      if (this.pendingBacklash.X != null) draft.nxtCustomXBacklash = this.pendingBacklash.X
-      if (this.pendingBacklash.Y != null) draft.nxtCustomYBacklash = this.pendingBacklash.Y
-      if (this.pendingBacklash.Z != null) draft.nxtCustomZBacklash = this.pendingBacklash.Z
-      if (this.pendingBacklash.A != null) draft.nxtCustomABacklash = this.pendingBacklash.A
-      if (this.pendingDeflection != null) draft.nxtProbeDeflection = this.pendingDeflection
+      // nxtCustom*Steps / *Backlash are Custom-platform durable store only (drives-overlay).
+      // Non-Custom: Apply already sent live M92/M425; do not write undeclared Custom keys.
+      if (this.isCustomPlatform) {
+        if (this.pendingSteps.X != null) draft.nxtCustomXSteps = this.pendingSteps.X
+        if (this.pendingSteps.Y != null) draft.nxtCustomYSteps = this.pendingSteps.Y
+        if (this.pendingSteps.Z != null) draft.nxtCustomZSteps = this.pendingSteps.Z
+        if (this.pendingSteps.A != null) draft.nxtCustomASteps = this.pendingSteps.A
+        if (this.pendingBacklash.X != null) draft.nxtCustomXBacklash = this.pendingBacklash.X
+        if (this.pendingBacklash.Y != null) draft.nxtCustomYBacklash = this.pendingBacklash.Y
+        if (this.pendingBacklash.Z != null) draft.nxtCustomZBacklash = this.pendingBacklash.Z
+        if (this.pendingBacklash.A != null) draft.nxtCustomABacklash = this.pendingBacklash.A
+      }
+      if (this.pendingDeflection != null) {
+        const p = this.pendingDeflection
+        draft.nxtProbeDeflection = [
+          p.length >= 1 ? p[0] : 0,
+          p.length >= 2 ? p[1] : 0,
+          0
+        ]
+      }
     },
     async saveCalibration() {
       if (!this.canSaveCalibration) {

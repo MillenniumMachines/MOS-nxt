@@ -11,6 +11,6 @@ var wcsNumber = { exists(global.nxtJobG68Wcs) && global.nxtJobG68Wcs != null ? g
 
 G17
 G69
-G{53 + var.wcsNumber}
+M98 P"nxt-select-wcs.g" W{var.wcsNumber}
 G68 X0 Y0 R{var.thetaDeg}
 echo "nxt-job-g68-restore: G68 R" ^ var.thetaDeg ^ " on G" ^ (53 + var.wcsNumber)

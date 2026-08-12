@@ -193,12 +193,12 @@ In nxt, **“skew” means in-plane workpiece rotation vs machine +X**, not mach
 ### M4005: CHECK nxt POST VERSION
 
 *   **Code:** `M4005`
-*   **Description:** Verifies that the CAM post `V"…"` string matches `global.nxtVersion`, then runs **`M4006`** (touch-probe deflection required when that feature is on).
+*   **Description:** Verifies that the CAM post `V"…"` string is on the same **major.minor** line as `global.nxtVersion` (patch / beta / rc ignored), then runs **`M4006`** (touch-probe deflection required when that feature is on).
 *   **Arguments:**
     *   `V<version>`: The version string of the post-processor.
 *   **How it works:**
     *   Validates that the `V` parameter is provided.
-    *   Compares `param.V` with `global.nxtVersion`.
+    *   Compares major.minor of `param.V` with `global.nxtVersion` (not an exact tag match).
     *   On match, invokes `M4006` so probe-equipped machines cannot start jobs with unset / factory-zero deflection.
 
 ### M4006: REQUIRE TOUCH-PROBE DEFLECTION
@@ -1725,7 +1725,7 @@ When a post-processor generates G-code for MillenniumOS, it typically orchestrat
 Here's a common high-level sequence of operations a post-processor would generate at the start of a job:
 
 1.  **MillenniumOS Version Check (`M4005`):**
-    *   The very first command is usually `M4005 V<post-processor-version>`. This is a critical compatibility check. If the post-processor's version doesn't match the installed MillenniumOS version, the job will immediately abort. This prevents unexpected behavior due to API changes or feature differences between versions.
+    *   The very first command is usually `M4005 V<post-processor-version>`. This is a compatibility check on the **major.minor** line (not an exact tag). If the post is on a different line than installed nxt (e.g. 0.6 vs 0.7), the job aborts.
 
 2.  **Tool Definitions (`M4000`):**
     *   Before any tools are used, the post-processor will define them using `M4000 P<tool-number> R<radius> S"<description>" [X<deflection-x>] [Y<deflection-y>]`.

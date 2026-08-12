@@ -23,8 +23,8 @@ These features form the core of the new nxt system and must be implemented for t
 #### **Probing Engine & Safety**
 - [x] **Single-Axis Probing Core:** A new, fundamental probing macro that *only* moves along a single specified axis (X, Y, Z, A, etc.) per command. All complex, multi-axis probe moves will be removed. In particular, this applies to Bore and Boss probes that previously would probe at 120 degree angles.
 - [x] **Probe Compensation:** The core probing macro will be responsible for applying compensation for:
-    - [x] **Probe Tip Radius:** Applied for all horizontal (X, Y, etc.) probing moves.
-    - [x] **Probe Deflection:** Applied for all probing moves, including Z. The Z-axis compensation will be handled to avoid applying the radius. We may need to track a separate probe deflection value for Z as opposed to X/Y because the probe behaviour may be different.
+    - [x] **Probe Tip Radius:** Applied for horizontal (X, Y) probing moves only.
+    - [x] **Probe Deflection:** Applied for **XY** probing. **Z deflection discarded for now** — Z probes use the raw trigger (no D, no tip radius).
 - [x] **Probe Deflection Measurement:** A dedicated mechanism (UI component) to automatically measure probe deflection by probing a known-sized object. This will be part of the new UI-based configuration and not implemented in a macro.
 - [x] **Manual Deflection Input:** The UI will allow operators to manually enter their own pre-calculated deflection values.
 - [x] **Protected Moves:** A critical safety feature. If the touch probe is triggered unexpectedly during any non-probing move (e.g., jogging, travel moves), the movement must halt immediately and the running macro must be aborted.

@@ -244,8 +244,8 @@ export function tipRadiusErrorFromShortfall(
  * With tip correct: measured ≈ actual − 2×D_residual →
  *   newD = currentD + (actual − measured) / 2
  *
- * Not used for Z: rough Dz is G6511-only; fine 1″ Z span is deferred.
- * G6512 Z tip-center compensation does not apply tip radius.
+ * Not used for Z: Z deflection is discarded for now (G6512 Z = raw trigger).
+ * G6512 Z does not apply tip radius or deflection.
  */
 export function deflectionFromSpan(
   measured: number,

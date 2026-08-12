@@ -237,6 +237,8 @@ node dist/verify-plugin-zip.mjs dist/nxt-*.zip
 
 Install on the printer: **Settings → Plugins → Install Plugin** → upload the ZIP → **Start**.
 
+Plugin ZIPs stage the forever-loop daemon as `sd/sys/daemon.install` (applied by `nxt.g` to `daemon.g`). If upgrade fails because `daemon.g` is in use, pause first with the nxt UI **Prepare for plugin update** button or `M6525` — see [PLUGIN_LOAD_TROUBLESHOOTING.md](PLUGIN_LOAD_TROUBLESHOOTING.md).
+
 **External plugin only:** `build-plugin.sh` stages a temp tree with `plugin.json` and copies nxt `macros/` into `sd/sys/`. For a standalone external repo, either:
 
 - Add it to the catalog and extend the build to stage that repo’s `sd/` (integration path), or

@@ -162,8 +162,8 @@ parser.add_argument('--allow-zero-rpm', action=argparse.BooleanOptionalAction, d
 parser.add_argument('--version-check', action=argparse.BooleanOptionalAction, default=True,
     help="""
     When enabled, the post-processor will output a version check command
-    to make sure the post-processor version and nxt version installed
-    in RRF match.
+    (M4005) so the post and installed nxt share the same major.minor line
+    (patch / beta / rc tags are ignored).
     """)
 probe_mode = parser.add_mutually_exclusive_group(required=False)
 probe_mode.add_argument('--probe-at-start', dest='probe_mode', action='store_const', const=PROBE.AT_START, default=PROBE.ON_CHANGE,

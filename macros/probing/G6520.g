@@ -1,7 +1,7 @@
 ; G6520.g: VISE CORNER PROBE (meta — not the same file as utilities/M6520.g)
 ;
 ; Machine-local sequence:
-;   1. Probe top surface (−Z) → corner Z in result[2]
+;   1. Probe top surface contact (−Z, no tip radius) → corner Z in result[2]
 ;   2. Probe X-facing jaw along X at fixed probe Z (retracted from top hit)
 ;   3. Clear along X, probe Y-facing jaw along Y
 ; Corner XY = intersection of the two vertical faces. Optional X/Y args bias probe targets.
@@ -99,6 +99,12 @@ echo "G6520: Corner X=" ^ var.cornerX ^ " Y=" ^ var.cornerY ^ " Z=" ^ var.corner
 
 if { exists(param.U) && param.U != null }
     if { exists(param.Q) && param.Q != null }
-        M6520 P{var.pSlot} W{param.U} X Y Z Q{param.Q}
+        M6520 P{var.pSlot} W{param.U} X1 Y1 Z1 Q{param.Q}
     else
-        M6520 P{var.pSlot} W{param.U} X Y Z
+        M6520 P{var.pSlot} W{param.U} X1 Y1 Z1
+    ; XY at corner origin from M6520; return Z to jog start
+    G53 G0 Z{var.startZ}
+    echo "G6520: Returned to start Z=" ^ var.startZ
+else
+    G53 G0 Z{var.startZ}
+    echo "G6520: Returned to start Z=" ^ var.startZ

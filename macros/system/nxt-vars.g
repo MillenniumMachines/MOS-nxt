@@ -35,7 +35,7 @@ global nxtConfigPending = false       ; true when nxt-user-vars.g missing — us
 
 ; --- Tooling & Probing ---
 global nxtDeltaMachine = null      ; The static Z distance between the toolsetter and reference surface
-global nxtProbeResults = { vector(5, null) } ; Last 5 probe results (rows sized at runtime to #move.axes+1)
+global nxtProbeResults = { vector(9, null) } ; Slots 0–8 = U1–U9 (rows sized at runtime to #move.axes+1)
 ; Tool-length cache for relative offsets (tpost) — two scalars, not vector(limits.tools) (OM ~8KB)
 global nxtToolCacheIdx = -1            ; tool index for nxtToolCacheZ (-1 = empty)
 global nxtToolCacheZ = null            ; last measured Z / virtual toolsetter Z for that tool
@@ -54,7 +54,7 @@ global nxtCalTravelAxis = null
 global nxtCalDefSpan = null
 global nxtCalDefSpanX = null
 global nxtCalDefSpanY = null
-global nxtCalDefZ = null          ; rough Dz from G6511 multi-height (mm)
+global nxtCalDefZ = null          ; unused (Z deflection discarded); G6511 clears
 ; G6512 H-slot contacts — allocated on first H= write (OM ~8KB budget)
 global nxtProbeHitXY = null
 global nxtProbeMaxSkewDeg = 5.0   ; Abort rectangle/bore skew solve if |theta| exceeds this (deg)
@@ -75,6 +75,7 @@ global nxtToolSetterRefDir = 0     ; V2 ref pad side of platen: 0=+X 1=-X 2=+Y 3
 global nxtToolSetterProbeTravelMm = 80.0 ; Downward travel from toolsetter Z used for tool-length probing
 global nxtToolSetterRadius = null ; Toolsetter platen radius for large-tool multi-point G37 (mm)
 global nxtToolChangeState = null   ; Tracks the current tool change state (1=tfree, 2=tfree done, 3=tpre done, 4=tpost, null=complete)
+global nxtToolChangeCancelled = false ; Operator Cancel in tfree/tpre: tpost skips measure (no T from firmware)
 global nxtUserToolsFilePresent = false     ; set at boot by nxt.g: nxt-user-tools.g exists on SD
 global nxtUserToolsDaemonReload = false      ; if true, daemon reloads library when 0:/sys/nxt-user-tools.reload.requested exists (see TOOLCHANGING.md)
 global nxtTTLocked = false                   ; Tool Library edit-lock (persisted via nxt-user-tools-sync.g)

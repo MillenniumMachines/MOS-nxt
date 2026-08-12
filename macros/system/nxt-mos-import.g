@@ -295,68 +295,89 @@ if { global.nxtBoardSysDeployPlatform == null }
     echo >>{var.UV} {"set global.nxtBoardSysDeployPlatform = null"}
 else
     echo >>{var.UV} {"set global.nxtBoardSysDeployPlatform = "" ^ global.nxtBoardSysDeployPlatform ^ """}
-echo >>{var.UV} {""}
-echo >>{var.UV} {"; Custom platform (travel, steps, endstops, drives)"}
-echo >>{var.UV} {"set global.nxtCustomXMin = " ^ (global.nxtCustomXMin == null ? "null" : global.nxtCustomXMin)}
-echo >>{var.UV} {"set global.nxtCustomXMax = " ^ (global.nxtCustomXMax == null ? "null" : global.nxtCustomXMax)}
-echo >>{var.UV} {"set global.nxtCustomYMin = " ^ (global.nxtCustomYMin == null ? "null" : global.nxtCustomYMin)}
-echo >>{var.UV} {"set global.nxtCustomYMax = " ^ (global.nxtCustomYMax == null ? "null" : global.nxtCustomYMax)}
-echo >>{var.UV} {"set global.nxtCustomZMin = " ^ (global.nxtCustomZMin == null ? "null" : global.nxtCustomZMin)}
-echo >>{var.UV} {"set global.nxtCustomZMax = " ^ (global.nxtCustomZMax == null ? "null" : global.nxtCustomZMax)}
-echo >>{var.UV} {"set global.nxtCustomAMin = " ^ (global.nxtCustomAMin == null ? "null" : global.nxtCustomAMin)}
-echo >>{var.UV} {"set global.nxtCustomAMax = " ^ (global.nxtCustomAMax == null ? "null" : global.nxtCustomAMax)}
-echo >>{var.UV} {"set global.nxtCustomXSteps = " ^ (global.nxtCustomXSteps == null ? "null" : global.nxtCustomXSteps)}
-echo >>{var.UV} {"set global.nxtCustomYSteps = " ^ (global.nxtCustomYSteps == null ? "null" : global.nxtCustomYSteps)}
-echo >>{var.UV} {"set global.nxtCustomZSteps = " ^ (global.nxtCustomZSteps == null ? "null" : global.nxtCustomZSteps)}
-echo >>{var.UV} {"set global.nxtCustomASteps = " ^ (global.nxtCustomASteps == null ? "null" : global.nxtCustomASteps)}
-echo >>{var.UV} {"set global.nxtCustomXHomeAt = " ^ (global.nxtCustomXHomeAt == null ? "null" : global.nxtCustomXHomeAt)}
-echo >>{var.UV} {"set global.nxtCustomYHomeAt = " ^ (global.nxtCustomYHomeAt == null ? "null" : global.nxtCustomYHomeAt)}
-echo >>{var.UV} {"set global.nxtCustomZHomeAt = " ^ (global.nxtCustomZHomeAt == null ? "null" : global.nxtCustomZHomeAt)}
-echo >>{var.UV} {"set global.nxtCustomAHomeAt = " ^ (global.nxtCustomAHomeAt == null ? "null" : global.nxtCustomAHomeAt)}
-if { global.nxtCustomXEndstopPin == null }
-    echo >>{var.UV} {"set global.nxtCustomXEndstopPin = null"}
-else
-    echo >>{var.UV} {"set global.nxtCustomXEndstopPin = "" ^ global.nxtCustomXEndstopPin ^ """}
-if { global.nxtCustomYEndstopPin == null }
-    echo >>{var.UV} {"set global.nxtCustomYEndstopPin = null"}
-else
-    echo >>{var.UV} {"set global.nxtCustomYEndstopPin = "" ^ global.nxtCustomYEndstopPin ^ """}
-if { global.nxtCustomZEndstopPin == null }
-    echo >>{var.UV} {"set global.nxtCustomZEndstopPin = null"}
-else
-    echo >>{var.UV} {"set global.nxtCustomZEndstopPin = "" ^ global.nxtCustomZEndstopPin ^ """}
-if { global.nxtCustomAEndstopPin == null }
-    echo >>{var.UV} {"set global.nxtCustomAEndstopPin = null"}
-else
-    echo >>{var.UV} {"set global.nxtCustomAEndstopPin = "" ^ global.nxtCustomAEndstopPin ^ """}
-if { global.nxtCustomXDrives == null }
-    echo >>{var.UV} {"set global.nxtCustomXDrives = null"}
-else
-    echo >>{var.UV} {"set global.nxtCustomXDrives = "" ^ global.nxtCustomXDrives ^ """}
-if { global.nxtCustomYDrives == null }
-    echo >>{var.UV} {"set global.nxtCustomYDrives = null"}
-else
-    echo >>{var.UV} {"set global.nxtCustomYDrives = "" ^ global.nxtCustomYDrives ^ """}
-if { global.nxtCustomZDrives == null }
-    echo >>{var.UV} {"set global.nxtCustomZDrives = null"}
-else
-    echo >>{var.UV} {"set global.nxtCustomZDrives = "" ^ global.nxtCustomZDrives ^ """}
-if { global.nxtCustomADrives == null }
-    echo >>{var.UV} {"set global.nxtCustomADrives = null"}
-else
-    echo >>{var.UV} {"set global.nxtCustomADrives = "" ^ global.nxtCustomADrives ^ """}
-echo >>{var.UV} {"set global.nxtCustomXCurrent = " ^ (global.nxtCustomXCurrent == null ? "null" : global.nxtCustomXCurrent)}
-echo >>{var.UV} {"set global.nxtCustomYCurrent = " ^ (global.nxtCustomYCurrent == null ? "null" : global.nxtCustomYCurrent)}
-echo >>{var.UV} {"set global.nxtCustomZCurrent = " ^ (global.nxtCustomZCurrent == null ? "null" : global.nxtCustomZCurrent)}
-echo >>{var.UV} {"set global.nxtCustomACurrent = " ^ (global.nxtCustomACurrent == null ? "null" : global.nxtCustomACurrent)}
-if { global.nxtCustomDriveDirs == null }
-    echo >>{var.UV} {"set global.nxtCustomDriveDirs = null"}
-else
-    echo >>{var.UV} {"set global.nxtCustomDriveDirs = "" ^ global.nxtCustomDriveDirs ^ """}
-echo >>{var.UV} {"set global.nxtCustomXBacklash = " ^ (global.nxtCustomXBacklash == null ? "null" : global.nxtCustomXBacklash)}
-echo >>{var.UV} {"set global.nxtCustomYBacklash = " ^ (global.nxtCustomYBacklash == null ? "null" : global.nxtCustomYBacklash)}
-echo >>{var.UV} {"set global.nxtCustomZBacklash = " ^ (global.nxtCustomZBacklash == null ? "null" : global.nxtCustomZBacklash)}
-echo >>{var.UV} {"set global.nxtCustomABacklash = " ^ (global.nxtCustomABacklash == null ? "null" : global.nxtCustomABacklash)}
+; Custom platform keys — only when Custom is in play (OM ~8KB). Never echo set=null.
+; Reading undeclared nxtCustom* (e.g. Scylla MOS import) → unknown variable.
+var nxtMosEchoCustom = { fileexists("0:/sys/nxt-custom.requested") }
+if { !var.nxtMosEchoCustom }
+    set var.nxtMosEchoCustom = { fileexists("0:/sys/nxt-user-custom/limits.g") }
+if { !var.nxtMosEchoCustom }
+    set var.nxtMosEchoCustom = { exists(global.nxtCustomXMin) }
+if { var.nxtMosEchoCustom }
+    if { !exists(global.nxtCustomXMin) }
+        M98 P"nxt-custom-globals.g"
+    echo >>{var.UV} {""}
+    echo >>{var.UV} {"; Custom platform (travel, steps, endstops, drives)"}
+    if { exists(global.nxtCustomXMin) && global.nxtCustomXMin != null }
+        echo >>{var.UV} {"set global.nxtCustomXMin = " ^ global.nxtCustomXMin}
+    if { exists(global.nxtCustomXMax) && global.nxtCustomXMax != null }
+        echo >>{var.UV} {"set global.nxtCustomXMax = " ^ global.nxtCustomXMax}
+    if { exists(global.nxtCustomYMin) && global.nxtCustomYMin != null }
+        echo >>{var.UV} {"set global.nxtCustomYMin = " ^ global.nxtCustomYMin}
+    if { exists(global.nxtCustomYMax) && global.nxtCustomYMax != null }
+        echo >>{var.UV} {"set global.nxtCustomYMax = " ^ global.nxtCustomYMax}
+    if { exists(global.nxtCustomZMin) && global.nxtCustomZMin != null }
+        echo >>{var.UV} {"set global.nxtCustomZMin = " ^ global.nxtCustomZMin}
+    if { exists(global.nxtCustomZMax) && global.nxtCustomZMax != null }
+        echo >>{var.UV} {"set global.nxtCustomZMax = " ^ global.nxtCustomZMax}
+    if { exists(global.nxtCustomXSteps) && global.nxtCustomXSteps != null }
+        echo >>{var.UV} {"set global.nxtCustomXSteps = " ^ global.nxtCustomXSteps}
+    if { exists(global.nxtCustomYSteps) && global.nxtCustomYSteps != null }
+        echo >>{var.UV} {"set global.nxtCustomYSteps = " ^ global.nxtCustomYSteps}
+    if { exists(global.nxtCustomZSteps) && global.nxtCustomZSteps != null }
+        echo >>{var.UV} {"set global.nxtCustomZSteps = " ^ global.nxtCustomZSteps}
+    if { exists(global.nxtCustomXHomeAt) && global.nxtCustomXHomeAt != null }
+        echo >>{var.UV} {"set global.nxtCustomXHomeAt = " ^ global.nxtCustomXHomeAt}
+    if { exists(global.nxtCustomYHomeAt) && global.nxtCustomYHomeAt != null }
+        echo >>{var.UV} {"set global.nxtCustomYHomeAt = " ^ global.nxtCustomYHomeAt}
+    if { exists(global.nxtCustomZHomeAt) && global.nxtCustomZHomeAt != null }
+        echo >>{var.UV} {"set global.nxtCustomZHomeAt = " ^ global.nxtCustomZHomeAt}
+    if { exists(global.nxtCustomXEndstopPin) && global.nxtCustomXEndstopPin != null }
+        echo >>{var.UV} {"set global.nxtCustomXEndstopPin = "" ^ global.nxtCustomXEndstopPin ^ """}
+    if { exists(global.nxtCustomYEndstopPin) && global.nxtCustomYEndstopPin != null }
+        echo >>{var.UV} {"set global.nxtCustomYEndstopPin = "" ^ global.nxtCustomYEndstopPin ^ """}
+    if { exists(global.nxtCustomZEndstopPin) && global.nxtCustomZEndstopPin != null }
+        echo >>{var.UV} {"set global.nxtCustomZEndstopPin = "" ^ global.nxtCustomZEndstopPin ^ """}
+    if { exists(global.nxtCustomXDrives) && global.nxtCustomXDrives != null }
+        echo >>{var.UV} {"set global.nxtCustomXDrives = "" ^ global.nxtCustomXDrives ^ """}
+    if { exists(global.nxtCustomYDrives) && global.nxtCustomYDrives != null }
+        echo >>{var.UV} {"set global.nxtCustomYDrives = "" ^ global.nxtCustomYDrives ^ """}
+    if { exists(global.nxtCustomZDrives) && global.nxtCustomZDrives != null }
+        echo >>{var.UV} {"set global.nxtCustomZDrives = "" ^ global.nxtCustomZDrives ^ """}
+    if { exists(global.nxtCustomXCurrent) && global.nxtCustomXCurrent != null }
+        echo >>{var.UV} {"set global.nxtCustomXCurrent = " ^ global.nxtCustomXCurrent}
+    if { exists(global.nxtCustomYCurrent) && global.nxtCustomYCurrent != null }
+        echo >>{var.UV} {"set global.nxtCustomYCurrent = " ^ global.nxtCustomYCurrent}
+    if { exists(global.nxtCustomZCurrent) && global.nxtCustomZCurrent != null }
+        echo >>{var.UV} {"set global.nxtCustomZCurrent = " ^ global.nxtCustomZCurrent}
+    if { exists(global.nxtCustomDriveDirs) && global.nxtCustomDriveDirs != null }
+        echo >>{var.UV} {"set global.nxtCustomDriveDirs = "" ^ global.nxtCustomDriveDirs ^ """}
+    if { exists(global.nxtCustomXBacklash) && global.nxtCustomXBacklash != null }
+        echo >>{var.UV} {"set global.nxtCustomXBacklash = " ^ global.nxtCustomXBacklash}
+    if { exists(global.nxtCustomYBacklash) && global.nxtCustomYBacklash != null }
+        echo >>{var.UV} {"set global.nxtCustomYBacklash = " ^ global.nxtCustomYBacklash}
+    if { exists(global.nxtCustomZBacklash) && global.nxtCustomZBacklash != null }
+        echo >>{var.UV} {"set global.nxtCustomZBacklash = " ^ global.nxtCustomZBacklash}
+    ; Optional A / rotary — only when A sentinel or A keys already declared
+    var nxtMosEchoCustomA = { fileexists("0:/sys/nxt-custom-a.requested") }
+    if { !var.nxtMosEchoCustomA }
+        set var.nxtMosEchoCustomA = { exists(global.nxtCustomAMin) }
+    if { var.nxtMosEchoCustomA }
+        if { exists(global.nxtCustomAMin) && global.nxtCustomAMin != null }
+            echo >>{var.UV} {"set global.nxtCustomAMin = " ^ global.nxtCustomAMin}
+        if { exists(global.nxtCustomAMax) && global.nxtCustomAMax != null }
+            echo >>{var.UV} {"set global.nxtCustomAMax = " ^ global.nxtCustomAMax}
+        if { exists(global.nxtCustomASteps) && global.nxtCustomASteps != null }
+            echo >>{var.UV} {"set global.nxtCustomASteps = " ^ global.nxtCustomASteps}
+        if { exists(global.nxtCustomAHomeAt) && global.nxtCustomAHomeAt != null }
+            echo >>{var.UV} {"set global.nxtCustomAHomeAt = " ^ global.nxtCustomAHomeAt}
+        if { exists(global.nxtCustomAEndstopPin) && global.nxtCustomAEndstopPin != null }
+            echo >>{var.UV} {"set global.nxtCustomAEndstopPin = "" ^ global.nxtCustomAEndstopPin ^ """}
+        if { exists(global.nxtCustomADrives) && global.nxtCustomADrives != null }
+            echo >>{var.UV} {"set global.nxtCustomADrives = "" ^ global.nxtCustomADrives ^ """}
+        if { exists(global.nxtCustomACurrent) && global.nxtCustomACurrent != null }
+            echo >>{var.UV} {"set global.nxtCustomACurrent = " ^ global.nxtCustomACurrent}
+        if { exists(global.nxtCustomABacklash) && global.nxtCustomABacklash != null }
+            echo >>{var.UV} {"set global.nxtCustomABacklash = " ^ global.nxtCustomABacklash}
 ; nxtPinStates is pause-session only — do not write into nxt-user-vars.g (OM ~8KB).
 
 echo "nxt: MOS migration complete — saved " ^ var.UV

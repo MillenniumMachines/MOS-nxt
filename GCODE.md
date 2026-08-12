@@ -12,7 +12,7 @@ This document provides reference documentation for custom G-codes and M-codes im
   - [M3.9 / M4.9 / M5.9](#m39-m49-m59-spindle-control)
   - [M7 / M7.1 / M8 / M9](#m7-m71-m8-m9-coolant-control)
   - [M80.9 / M81.9](#m809-m819-atx-power-control)
-  - [M4000](#m4000-define-tool) … [M6524](#m6524-set-rgb-work-light)
+  - [M4000](#m4000-define-tool) … [M6525](#m6525-prepare-for-plugin-update)
 - [Global Variables](#global-variables)
 - [Workflow Examples](#workflow-examples)
 
@@ -225,12 +225,12 @@ Probes an assumed-90-degree inside corner to find the intersection point.
 
 ### G6510: Single Surface Probe
 
-Probes one surface in X, Y, or Z to find the surface location.
+Probes exactly one axis. **Z** is G6512 **raw trigger** (no deflection, no tip radius). With **`U`**, chains **`M6520 … Z1`** so that height becomes work **Z0**, then returns to jog **startZ** (`G53 G0 Z{startZ}`). Without **`U`**, Z cycles still return to **startZ**. DWC Probing Cycles UI for **Z** asks for a positive **travel distance** and converts to absolute machine `Z = currentMachineZ − travel` at execute; the meta still takes absolute `X|Y|Z`.
 
-**Usage:** `G6510 P<index> [X<target>|Y<target>|Z<target>] [F<speed>] [R<retries>]`
+**Usage:** `G6510 P<index>|U<wcs> [X<target>|Y<target>|Z<target>] [F<speed>] [R<retries>]`
 
 **Parameters:**
-- `P`: Result table index (0-9) - **REQUIRED**
+- `P`: Result table index (0-9), or **`U`** 1–9 (store at `U−1` and apply that WCS)
 - `X|Y|Z`: Exactly one axis target coordinate - **REQUIRED**
 - `F`: Optional speed override (mm/min)
 - `R`: Number of retries for averaging
@@ -255,13 +255,13 @@ Emitted by Fusion/FreeCAD post-processors during job preamble / WCS changes, and
 
 **Speeds:** Fast find capped at **200 mm/min**, slow validate at **50 mm/min** (configured probe speeds clamped down to these maxima).
 
-**Motion (V1 and V2):** `G53 Z0` → ref XY → drop to **`refZ + 50`** → **fast** `G6512` (≤200 mm/min) → **short slow** validate (target ≈ fastHit − 2 mm, ≤50 mm/min, with pair averaging) → mean → `nxtLastProbeResult`. Rough `nxtCalDefZ` ≈ `max(0, (refZ + tipRadius) − meanZ)`.
+**Motion (V1 and V2):** `G53 Z0` → ref XY → drop to **Z max** → **fast** `G6512` (≤200 mm/min) → **short slow** validate (target ≈ fastHit − 2 mm, ≤50 mm/min, with pair averaging) → mean → `nxtLastProbeResult`. Clears Z deflection channel (`nxtProbeDeflection[2]=0`); does **not** propose rough Dz (`nxtCalDefZ` → null).
 
 **Probe target:** V1 seeks toward saved **`refZ`**. V2 (`nxtToolSetterV2`) seeks toward **`Z_act − 8`** (deeper overtravel past the pad).
 
 Temporarily zeros Z deflection during hits, then restores.
 
-**Results:** Sets `global.nxtRefSurfaceProbed`, `global.nxtLastProbeResult`, `global.nxtCalDefZ`.
+**Results:** Sets `global.nxtRefSurfaceProbed`, `global.nxtLastProbeResult`; clears `nxtCalDefZ`.
 
 ---
 
@@ -273,8 +273,10 @@ Low-level single-axis probe move with compensation and averaging. Used by all pr
 - `global.nxtProbeDeflection = {X,Y,Z}` positive magnitudes (mm). Legacy scalar / `{X,Y}` still load (`Z` falls back to `X`).
 - Approach direction `dir = sign(target − start)`.
 - **X/Y surface:** `result = trigger + dir × (tipRadius − deflection)`
-- **Z tip-center:** `result = trigger − dir × zDeflection` (no tip radius)
+- **Z surface contact:** `result = trigger` (**no** deflection, **no** tip radius — Z D discarded for now)
 - **A:** no linear tip/deflection compensation
+
+**Limits:** `M6515` checks **only the probed axis** target (held axes are not pre-checked). After each touch, post-trigger **backoff** (`diveHeights`) is **clamped** into that axis soft `min`/`max` so a Z probe near Z max (often `0`) does not command G1 outside machine limits.
 
 **Speeds (touch probe):** Fast/slow clamped to **≤200 / ≤50** mm/min (same caps as G6511), regardless of M558 or `F` override. Toolsetter IDs are not clamped here.
 
@@ -314,7 +316,7 @@ Probe-mode travel residual test on one axis (TR8×8 legs). Estimates **backlash 
 
 ### G6520: Vise Corner Probe
 
-Runs a single surface Z probe for vise top, then outside corner probe for X/Y position.
+Runs a single surface Z probe for vise top, then outside corner probe for X/Y position. Ends at jog **startZ** (`G53 G0 Z{startZ}`); with **`U`**, **M6520** sets X/Y/Z WCS then XY travel to work 0 while Z returns to **startZ**.
 
 **Usage:** `G6520 P<index> L<depth> [X<x-surface>] [Y<y-surface>] [I<probeID>] [F<speed>] [R<retries>] [C<clearance>] [O<overtravel>]`
 
@@ -426,11 +428,14 @@ Removes tool index `P` from RRF and clears `mosTT` row.
 
 ### M4005: Post-Processor Version Check
 
-Compares CAM post `V"…"` string to `global.nxtVersion` (exact match), then runs **`M4006`**.
+Soft-compares CAM post `V"…"` to `global.nxtVersion` on **major.minor line only** (leading `v`, patch, and `-beta`/`-rc` suffixes ignored), then runs **`M4006`**.
 
 **Usage:** `M4005 V"<version>"`
 
-**Example:** `M4005 V"v0.6.0"` in job preamble.
+**Examples:**
+- `M4005 V"v0.7.0"` on firmware `v0.7.0-beta.1` — OK (same `0.7` line)
+- `M4005 V"v0.7.0-rc1"` on firmware `v0.7.1` — OK
+- `M4005 V"v0.6.0"` on firmware `v0.7.0` — abort (cross-line)
 
 ---
 
@@ -478,7 +483,7 @@ Phase 1 probe-mode assist: dive by `D`, **3-point CCW perimeter** on a 1-2-3 blo
 
 **Behavior:** Operator jogs to approx **XY center at safe Z**. Starts at −Y/−X outside corner, probes 3 points along each face (stay at dive Z along the face), raises only when changing faces. Spans from **means** of the three hits per face (~76.2 mm X / ~50.8 mm Y). Echoes tip radius, current deflection, shortfalls, and proposed Dx/Dy; warns if proposed D > 0.5 mm or tip R ≥ 2.
 
-**Results:** `global.nxtCalDefSpanX`, `global.nxtCalDefSpanY`; `nxtCalDefSpan` = X for compat. Calibration UI applies deflection math (+ rough `nxtCalDefZ` from G6511).
+**Results:** `global.nxtCalDefSpanX`, `global.nxtCalDefSpanY`; `nxtCalDefSpan` = X for compat. Calibration UI applies XY deflection math (Z channel stays 0).
 
 ---
 
@@ -517,16 +522,23 @@ Validates that target coordinates are within machine limits.
 
 ### M6520: Set WCS Offset from Probe Result
 
-Sets a Work Coordinate System (WCS) origin using coordinates from the probe results table (machine coordinates), then optionally applies **G68** XY coordinate rotation when **both** `X` and `Y` are updated and the result vector has a rotation value in `nxtProbeResults[P][#move.axes]`.
+Sets a Work Coordinate System (WCS) origin using coordinates from the probe results table (feature machine coordinates, minus current tool offsets), selects that workplace, travels to work **0** on flagged **X/Y/A** only (never work **Z0**), then optionally applies **G68** XY rotation when **both** `X` and `Y` are updated and the result vector has θ in `nxtProbeResults[P][#move.axes]`.
 
-**Usage:** `M6520 P<resultIndex> W<wcsNumber> [X] [Y] [Z] [A] [Q<mode>] [T<maxSkewDeg>]`
+**Z:** Results are the **raw trigger** from G6512 (no deflection, no tip radius). **`M6520 … Z1`** sets that height as work **Z0** via **G10 L2** only — no post-apply **`G0 Z0`**. Cycles (**G6510** / **G6520**) return to jog **startZ**.
+
+**Usage:** `M6520 P<resultIndex> W<wcsNumber> [X1] [Y1] [Z1] [A1] [Q<mode>] [T<maxSkewDeg>]`
 
 **Parameters:**
 - `P`: Probe results table index (0-9) — **required**
 - `W`: WCS number (1-9 for `G10 L2 P` / G54⋯) — **required**
-- `X|Y|Z|A`: Axis flags — at least one required
+- `X1|Y1|Z1|A1`: Axis **presence** flags — at least one required. RRF meta needs a number after the letter (`X1`, not bare `X`); the value is ignored. See [`docs/RRF_META_PITFALLS.md`](docs/RRF_META_PITFALLS.md) §1c.
 - `Q`: Rotation policy: **0** (default) = `M291` prompt to apply or skip **G68**; **1** = apply **G68** without prompt; **2** = translation only (no **G68**)
 - `T`: Optional cap on `|θ|` in degrees (default `global.nxtProbeMaxSkewDeg`); abort **M6520** if exceeded
+
+**Post-apply travel** (after **G10 L2** + selecting **G54⋯**), only flagged **X/Y/A** move to work **0**:
+- **X+Y** (bore/boss/corner, with or without Z flag): **`G0 X0 Y0`** — keep current Z; never **`G0 Z0`**
+- **Z only** (top surface / `G6510 Z`): **no travel** — WCS Z set; caller returns to **startZ**
+- **X or Y only** (side surface / `G6510 X|Y`): **`G0`** on that axis only — leave the others unchanged
 
 **Rotation:** Uses RRF **G68 X0 Y0 R** after **G10 L2** and selecting the target workplace. **G68** rotation direction was corrected in **RRF 3.6.1** (anticlockwise **R**); nxt on branch **`v0.7.0`** targets **RRF 3.7.x** ([`docs/RRF_REFERENCE.md`](docs/RRF_REFERENCE.md)). See `docs/DETAILS.md` (nxt native probing section).
 
@@ -541,12 +553,14 @@ G6500 U1 D25.4 L10 Q0
 
 ; Manual legacy: measure only into P3, then apply to G55
 G6500 P3 D25.4 L10
-M6520 P3 W2 X Y Q0
+M6520 P3 W2 X1 Y1 Q0
 ```
 
 **How it works:**
-- Reads the probe result from `P`, issues **G10 L2 P{W}** for flagged non-zero axes
+- Reads the probe result from `P`, issues **G10 L2 P{W}** for flagged axes as `machine − toolOffset` (presence of the letter matters; **0** is a valid origin; unflagged axes untouched)
+- Selects workplace via **`M98 P"nxt-select-wcs.g" W{W}`** (literal **G54…G59.3**; RRF forbids `G{53+W}`)
 - If **X** and **Y** are flagged and `|θ|` is non-trivial and within **T**, applies **Q** (prompt / force / skip) then **G69**/**G68** as needed
+- Travels to work **0** on flagged **X/Y/A** only (**XY** → keep Z; **Z flag** → WCS only, no Z travel; **side X|Y** → that axis only). **G6510**/**G6520** return Z to **startZ**.
 
 ---
 
@@ -583,7 +597,7 @@ Averages two probe results and stores the result in the first index. Only averag
 G6500 P0 D25.4 L10    ; First bore probe
 G6500 P1 D25.4 L10    ; Second bore probe
 M6522 P0 Q1           ; Average results into index 0
-M6520 P0 W1 X Y       ; Push averaged result to G54
+M6520 P0 W1 X1 Y1       ; Push averaged result to G54
 ```
 
 ---
@@ -600,7 +614,7 @@ Runs multiple full **G6512** Z probe cycles at a fixed reference surface (touch 
 - `Z`: Machine Z target for **G6512** (default: reference surface Z from `nxtTouchProbeRefPos` or `nxtToolSetterPos`)
 - `F`, `L`, `O`: Passed through to **G6512** (`L`/`O`: optional `nxtTouchProbe*` / `nxtToolSetter*` overrides, else `nxtProbeMaxSampleSpreadMm` / `nxtProbeSampleOuterRetries`)
 
-Approach clearance before each cycle is **`refZ + 50`**.
+Approach height before each cycle is **Z max** (`move.axes[2].max`).
 
 **Requirements:**
 - **B0:** Touch probe enabled (`nxtFeatureTouchProbe` or legacy `mosFeatTouchProbe`), `nxtTouchProbeRefPos` set, valid `nxtTouchProbeID` sensor; selects **`T{global.nxtProbeToolID}`** if another tool is active (runs normal tool-change macros); prompts until the probe input reads active
@@ -633,6 +647,20 @@ Sets the addressable RGB work light via **M150** when the RGB light feature is e
 
 ---
 
+### M6525: Prepare for Plugin Update
+
+Pauses or resumes the nxt daemon forever-loop so DWC/DSF can install or upgrade the plugin ZIP without failing on an open `0:/sys/daemon.g`.
+
+**Usage:** `M6525 [S1]`
+
+**Parameters:**
+- `S1`: Apply pending `0:/sys/daemon.install` (via `nxt-daemon-install.g`) if present, then set `global.nxtDaemonEnabled = true`
+- (default): Set `nxtDaemonEnabled = false`, wait `2 × nxtDaemonInterval`, leave paused
+
+**When to use:** Before upgrading from a build that still shipped `sd/sys/daemon.g` in the plugin file list (DSF uninstall must delete that open file). Newer ZIPs ship `daemon.install` instead; after the one-time migration, routine updates usually do not need a pause. Reboot or `M98 P"nxt.g"` / `M6525 S1` applies a pending install.
+
+---
+
 ## Global Variables
 
 ### Probe Results Table
@@ -646,7 +674,7 @@ Sets the addressable RGB work light via **M150** when the RGB light feature is e
 
 - **`global.nxtLastProbeResult`**: Single value from most recent G6512 probe
   - Used internally by probing cycles
-  - Compensated for probe tip radius and deflection
+  - X/Y: tip radius + deflection; Z: raw trigger (no deflection, no tip radius)
 
 ### Absolute Position
 
@@ -668,7 +696,7 @@ G6500 P0 D25.4 L10
 G6510 P0 Z-20
 
 ; 3. Push complete coordinates to G54
-M6520 P0 W1 X Y Z
+M6520 P0 W1 X1 Y1 Z1
 ```
 
 ### Multi-Probe Averaging
@@ -678,7 +706,7 @@ M6520 P0 W1 X Y Z
 G6520 P0 N0          ; First probe
 G6520 P1 N0          ; Second probe
 M6522 P0 Q1          ; Average results
-M6520 P0 W1 X Y Z    ; Push to G54
+M6520 P0 W1 X1 Y1 Z1    ; Push to G54
 ```
 
 ### Sequential Feature Probing
@@ -690,7 +718,7 @@ G6500 P1 D12.7 L10   ; Bore 2
 G6508 P2 N0 L5       ; Outside corner
 
 ; Push each to different WCS
-M6520 P0 W1 X Y      ; Bore 1 -> G54
-M6520 P1 W2 X Y      ; Bore 2 -> G55
-M6520 P2 W3 X Y      ; Corner -> G56
+M6520 P0 W1 X1 Y1      ; Bore 1 -> G54
+M6520 P1 W2 X1 Y1      ; Bore 2 -> G55
+M6520 P2 W3 X1 Y1      ; Corner -> G56
 ```

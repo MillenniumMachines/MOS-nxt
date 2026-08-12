@@ -33,10 +33,44 @@ Release sync places `macros/**/M6520.g` (etc.) on **`0:/sys/`**. RRF runs them a
 |---------|--------|
 | `M6520: Result index parameter P is required` after a probe U-chain | `M98 P"M6520.g" P{slot} …` — **`P` is M98’s filename**, not a nested param |
 
-**Do:** `M6520 P{var.pSlot} W{param.U} X Y`  
+**Do:** `M6520 P{var.pSlot} W{param.U} X1 Y1`  
 **Do not:** `M98 P"M6520.g" P{…}` (or any `M98 P"M….g"` / `G….g"`)
 
 **Gate:** `node dist/check-m98-numbered-meta.mjs` (also run by `build-plugin.sh`). Named helpers (`M98 P"nxt-….g"`) remain OK.
+
+## 1c. Meta axis *flags* need a number (`X1`, not bare `X`)
+
+[`M6520`](../macros/utilities/M6520.g) only tests **`exists(param.X)`** (etc.) — the numeric value is ignored. On RRF numbered meta commands, a **bare letter without a following number often does not bind** `param.X`, so `exists(param.X)` stays false and M6520 aborts (“at least one axis flag”) or skips apply.
+
+| Call | Typical result |
+|------|----------------|
+| `M6520 … X Y` | `param.X` / `param.Y` absent |
+| `M6520 … X1 Y1` | `param.X=1`, `param.Y=1` → G10 + travel |
+
+**Do:** `M6520 P{var.pSlot} W{param.U} X1 Y1` (or `Z1` / `A1` as needed)  
+**Do not:** `M6520 … X Y` / bare `X` / `Y` / `Z` / `A` as flags
+
+Same rule for UI Push-to-WCS (`ProbeResultsPanel` emits `X1`…).
+
+**Gate:** `node dist/check-m6520-axis-flags.mjs` (also run by `build-plugin.sh`).
+
+## 1d. No dynamic `G{…}` / `M{…}` command numbers
+
+RRF error: **`dynamic command numbers are only allowed in T-codes`**.
+
+`T{expr}` is legal; **`G{53 + wcs}`** / **`M{…}`** are not. Selecting a workplace must use a literal code (`G54`…`G59.3`) or the named helper:
+
+```gcode
+; ❌ BAD
+G{53 + var.wcsNumber}
+
+; ✅ GOOD
+M98 P"nxt-select-wcs.g" W{var.wcsNumber}
+```
+
+String echoes / `M291` text that *display* `(53 + wcs)` are fine — those are not command numbers.
+
+**Gate:** `node dist/check-no-dynamic-gm-codes.mjs` (also run by `build-plugin.sh`).
 
 ## 2. Axis count — never assume A exists
 

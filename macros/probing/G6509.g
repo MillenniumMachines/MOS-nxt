@@ -83,6 +83,6 @@ echo "G6509: Corner X=" ^ var.cornerX ^ " Y=" ^ var.cornerY
 
 if { exists(param.U) && param.U != null }
     if { exists(param.Q) && param.Q != null }
-        M6520 P{var.pSlot} W{param.U} X Y Q{param.Q}
+        M6520 P{var.pSlot} W{param.U} X1 Y1 Q{param.Q}
     else
-        M6520 P{var.pSlot} W{param.U} X Y
+        M6520 P{var.pSlot} W{param.U} X1 Y1

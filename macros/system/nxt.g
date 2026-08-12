@@ -28,6 +28,11 @@ if { !exists(global.nxtVarsLoaded) }
     M98 P"nxt-vars.g"
     global nxtVarsLoaded=true
 
+; Apply plugin-shipped daemon.install → daemon.g (avoids DSF overwriting open loop file).
+if { fileexists("0:/sys/daemon.install") }
+    M117 "nxt daemon.install"
+    M98 P"nxt-daemon-install.g"
+
 ; 2) Custom-platform keys only when Custom is in use (OM ~8KB — avoid ~30 nulls on Milo packs).
 ;    Sentinel written by Configuration Save; overlays under nxt-user-custom/ also count.
 var nxtNeedCustomGlobals = { fileexists("0:/sys/nxt-custom.requested") }
