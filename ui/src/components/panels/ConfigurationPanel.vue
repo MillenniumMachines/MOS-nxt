@@ -541,7 +541,8 @@
               v-if="
                 selectedPlatformStructure.sysDeployFiles.length ||
                 selectedPlatformStructure.boardEntryPaths.length ||
-                selectedPlatformStructure.machineEntryPath
+                selectedPlatformStructure.machineEntryPath ||
+                selectedPlatformStructure.boardTxtPath
               "
               class="mt-3"
             >
@@ -552,6 +553,9 @@
                 </li>
                 <li v-for="f in selectedPlatformStructure.sysDeployFiles" :key="'sd-' + f">
                   Deploy homing: 0:/sys/{{ f }}
+                </li>
+                <li v-if="selectedPlatformStructure.boardTxtPath">
+                  Deploy board.txt: 0:/sys/board.txt (from {{ selectedPlatformStructure.boardTxtPath }}; reboot required)
                 </li>
                 <li v-for="p in selectedPlatformStructure.boardEntryPaths" :key="'ent-' + p">
                   Boot board: {{ p }}
@@ -1675,7 +1679,11 @@ import {
   type NxtCustomEndstopRoleKey,
   type EndstopPinSelectItem
 } from '../../utils/nxtBoardManifest'
-import { deployPlatformSysFiles } from '../../utils/nxtBoardSysDeploy'
+import {
+  deployBoardTxt,
+  deployPlatformSysFiles,
+  NXT_SYS_BOARD_TXT_DEST
+} from '../../utils/nxtBoardSysDeploy'
 import { nxtPlatformFromManifest } from '../../utils/nxtConfigManifestData'
 import {
   NXT_USER_VARS_DWC_PATH,
@@ -2294,8 +2302,16 @@ export default defineNxtComponent({
       return NXT_PLATFORM_OPTIONS
     },
 
-    selectedPlatformStructure(): { sysDeployFiles: string[]; boardEntryPaths: string[] } {
-      return platformStructureSummary(this.configDraft.nxtPlatformProfile)
+    selectedPlatformStructure(): {
+      sysDeployFiles: string[]
+      boardEntryPaths: string[]
+      machineEntryPath: string | null
+      boardTxtPath: string | null
+    } {
+      return platformStructureSummary(
+        this.configDraft.nxtPlatformProfile,
+        this.resolvedBoardShortNameForPack
+      )
     },
 
     canDeployPlatformSysFiles(): boolean {
@@ -3097,13 +3113,23 @@ export default defineNxtComponent({
         if (plat?.hasCommonDeploy && plat.sysDeployFiles.length > 0) {
           const msg = (this as any).$t('plugins.nxt.panels.configuration.boardDeployOnPlatformChange', {
             platform: value,
-            files: plat.sysDeployFiles.map((f) => `0:/sys/${f}`).join(', ')
+            files: this.sysDeployConfirmFiles(value)
           })
           if (typeof msg === 'string' && window.confirm(msg)) {
             await this.runDeployPlatformSysFiles(value)
           }
         }
       }
+    },
+
+    /** Paths listed in Apply confirm (homing + optional board.txt). */
+    sysDeployConfirmFiles(platformId: string): string {
+      const plat = nxtPlatformFromManifest(platformId)
+      const parts: string[] = (plat?.sysDeployFiles ?? []).map((f: string) => `0:/sys/${f}`)
+      if (this.selectedPlatformStructure.boardTxtPath) {
+        parts.push(NXT_SYS_BOARD_TXT_DEST)
+      }
+      return parts.join(', ')
     },
 
     async applyPlatformSysFiles() {
@@ -3117,7 +3143,7 @@ export default defineNxtComponent({
       }
       const msg = (this as any).$t('plugins.nxt.panels.configuration.boardDeployConfirm', {
         platform: id,
-        files: plat.sysDeployFiles.map((f) => `0:/sys/${f}`).join(', ')
+        files: this.sysDeployConfirmFiles(id)
       })
       if (typeof msg === 'string' && !window.confirm(msg)) {
         return
@@ -3151,10 +3177,24 @@ export default defineNxtComponent({
           this.configDraft.nxtBoardSysDeployPlatform = platformId
           await this.updateVariable('nxtBoardSysDeployPlatform', platformId)
         }
+        const boardDest = await deployBoardTxt(this.resolvedBoardShortNameForPack)
+        if (boardDest) {
+          written.push(boardDest)
+        }
         const msg = (this as any).$t('plugins.nxt.panels.configuration.boardDeploySuccess', {
           count: written.length
         })
-        this.showStatus(typeof msg === 'string' ? msg : `Deployed ${written.length} file(s) to 0:/sys/`, 'success')
+        let status =
+          typeof msg === 'string' ? msg : `Deployed ${written.length} file(s) to 0:/sys/`
+        if (boardDest) {
+          const rebootHint = (this as any)
+            .$t('plugins.nxt.panels.configuration.boardTxtRebootHint')
+            .toString()
+          if (rebootHint && rebootHint !== 'plugins.nxt.panels.configuration.boardTxtRebootHint') {
+            status = `${status} ${rebootHint}`
+          }
+        }
+        this.showStatus(status, 'success')
       } catch (e: any) {
         console.error('nxt: deployPlatformSysFiles', e)
         const errMsg = e && typeof e.message === 'string' ? e.message : 'Deploy failed'

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-12T21:09:39.065Z",
+  "generatedAt": "2026-08-13T23:36:05.934Z",
   "boards": [
     {
       "shortName": "scylla1_0_h723",
@@ -93,6 +93,19 @@
             "axis": "A",
             "driveIndex": 3,
             "note": "Physical drive 3. Enable with nxtFeatureFourthAxis → axis-a.g (M584 A3 R1). Sense R already set in drives.g M569.9 P0.3."
+          },
+          {
+            "id": "rs485",
+            "label": "RS485 / Modbus (PA9/PA10)",
+            "kind": "serial",
+            "pin": "A.9+A.10",
+            "aliases": [
+              "tx1",
+              "rx1",
+              "rs485a",
+              "rs485b"
+            ],
+            "note": "serial.aux: TX=PA_9 (tx1), RX=PA_10 (rx1). VFD Modbus via ArborCTL M575 S7 (RRF 3.7: P2). Firmware must set serial.aux.rxTxPins={A.10, A.9}."
           },
           {
             "id": "uart_header",
@@ -263,7 +276,8 @@
             "aux0"
           ]
         }
-      }
+      },
+      "boardTxtPath": "nxt-config/board/scylla1_0_h723/board.txt"
     }
   ],
   "boardEntries": [

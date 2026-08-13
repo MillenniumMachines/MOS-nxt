@@ -47,9 +47,9 @@ Keep the SBC `global` OM under ~8KB — see [OM_GLOBAL_SIZE.md](OM_GLOBAL_SIZE.m
 | Path | What runs | When |
 |------|-----------|------|
 | **Board + machine boot** | `M98` board `entry.g`, then `machine/<id>/entry.g` | Boot when `nxt-board-bootstrap.requested` exists |
-| **Homing deploy** | Copies `machine/<id>/home*.g` → `0:/sys/homeall.g`, etc. | Configuration **Apply platform sys files** only |
+| **Homing + board.txt deploy** | Copies `machine/<id>/home*.g` → `0:/sys/`; if the board pack has `board.txt`, also → `0:/sys/board.txt` | Configuration **Apply platform sys files** only |
 
-Homing macros are **not** `M98`'d at boot.
+Homing macros are **not** `M98`'d at boot. Root `board.txt` pin changes need a **reboot**.
 
 ## Boot order (firmware)
 
@@ -79,7 +79,7 @@ Machine packs load network settings from **`machine/<id>/entry.g`** (not board p
 | Custom **`network.g`** on SD | Audit for `M586 P0 S1` after RRF 3.7 upgrade |
 | Bootstrap skipped | HTTP must be set in `config.g`, `network.g`, or `user-config.g` |
 
-The Configuration UI does **not** deploy `network.g` (only homing via sys-deploy). See [RRF_3.7_MIGRATION.md](RRF_3.7_MIGRATION.md).
+The Configuration UI does **not** deploy `network.g` (sys-deploy covers homing and optional board-pack `board.txt` only). See [RRF_3.7_MIGRATION.md](RRF_3.7_MIGRATION.md).
 
 ## Globals
 
@@ -127,9 +127,17 @@ After create, [`gpio-role-defaults.g`](../macros/nxt-config/board/scylla1_0_h723
 
 **Fans:** `global.nxtBoardFanPins` lists aliases created as `M950 F` instead of `M950 P`. Default when null: always **`aux0`** (any motor voltage). Persist as a CSV string (`"aux0"` / `"mist,aux1"`); explicit none is `""`. Legacy single-pin vectors still work at boot. Hold-to-test uses `M106` for fan-mode pins and `M42` for gpOut roles.
 
+### Scylla RS485 (PA9 / PA10)
+
+Onboard RS485 A/B is USART1: TX=`PA_9` (`tx1`, `rs485a`), RX=`PA_10` (`rx1`, `rs485b`). This is **`serial.aux`**, not the screen header. On RRF 3.7.x the first UART is **P2** (P0/P1 are USB CDC). ArborCTL Apply issues `M575 P2 … S7` for VFD Modbus.
+
+Firmware must assign `serial.aux.rxTxPins={A.10, A.9}` (Team Gloomy `{RX, TX}` order) in `rrfboot.txt` / SD **`0:/sys/board.txt`**. Pin names already exist in the board pin table; without that assignment `M260.1` reports Modbus not set. Do **not** retarget [`uart.g`](../macros/nxt-config/board/scylla1_0_h723/uart.g) — that file is the accessory UART only.
+
+nxt ships a vendored [`board.txt`](../macros/nxt-config/board/scylla1_0_h723/board.txt) in the Scylla board pack (`0:/sys/nxt-config/board/scylla1_0_h723/board.txt` after plugin install). Configuration → **Apply platform sys files** copies it to **`0:/sys/board.txt`** (alongside homing). A **reboot** is required before `serial.aux` / Modbus pins take effect. Plugin ZIP install alone does not overwrite root `board.txt`.
+
 ### Scylla UART header (PD8 / PD9)
 
-Firmware `serial.aux2`: TX=`PD_8` (`tx3`), RX=`PD_9` (`rx3`). [`uart.g`](../macros/nxt-config/board/scylla1_0_h723/uart.g) issues `M575` when `nxtUartDevice` ≠ 0 (0=off, 1=PanelDue, 2=BTT TFT, 3=pendant). On RRF 3.7.x nxt uses **P3** for aux2 (verify on hardware). One primary device in UI; further devices can daisy-chain on the same TX/RX later.
+Firmware `serial.aux2`: TX=`PD_8` (`tx3`), RX=`PD_9` (`rx3`). [`uart.g`](../macros/nxt-config/board/scylla1_0_h723/uart.g) issues `M575` when `nxtUartDevice` ≠ 0 (0=off, 1=PanelDue, 2=BTT TFT, 3=pendant). On RRF 3.7.x nxt uses **P3** for aux2 (verify on hardware). One primary device in UI; further devices can daisy-chain on the same TX/RX later. RS485 VFD traffic belongs on PA9/PA10 (P2), not this header.
 
 ### Scylla A axis (fourth / rotary)
 

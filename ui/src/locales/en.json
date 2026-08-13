@@ -158,9 +158,10 @@
       "boardPlatformTree": "Platform bundle on SD (nxt-config/)",
       "boardHomingDocHint": "Homing axis requirements per platform: docs/NXT_BOARD_HOMING.md",
       "boardApplySysFiles": "Apply platform sys files",
-      "boardDeployConfirm": "Overwrite on SD: {files} for platform {platform}?",
+      "boardDeployConfirm": "Overwrite on SD: {files} for platform {platform}? board.txt pin changes need a reboot.",
       "boardDeployOnPlatformChange": "Apply homing/sys files for platform {platform} now? Will overwrite: {files}",
-      "boardDeploySuccess": "Deployed {count} file(s) to 0:/sys/"
+      "boardDeploySuccess": "Deployed {count} file(s) to 0:/sys/",
+      "boardTxtRebootHint": "Reboot required for 0:/sys/board.txt pin changes (serial.aux / RS485)."
     },
     "calibration": {
       "caption": "Calibration",
@@ -353,6 +354,26 @@
       "confirmServiceTitle": "Confirm service",
       "confirmServiceBody": "Reset travel counter for axis {axis}?",
       "cancel": "Cancel"
+    },
+    "vfd": {
+      "caption": "VFD",
+      "intro": "Select a VFD model and Apply to write arborctl-user-vars.g and run that driver’s config macro (enables Modbus control when CommReady is OK). Advanced Manual Modbus / Test Modbus tools stay in the ArborCTL plugin.",
+      "notInstalled": "ArborCTL is not installed or loaded. Install the ArborCTL DWC plugin ZIP to configure VFDs here.",
+      "model": "VFD model",
+      "spindle": "Spindle",
+      "uart": "UART channel",
+      "baud": "Baud",
+      "address": "Modbus address",
+      "motorKw": "Motor kW",
+      "poles": "Poles",
+      "motorV": "Voltage (V)",
+      "motorF": "Frequency (Hz)",
+      "motorI": "Current (A)",
+      "motorR": "Rated RPM",
+      "commReady": "Comm",
+      "apply": "Apply VFD config",
+      "applyOk": "Apply finished — check Comm chip and telemetry. Daemon will poll this driver when CommReady is OK.",
+      "openAdvanced": "Open ArborCTL (advanced)"
     },
     "toolManagement": {
       "caption": "Tool Library",

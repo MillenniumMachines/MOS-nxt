@@ -24,6 +24,7 @@ import RgbLightControl from './RgbLightControl.vue'
 import Spindle0ControlPanel from './Spindle0ControlPanel.vue'
 import MaintenancePanel from './MaintenancePanel.vue'
 import CalibrationPanel from './CalibrationPanel.vue'
+import VfdPanel from './VfdPanel.vue'
 
 export {
   StatusWidget,
@@ -36,5 +37,6 @@ export {
   ToolManagementPanel,
   RgbLightControl,
   Spindle0ControlPanel,
-  MaintenancePanel
+  MaintenancePanel,
+  VfdPanel
 }

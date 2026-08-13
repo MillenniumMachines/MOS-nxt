@@ -39,6 +39,8 @@ export type NxtConfigBoardPack = {
   variant: 'single' | 'motor-24v-48v'
   entries: NxtConfigBoardEntry[]
   pinmap: NxtConfigPinmap | null
+  /** Pack path under 0:/sys/ (e.g. nxt-config/board/scylla…/board.txt); null if pack has none */
+  boardTxtPath?: string | null
 }
 
 export type NxtConfigMachineEntry = {

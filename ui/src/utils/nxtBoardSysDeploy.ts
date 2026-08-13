@@ -1,8 +1,13 @@
 /**
  * Deploy machine homing files to 0:/sys/ (from build-time manifest; deploy-only, not boot M98).
  * For custom platform, pass generatedContents to upload generated macros instead of SD templates.
+ * Board packs may also ship board.txt → 0:/sys/board.txt via deployBoardTxt().
  */
-import { nxtMachineFromManifest, nxtPlatformFromManifest } from './nxtConfigManifestData'
+import {
+  nxtBoardPackFromManifest,
+  nxtMachineFromManifest,
+  nxtPlatformFromManifest
+} from './nxtConfigManifestData'
 import { downloadDwcTextFile, uploadDwcFile } from './nxtFileUpload'
 import { CUSTOM_PACK_SD_DIR } from './nxtCustomPackGenerate'
 
@@ -13,6 +18,35 @@ function machineSysDeploySourcePath(platformId: string, fileName: string): strin
 export function sysDeployFilesForPlatform(platformId: string): string[] {
   const m = nxtMachineFromManifest(platformId) ?? nxtPlatformFromManifest(platformId)
   return m?.sysDeployFiles ?? []
+}
+
+export const NXT_SYS_BOARD_TXT_DEST = '0:/sys/board.txt'
+
+/**
+ * Copy vendored board pack board.txt to 0:/sys/board.txt (RRF firmware pin table).
+ * @returns dest path when written, or null when the pack has no board.txt
+ */
+export async function deployBoardTxt(boardShortName: string | null | undefined): Promise<string | null> {
+  if (boardShortName == null || String(boardShortName).trim() === '') {
+    return null
+  }
+  const sn = String(boardShortName).trim()
+  const pack = nxtBoardPackFromManifest(sn)
+  const rel = pack?.boardTxtPath
+  if (rel == null || rel === '') {
+    return null
+  }
+  const sdPath = `0:/sys/${rel}`
+  let content: string
+  try {
+    content = await downloadDwcTextFile(sdPath)
+  } catch {
+    throw new Error(
+      `Missing ${sdPath} on SD — reinstall the nxt plugin ZIP or copy macros/nxt-config/board/${sn}/board.txt`
+    )
+  }
+  await uploadDwcFile(NXT_SYS_BOARD_TXT_DEST, content)
+  return NXT_SYS_BOARD_TXT_DEST
 }
 
 export type DeployPlatformSysOptions = {

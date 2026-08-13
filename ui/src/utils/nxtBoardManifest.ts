@@ -673,18 +673,28 @@ export function applyKitKeyToGlobals(
   return { nxtBoardKitKey: kit, nxtBoardMotorVoltage: null }
 }
 
-export function platformStructureSummary(machineId: NxtPlatformId | null | undefined): {
+export function platformStructureSummary(
+  machineId: NxtPlatformId | null | undefined,
+  boardShortName?: string | null
+): {
   sysDeployFiles: string[]
   boardEntryPaths: string[]
   machineEntryPath: string | null
+  boardTxtPath: string | null
 } {
   const m = nxtMachineFromManifest(machineId)
+  const pack = nxtBoardPackFromManifest(boardShortName)
+  const boardTxtPath =
+    pack?.boardTxtPath != null && String(pack.boardTxtPath).trim() !== ''
+      ? String(pack.boardTxtPath)
+      : null
   if (!m) {
-    return { sysDeployFiles: [], boardEntryPaths: [], machineEntryPath: null }
+    return { sysDeployFiles: [], boardEntryPaths: [], machineEntryPath: null, boardTxtPath }
   }
   return {
     sysDeployFiles: [...m.sysDeployFiles],
     boardEntryPaths: boardEntriesList().map((b) => b.entryPath),
-    machineEntryPath: m.machineEntryPath
+    machineEntryPath: m.machineEntryPath,
+    boardTxtPath
   }
 }
