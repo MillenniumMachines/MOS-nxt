@@ -41,8 +41,12 @@ if { exists(param.D) && param.D < 0 }
 ; Wait for all movement to stop before continuing.
 M400
 
-; Dwell time defaults to the previously timed spindle acceleration time.
-var dwellTime = { global.nxtSpindleAccelSec }
+; Dwell: nxtSpindleAccelSec (10 s if unset/<=0). D overrides. Decel uses nxtSpindleDecelSec.
+var dwellTime = 10
+if { exists(global.nxtSpindleAccelSec) }
+    if { global.nxtSpindleAccelSec != null }
+        if { global.nxtSpindleAccelSec > 0 }
+            set var.dwellTime = { global.nxtSpindleAccelSec }
 
 ; D parameter always overrides the dwell time
 if { exists(param.D) }
@@ -52,7 +56,11 @@ else
     if { exists(param.S) }
         ; If this is a deceleration, adjust dT to use the deceleration timer
         if { spindles[var.spindleID].current > param.S }
-            set var.dwellTime = { global.nxtSpindleDecelSec }
+            set var.dwellTime = 10
+            if { exists(global.nxtSpindleDecelSec) }
+                if { global.nxtSpindleDecelSec != null }
+                    if { global.nxtSpindleDecelSec > 0 }
+                        set var.dwellTime = { global.nxtSpindleDecelSec }
 
         ; Now calculate the change in velocity as a percentage
         set var.dwellTime = { ceil(var.dwellTime * (abs(spindles[var.spindleID].current - param.S) / spindles[var.spindleID].max) * 1.05) }

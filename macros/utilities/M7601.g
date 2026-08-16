@@ -11,7 +11,9 @@
 if { exists(param.W) && (param.W < 0 || param.W >= limits.workplaces) }
     abort { "Work Offset must be between 0 and " ^ limits.workplaces-1 ^ "!" }
 
-var workOffset = { (exists(param.W) && param.W != null) ? param.W : move.workplaceNumber }
+var workOffset = { move.motionSystems[0].workplaceNumber }
+if { exists(param.W) && param.W != null }
+    set var.workOffset = { param.W }
 
 
 ; WCS Numbers and Offsets are confusing. Work Offset indicates the offset

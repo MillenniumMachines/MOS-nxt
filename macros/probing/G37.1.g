@@ -8,7 +8,7 @@
 if { !inputs[state.thisInput].active }
     M99
 
-var wPN = { move.workplaceNumber + 1 }
+var wPN = { move.motionSystems[0].workplaceNumber + 1 }
 
 if { global.nxtTutorialMode && !global.nxtDialogDisplayed[12] }
     var nxtG371Msg1 = { "The <b>Toolsetter</b> feature is disabled, so you must set the Z origin in the current WCS after each tool change.<br/>We will run a manual probe cycle to do this." }

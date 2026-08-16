@@ -30,7 +30,9 @@ if { !exists(param.H) }
 
 ; Default workOffset to the current workplace number if not specified
 ; with the W parameter.
-var workOffset = { (exists(param.W) && param.W != null) ? param.W : move.workplaceNumber }
+var workOffset = { move.motionSystems[0].workplaceNumber }
+if { exists(param.W) && param.W != null }
+    set var.workOffset = { param.W }
 
 
 ; WCS Numbers and Offsets are confusing. Work Offset indicates the offset

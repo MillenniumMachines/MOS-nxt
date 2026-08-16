@@ -25,7 +25,9 @@ if { global.nxtTutorialMode && !global.nxtDialogDisplayed[5] }
 if { global.nxtProbeToolID != state.currentTool }
     T T{global.nxtProbeToolID}
 
-var workOffset = { (exists(param.W) && param.W != null) ? param.W : move.workplaceNumber }
+var workOffset = { move.motionSystems[0].workplaceNumber }
+if { exists(param.W) && param.W != null }
+    set var.workOffset = { param.W }
 var wcsNumber = { var.workOffset + 1 }
 
 var bW = { (global.nxtWPDims[var.workOffset][0] != null) ? global.nxtWPDims[var.workOffset][0] : 100 }

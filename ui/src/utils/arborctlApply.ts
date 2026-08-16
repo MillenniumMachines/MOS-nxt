@@ -102,6 +102,8 @@ export function buildArborCtlUserVarsFile(
     `set global.arborMotorSpec[${f.spindleId}] = {${f.motorW}, ${f.motorPoles}, ${f.motorV}, ${f.motorF}, ${f.motorI}, ${f.motorR}} ; Wizard motor (kW,poles,V,Hz,A,RPM)`,
     `set global.arborWizardFreqLimits[${f.spindleId}] = {${hz.t}, ${hz.e}} ; Min/max Hz from spindle limits`,
     `set global.arborWizardRamp[${f.spindleId}] = {${f.accelSec}, ${f.decelSec}} ; Accel/decel seconds`,
+    `set global.nxtSpindleAccelSec = ${f.accelSec} ; M3.9 wait (from VFD ramp)`,
+    `set global.nxtSpindleDecelSec = ${f.decelSec} ; M5.9 wait (from VFD ramp)`,
     ''
   ]
   if (f.typeIndex === MANUAL_MODBUS_INDEX && Array.isArray(f.manualSpec)) {

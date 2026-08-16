@@ -230,6 +230,9 @@ import {
   clampArborUartChannel,
   isArborUartChannel
 } from '../../utils/arborctlApply'
+import { persistNxtUserConfig } from '../../utils/nxtUserConfigPersist'
+import { snapshotConfigFromOm } from '../../utils/nxtUserVarsPersistence'
+import { ensureSetFirmwareGlobal, formatOmRhs } from '../../utils/nxtOmEnsureSet'
 
 const BAUD_LIST = [4800, 9600, 19200, 38400, 57600]
 
@@ -451,6 +454,21 @@ export default defineNxtComponent({
         await uploadDwcFile(ARBORCTL_USER_VARS_PATH, content)
         await this.sendCode(`M98 P"${ARBORCTL_USER_VARS_PATH}"`)
         await this.sendCode(buildArborCtlConfigCode(this.form, hz, internal))
+        const accelRhs = formatOmRhs(this.form.accelSec)
+        const decelRhs = formatOmRhs(this.form.decelSec)
+        await ensureSetFirmwareGlobal('nxtSpindleAccelSec', accelRhs, (c: string) => this.sendCode(c))
+        await ensureSetFirmwareGlobal('nxtSpindleDecelSec', decelRhs, (c: string) => this.sendCode(c))
+        const draft = snapshotConfigFromOm(this.$store.state.machine.model.global)
+        draft.nxtSpindleAccelSec = this.form.accelSec
+        draft.nxtSpindleDecelSec = this.form.decelSec
+        await persistNxtUserConfig(draft, {
+          sendCode: (c: string) => this.sendCode(c),
+          deployCustomPack: false,
+          syncCustomRequested: false,
+          syncBootstrap: false,
+          ensureCustomGlobals: false,
+          setBoardSysDeployPlatform: false
+        })
         this.applyOk = true
       } catch (e) {
         this.applyError = e instanceof Error ? e.message : String(e)

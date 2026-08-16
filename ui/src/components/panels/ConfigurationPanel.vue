@@ -660,13 +660,13 @@
             <v-row>
               <v-col cols="12" md="6">
                 <v-text-field
-                  :model-value="configDraft.nxtSpindleAccelSec"
+                  :model-value="displayedSpindleAccelSec"
                   label="Acceleration Time (s)"
                   type="number"
                   step="0.1"
-                  :disabled="uiFrozen"
+                  :disabled="uiFrozen || arborCtlOwnsRamp"
                   @update:model-value="onConfigDraftNumber('nxtSpindleAccelSec', $event)"
-                  hint="Time for spindle to reach speed"
+                  :hint="arborCtlOwnsRamp ? 'Set from VFD tab (ArborCTL ramp)' : 'Time for spindle to reach speed'"
                   persistent-hint
                 >
                   <template v-slot:append>
@@ -680,7 +680,7 @@
                           @mouseleave="stopAccelerationMeasurement"
                           @touchstart="startAccelerationMeasurement"
                           @touchend="stopAccelerationMeasurement"
-                          :disabled="uiFrozen || configDraft.nxtSpindleID === null"
+                          :disabled="uiFrozen || arborCtlOwnsRamp || configDraft.nxtSpindleID === null"
                           :color="measuringAccel ? 'primary' : ''"
                           v-bind="props"
                         >
@@ -689,20 +689,20 @@
                           </v-icon>
                         </v-btn>
                       </template>
-                      <span>{{ measuringAccel ? 'Release when at full speed' : 'Hold to measure acceleration' }}</span>
+                      <span>{{ arborCtlOwnsRamp ? 'Accel is owned by the VFD tab' : (measuringAccel ? 'Release when at full speed' : 'Hold to measure acceleration') }}</span>
                     </v-tooltip>
                   </template>
                 </v-text-field>
               </v-col>
               <v-col cols="12" md="6">
                 <v-text-field
-                  :model-value="configDraft.nxtSpindleDecelSec"
+                  :model-value="displayedSpindleDecelSec"
                   label="Deceleration Time (s)"
                   type="number"
                   step="0.1"
-                  :disabled="uiFrozen"
+                  :disabled="uiFrozen || arborCtlOwnsRamp"
                   @update:model-value="onConfigDraftNumber('nxtSpindleDecelSec', $event)"
-                  hint="Time for spindle to stop"
+                  :hint="arborCtlOwnsRamp ? 'Set from VFD tab (ArborCTL ramp)' : 'Time for spindle to stop'"
                   persistent-hint
                 >
                   <template v-slot:append>
@@ -716,7 +716,7 @@
                           @mouseleave="stopDecelerationMeasurement"
                           @touchstart="startDecelerationMeasurement"
                           @touchend="stopDecelerationMeasurement"
-                          :disabled="uiFrozen || configDraft.nxtSpindleID === null || configDraft.nxtSpindleAccelSec === null || configDraft.nxtSpindleAccelSec === undefined"
+                          :disabled="uiFrozen || arborCtlOwnsRamp || configDraft.nxtSpindleID === null || configDraft.nxtSpindleAccelSec === null || configDraft.nxtSpindleAccelSec === undefined"
                           :color="measuringDecel ? 'primary' : ''"
                           v-bind="props"
                         >
@@ -725,7 +725,7 @@
                           </v-icon>
                         </v-btn>
                       </template>
-                      <span>{{ measuringDecel ? 'Release when fully stopped' : 'Hold to measure deceleration (requires acceleration time)' }}</span>
+                      <span>{{ arborCtlOwnsRamp ? 'Decel is owned by the VFD tab' : (measuringDecel ? 'Release when fully stopped' : 'Hold to measure deceleration (requires acceleration time)') }}</span>
                     </v-tooltip>
                   </template>
                 </v-text-field>
@@ -1721,7 +1721,7 @@ import {
   validateCustomMachineDraft
 } from '../../utils/nxtCustomPackGenerate'
 import { readFirmwareGlobal } from '../../utils/nxtToolChangerOm'
-import { isAtcPluginInstalled } from '../../utils/nxtInstalledPlugins'
+import { isAtcPluginInstalled, isArborCtlFirmwareLive } from '../../utils/nxtInstalledPlugins'
 import {
   probeTipDiameterMm,
   suspectTipDiameterAsRadius
@@ -1868,6 +1868,37 @@ export default defineNxtComponent({
 
       // Default to 10000 RPM if not specified
       return 10000
+    },
+
+    arborCtlOwnsRamp(): boolean {
+      return isArborCtlFirmwareLive(this.$store.state.machine.model.global)
+    },
+
+    arborWizardRampPair(): [number | null, number | null] {
+      const g = this.$store.state.machine.model.global
+      const ramp = readFirmwareGlobal(g, 'arborWizardRamp')
+      const sid = this.configDraft.nxtSpindleID ?? 0
+      if (!Array.isArray(ramp) || ramp[sid] == null || !Array.isArray(ramp[sid])) {
+        return [null, null]
+      }
+      const r = ramp[sid] as number[]
+      const accel = typeof r[0] === 'number' && Number.isFinite(r[0]) ? r[0] : null
+      const decel = typeof r[1] === 'number' && Number.isFinite(r[1]) ? r[1] : null
+      return [accel, decel]
+    },
+
+    displayedSpindleAccelSec(): number | null {
+      if (this.arborCtlOwnsRamp && this.arborWizardRampPair[0] != null) {
+        return this.arborWizardRampPair[0]
+      }
+      return this.configDraft.nxtSpindleAccelSec
+    },
+
+    displayedSpindleDecelSec(): number | null {
+      if (this.arborCtlOwnsRamp && this.arborWizardRampPair[1] != null) {
+        return this.arborWizardRampPair[1]
+      }
+      return this.configDraft.nxtSpindleDecelSec
     },
 
     /**
@@ -3075,6 +3106,20 @@ export default defineNxtComponent({
       this.configDraft.nxtBoardPackExpectedEntry = nxtBoardPackRelPath(plat, sn, volt)
     },
 
+    applyArborRampToDraft(): void {
+      if (!this.arborCtlOwnsRamp) {
+        return
+      }
+      const accel = this.displayedSpindleAccelSec
+      const decel = this.displayedSpindleDecelSec
+      if (accel != null) {
+        this.configDraft.nxtSpindleAccelSec = accel
+      }
+      if (decel != null) {
+        this.configDraft.nxtSpindleDecelSec = decel
+      }
+    },
+
     async runBoardStateChecks() {
       if (!this.isConnected) {
         this.boardBootstrapWarnings = []
@@ -3368,6 +3413,7 @@ export default defineNxtComponent({
       this.saving = true
       try {
         this.prepareBoardPackFieldsForSave()
+        this.applyArborRampToDraft()
         if (!this.rgbHardwareConfigured) {
           this.configDraft.nxtFeatureRgbLight = false
         }

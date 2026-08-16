@@ -18,8 +18,6 @@ if { !exists(global.nxtAbsPos) }
 var nxtWpIdx = 0
 if { exists(move.motionSystems) && #move.motionSystems > 0 }
     set var.nxtWpIdx = { move.motionSystems[0].workplaceNumber }
-elif { exists(move.workplaceNumber) }
-    set var.nxtWpIdx = { move.workplaceNumber }
 
 if { !exists(param.P) || param.P == 0 }
     set global.nxtAbsPos = { vector(#move.axes, null) }

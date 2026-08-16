@@ -29,12 +29,12 @@ Configure your CNC spindle parameters:
 | Setting | Description | Example |
 |---------|-------------|---------|
 | Spindle ID | RRF spindle index (0-based) | `0` |
-| Acceleration Time | Time for spindle to reach target speed | `3.0` seconds |
-| Deceleration Time | Time for spindle to stop | `2.5` seconds |
+| Acceleration Time | Time for spindle to reach target speed | `10` s default if unset; ArborCTL VFD Apply writes the real ramp |
+| Deceleration Time | Time for spindle to stop | Same ownership: hold-to-measure, or VFD tab when ArborCTL is live |
 
 **Usage Notes:**
 - Spindle ID should match your RRF configuration
-- Acceleration/deceleration times are used by M3.9/M4.9/M5.9 macros to wait for spindle speed changes
+- Acceleration/deceleration times are used by M3.9/M4.9/M5.9 macros to wait for spindle speed changes. Boot default accel wait is **10 s** (not null). When ArborCTL firmware is live, Configuration disables hold-to-measure and shows the VFD ramp; **VFD Apply** persists `nxtSpindleAccelSec` / `nxtSpindleDecelSec`.
 
 ### 3. Touch Probe Configuration
 
@@ -307,14 +307,15 @@ set global.nxtSpindleAccelSec = 3.0
 
 ### Configuration Backup
 To backup your configuration:
-1. Copy `macros/system/nxt-user-vars.g` to a safe location
-2. Or use M500.1 to save a restore point
+1. Copy `0:/sys/nxt-user-vars.g` off the board (operator Save overlay).
+2. Copy `0:/sys/nxt-user-tools.g` if you keep a persisted tool library.
+3. Copy `0:/sys/nxt-user-wcs.g` if you keep probed workplace origins (`G10 L2`, written by `nxt-user-wcs-sync.g` after **M6520** / **nxt-wcs-apply**).
 
 ### Configuration Restore
 To restore configuration:
-1. Copy backed up file back to `macros/system/nxt-user-vars.g`
-2. Or use M501.1 to load a restore point
-3. Click "Reload" in Configuration UI
+1. Copy the backed-up `nxt-user-vars.g` to `0:/sys/`.
+2. Restore `nxt-user-tools.g` and/or `nxt-user-wcs.g` the same way if you use them.
+3. Click "Reload" in Configuration UI (or `M999` / power cycle so `nxt.g` loads the files).
 
 ## Related Documentation
 
