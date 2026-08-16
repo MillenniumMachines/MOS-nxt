@@ -1,0 +1,11 @@
+; Example: nxt persisted workplaces (copy to 0:/sys/nxt-user-wcs.g to use)
+; Loaded automatically by nxt.g after the board pack when the file exists.
+; Runtime: M6520 / nxt-wcs-apply / nxt-wcs-set / nxt-wcs-clear run
+; M98 P"nxt-user-wcs-sync.g" to refresh this file
+; (disable: set global.nxtAutoPersistWcs = false in nxt-user-vars.g).
+; G10-only changes (without those helpers) are not auto-captured until the next apply/set
+; or a manual M98 P"nxt-user-wcs-sync.g".
+;
+; G10 L2 P1 X100.0 Y50.0 Z-5.0
+; G10 L2 P2 X200.0 Y75.0 Z-5.0
+; M98 P"nxt-select-wcs.g" W1

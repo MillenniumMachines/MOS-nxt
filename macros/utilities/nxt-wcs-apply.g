@@ -1,61 +1,49 @@
-; M6520.g: SET WCS OFFSET FROM PROBE RESULT
+; nxt-wcs-apply.g: APPLY WCS FROM PROBE RESULT (NO TRAVEL)
 ;
-; Sets a Work Coordinate System origin from the probe results table.
-; Same contract as legacy G650x.1: G10 L2 gets the feature's M5000
-; machine coords as stored (no tool-offset subtract). Never G10 L20.
-; After G10 + WCS select, G53 G1 flagged X/Y to stored L2 machine coords
-; (Z/A pinned from current pose). Never work G0 X0 Y0 — nested G53/G38
-; would treat that as machine home. Never G0 Z0 / A0.
+; Same G10 L2 as M6520 (never L20). No travel — caller already G53-parked
+; at the fit (G6500/G6501/G6508/G6509/G6520). M6520 G53 G1s stored L2 XY.
 ; Does not apply G68 — that is M5011 at job start. Q only arms policy.
+; M98 steals P for the filename — result slot is I (not P).
+; Skips nxt-select-wcs when workplace W is already active (no redundant G54).
 ;
-; USAGE: M6520 P<resultIndex> W<wcsNumber> [X1] [Y1] [Z1] [A1] [Q<mode>] [T<maxSkew>]
+; USAGE: M98 P"nxt-wcs-apply.g" I<resultIndex> W<wcsNumber> [X1] [Y1] [Z1] [A1] [Q] [T]
 ;
 ; Parameters:
-;   P: Probe results table index (0-9) - REQUIRED
-;   W: WCS number (1-9 for G54-G59.3) - REQUIRED
-;   X1/Y1/Z1/A1: Axis presence flags (RRF needs letter+number; value ignored)
-;       Bare X/Y/Z/A often do NOT populate exists(param.X) — use X1 not X
-;   Q: Job-start rotation policy for M5011 (not applied here):
-;      0 — prompt (M291) when the job calls M5011
-;      1 — apply G68 at M5011 without prompt
-;      2 — translation only; M5011 will not apply G68
-;      Omitted — leave nxtG68Policy unchanged (Probe Results push)
-;   T: Optional override for max |skew| allowed (deg); default global.nxtProbeMaxSkewDeg
-;
-; XY apply stores theta in nxtWPDeg[W-1] for M5011. Always G69 after G10/park.
-; Z results are raw trigger (G6512; no tip radius / Z deflection).
-;
-; At least one axis flag (X, Y, Z, or A) must be specified.
+;   I: Probe results table index (0-9) — REQUIRED (M98 cannot pass P)
+;   W: WCS number (1-9 for G54-G59.3) — REQUIRED
+;   X1/Y1/Z1/A1: Axis presence flags (use X1 not bare X)
+;   Q: Job-start rotation policy for M5011 (same as M6520 Q)
+;   T: Optional max |skew| (deg); default global.nxtProbeMaxSkewDeg
 
 if { !inputs[state.thisInput].active }
     M99
 
-if { !exists(param.P) || param.P == null || param.P < 0 }
-    abort { "M6520: Result index parameter P is required and must be >= 0" }
+if { !exists(param.I) || param.I == null || param.I < 0 }
+    abort { "nxt-wcs-apply: Result index I is required and must be >= 0" }
 
-if { param.P >= #global.nxtProbeResults }
-    abort { "M6520: Result index P=" ^ param.P ^ " exceeds table size (" ^ #global.nxtProbeResults ^ ")" }
+if { param.I >= #global.nxtProbeResults }
+    abort { "nxt-wcs-apply: Result index I=" ^ param.I ^ " exceeds table size" }
 
 if { !exists(param.W) || param.W == null || param.W < 1 || param.W > 9 }
-    abort { "M6520: WCS number W is required and must be 1-9 (for G54-G59.3)" }
+    abort { "nxt-wcs-apply: W must be 1-9 (G54-G59.3)" }
 
 if { !exists(param.X) && !exists(param.Y) && !exists(param.Z) && !exists(param.A) }
-    abort { "M6520: At least one axis flag (X, Y, Z, or A) must be specified" }
+    abort { "nxt-wcs-apply: At least one axis flag (X, Y, Z, or A) required" }
 
-if { global.nxtProbeResults[param.P] == null }
-    abort { "M6520: No probe result found at index " ^ param.P }
+if { global.nxtProbeResults[param.I] == null }
+    abort { "nxt-wcs-apply: No probe result at index " ^ param.I }
 
-var resultVector = { global.nxtProbeResults[param.P] }
+var resultVector = { global.nxtProbeResults[param.I] }
 
 if { #var.resultVector < #move.axes }
-    abort { "M6520: Invalid probe result at index " ^ param.P }
+    abort { "nxt-wcs-apply: Invalid probe result at index " ^ param.I }
 
 var skewLimit = { exists(param.T) ? param.T : global.nxtProbeMaxSkewDeg }
 
 var thetaDeg = { #var.resultVector > #move.axes ? var.resultVector[#move.axes] : 0 }
 
 if { abs(var.thetaDeg) > var.skewLimit }
-    abort { "M6520: Probe rotation " ^ var.thetaDeg ^ " deg exceeds limit " ^ var.skewLimit ^ " — square the part or increase T / nxtProbeMaxSkewDeg" }
+    abort { "nxt-wcs-apply: Probe rotation exceeds limit — square part or increase T" }
 
 var wcsNumber = { param.W }
 
@@ -67,7 +55,7 @@ var offsetA = null
 if { exists(param.A) && #var.resultVector > 3 }
     set var.offsetA = { var.resultVector[3] }
 
-; Empty table is vector(..., 0). 0,0 is legal only if already near machine origin.
+; Empty table is vector(..., 0). 0,0 is legal only if already near origin.
 var nxtBothXY = { var.offsetX != null && var.offsetY != null }
 var nxtOxZ = { var.offsetX != null && abs(var.offsetX) < 0.01 }
 var nxtOyZ = { var.offsetY != null && abs(var.offsetY) < 0.01 }
@@ -76,7 +64,7 @@ var nxtMyPre = { move.axes[1].machinePosition }
 var nxtMachFar = { abs(var.nxtMxPre) > 5 || abs(var.nxtMyPre) > 5 }
 var nxtReject00 = { var.nxtBothXY && var.nxtOxZ && var.nxtOyZ && var.nxtMachFar }
 if { var.nxtReject00 }
-    abort { "M6520: XY origin is 0,0 but machine is not at origin — empty result?" }
+    abort { "nxt-wcs-apply: XY origin is 0,0 but machine is not at origin" }
 
 ; Idle before G10 so a leftover interpolator cannot run under the new origin
 M400
@@ -112,56 +100,43 @@ elif { var.offsetZ != null }
 elif { var.offsetA != null }
     G10 L2 P{var.wcsNumber} A{var.offsetA}
 
-echo "M6520: Set WCS G" ^ (53 + var.wcsNumber) ^ " origin from probe result " ^ param.P
+echo "nxt-wcs-apply: Set WCS G" ^ (53 + var.wcsNumber) ^ " from result " ^ param.I
 if { var.offsetX != null }
-    echo "M6520:   X origin = " ^ var.offsetX
+    echo "nxt-wcs-apply:   X origin = " ^ var.offsetX
 if { var.offsetY != null }
-    echo "M6520:   Y origin = " ^ var.offsetY
+    echo "nxt-wcs-apply:   Y origin = " ^ var.offsetY
 if { var.offsetZ != null }
-    echo "M6520:   Z origin = " ^ var.offsetZ
+    echo "nxt-wcs-apply:   Z origin = " ^ var.offsetZ
 if { var.offsetA != null }
-    echo "M6520:   A origin = " ^ var.offsetA
+    echo "nxt-wcs-apply:   A origin = " ^ var.offsetA
 
-M98 P"nxt-select-wcs.g" W{var.wcsNumber}
+var nxtWpIdx = 0
+var nxtHasSys = false
+if { exists(move.motionSystems) }
+    if { #move.motionSystems > 0 }
+        set var.nxtHasSys = true
+if { var.nxtHasSys }
+    set var.nxtWpIdx = { move.motionSystems[0].workplaceNumber }
+
+var nxtWpSel = { var.nxtWpIdx + 1 }
+if { var.nxtWpSel != var.wcsNumber }
+    M98 P"nxt-select-wcs.g" W{var.wcsNumber}
 
 if { exists(param.Q) && param.Q != null }
     if { !exists(global.nxtG68Policy) }
         global nxtG68Policy = { param.Q }
     else
         set global.nxtG68Policy = { param.Q }
-    echo "M6520: Armed job rotation policy Q" ^ param.Q
+    echo "nxt-wcs-apply: Armed job rotation policy Q" ^ param.Q
 
 var workOffset = { var.wcsNumber - 1 }
 var storeDeg = { exists(param.X) && exists(param.Y) }
 if { var.storeDeg && exists(global.nxtWPDeg) }
     if { abs(var.thetaDeg) >= 0.0005 }
         set global.nxtWPDeg[var.workOffset] = { var.thetaDeg }
-        echo "M6520: Stored rotation " ^ var.thetaDeg ^ " deg for M5011"
+        echo "nxt-wcs-apply: Stored rotation " ^ var.thetaDeg ^ " deg for M5011"
     else
         set global.nxtWPDeg[var.workOffset] = { global.nxtDfltWPDeg }
-
-; G53 G1 to stored L2 XY (never work G0 — G53 leak → machine 0,0)
-G90
-M400
-var parkFeed = { 3000 }
-var parkPid = { global.nxtTouchProbeID }
-if { var.parkPid != null && sensors.probes[var.parkPid] != null }
-    set var.parkFeed = { sensors.probes[var.parkPid].travelSpeed }
-var pinX = { move.axes[0].machinePosition }
-var pinY = { move.axes[1].machinePosition }
-var pinZ = { move.axes[2].machinePosition }
-var pinA = { 0 }
-var parkHasA = { #move.axes > 3 }
-if { var.parkHasA }
-    set var.pinA = { move.axes[3].machinePosition }
-var parkX = { var.offsetX != null ? var.offsetX : var.pinX }
-var parkY = { var.offsetY != null ? var.offsetY : var.pinY }
-if { var.offsetX != null || var.offsetY != null }
-    if { var.parkHasA }
-        G53 G1 F{var.parkFeed} X{var.parkX} Y{var.parkY} Z{var.pinZ} A{var.pinA}
-    else
-        G53 G1 F{var.parkFeed} X{var.parkX} Y{var.parkY} Z{var.pinZ}
-    M400
 
 ; Cancel live G68 so jogging after probe is not rotated. M5011 re-applies.
 G69
@@ -174,15 +149,15 @@ var nxtMx = { move.axes[0].machinePosition }
 var nxtMy = { move.axes[1].machinePosition }
 var nxtUx = { move.axes[0].userPosition }
 var nxtUy = { move.axes[1].userPosition }
-echo "M6520: machine X=" ^ var.nxtMx ^ " Y=" ^ var.nxtMy
-echo "M6520: user X=" ^ var.nxtUx ^ " Y=" ^ var.nxtUy
+echo "nxt-wcs-apply: machine X=" ^ var.nxtMx ^ " Y=" ^ var.nxtMy
+echo "nxt-wcs-apply: user X=" ^ var.nxtUx ^ " Y=" ^ var.nxtUy
 if { var.offsetX != null }
     var nxtDx = { var.nxtMx - var.offsetX }
-    echo "M6520: origin X vs machine dX=" ^ var.nxtDx
+    echo "nxt-wcs-apply: origin X vs machine dX=" ^ var.nxtDx
 if { var.offsetY != null }
     var nxtDy = { var.nxtMy - var.offsetY }
-    echo "M6520: origin Y vs machine dY=" ^ var.nxtDy
-echo "M6520: WCS updated; G53 G1 flagged XY (Z stays startZ)"
+    echo "nxt-wcs-apply: origin Y vs machine dY=" ^ var.nxtDy
+echo "nxt-wcs-apply: WCS updated; no travel (already parked)"
 
 ; Persist G10 L2 origins to SD (opt-out: set global.nxtAutoPersistWcs = false)
 M98 P"nxt-user-wcs-sync.g"
