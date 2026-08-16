@@ -165,7 +165,12 @@ var bP = { 0, 0, 0 }
     set var.bP[1] = { var.cP[1] + ((var.sP[1] - var.cP[1]) / var.bN * ((var.nxtMbo > var.bN) ? var.bN : var.nxtMbo)) }
     set var.bP[2] = { var.cP[2] + ((var.sP[2] - var.cP[2]) / var.bN * ((var.nxtMbo > var.bN) ? var.bN : var.nxtMbo)) }
 
-G6550 X{ var.bP[0] } Y{ var.bP[1] } Z{ var.bP[2] }
-
-; Wait for all moves in the queue to finish
+; Rapid backoff toward start — unprotected G0, all axes pinned
+M400
+var boHasA = { #move.axes > 3 }
+if { var.boHasA }
+    var boA = { move.axes[3].machinePosition }
+    G53 G0 X{var.bP[0]} Y{var.bP[1]} Z{var.bP[2]} A{var.boA}
+else
+    G53 G0 X{var.bP[0]} Y{var.bP[1]} Z{var.bP[2]}
 M400

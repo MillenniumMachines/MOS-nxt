@@ -2,6 +2,7 @@
 ;
 ; Deflection/tip compensation + optional multi-sample repeatability.
 ; X/Y: tip radius + deflection → surface. Z: raw trigger (no D, no tip R) for now.
+; A: raw trigger, no diveHeight backoff (rotary; those distances are millimetres).
 ; Touch probe IDs: probe feeds clamped to ≤200 / ≤50 mm/min (G6511 caps).
 ; Defaults: macros/system/nxt-vars.g (Probe repeatability).
 ; When nxtProbeMaxSampleSpreadMm > 0: strict consecutive-pair tolerance, 3 touches, R ignored.
@@ -175,6 +176,7 @@ while { var.attempt < var.outerLimit && var.toleranceOk == false }
         if { result != 0 }
             abort { "G6512: Probe failed to trigger" }
 
+        M400
         M5000
 
         var triggeredPos = global.nxtAbsPos[var.probeAxisIndex]
@@ -221,32 +223,36 @@ while { var.attempt < var.outerLimit && var.toleranceOk == false }
             set var.hitSumY = { var.hitSumY + var.hitY }
             set var.hitN = { var.hitN + 1 }
 
-        var backoffDistance = { var.innerIdx == 0 ? sensors.probes[param.I].diveHeights[0] : sensors.probes[param.I].diveHeights[1] }
-        var backoffRequested = { var.triggeredPos - (var.direction * var.backoffDistance) }
-        var backoffTarget = { var.backoffRequested }
-        var axisMin = { move.axes[var.probeAxisIndex].min }
-        var axisMax = { move.axes[var.probeAxisIndex].max }
-        if { var.backoffTarget < var.axisMin }
-            set var.backoffTarget = { var.axisMin }
-        elif { var.backoffTarget > var.axisMax }
-            set var.backoffTarget = { var.axisMax }
-        if { var.backoffTarget != var.backoffRequested }
-            var boAxis = { move.axes[var.probeAxisIndex].letter }
-            echo "G6512: backoff " ^ var.boAxis ^ " clamped " ^ var.backoffRequested ^ " -> " ^ var.backoffTarget
-
         set var.speed = { var.fineSpeed }
 
-        var backoffVector = { global.nxtAbsPos }
-        if { var.hasA }
-            while { #var.backoffVector < 4 }
-                set var.backoffVector[#var.backoffVector] = 0
-        set var.backoffVector[var.probeAxisIndex] = var.backoffTarget
+        ; A is rotary — skip diveHeight backoff (those distances are millimetres)
+        var nxtSkipBackoff = { var.probeAxisIndex == 3 }
+        if { !var.nxtSkipBackoff }
+            var backoffDistance = { var.innerIdx == 0 ? sensors.probes[param.I].diveHeights[0] : sensors.probes[param.I].diveHeights[1] }
+            var backoffRequested = { var.triggeredPos - (var.direction * var.backoffDistance) }
+            var backoffTarget = { var.backoffRequested }
+            var axisMin = { move.axes[var.probeAxisIndex].min }
+            var axisMax = { move.axes[var.probeAxisIndex].max }
+            if { var.backoffTarget < var.axisMin }
+                set var.backoffTarget = { var.axisMin }
+            elif { var.backoffTarget > var.axisMax }
+                set var.backoffTarget = { var.axisMax }
+            if { var.backoffTarget != var.backoffRequested }
+                var boAxis = { move.axes[var.probeAxisIndex].letter }
+                echo "G6512: backoff " ^ var.boAxis ^ " clamped " ^ var.backoffRequested ^ " -> " ^ var.backoffTarget
 
-        ; Feed backoff — never G0 while recovering from a touch
-        if { var.hasA }
-            G53 G1 F{var.speed} X{var.backoffVector[0]} Y{var.backoffVector[1]} Z{var.backoffVector[2]} A{var.backoffVector[3]}
-        else
-            G53 G1 F{var.speed} X{var.backoffVector[0]} Y{var.backoffVector[1]} Z{var.backoffVector[2]}
+            var backoffVector = { global.nxtAbsPos }
+            if { var.hasA }
+                while { #var.backoffVector < 4 }
+                    set var.backoffVector[#var.backoffVector] = 0
+            set var.backoffVector[var.probeAxisIndex] = var.backoffTarget
+
+            ; Rapid backoff — full pose so leftover G38 cannot resume a wall
+            if { var.hasA }
+                G53 G0 X{var.backoffVector[0]} Y{var.backoffVector[1]} Z{var.backoffVector[2]} A{var.backoffVector[3]}
+            else
+                G53 G0 X{var.backoffVector[0]} Y{var.backoffVector[1]} Z{var.backoffVector[2]}
+        M400
 
         if { sensors.probes[param.I].recoveryTime > 0 }
             G4 P{ ceil(sensors.probes[param.I].recoveryTime * 1000) }

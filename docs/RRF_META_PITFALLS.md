@@ -36,7 +36,9 @@ Release sync places `macros/**/M6520.g` (etc.) on **`0:/sys/`**. RRF runs them a
 **Do:** `M6520 P{var.pSlot} W{param.U} X1 Y1`  
 **Do not:** `M98 P"M6520.g" P{…}` (or any `M98 P"M….g"` / `G….g"`)
 
-**Gate:** `node dist/check-m98-numbered-meta.mjs` (also run by `build-plugin.sh`). Named helpers (`M98 P"nxt-….g"`) remain OK.
+Named helpers stay OK, but **do not pass a second `P`**: `M98 P"nxt-….g" P1` is dropped the same way. Use **`Q` / `I` / `W`**.
+
+**Gate:** `node dist/check-m98-numbered-meta.mjs` (also run by `build-plugin.sh`). Flags numbered-meta `M98` **and** nested `P` on any `M98` line.
 
 ## 1c. Meta axis *flags* need a number (`X1`, not bare `X`)
 
@@ -45,9 +47,9 @@ Release sync places `macros/**/M6520.g` (etc.) on **`0:/sys/`**. RRF runs them a
 | Call | Typical result |
 |------|----------------|
 | `M6520 … X Y` | `param.X` / `param.Y` absent |
-| `M6520 … X1 Y1` | `param.X=1`, `param.Y=1` → G10 + travel |
+| `M6520 … X1 Y1` | `param.X=1`, `param.Y=1` → G10 L2 then `G53 G1` to stored L2 XY (Z pinned; never work Z0) |
 
-**Do:** `M6520 P{var.pSlot} W{param.U} X1 Y1` (or `Z1` / `A1` as needed)  
+**Do:** `M6520 P{var.pSlot} W{param.U} X1 Y1` (then G10 L2 and `G53 G1` to stored origin XY; never Z0)  
 **Do not:** `M6520 … X Y` / bare `X` / `Y` / `Z` / `A` as flags
 
 Same rule for UI Push-to-WCS (`ProbeResultsPanel` emits `X1`…).
@@ -110,7 +112,7 @@ Prefer `exists(param.X)` / `exists(param.Y)` / … over `{ param.X, param.Y, par
 2. `M5000` → `startZ = nxtAbsPos[2]`.
 3. Dive: `G6550 Z{startZ - L}` only (drop by `L`; no raise).
 4. Horizontal probes at dive Z.
-5. End at `startZ` (or feature result Z for vise corner) — **not** `G27` Z max.
+5. End at `startZ` (or feature result Z for vise corner) — **not** `G27` Z max. XY apply cycles raise to **startZ** first (XY pinned), then **`G53 G1`** to the fitted origin. Never XY-park at dive Z. Never work `G0 X0 Y0` after a `G53`/`G38` cycle.
 
 Enable Probe may still raise to Z max **before** `T…` for tool change safety; the operator must re-jog before Execute.
 
@@ -150,9 +152,22 @@ Overlong lines → `GCode command too long` (boot killer on `nxt.g`). Split comp
 
 ## 8. Positive-Z shortcut in `G6550`
 
-`G6550` treats **Z-only upward** moves as unprotected `G53 G1` **only when the probe is clear**. If the stylus is already triggered on a Z-only raise, it **aborts** instead of silent `G1`. If already triggered on any other move, it first **`G1` toward the commanded target** (clear/retract direction the caller requested) — never away from target (that drove into the bore wall after `G6512.1` retract). Then the main move uses probe-protected `G38.3`. Do not pass a dive target that is **above** current Z unless you intend a raise.
+`G6550` treats **Z-only upward** moves as unprotected `G53 G1` **only when the probe is clear**. That `G1` **pins current XY (and A)** from the M5000 snapshot — never emit Z-only after a **`G38`**, or the leftover interpolator can continue toward the last wall (bore rim after triangulation). If the stylus is already triggered on a Z-only raise, it **aborts** instead of silent `G1`. If already triggered on any other move, it first **`G1` toward the commanded target** (clear/retract direction the caller requested) — never away from target (that drove into the bore wall after `G6512.1` retract). Then the main move uses probe-protected `G38.3`. Do not pass a dive target that is **above** current Z unless you intend a raise.
 
-Probe cycles (`G6500` / `G6501`, etc.) must reposition with **`G6550`**, never bare `G0`/`G1`. Bore/boss triangulation uses **`G6513`** → **`G6512.1`** for radial contacts; other UI cycles use single-axis **`G6512`**. Post-touch backoff in **`G6512`** is feed (`G1`), not rapid.
+Probe **triangulation** (`G6500` / `G6501` via **`G6513`** → **`G6512.1`**) repositions **between stations** with **`G6550`**, never bare `G0` for that travel. After **`G38`**, issue **`M400`** **before** any following move so a leftover wall target cannot complete first. Native circumcenter is **A = P2−P1**, **B = P3−P1**. **B = P3−P2** parks the “center” on a vertex (wall contact) and reports a bogus mean diameter. Finish: **`M400`**, **raise to startZ with XY (and A) pinned**, then **`G53 G1`** to fitted circumcenter XY — not one combined diagonal (rim clip), not XY at dive Z, not **`G6550`/`G38.3`**. If the stylus is still triggered, a short **`G53 G1`** toward the fit (≤ dive-height) clears it — not **`G6550`**. Do **not** overwrite `nxtProbeResults` XY from post-park `machinePosition`. Other UI cycles use single-axis **`G6512`**. Post-touch backoff in **`G6512`** / **`G6512.1`** is rapid **`G53 G0`** (all axes pinned, **`M400`** first), not probe feed; **A**-axis **`G6512`** skips backoff (`diveHeights` are millimetres). **G6506** raises to **startZ** then parks XY at the edge midpoint before **M6520**. **G6508** / **G6509** / **G6520** use the same **G53 G1** park at the fitted corner, then **`nxt-wcs-apply.g`**.
+
+## 9. Nested G53 / leftover G38 then machine 0,0 (XY then unhomed)
+
+| Symptom | Cause |
+|---------|--------|
+| After a corner the mill runs to **machine home**, then **X/Y cannot jog** | Leftover **G38** after G6508 returns completes as **G53 X0 Y0**, slams min endstops, drops `homed`. Park+apply echoes can still show the fitted corner. |
+| Park/apply log is correct (work XY ≈ 0 at the feature), then Console **`G0 X0 Y0`** flies home | Zero-length `G53 G1` of the current pose in **`nxt-g38-cancel.g`** is skipped; leftover G38 waits for the next motion. |
+| Same after HTTP `G6508` if DSF treats it as a job | [`stop.g`](../macros/system/stop.g) used to **`G27`** (table park). Skipped when `nxtSkipJobPark` or there is no `job.file.fileName`. |
+
+**Do:** G53-park at the stored L2 millimetres, apply with **`nxt-wcs-apply.g`** (no `G0`), then **`M98 P"nxt-g38-cancel.g"`**. That helper **must actually move**: a **zero-length** `G53 G1` of the current pose is skipped by the planner, leftover **G38** stays armed, and the next Console **`G0 X0 Y0`** (omits Z) completes as **machine** X0 Y0. Cancel nudges Z (or Y) 0.05 mm in **G53**, restores, then a **non-G53** `G91` all-axis nudge and back, and **ends on `G90`**. Echoes `drain nudge` plus machine/user/homed **after** the drain. **M6520** Push uses `G53 G1` to stored XY (Z/A pinned), then the same cancel. **`nxt-workzero.g`** uses `G53 G1` to `workplaceOffsets` (never work `G0 X0 Y0` after `G27`).  
+**Do not:** `G0 X0 Y0` after a `G53`/`G38` probe cycle until cancel has **moved**. Do not omit XY on the next move after `G38`. Do not end a helper on `G53`.
+
+A correct `G10 L2` plus a real work-space `G0 X0 Y0` would park at the **feature**. Work XY ≈ 0 at machine ≈ corner is success. Reaching **machine** 0,0 means leftover G38/G53 (or `stop.g` `G27`). Never switch apply to **`G10 L20`**.
 
 ## Checklist before claiming probe-macro work done
 

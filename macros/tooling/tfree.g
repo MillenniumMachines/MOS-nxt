@@ -24,11 +24,14 @@ while { iterations < #move.axes }
     if { !move.axes[iterations].homed }
         abort { "tfree.g: Axis " ^ move.axes[iterations].letter ^ " must be homed before tool change" }
 
+; Drain leftover G38 before omit-XY park
+M98 P"nxt-g38-cancel.g"
+
 ; Set tool change state to indicate tfree.g started
 set global.nxtToolChangeState = 1
 
-; Stop and park spindle for safety
-G27 Z1
+; Full park before operator Remove (Z max, M5.9, table XY)
+G27
 
 ; Check if current tool is the probe tool
 ; Use S4 (not S3): S3 Cancel aborts the file and can kill DCS on USB SBC.

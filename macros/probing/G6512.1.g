@@ -204,10 +204,15 @@ while { iterations <= var.retries }
         var bPY = { var.cP[1] + ((var.sP[1] - var.cP[1]) / var.bN * ((var.backoff > var.bN) ? var.bN : var.backoff)) }
         var bPZ = { var.cP[2] + ((var.sP[2] - var.cP[2]) / var.bN * ((var.backoff > var.bN) ? var.bN : var.backoff)) }
 
-        ; This move probably doesn't need to be protected since we
-        ; can only move back to the starting location, which is
-        ; where we already moved _from_.
-        G6550 I{ param.I } X{ var.bPX } Y{ var.bPY } Z{ var.bPZ }
+        ; Rapid backoff toward start — unprotected G0, all axes pinned
+        M400
+        var boHasA = { #move.axes > 3 }
+        if { var.boHasA }
+            var boA = { move.axes[3].machinePosition }
+            G53 G0 X{var.bPX} Y{var.bPY} Z{var.bPZ} A{var.boA}
+        else
+            G53 G0 X{var.bPX} Y{var.bPY} Z{var.bPZ}
+        M400
 
     ; If axis has moved, check if we're within tolerance on that axis.
     ; We can only abort early if we're within tolerance on all moved (probed) axes.

@@ -2,7 +2,8 @@
 ;
 ; Execution: build full target in machine coords → unless pure +Z retract, run G38.3 with
 ; probe K so an unexpected trip aborts the move before impact → verify each commanded axis
-; reached target within tolerance (else crash or obstruction).
+; reached target within tolerance (else crash or obstruction). +Z retract is G53 G1 with
+; current XY (and A) pinned so a leftover G38 interpolator cannot continue toward a wall.
 ;
 ; Performs a protected move with probe-aware safety checks.
 ; If a touch probe is triggered unexpectedly during movement,
@@ -62,11 +63,15 @@ if { var.hasA && exists(param.A) }
 var isOnlyPositiveZ = { var.onlyZ && var.targetCoords[2] > var.currentZ }
 var probeTripped = { sensors.probes[var.probeID].value[0] != 0 }
 
-; Pure +Z retract is unprotected only when the stylus is clear
+; Pure +Z retract is unprotected only when the stylus is clear.
+; Pin XY (and A) from the M5000 snapshot so omit-XY cannot resume a G38 wall target.
 if { var.isOnlyPositiveZ }
     if { var.probeTripped }
         abort { "G6550: Probe triggered — clear stylus before Z retract" }
-    G53 G1 F{var.feedRate} Z{var.targetCoords[2]}
+    if { var.hasA }
+        G53 G1 F{var.feedRate} X{var.targetCoords[0]} Y{var.targetCoords[1]} Z{var.targetCoords[2]} A{var.targetCoords[3]}
+    else
+        G53 G1 F{var.feedRate} X{var.targetCoords[0]} Y{var.targetCoords[1]} Z{var.targetCoords[2]}
     M99
 
 ; Already triggered: step TOWARD the commanded target to clear the stylus.
