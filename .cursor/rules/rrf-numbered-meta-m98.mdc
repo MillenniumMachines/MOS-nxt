@@ -24,17 +24,21 @@ M98 P"M6520.g" P{var.pSlot} W{param.U} X Y
 ; ✅ GOOD — meta command; P is M6520's result index
 M6520 P{var.pSlot} W{param.U} X Y
 
+; ❌ BAD — named helper; second P is still stolen by M98
+M98 P"nxt-probe-sensor-wait.g" P1
+
+; ✅ GOOD — named helper; other letters are passed through
+M98 P"nxt-probe-sensor-wait.g" Q1
+M98 P"nxt-wcs-apply.g" I{var.pSlot} W{var.wcs}
+
 ; ❌ BAD
 M98 P"M4006.g"
 
 ; ✅ GOOD
 M4006
-
-; ✅ OK — named helper (not a numbered G/M code)
-M98 P"nxt-probe-sensor-wait.g"
 ```
 
-3. **Before** claiming macro work done, run: `node dist/check-m98-numbered-meta.mjs` — must exit 0.
+3. **Before** claiming macro work done, run: `node dist/check-m98-numbered-meta.mjs` — must exit 0. Named helpers without a nested **`P`** are OK. The checker also fails `M98 P"nxt-….g" P…`.
 4. Prefer **`M98`** only for **named** helpers (`nxt-*.g`, board packs, etc.), not for codes listed in [`GCODE.md`](../../GCODE.md).
 
 ## Related

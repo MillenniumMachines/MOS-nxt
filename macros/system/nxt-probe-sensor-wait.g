@@ -1,7 +1,7 @@
 ; nxt-probe-sensor-wait.g — Poll nxtTouchProbeID until the tip is triggered.
 ;
-; USAGE: M98 P"nxt-probe-sensor-wait.g" [P1] [D<ms>] [W<s>]
-;   P1: show install Continue/Cancel prompt (standalone callers)
+; USAGE: M98 P"nxt-probe-sensor-wait.g" [Q1] [D<ms>] [W<s>]
+;   Q1: show install Continue/Cancel prompt (M98 cannot pass P)
 ;   D:  poll delay ms (default 100)
 ;   W:  max wait seconds per phase (default 30)
 ;
@@ -35,7 +35,7 @@ if { var.maxWait < 1 }
     set var.maxWait = 30
 var maxIterations = { var.maxWait / (var.delay / 1000) }
 
-var showPrompt = { exists(param.P) && param.P == 1 }
+var showPrompt = { exists(param.Q) && param.Q == 1 }
 if { var.showPrompt }
     var msgInstall = "Install touch probe and ensure it is connected."
     set var.msgInstall = { var.msgInstall ^ " Press Continue, then manually trigger the tip until detected." }

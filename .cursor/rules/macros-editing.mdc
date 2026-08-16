@@ -30,8 +30,8 @@ See [om-global-size.mdc](om-global-size.mdc). New globals: [nxt-global-lifecycle
 | Macro | Role |
 |-------|------|
 | `system/nxt-probe-tool-sync.g` | M4000 probe row |
-| `system/nxt-probe-tool-ready.g` | Select T + sensor active |
-| `system/nxt-probe-sensor-wait.g` | Sensor wait only |
+| `system/nxt-probe-tool-ready.g` | Select T + M4000 sync |
+| `system/nxt-probe-sensor-wait.g` | Sensor wait only (`Q1` prompt; M98 cannot pass `P`) |
 
 ## Do not read
 
