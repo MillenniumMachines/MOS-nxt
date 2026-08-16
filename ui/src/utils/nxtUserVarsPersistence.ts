@@ -19,6 +19,8 @@ export type NxtUserConfigDraft = {
   nxtRGBOrder: number | null
   nxtProbeToolID: number | null
   nxtDeltaMachine: number | null
+  /** Mill length datum = M5016 platen Z_act; omit from user-vars when null. */
+  nxtProbeVirtualTsZ: number | null
   nxtSpindleID: number | null
   nxtSpindleAccelSec: number | null
   nxtSpindleDecelSec: number | null
@@ -105,6 +107,7 @@ export const NXT_USER_VARS_PERSISTED_KEYS = [
   'nxtRGBOrder',
   'nxtProbeToolID',
   'nxtDeltaMachine',
+  'nxtProbeVirtualTsZ',
   'nxtSpindleID',
   'nxtSpindleAccelSec',
   'nxtSpindleDecelSec',
@@ -349,6 +352,68 @@ export function gcodeEnsureGlobalLines(name: string, rhs: string): string[] {
   ]
 }
 
+/** Platen Z_act from nxtToolSetterPos[2] when finite. */
+export function setterDatumZ(pos: number[] | null | undefined): number | null {
+  if (pos == null || pos.length < 3) {
+    return null
+  }
+  const z = pos[2]
+  return typeof z === 'number' && Number.isFinite(z) ? z : null
+}
+
+/** Fill mill virtual from setter Z when virtual is unset. */
+export function applyDatumVirtualFromSetter(draft: NxtUserConfigDraft): void {
+  if (draft.nxtProbeVirtualTsZ != null && Number.isFinite(draft.nxtProbeVirtualTsZ)) {
+    return
+  }
+  const z = setterDatumZ(draft.nxtToolSetterPos)
+  if (z != null) {
+    draft.nxtProbeVirtualTsZ = z
+  }
+}
+
+/** Finite mill datum: explicit virtual, else setter Z. */
+export function resolvedProbeVirtualTsZ(config: NxtUserConfigDraft): number | null {
+  if (config.nxtProbeVirtualTsZ != null && Number.isFinite(config.nxtProbeVirtualTsZ)) {
+    return config.nxtProbeVirtualTsZ
+  }
+  return setterDatumZ(config.nxtToolSetterPos)
+}
+
+function numsClose(a: number | null, b: number | null): boolean {
+  if (a == null && b == null) return true
+  if (a == null || b == null) return false
+  return Math.abs(a - b) < 1e-6
+}
+
+function vecsClose(a: number[] | null, b: number[] | null): boolean {
+  if (a == null && b == null) return true
+  if (a == null || b == null) return false
+  if (a.length !== b.length) return false
+  return a.every((v: number, i: number) => Math.abs(v - b[i]) < 1e-6)
+}
+
+/** True when live OM already has at least one geometry field (boot poll done). */
+export function liveProbeGeometryPresent(live: NxtUserConfigDraft): boolean {
+  return (
+    live.nxtDeltaMachine != null ||
+    live.nxtToolSetterPos != null ||
+    live.nxtTouchProbeRefPos != null
+  )
+}
+
+/** True when pad/setter geometry in the Save draft differs from live OM. */
+export function probeGeometryChanged(live: NxtUserConfigDraft, draft: NxtUserConfigDraft): boolean {
+  if (!liveProbeGeometryPresent(live)) {
+    return false
+  }
+  return (
+    !numsClose(live.nxtDeltaMachine, draft.nxtDeltaMachine) ||
+    !vecsClose(live.nxtToolSetterPos, draft.nxtToolSetterPos) ||
+    !vecsClose(live.nxtTouchProbeRefPos, draft.nxtTouchProbeRefPos)
+  )
+}
+
 export function emptyConfigDraft(): NxtUserConfigDraft {
   return {
     nxtFeatureTouchProbe: false,
@@ -362,6 +427,7 @@ export function emptyConfigDraft(): NxtUserConfigDraft {
     nxtRGBOrder: 5,
     nxtProbeToolID: null,
     nxtDeltaMachine: null,
+    nxtProbeVirtualTsZ: null,
     nxtSpindleID: null,
     nxtSpindleAccelSec: null,
     nxtSpindleDecelSec: null,
@@ -492,6 +558,7 @@ export function snapshotConfigFromOm(globalVal: unknown): NxtUserConfigDraft {
   draft.nxtRGBOrder = normalizeNxtRgbOrder(readConfigNumber(readFirmwareGlobal(globalVal, 'nxtRGBOrder')))
   draft.nxtProbeToolID = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtProbeToolID'))
   draft.nxtDeltaMachine = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtDeltaMachine'))
+  draft.nxtProbeVirtualTsZ = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtProbeVirtualTsZ'))
   draft.nxtSpindleID = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtSpindleID'))
   draft.nxtSpindleAccelSec = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtSpindleAccelSec'))
   draft.nxtSpindleDecelSec = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtSpindleDecelSec'))
@@ -759,6 +826,7 @@ export function normalizeNxtToolSetterRefDir(value: number | null | undefined): 
 }
 
 export function buildNxtUserVarsGcode(config: NxtUserConfigDraft): string {
+  const virtTsZ = resolvedProbeVirtualTsZ(config)
   const lines = [
     '; nxt User Configuration',
     '; Auto-generated - Do not edit manually',
@@ -780,11 +848,18 @@ export function buildNxtUserVarsGcode(config: NxtUserConfigDraft): string {
     '; Probe tool index (null in UI → last tool at load) and static datum (touch probe calibration)',
     `set global.nxtProbeToolID = ${formatPersistedProbeToolID(config.nxtProbeToolID)}`,
     `set global.nxtDeltaMachine = ${formatPersistedNumber(config.nxtDeltaMachine)}`,
+    ...(virtTsZ != null
+      ? [`set global.nxtProbeVirtualTsZ = ${formatPersistedNumber(virtTsZ)}`]
+      : []),
     '',
     '; Spindle Configuration',
     `set global.nxtSpindleID = ${formatPersistedNumber(config.nxtSpindleID)}`,
-    `set global.nxtSpindleAccelSec = ${formatPersistedNumber(config.nxtSpindleAccelSec)}`,
-    `set global.nxtSpindleDecelSec = ${formatPersistedNumber(config.nxtSpindleDecelSec)}`,
+    ...(config.nxtSpindleAccelSec != null && config.nxtSpindleAccelSec > 0
+      ? [`set global.nxtSpindleAccelSec = ${formatPersistedNumber(config.nxtSpindleAccelSec)}`]
+      : []),
+    ...(config.nxtSpindleDecelSec != null && config.nxtSpindleDecelSec > 0
+      ? [`set global.nxtSpindleDecelSec = ${formatPersistedNumber(config.nxtSpindleDecelSec)}`]
+      : []),
     '',
     '; Touch Probe Configuration',
     // Omit null probe role IDs — keep nxt-vars.g defaults (0 / 1) instead of forcing null.
@@ -957,6 +1032,12 @@ export function runNxtUserVarsPersistenceSelfTest(): void {
   }
   if (gcode.includes('set global.nxtToolSetterID = null')) {
     throw new Error('nxt-user-vars.g must not persist null nxtToolSetterID (keep nxt-vars default)')
+  }
+  if (gcode.includes('set global.nxtSpindleAccelSec = null')) {
+    throw new Error('nxt-user-vars.g must not persist null nxtSpindleAccelSec (keep nxt-vars 10 s default)')
+  }
+  if (gcode.includes('set global.nxtSpindleDecelSec = null')) {
+    throw new Error('nxt-user-vars.g must not persist null nxtSpindleDecelSec')
   }
 
   const keepZero = buildInitialConfigDraft(

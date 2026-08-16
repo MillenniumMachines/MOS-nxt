@@ -39,6 +39,7 @@ global nxtProbeResults = { vector(9, null) } ; Slots 0–8 = U1–U9 (rows sized
 ; Tool-length cache for relative offsets (tpost) — two scalars, not vector(limits.tools) (OM ~8KB)
 global nxtToolCacheIdx = -1            ; tool index for nxtToolCacheZ (-1 = empty)
 global nxtToolCacheZ = null            ; last measured Z / virtual toolsetter Z for that tool
+global nxtProbeVirtualTsZ = null       ; mill length datum = M5016 platen Z (user-vars + nxt-probe-virtual.g)
 global nxtLastProbeResult = null   ; Stores the result of the last probing operation
 global nxtProbeTipRadius = 0.0    ; Radius of the probe tip for compensation (mm)
 global nxtProbeDeflection = {0.0, 0.0, 0.0} ; {X,Y,Z} touch-probe deflection (mm); legacy {X,Y}/scalar ok
@@ -57,8 +58,15 @@ global nxtCalDefSpanY = null
 global nxtCalDefZ = null          ; unused (Z deflection discarded); G6511 clears
 ; G6512 H-slot contacts — allocated on first H= write (OM ~8KB budget)
 global nxtProbeHitXY = null
+; Face-line / corner-intersect scratch (session; not persisted)
+global nxtFaceLineN = 0
+global nxtFaceCornerX = null
+global nxtFaceCornerY = null
+global nxtFaceThetaDeg = 0
 global nxtProbeMaxSkewDeg = 5.0   ; Abort rectangle/bore skew solve if |theta| exceeds this (deg)
 ; Job-scoped G68 (session only — not persisted to nxt-user-vars.g)
+; Policy armed by M6520 Q; G68 itself is applied only by M5011 at job start.
+global nxtG68Policy = 0            ; 0=prompt at M5011, 1=always, 2=never (translation)
 global nxtJobG68Deg = null         ; null = no job rotation; else degrees last applied
 global nxtJobG68Wcs = null         ; workplace 1–9 that owns nxtJobG68Deg
 
@@ -68,17 +76,22 @@ global nxtJobG68Wcs = null         ; workplace 1–9 that owns nxtJobG68Deg
 global nxtProbeInnerSampleCount = 3
 global nxtProbeMaxSampleSpreadMm = 0.0075
 global nxtProbeSampleOuterRetries = 1
+global nxtCornerOffset = 5.0   ; Along-face inset from corner before Z dive (mm)
 
 global nxtToolSetterPos = null     ; Toolsetter position vector [X, Y, Z]
 global nxtToolSetterV2 = false     ; V2.0: fixed ref pad geometry (13mm XY / -6mm Z vs platen)
 global nxtToolSetterRefDir = 0     ; V2 ref pad side of platen: 0=+X 1=-X 2=+Y 3=-Y
-global nxtToolSetterProbeTravelMm = 80.0 ; Downward travel from toolsetter Z used for tool-length probing
+global nxtToolSetterProbeTravelMm = 80.0 ; Downward travel from known Z (mill tpost platen; G6511 mill-touch)
 global nxtToolSetterRadius = null ; Toolsetter platen radius for large-tool multi-point G37 (mm)
 global nxtToolChangeState = null   ; Tracks the current tool change state (1=tfree, 2=tfree done, 3=tpre done, 4=tpost, null=complete)
 global nxtToolChangeCancelled = false ; Operator Cancel in tfree/tpre: tpost skips measure (no T from firmware)
 global nxtUserToolsFilePresent = false     ; set at boot by nxt.g: nxt-user-tools.g exists on SD
 global nxtUserToolsDaemonReload = false      ; if true, daemon reloads library when 0:/sys/nxt-user-tools.reload.requested exists (see TOOLCHANGING.md)
 global nxtTTLocked = false                   ; Tool Library edit-lock (persisted via nxt-user-tools-sync.g)
+; After M6520 / nxt-wcs-apply, rewrite 0:/sys/nxt-user-wcs.g (G10 L2 + select).
+global nxtAutoPersistWcs = true
+; Probe cycles set true so stop.g skips XY G27 after numbered G65xx.
+global nxtSkipJobPark = false
 
 ; --- RGB status LED (optional feature) -------------------------------------
 ; A single status light that mirrors what the machine is doing. The daemon
@@ -185,14 +198,15 @@ global nxtDaemonInterval = 250 ; Minimum milliseconds between daemon iterations
 
 ; --- Spindle Control ---
 ; Idempotent: must exist before nxt-user-vars.g set (do not bare-declare after a mid-file abort).
+; Accel default 10 s (M3.9 floor); omit unset from nxt-user-vars. ArborCTL VFD Apply overlays measured ramp.
 if { !exists(global.nxtSpindleID) }
     global nxtSpindleID = 0
 else
     set global.nxtSpindleID = 0
 if { !exists(global.nxtSpindleAccelSec) }
-    global nxtSpindleAccelSec = null
+    global nxtSpindleAccelSec = 10
 else
-    set global.nxtSpindleAccelSec = null
+    set global.nxtSpindleAccelSec = 10
 if { !exists(global.nxtSpindleDecelSec) }
     global nxtSpindleDecelSec = null
 else

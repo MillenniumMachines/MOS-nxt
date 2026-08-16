@@ -11,7 +11,8 @@
 ;   2) nxt-custom-globals.g    — only if Custom sentinel/overlays (if !exists → null)
 ;   3) optional MOS import / tool table / probe-wcs
 ;   4) nxt-user-vars.g         — operator Save overlay (set only)
-;   5) board pack, tools, boot checks, plugins, RGB, …
+;   4b) nxt-probe-virtual.g    — persisted datum platen Z (after user-vars)
+;   5) board pack, tools, workplaces (nxt-user-wcs.g), boot checks, plugins, RGB, …
 ;   6) nxt-user-overrides.g    — last wins, then nxtLoaded
 
 ; Set nxt Version
@@ -87,6 +88,37 @@ else
     M117 "nxt config pending"
     echo "nxt: nxt-user-vars.g not found — open DWC Configuration, review settings, then Save to create the file."
 
+; Persisted mill length datum (M5016 platen Z). After user-vars.
+if { fileexists("0:/sys/nxt-probe-virtual.g") }
+    echo "nxt: loading persisted probe virtual (nxt-probe-virtual.g)"
+    M117 "nxt nxt-probe-virtual.g"
+    M98 P"nxt-probe-virtual.g"
+else
+    echo "nxt: nxt-probe-virtual.g not found"
+
+var nxtVirtOk = false
+if { exists(global.nxtProbeVirtualTsZ) }
+    if { global.nxtProbeVirtualTsZ != null }
+        set var.nxtVirtOk = true
+if { !var.nxtVirtOk }
+    var nxtHaveTsZ = false
+    if { exists(global.nxtToolSetterPos) }
+        if { global.nxtToolSetterPos != null }
+            if { #global.nxtToolSetterPos >= 3 }
+                if { global.nxtToolSetterPos[2] != null }
+                    set var.nxtHaveTsZ = true
+    if { var.nxtHaveTsZ }
+        if { !exists(global.nxtProbeVirtualTsZ) }
+            global nxtProbeVirtualTsZ = { global.nxtToolSetterPos[2] }
+        else
+            set global.nxtProbeVirtualTsZ = { global.nxtToolSetterPos[2] }
+        set var.nxtVirtOk = true
+        echo "nxt: nxtProbeVirtualTsZ from nxtToolSetterPos Z=" ^ global.nxtProbeVirtualTsZ
+if { var.nxtVirtOk }
+    echo "nxt: nxtProbeVirtualTsZ=" ^ global.nxtProbeVirtualTsZ
+else
+    echo "nxt: nxtProbeVirtualTsZ unset — mill tpost needs M5016 platen Z"
+
 ; Operator overlay done — enter CNC mode before board pack (meta if/exists need { } under M453).
 M453
 
@@ -106,6 +138,15 @@ else
     set global.nxtUserToolsFilePresent = false
     M117 "nxt no nxt-user-tools.g"
     echo "nxt: nxt-user-tools.g not found — optional; define tools via M4000 or add this file to persist them"
+
+; Persisted workplaces (G10 L2). After board pack so axes exist. Not G68.
+if { fileexists("0:/sys/nxt-user-wcs.g") }
+    echo "nxt: loading persisted workplaces (nxt-user-wcs.g)"
+    M117 "nxt nxt-user-wcs.g"
+    M98 P"nxt-user-wcs.g"
+else
+    M117 "nxt no nxt-user-wcs.g"
+    echo "nxt: nxt-user-wcs.g not found — workplaces reset until next probe apply"
 
 if { !exists(global.nxtLoaded) }
     global nxtLoaded = false

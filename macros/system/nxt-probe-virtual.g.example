@@ -1,0 +1,6 @@
+; Example: mill length datum = M5016 platen Z_act (nxtProbeVirtualTsZ).
+; Copied from M5016 via nxt-probe-virtual-sync.g, or set in nxt-user-vars.g.
+; Loaded by nxt.g after nxt-user-vars.g when the file exists.
+; Explicit invalidate: M98 P"nxt-probe-virtual-clear.g"
+;
+; set global.nxtProbeVirtualTsZ = -42.123

@@ -1,12 +1,15 @@
-; G6511.g: REFERENCE SURFACE PROBE (CAM preamble)
+; G6511.g: REFERENCE SURFACE PROBE
 ;
-; Probes the saved touch-probe reference surface when touch probe + toolsetter
-; are enabled. No-op if already probed this session unless R1. S0 skips tool
-; selection (tip wait already done in tpre for probe installs).
+; CAM preamble: no-op if nxtProbeVirtualTsZ is already set unless R1.
+; tpost probe install always uses G6511 R1 S0 (saved nxtTouchProbeRefPos).
+; S0 skips tool selection (tip wait already done in tpre).
+; R1 writes nxtProbeVirtualTsZ from meanZ − delta and persists sidecar.
+; Always probe the saved reference surface — not the toolsetter platen/pad.
 ;
 ; Speeds capped: fast ≤200 mm/min, slow ≤50 mm/min.
 ; Motion: Z0 → ref XY → Z max → fast find → short slow validate.
-; Clears Z deflection channel (unused). V2 target Z_act−8; V1 targets saved refZ.
+; Target: saved mill-touch refZ minus nxtToolSetterProbeTravelMm (default 80).
+; Clears Z deflection channel (unused).
 ; No per-call jog-confirm — ref XYZ from Phase 0 / M5016 + Save.
 ;
 ; USAGE: G6511 [R1] [S0]
@@ -25,8 +28,12 @@ if { global.nxtTouchProbeRefPos == null || #global.nxtTouchProbeRefPos < 3 }
     abort { "G6511: nxtTouchProbeRefPos not configured" }
 
 var forceReprobe = { exists(param.R) && param.R == 1 }
-if { !var.forceReprobe && global.nxtRefSurfaceProbed }
-    echo "G6511: Reference surface already probed this session"
+var nxtHaveVirtual = false
+if { exists(global.nxtProbeVirtualTsZ) }
+    if { global.nxtProbeVirtualTsZ != null }
+        set var.nxtHaveVirtual = true
+if { !var.forceReprobe && var.nxtHaveVirtual }
+    echo "G6511: mill datum already set — skip ref (CAM); tpost uses R1"
     M99
 
 var standalone = { !(exists(param.S) && param.S == 0) }
@@ -70,29 +77,29 @@ if { exists(global.nxtProbeDeflection) && global.nxtProbeDeflection != null }
         set var.dyKeep = { global.nxtProbeDeflection[1] }
 set global.nxtProbeDeflection = { var.dxKeep, var.dyKeep, 0 }
 
-var isV2 = false
-if { exists(global.nxtToolSetterV2) && global.nxtToolSetterV2 }
-    set var.isV2 = true
-
 var approachZ = { move.axes[2].max }
-var probeTargetZ = { var.refZ }
+; Mill paper-touch Z (M5016). Seek past it so a shorter probe still triggers.
+var refTravel = 80
+if { exists(global.nxtToolSetterProbeTravelMm) }
+    if { global.nxtToolSetterProbeTravelMm != null }
+        if { global.nxtToolSetterProbeTravelMm > 0 }
+            set var.refTravel = { global.nxtToolSetterProbeTravelMm }
 
-if { var.isV2 }
-    if { !exists(global.nxtToolSetterPos) || global.nxtToolSetterPos == null }
-        abort { "G6511: V2 requires nxtToolSetterPos — run Phase 0 / M5016" }
-    if { #global.nxtToolSetterPos < 3 }
-        abort { "G6511: V2 nxtToolSetterPos must be {X,Y,Z}" }
-    var zAct = { global.nxtToolSetterPos[2] }
-    ; 10 mm toward pad + 2 mm overtravel from prior Z_act+4 approach
-    set var.probeTargetZ = { var.zAct - 8 }
+var probeTargetZ = { var.refZ - var.refTravel }
+if { var.probeTargetZ < move.axes[2].min }
+    set var.probeTargetZ = { move.axes[2].min }
+var refTravelAvail = { var.refZ - var.probeTargetZ }
+if { var.refTravelAvail < 5.0 }
+    var msgRefShort = "G6511: Not enough Z travel below nxtTouchProbeRefPos"
+    abort { var.msgRefShort ^ " (need >= 5mm toward Zmin — mill paper-touch too low)" }
 
 M5000
 M6515 X{var.refX} Y{var.refY} Z{var.approachZ}
 M6515 Z0
 M6515 Z{var.probeTargetZ}
 
-var nxtG6511Mode = { var.isV2 ? "V2" : "V1" }
-echo { "G6511: " ^ var.nxtG6511Mode ^ " Zmax=" ^ var.approachZ ^ " fast≤" ^ var.fastSpd ^ " slow≤" ^ var.slowSpd }
+echo { "G6511: ref XY={" ^ var.refX ^ "," ^ var.refY ^ "} Zmax=" ^ var.approachZ }
+echo { "G6511: seek travel=" ^ var.refTravel ^ " mm target Z=" ^ var.probeTargetZ }
 
 G53 G0 Z0
 G53 G0 X{var.refX} Y{var.refY}
@@ -120,7 +127,20 @@ else
     set global.nxtCalDefZ = null
 
 set global.nxtRefSurfaceProbed = true
+
+var probeVirtual = { var.meanZ - global.nxtDeltaMachine }
+if { !exists(global.nxtProbeVirtualTsZ) }
+    global nxtProbeVirtualTsZ = { var.probeVirtual }
+else
+    set global.nxtProbeVirtualTsZ = { var.probeVirtual }
+if { exists(global.nxtProbeToolID) && global.nxtProbeToolID != null }
+    set global.nxtToolCacheIdx = { global.nxtProbeToolID }
+    set global.nxtToolCacheZ = { var.probeVirtual }
+M98 P"nxt-probe-virtual-sync.g"
+
 echo { "G6511: mean Z=" ^ var.meanZ ^ " mm (Z deflection unused)" }
 echo "G6511: Reference surface Z=" ^ global.nxtLastProbeResult ^ " mm"
+echo "G6511: probe virtual toolsetter Z=" ^ global.nxtProbeVirtualTsZ ^ " mm"
 
+M98 P"nxt-g38-cancel.g"
 G27 Z1

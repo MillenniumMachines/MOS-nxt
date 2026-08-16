@@ -3,7 +3,14 @@
  * Keeps nxt-user-vars.g, bootstrap/custom sentinels, and Custom pack deploy consistent.
  */
 import type { NxtUserConfigDraft } from './nxtUserVarsPersistence'
-import { buildNxtUserVarsGcode } from './nxtUserVarsPersistence'
+import {
+  buildNxtUserVarsGcode,
+  snapshotConfigFromOm,
+  applyDatumVirtualFromSetter,
+  emptyConfigDraft,
+  probeGeometryChanged,
+  setterDatumZ
+} from './nxtUserVarsPersistence'
 import { buildCustomPackFiles, customAAxisPartiallyConfigured } from './nxtCustomPackGenerate'
 import { deployPlatformSysFiles } from './nxtBoardSysDeploy'
 import { syncBoardBootstrapSentinels } from './nxtBoardBootstrapSync'
@@ -175,9 +182,39 @@ export async function persistNxtUserConfig(
   const bootMode = draft.nxtBoardBootstrapMode === 'auto' ? 'auto' : 'off'
   const custom = isCustomDraft(draft)
 
+  let live: NxtUserConfigDraft = emptyConfigDraft()
+  try {
+    live = snapshotConfigFromOm(store.state?.machine?.model?.global)
+  } catch {
+    live = emptyConfigDraft()
+  }
+
+  if (probeGeometryChanged(live, draft)) {
+    const z = setterDatumZ(draft.nxtToolSetterPos)
+    if (z != null) {
+      draft.nxtProbeVirtualTsZ = z
+    }
+  } else {
+    applyDatumVirtualFromSetter(draft)
+  }
+
   if (uploadUserVars) {
     const content = buildNxtUserVarsGcode(draft)
     await uploadDwcFile(NXT_USER_VARS_DWC_PATH, content)
+  }
+
+  if (opts.sendCode && connected) {
+    try {
+      if (probeGeometryChanged(live, draft)) {
+        const z = setterDatumZ(draft.nxtToolSetterPos)
+        if (z != null) {
+          await ensureSetFirmwareGlobal('nxtProbeVirtualTsZ', String(z), opts.sendCode)
+          await opts.sendCode('M98 P"nxt-probe-virtual-sync.g"')
+        }
+      }
+    } catch (e) {
+      console.warn('nxt: probe virtual rewrite after geometry Save', e)
+    }
   }
 
   if (syncBootstrap) {

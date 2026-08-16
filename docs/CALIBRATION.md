@@ -70,7 +70,7 @@ The solution lies in exploiting different mathematical properties of each error 
 
 **The Calibration Sequence** (touch probe enabled — Phase 1 deflection first and required):
 ```
-Tip radius (Configuration) → Phase 0 datum (confirm) → load probe (confirm before G6511)
+Tip radius (Configuration) → Phase 0 datum (confirm) → load probe (tpost G6511 at reference surface)
          ↓
 Phase 1: Probe deflection (REQUIRED — no Skip; jobs gated by M4006)
          ↓
@@ -318,7 +318,7 @@ Backlash causes repeated measurements of the same feature to cluster into two gr
 5. `newD = currentD + (nominal − measured) / 2` per axis
 6. Apply `{Dx, Dy, 0}` only when proposed XY D is plausible (typically **0.01–0.05 mm**; **> 0.5 mm** usually means tip **radius** was entered as tip **diameter**)
 
-**G6511 (probe load):** Still probes the reference surface for tool-length / delta workflows, but does **not** propose rough Dz; it clears the Z deflection channel.
+**G6511 (optional):** Pad probe only if you run `G6511 R1`. Mill length datum is M5016 platen Z. Clears the Z deflection channel when it does run.
 
 **Span identity** (G6512 tip on; \(R\) = configured tip radius, \(D\) = configured deflection):
 
@@ -380,18 +380,18 @@ The **Calibration** tab on the main nxt dashboard (`ui/src/nxt.vue` → `Calibra
 **Phase 0 — Probe / datum setup** (when touch probe + toolsetter are enabled but `nxtTouchProbeRefPos` or `nxtDeltaMachine` is unset):
 
 1. `M5016` — verify configured toolsetter input (press platen) → jog ~20 mm above platen → probe for `nxtToolSetterPos`, then:
-   - **V1:** jog-confirm to reference surface → set `nxtTouchProbeRefPos` → `nxtDeltaMachine = Z_ref - Z_act`
-   - **V2.0** (`nxtToolSetterV2` + `nxtToolSetterRefDir`): compute ref pad at ±13 mm XY from platen and `Z_ref = Z_act − 6`, then **jog-confirm** near that pad (never info-only) before values are trusted for later `G6511`
-2. **Enable Probe** (`G53 G0 Z{move.axes[2].max}` → `T{nxtProbeToolID}`) — raises to machine Z **maximum** (safe up), then installs the probe tool. **Never** rapids to WCS Z0 (workpiece). Same control on the Probing tab. Separate from datum: you can install the probe without finishing Phase 0; `tpost` / `G6511` still prefers a saved ref when present.
+   - **V1:** mill paper-touch on the reference surface (not a probe trigger) → set `nxtTouchProbeRefPos` → `nxtDeltaMachine = Z_ref - Z_act`. Later **G6511** seeks **`nxtToolSetterProbeTravelMm`** (default 80 mm) past that Z.
+   - **V2.0** (`nxtToolSetterV2` + `nxtToolSetterRefDir`): compute ref pad at ±13 mm XY from platen and `Z_ref = Z_act − 6`, then **jog-confirm** near that pad (never info-only). Mill datum is platen `Z_act`, not a later G6511.
+2. **Enable Probe** (`G53 G0 Z{move.axes[2].max}` → `T{nxtProbeToolID}`) — raises to machine Z **maximum** (safe up), then installs the probe tool. **Never** rapids to WCS Z0 (workpiece). Same control on the Probing tab. Does **not** send G6511 itself; probe **`tpost`** runs **`G6511 R1 S0`** at **`nxtTouchProbeRefPos`** (G38 past mill-touch Z, not a rapid onto the surface).
 3. **Save** persists positions + delta to `nxt-user-vars.g`
 
-**Mode:** When the touch probe feature is ready, choose **Manual (1-2-3)** or **Probe**. Probe-assisted moves require the probe tool installed (Enable Probe). Phase 0 datum remains recommended for G6511 / deflection height, but does not hard-block probe mode.
+**Mode:** When the touch probe feature is ready, choose **Manual (1-2-3)** or **Probe**. Probe-assisted moves require the probe tool installed (Enable Probe). Phase 0 datum remains recommended for mill length (M5016 platen Z) / deflection height, but does not hard-block probe mode.
 
 **Recommended order (both modes, touch probe enabled):**
 
 1. Tip radius (Configuration)
 2. Phase 0 datum (with location confirms) — Save ref before height checks
-3. Load probe (tip confirm + G6511; clears Z D channel)
+3. Load probe (Enable Probe; tpost G6511 R1 S0 at nxtTouchProbeRefPos; L1 Z0)
 4. **Phase 1 deflection — required**: XY via `M5017 D…` (dive + 5 mm face clearance, 10 mm corner inset); Apply `{Dx, Dy, 0}`
 5. Manual: P2 travel → P3 M92 → P4 backlash refine — **or** Probe: `G9000` → P3 → optional P4 cluster refine → re-check D after M92
 6. Phase 5 verify + Save
@@ -424,11 +424,11 @@ The **Calibration** tab on the main nxt dashboard (`ui/src/nxt.vue` → `Calibra
 | `M5016` | Phase 0 static datum (jog-confirm when establishing ref) |
 | `M5017` | Phase 1 XY spans: `D` dive, O=5 face clearance, 10 mm corner inset, 3-pt perimeter |
 | `M5018` | Phase 3: raise → outside O=15 → dive → G6512 find edge; default return to center; `R0` stay out (G9000) |
-| `G6511` | Ref Z after probe load: Z max → fast@≤200 then slow@≤50; V2 target `Z_act−8`; clears Z D / `nxtCalDefZ` |
+| `G6511` | Optional pad probe (`R1`); skips if mill virtual already set from M5016; clears Z D / `nxtCalDefZ` |
 | `G9000` | Probe-mode 8/16/24: probe → away → re-probe ×3 per leg (backlash only); XY via `M5018 … R0` then `J0 H±1` |
 | `M4005` / `M4006` | Job preamble: version check + require non-zero deflection when touch probe on |
 
-**Save calibration:** uploads `nxt-user-vars.g` (`nxtProbeDeflection`, `nxtTouchProbeRefPos`, `nxtToolSetterPos`, `nxtDeltaMachine`; on **Custom** also `nxtCustom*Steps` / `nxtCustom*Backlash`). Blocked when touch probe is on and D is unset / factory zero / recheck pending. On **Custom** platform, also regenerates pack overlays (`steps.g`, `drives-overlay.g` with `M425`).
+**Save calibration:** uploads `nxt-user-vars.g` (`nxtProbeDeflection`, `nxtTouchProbeRefPos`, `nxtToolSetterPos`, `nxtDeltaMachine`, finite **`nxtProbeVirtualTsZ`**; on **Custom** also `nxtCustom*Steps` / `nxtCustom*Backlash`). Blocked when touch probe is on and D is unset / factory zero / recheck pending. On **Custom** platform, also regenerates pack overlays (`steps.g`, `drives-overlay.g` with `M425`).
 
 ### 4.2 Implementation Approach
 

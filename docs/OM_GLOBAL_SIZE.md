@@ -19,8 +19,9 @@ DWC always polls the whole `global` key; plugins cannot split that request.
 4. **`nxt-tooltable.g`** — sole `mosTT`/`mosET` → `nxtTT`/`nxtET` owner
 5. **`nxt-probe-wcs.g`** when `!exists(global.nxtWPCtrPos)` (not gated on overtravel) → then **`nxt-mos-globals-align.g`** for mos WCS/OT copies
 6. **`nxt-user-vars.g`** — operator Save (`set` only; omit unset keys)
-7. Board pack, tools, boot checks, plugin-init **once**, single post-colour RGB `M950`, …
-8. **`nxt-user-overrides.g`** — last wins → then `nxtLoaded`
+7. **`nxt-probe-virtual.g`** — mill length datum sidecar (`set global.nxtProbeVirtualTsZ`); also persist finite virtual in `nxt-user-vars.g`
+8. Board pack, tools, boot checks, plugin-init **once**, single post-colour RGB `M950`, …
+9. **`nxt-user-overrides.g`** — last wins → then `nxtLoaded`
 
 Configuration / Calibration **Save** and Custom **Apply** share [`ui/src/utils/nxtUserConfigPersist.ts`](../ui/src/utils/nxtUserConfigPersist.ts) (`persistNxtUserConfig`): user-vars upload, idempotent bootstrap + `nxt-custom.requested` / `nxt-custom-a.requested` sync, cached `ensureCustomGlobals`, optional Custom pack deploy.
 
@@ -34,7 +35,7 @@ Configuration / Calibration **Save** and Custom **Apply** share [`ui/src/utils/n
 6. Never persist `set global.foo = null` for optional keys in `nxt-user-vars.g`.
 7. Avoid dual `mosTT` + `nxtTT`.
 8. Do not gate `nxt-probe-wcs.g` on `nxtOvertravel` (align may set OT from MOS first).
-9. Tool-length cache is scalars (`nxtToolCacheIdx` / `nxtToolCacheZ`), not `vector(limits.tools)`.
+9. Tool-length mill cache is session scalars (`nxtToolCacheIdx` / `nxtToolCacheZ`). Mill datum (`nxtProbeVirtualTsZ`) is M5016 platen Z, persisted in `nxt-user-vars.g` (omit null) and `0:/sys/nxt-probe-virtual.g`.
 10. `nxtPinStates` stays `null` until `pause.g`; do not persist it in user-vars.
 11. Custom A-axis keys only when `0:/sys/nxt-custom-a.requested` exists (Save syncs when any `nxtCustomA*` is set).
 12. **MosAtc / MosFourthAxis:** optional sibling plugins load from `nxt.g` only when `nxtFeatureAtc` / `nxtFeatureFourthAxis` is true and SD init macros exist — not via unconditional plugin-init dispatch (saves ~800B+ `atc*` globals when ATC is off).

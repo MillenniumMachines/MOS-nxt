@@ -16,8 +16,9 @@ DWC always polls the **whole** `global` key; plugins cannot split it. Headroom c
 1. `nxt-vars.g` — lean core defaults  
 2. `nxt-custom-globals.g` — only when Custom (`nxt-custom.requested` / overlays); `if { !exists }` → null  
 3. Optional MOS import (nested: no double custom-globals / mid user-vars) → tooltable (owns `mosTT→nxtTT`) → probe-wcs if `!nxtWPCtrPos` → align WCS/OT  
-4. `nxt-user-vars.g` — operator `set` overlay (omit unset keys)  
-5. … board / tools / boot / plugin-init once / single RGB `M950` …  
+4. `nxt-user-vars.g` — operator `set` overlay (omit unset keys)
+4b. `nxt-probe-virtual.g` — persisted G6511 virtual after user-vars
+5. … board / tools / workplaces / boot / plugin-init once / single RGB `M950` … 
 6. **`nxt-user-overrides.g` last** → then `nxtLoaded`
 
 UI Save paths (Configuration, Calibration, Custom Apply) must use `persistNxtUserConfig` so sentinels stay aligned.

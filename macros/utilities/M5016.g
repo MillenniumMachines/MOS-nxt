@@ -5,8 +5,9 @@
 ; Requires: nxtFeatureTouchProbe, nxtFeatureToolSetter, nxtTouchProbeID, nxtToolSetterID.
 ; Verifies configured toolsetter input by user toggle, then probes ~20mm from jog Z.
 ; V2.0 (nxtToolSetterV2): ref pad at ±13mm XY from platen + Z = Z_act - 6.
-; Operator must jog-confirm near the pad before values are used for G6511.
-; After success: park (G27) and T{nxtProbeToolID} from the Calibration UI so tpost runs G6511.
+; Operator must jog-confirm near the pad (V1) or V2 pad location.
+; After success: park (G27) and load the probe from Calibration if needed.
+; Mill length datum is platen Z_act (nxtProbeVirtualTsZ); no G6511 pad hit.
 
 if { !inputs[state.thisInput].active }
     M99
@@ -101,6 +102,12 @@ var zAct = { global.nxtLastProbeResult }
 
 set global.nxtToolSetterPos = { var.tsX, var.tsY, var.zAct }
 echo "M5016: nxtToolSetterPos = {" ^ var.tsX ^ ", " ^ var.tsY ^ ", " ^ var.zAct ^ "}"
+if { !exists(global.nxtProbeVirtualTsZ) }
+    global nxtProbeVirtualTsZ = { var.zAct }
+else
+    set global.nxtProbeVirtualTsZ = { var.zAct }
+echo "M5016: nxtProbeVirtualTsZ = " ^ global.nxtProbeVirtualTsZ ^ " mm (datum platen Z)"
+M98 P"nxt-probe-virtual-sync.g"
 
 ; Park Z before moving / computing reference surface
 G27 Z1

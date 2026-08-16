@@ -6,6 +6,8 @@ import {
   buildInitialConfigDraft,
   buildNxtUserVarsGcode,
   emptyConfigDraft,
+  liveProbeGeometryPresent,
+  probeGeometryChanged,
   readConfigBool,
   readConfigDeflectionXY,
   readConfigVector,
@@ -26,11 +28,52 @@ export function runAllNxtUserVarsPersistenceTests(): void {
   if (!emptyGcode.includes('set global.nxtProbeDeflection = null')) {
     throw new Error('empty draft should persist nxtProbeDeflection as null')
   }
+  if (emptyGcode.includes('set global.nxtProbeVirtualTsZ')) {
+    throw new Error('empty draft must omit null nxtProbeVirtualTsZ')
+  }
+
+  const virtFromSetter = buildNxtUserVarsGcode({
+    ...emptyConfigDraft(),
+    nxtToolSetterPos: [10, 20, -5.5]
+  })
+  if (!virtFromSetter.includes('set global.nxtProbeVirtualTsZ = -5.5')) {
+    throw new Error('buildNxtUserVarsGcode should persist mill virtual from setter Z')
+  }
+  const virtExplicit = buildNxtUserVarsGcode({
+    ...emptyConfigDraft(),
+    nxtToolSetterPos: [10, 20, -5.5],
+    nxtProbeVirtualTsZ: -4.1
+  })
+  if (!virtExplicit.includes('set global.nxtProbeVirtualTsZ = -4.1')) {
+    throw new Error('explicit nxtProbeVirtualTsZ should win over setter Z')
+  }
+
+  const snapVirt = snapshotConfigFromOm({ nxtProbeVirtualTsZ: -12 })
+  if (snapVirt.nxtProbeVirtualTsZ !== -12) {
+    throw new Error('snapshotConfigFromOm should read nxtProbeVirtualTsZ')
+  }
   if (emptyGcode.includes('set global.nxtTouchProbeID = null')) {
     throw new Error('empty draft must omit null nxtTouchProbeID')
   }
   if (emptyGcode.includes('set global.nxtToolSetterID = null')) {
     throw new Error('empty draft must omit null nxtToolSetterID')
+  }
+  if (emptyGcode.includes('set global.nxtSpindleAccelSec = null')) {
+    throw new Error('empty draft must omit null nxtSpindleAccelSec')
+  }
+  if (emptyGcode.includes('set global.nxtSpindleDecelSec = null')) {
+    throw new Error('empty draft must omit null nxtSpindleDecelSec')
+  }
+  const withAccel = buildNxtUserVarsGcode({
+    ...emptyConfigDraft(),
+    nxtSpindleAccelSec: 2.5,
+    nxtSpindleDecelSec: 3
+  })
+  if (!withAccel.includes('set global.nxtSpindleAccelSec = 2.5')) {
+    throw new Error('buildNxtUserVarsGcode should persist nxtSpindleAccelSec when set')
+  }
+  if (!withAccel.includes('set global.nxtSpindleDecelSec = 3')) {
+    throw new Error('buildNxtUserVarsGcode should persist nxtSpindleDecelSec when set')
   }
   if (!emptyGcode.includes('set global.nxtRGBType = 1')) {
     throw new Error('empty draft should persist nxtRGBType = 1 (RGB)')
@@ -158,5 +201,21 @@ export function runAllNxtUserVarsPersistenceTests(): void {
   }
   if (!fromMos.nxtProbeDeflection || fromMos.nxtProbeDeflection.join(',') !== '0.03,0.04,0') {
     throw new Error('buildInitialConfigDraft MOS deflection mapping failed (Z must be 0)')
+  }
+
+  const emptyLive = emptyConfigDraft()
+  const withGeom = {
+    ...emptyConfigDraft(),
+    nxtDeltaMachine: -6,
+    nxtToolSetterPos: [10, 20, -5]
+  }
+  if (liveProbeGeometryPresent(emptyLive)) {
+    throw new Error('empty live OM must not look like probe geometry is present')
+  }
+  if (probeGeometryChanged(emptyLive, withGeom)) {
+    throw new Error('missing live OM geometry is not a Save change')
+  }
+  if (!probeGeometryChanged(withGeom, { ...withGeom, nxtDeltaMachine: -5 })) {
+    throw new Error('delta change vs present live OM must be a geometry Save')
   }
 }

@@ -3,6 +3,7 @@
  *
  * SAFETY: raise to machine Z **maximum** (up) before T…. Never G0 to WCS Z0 —
  * that is workpiece height and rapids will not stop on probe trigger.
+ * Every T{probe} runs tpost G6511 R1 S0 at nxtTouchProbeRefPos. Do not send G6511 here.
  */
 
 import { readFirmwareGlobal } from './nxtToolChangerOm'
@@ -50,6 +51,7 @@ export function isNxtProbeToolLoaded(
 
 /**
  * Raise to machine Z max (safe up), then T{probeToolId}.
+ * tpost runs G6511 R1 S0 at nxtTouchProbeRefPos. Do not send G6511 here.
  * Does not use WCS Z0. Caller shows success/error toasts.
  */
 export async function enableNxtProbeTool(
