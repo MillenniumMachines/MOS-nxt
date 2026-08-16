@@ -64,6 +64,13 @@ var startZ = { global.nxtAbsPos[2] }
 
 var halfW = { var.webWidth / 2 }
 
+; Hoist before if/else — RRF block-scopes var declarations
+var resultX = 0
+var resultY = 0
+var calculatedCenter = 0
+var actualWidth = 0
+var probeZ = { var.startZ - var.probeDepth }
+
 echo "G6504: Probing web with width ~" ^ var.webWidth ^ "mm along " ^ var.axisName ^ " axis"
 
 if { var.probeAxis == 0 }
@@ -72,7 +79,6 @@ if { var.probeAxis == 0 }
     var xPlusTarget = { var.centerX + var.halfW - var.overtravel }
 
     G6550 X{var.xPlusStart} Y{var.centerY}
-    var probeZ = { var.startZ - var.probeDepth }
     G6550 Z{var.probeZ}
 
     G6512 X{var.xPlusTarget} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H0
@@ -93,18 +99,16 @@ if { var.probeAxis == 0 }
     if { global.nxtProbeHitXY[0] == null || global.nxtProbeHitXY[2] == null }
         abort { "G6504: Null ±X hit — check G6512 H0/H1 writes" }
 
-    var calculatedCenter = { (global.nxtProbeHitXY[0] + global.nxtProbeHitXY[2]) / 2 }
-    var actualWidth = { abs(global.nxtProbeHitXY[0] - global.nxtProbeHitXY[2]) }
-
-    var resultX = { var.calculatedCenter }
-    var resultY = { var.centerY }
+    set var.calculatedCenter = { (global.nxtProbeHitXY[0] + global.nxtProbeHitXY[2]) / 2 }
+    set var.actualWidth = { abs(global.nxtProbeHitXY[0] - global.nxtProbeHitXY[2]) }
+    set var.resultX = { var.calculatedCenter }
+    set var.resultY = { var.centerY }
 else
     echo "G6504: Probing from +Y direction"
     var yPlusStart = { var.centerY + var.halfW + var.clearance }
     var yPlusTarget = { var.centerY + var.halfW - var.overtravel }
 
     G6550 X{var.centerX} Y{var.yPlusStart}
-    var probeZ = { var.startZ - var.probeDepth }
     G6550 Z{var.probeZ}
 
     G6512 Y{var.yPlusTarget} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H0
@@ -125,11 +129,10 @@ else
     if { global.nxtProbeHitXY[1] == null || global.nxtProbeHitXY[3] == null }
         abort { "G6504: Null ±Y hit — check G6512 H0/H1 writes" }
 
-    var calculatedCenter = { (global.nxtProbeHitXY[1] + global.nxtProbeHitXY[3]) / 2 }
-    var actualWidth = { abs(global.nxtProbeHitXY[1] - global.nxtProbeHitXY[3]) }
-
-    var resultX = { var.centerX }
-    var resultY = { var.calculatedCenter }
+    set var.calculatedCenter = { (global.nxtProbeHitXY[1] + global.nxtProbeHitXY[3]) / 2 }
+    set var.actualWidth = { abs(global.nxtProbeHitXY[1] - global.nxtProbeHitXY[3]) }
+    set var.resultX = { var.centerX }
+    set var.resultY = { var.calculatedCenter }
 
 if { global.nxtProbeResults[var.pSlot] == null || #global.nxtProbeResults[var.pSlot] < 3 }
     set global.nxtProbeResults[var.pSlot] = { vector(#move.axes + 1, 0.0) }

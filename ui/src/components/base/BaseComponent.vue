@@ -110,16 +110,17 @@ const BaseComponent = defineComponent({
         return raw + 1
       },
       set(workplace: number) {
-        // workplace is 1-based WCS; G54 = G54, G55 = G55, …
-        const w = typeof workplace === 'number' && workplace >= 1 ? workplace : 1
-        this.sendCode(`G${53 + w}`)
+        // 1-based WCS. G59.1–G59.3 are not G60–G62 — use nxt-select-wcs.g.
+        const w = typeof workplace === 'number' && workplace >= 1 && workplace <= 9
+          ? workplace
+          : 1
+        this.sendCode(`M98 P"nxt-select-wcs.g" W${w}`)
       }
     },
 
     /**
-     * Calculate absolute machine position for visible axes
-     * Note: RRF doesn't expose workplace offsets in the object model yet,
-     * so this returns the user position which already has offsets applied
+     * User position per visible axis (WCS already applied by RRF).
+     * Machine G10 L2 origins live in move.axes[].workplaceOffsets.
      */
     absolutePosition(): Record<string, number> {
       const result: Record<string, number> = {}

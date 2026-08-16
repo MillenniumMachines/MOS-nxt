@@ -22,14 +22,18 @@ This document provides reference documentation for custom G-codes and M-codes im
 
 ### G27: Parking
 
-Moves the machine to a safe, known parking position.
+Moves the machine to a safe, known parking position. Echoes the table XY target. **`stop.g`** calls **`G27`** at CAM job end but **skips** it after numbered probe cycles (`nxtSkipJobPark` / no `job.file.fileName`) so leftover **G38** cannot be combined with a park toward machine 0,0.
+
+**`tpost`:** On a real tool change (`previousTool != current`, including first select from T-1), **`G10 L1 P{current} Z0`** before the start **`G27 Z1`**. Probe install then **`G6511 R1 S0`** (saved **`nxtTouchProbeRefPos`**, not the setter pad). After mill setter measure, **`G10 L1 Z{-(Z_act − nxtProbeVirtualTsZ)}`**. Then a **full `G27`**. Same-T does not run tpost.
+
+**`tfree` / `tpre`:** Full **`G27`** (not `Z1`) after G38 drain and **before** Remove/Install `M291` so the table parks for a manual swap. First `T` skips tfree — tpre still full-parks.
 
 RRF homing uses `0:/sys/homeall.g`, `homex.g`, `homey.g`, `homez.g`, and optionally `homea.g`. nxt vendors homing sources under `nxt-config/machine/<profile>/` and deploys them from the Configuration panel (not loaded at boot). **Home all** order: Z → A (if `homea.g` present) → X+Y together. See [docs/NXT_BOARD_HOMING.md](docs/NXT_BOARD_HOMING.md) for axis directions and verification.
 
 **Usage:** `G27 [X<level>] [Y<level>] [Z<level>]`
 
 **Parameters:**
-- `X|Y|Z`: Parking level (0-2), where higher levels are safer/further from workpiece
+- `X|Y|Z`: Parking level (0-2), where higher levels are safer/further from workpiece. **`Z1`**: raise/park Z only; do not move table XY.
 
 ---
 
@@ -45,9 +49,9 @@ Measures the active tool on the configured toolsetter (single **G6512** Z probe 
 
 ### G6500: Bore Probe
 
-Uses **three triangulated** inward touches at **0° / 120° / 240°** via **`G6513`** (same geometry family as **`G6500.1`**). The circle center is the **circumcenter** of the three contacts. Stays at dive Z between touches (`D1 H1` — no raise to start Z while triangulating). Repositioning uses **`G6550`** protected moves; each radial contact uses **`G6512.1`**. No approach clearance (start inside the bore) — use accurate **`D`** + **`O`**. Ends at the circumcenter XY at start Z.
+Uses **three triangulated** inward touches at **0° / 120° / 240°** via **`G6513`** (same geometry family as **`G6500.1`**). Native vector circumcenter uses **A = P2−P1**, **B = P3−P1** (not **P3−P2**, which parks at a contact). Echoes the three radii and aborts if they disagree vs **`D`**. Stays at dive Z between touches (`D1 H1` — no raise to start Z while triangulating). Repositioning during triangulation uses **`G6550`** protected moves; each radial contact uses **`G6512.1`**. No approach clearance (start inside the bore) — use accurate **`D`** + **`O`**. After the fit: **`M400`**, then raise to jog **`startZ`** with **XY pinned** (`G53 G1` current XY), **then** **`G53 G1`** to fitted circumcenter XY at that Z (not a combined diagonal, not XY at dive Z, not **`G6550`/`G38.3`**, not post-apply **`G0 X0 Y0`**). Stores the **fit** in **`nxtProbeResults`** (does **not** overwrite with post-park **`machinePosition`**). With **`U`**, applies WCS via **`M98 P"nxt-wcs-apply.g"`** from those fit XY → **work X0 Y0** at **startZ**.
 
-**Usage:** `G6500 P|U D<diameter> L<depth> [F<speed>] [R<retries>] [O<overtravel>] [T] [Q]`
+**Usage:** `G6500 P|U D<diameter> L<depth> [F<speed>] [R<retries>] [O<overtravel>] [Q]`
 
 **Parameters:**
 - `P` or `U`: Result row **`P`** (0–9) **or** target workplace **`U`** (1–9) — **REQUIRED** (one of)
@@ -56,10 +60,9 @@ Uses **three triangulated** inward touches at **0° / 120° / 240°** via **`G65
 - `F`: Optional speed override (mm/min; reserved — radial probes use probe `M558` speeds via **`G6512.1`**)
 - `R`: Retry / sample budget passed through to **`G6513`** / **`G6512.1`** (default: `global.nxtProbeInnerSampleCount`)
 - `O`: Overtravel distance beyond expected surface (default: 2mm; reduced by tool radius when available)
-- `T`: Max |skew| in degrees — angular registration of the 0° hit vs **+X** from the circumcenter (default: `global.nxtProbeMaxSkewDeg`)
-- `Q`: **`M6520`** rotation policy when **`U`** is used
+- `Q`: Rotation policy for **`nxt-wcs-apply.g`** when **`U`** is used (translation only — circle has no skew)
 
-**Results:** Stores X and Y center coordinates in the probe results table.
+**Results:** Stores X and Y **center** coordinates; rotation slot forced to **0** (circular feature — no skew).
 
 > **RRF meta note:** `^` is string/array **concatenation**, not exponentiation. Probe geometry uses `dx*dx` / `pow(dx,2)` for squares. See [docs/RRF_META_PITFALLS.md](docs/RRF_META_PITFALLS.md) for dive/`startZ`, A-axis, and hit-buffer constraints.
 
@@ -67,9 +70,9 @@ Uses **three triangulated** inward touches at **0° / 120° / 240°** via **`G65
 
 ### G6501: Boss Probe
 
-Probes a circular boss from the outside with **three triangulated** OD touches at **0° / 120° / 240°** via **`G6513`** (same geometry family as **`G6501.1`**), then the same **circumcenter** fit as **`G6500`**. Raises to jogged **start Z** between touches. Repositioning uses **`G6550`** protected moves; each radial contact uses **`G6512.1`**. Ends at the circumcenter XY at start Z.
+Probes a circular boss from the outside with **three triangulated** OD touches at **0° / 120° / 240°** via **`G6513`** (same geometry family as **`G6501.1`**), then the same **circumcenter** fit as **`G6500`** (**B = P3−P1**). Raises to jogged **start Z** between touches. Repositioning during triangulation uses **`G6550`** protected moves; each radial contact uses **`G6512.1`**. Finish matches **G6500**: **`M400`**, raise to **startZ** with XY pinned, then **`G53 G1`** to fitted center XY; **`G10`** from the **fit** (not post-park **`machinePosition`**). With **`U`**, applies WCS via **`M98 P"nxt-wcs-apply.g"`** (no post-apply **`G0`**).
 
-**Usage:** `G6501 P|U D<diameter> L<depth> [F<speed>] [R<retries>] [C<clearance>] [O<overtravel>] [T] [Q]`
+**Usage:** `G6501 P|U D<diameter> L<depth> [F<speed>] [R<retries>] [C<clearance>] [O<overtravel>] [Q]`
 
 **Parameters:**
 - `P` or `U`: Result row **`P`** (0–9) **or** target workplace **`U`** (1–9) — **REQUIRED** (one of)
@@ -79,9 +82,9 @@ Probes a circular boss from the outside with **three triangulated** OD touches a
 - `R`: Retry / sample budget passed through to **`G6513`** / **`G6512.1`** (default: `global.nxtProbeInnerSampleCount`)
 - `C`: **Approach clearance** — outside air gap before OD touch (default: **5** mm; same role as **G6503** outside clearance; tool radius is added when available)
 - `O`: Overtravel distance beyond expected surface (default: 2mm; reduced by tool radius when available)
-- `T`, `Q`: Same as **`G6500`**
+- `Q`: Rotation policy for **`nxt-wcs-apply.g`** when **`U`** is used (translation only — circle has no skew)
 
-**Results:** Stores X and Y center coordinates in the probe results table.
+**Results:** Stores X and Y **center** coordinates; rotation slot forced to **0** (circular feature — no skew).
 
 ---
 
@@ -121,7 +124,7 @@ Probes all 4 faces of a rectangular block from outside to find the center. **3 p
 - `C`: Outside face clearance (default: **5** mm)
 - `O`: Overtravel past expected face into the block (default: 2 mm)
 - `E`: Corner clearance / edge inset for outer points (default: **10** mm); must be less than half W and half H
-- `T`, `Q`: Skew limit and `M6520` rotation policy
+- `T`, `Q`: Skew limit and job-start **M5011** policy (via **M6520 Q**)
 
 **Results:** Face means → `nxtProbeHitXY` H0–H3 → center / skew / size in `nxtProbeResults`. Parks at solved center.
 
@@ -168,7 +171,7 @@ Probes a pocket in either X or Y to find the center point on that axis.
 
 ### G6506: Rotation Probe
 
-Probes 2 points along a surface in X or Y to find the rotation angle.
+Probes 2 points along a surface in X or Y to find the rotation angle. Stores the edge **midpoint** as the XY anchor. Finish: **`G6550 Z{startZ}`** (XY pinned) **then** **`G6550`** to midpoint XY, then **`M6520`** when **`U`** is set. Do not leave the stylus on the last hit.
 
 **Usage:** `G6506 P<index> N<axis> D<depth> S<spacing> [F<speed>] [R<retries>] [O<overtravel>]`
 
@@ -187,81 +190,101 @@ Probes 2 points along a surface in X or Y to find the rotation angle.
 
 ### G6508: Outside Corner Probe
 
-Probes an assumed-90-degree outside corner to find the intersection point.
+Probes an outside corner with **adaptive multi-point** faces. Operator supplies face lengths **`H`** (X-normal face along Y) and **`I`** (Y-normal face along X). Each face is sampled **near → mid → far along the face, away from the corner**. Positioning is **XY then Z** (never simultaneous XYZ). After the X-face, Z raises to jog start height; the Y-face uses **flipped** `dirX`/`dirY` (same as **G6508.1**) so **`E`** is along X and **`C`** is off the Y-wall. Point count is **3** when face length ≥ **2 × tip diameter** (`2 × nxtProbeTipRadius`) and span allows end insets **`E`**; otherwise **1** point at **`E`**. Line-fit + intersection → corner XY and skew **θ** (stored for **M5011** job-start **G68** when **`U`**). **`C`** defaults to **5** mm. Finish: **`M400`**, raise to jog **startZ** with **XY pinned** (`G53 G1`), then **`G53 G1`** to the fitted corner XY at that Z (not **`G6550`/`G38.3`**, not work **`G0 X0 Y0`**). With **`U`**, applies WCS via **`M98 P"nxt-wcs-apply.g"`** (no post-apply **`G0`**). Without **`U`**, already parked at the corner. Never work **Z0**.
 
-**Usage:** `G6508 P<index> N<axis> L<depth> [F<speed>] [R<retries>] [C<clearance>] [O<overtravel>]`
+**Usage:** `G6508 P|U N<corner> L<depth> H<xFaceLen> I<yFaceLen> [X] [Y] [F] [R] [C] [O] [E] [Q]`
 
 **Parameters:**
-- `P`: Result table index (0-9) - **REQUIRED**
-- `N`: Primary axis (0=X, 1=Y) - **REQUIRED**
+- `P` or `U`: Result row **`P`** **or** workplace **`U`** (1–9) — **REQUIRED** (one of)
+- `N`: Corner index — **REQUIRED** — `0` Front Left, `1` Front Right, `2` Back Right, `3` Back Left
 - `L`: Depth to move down before probing (mm) - **REQUIRED**
+- `H`: X-normal face length along Y, away from corner (mm) — **REQUIRED**
+- `I`: Y-normal face length along X, away from corner (mm) — **REQUIRED**
+- `X`, `Y`: Optional absolute probe targets (override N-derived targets)
 - `F`: Optional speed override (mm/min)
 - `R`: Number of retries for averaging
-- `C`: Clearance distance (default: 10mm)
-- `O`: Overtravel distance (default: 2mm)
+- `C`: Approach clearance — air gap from the face being probed before Z dive (default: **5** mm)
+- `O`: Overtravel toward faces (default: 10mm)
+- `E`: Corner offset — along-face inset for first/last samples (default: `global.nxtCornerOffset`, **5** mm)
+- `Q`: Job-start **M5011** policy when **`U`** is used (via **nxt-wcs-apply Q**)
 
-**Results:** Stores X and Y corner coordinates in the probe results table.
+**Results:** Stores X/Y corner and rotation slot **θ** (0 when both faces are 1-pt). Sets `nxtWPCnrNum[slot]` when present.
 
 ---
 
 ### G6509: Inside Corner Probe
 
-Probes an assumed-90-degree inside corner to find the intersection point.
+Same adaptive multi-point / line-fit behavior as **G6508**, with pocket-air dirs on the first face then the **same relative flip** for the Y-face (`E` along X, `C` off Y). Positioning is **XY then Z**. **`C`** defaults to **5** mm. Finish matches **G6508**: **`G53 G1`** raise to **startZ** with XY pinned, then **`G53 G1`** to the fitted corner; **`U`** applies via **`nxt-wcs-apply.g`** (no **`G0`**). Never work **Z0**.
 
-**Usage:** `G6509 P<index> N<axis> D<approximate_distance> L<depth> [F<speed>] [R<retries>] [O<overtravel>]`
+**Usage:** `G6509 P|U N<corner> L<depth> H<xFaceLen> I<yFaceLen> [X] [Y] [F] [R] [C] [O] [E] [Q]`
 
 **Parameters:**
-- `P`: Result table index (0-9) - **REQUIRED**
-- `N`: Primary axis (0=X, 1=Y) - **REQUIRED**
-- `D`: Approximate distance from start to corner (mm) - **REQUIRED**
+- `P` or `U`: Result row **`P`** **or** workplace **`U`** (1–9) — **REQUIRED** (one of)
+- `N`: Corner index 0–3 — **REQUIRED** (same names as **G6508**)
 - `L`: Depth to move down into corner (mm) - **REQUIRED**
+- `H`: X-normal face length along Y, away from corner (mm) — **REQUIRED**
+- `I`: Y-normal face length along X, away from corner (mm) — **REQUIRED**
+- `X`, `Y`: Optional absolute probe targets (override N-derived targets)
 - `F`: Optional speed override (mm/min)
 - `R`: Number of retries for averaging
-- `O`: Overtravel distance (default: 2mm)
+- `C`: Approach clearance — pocket air gap from the wall before Z dive (default: **5** mm)
+- `O`: Overtravel into walls (default: 10mm)
+- `E`: Corner offset — along-wall inset for first/last samples (default: `global.nxtCornerOffset`, **5** mm)
+- `Q`: Job-start **M5011** policy when **`U`** is used (via **nxt-wcs-apply Q**)
 
-**Results:** Stores X and Y corner coordinates in the probe results table.
+**Results:** Stores X/Y corner and rotation slot **θ**. Sets `nxtWPCnrNum[slot]` when present.
 
 ---
 
 ### G6510: Single Surface Probe
 
-Probes exactly one axis. **Z** is G6512 **raw trigger** (no deflection, no tip radius). With **`U`**, chains **`M6520 … Z1`** so that height becomes work **Z0**, then returns to jog **startZ** (`G53 G0 Z{startZ}`). Without **`U`**, Z cycles still return to **startZ**. DWC Probing Cycles UI for **Z** asks for a positive **travel distance** and converts to absolute machine `Z = currentMachineZ − travel` at execute; the meta still takes absolute `X|Y|Z`.
+Probes one workpiece face relative to an operator at the **front** of the mill (**−Y** toward the operator, **+X** to the right). **Top** is a **single** G6512 contact (**multi-point Z averaging is deferred**). **Left/Right/Front/Back** with **`S`** (face length along the face) use the same adaptive 1/3-pt helper centered on the jog station; omit **`S`** for a single contact. Travel **`O`** is from the jogged pose toward that face after **`M5000`**. Optional **`L`** dives XY from jog Z (ignored for Top). With **`U`**, chains **`M6520`** on the resolved axis; **Top** returns to jog **startZ**.
 
-**Usage:** `G6510 P<index>|U<wcs> [X<target>|Y<target>|Z<target>] [F<speed>] [R<retries>]`
+**Usage:** `G6510 P|U N[0-4] [O] [S] [E] [L] [F] [R] [Q]`
+
+**Legacy:** `G6510 P|U X|Y|Z [S] [E] [F] [R] [Q]` — exactly one absolute machine target. Do not mix **`N`** with **`X|Y|Z`**.
 
 **Parameters:**
 - `P`: Result table index (0-9), or **`U`** 1–9 (store at `U−1` and apply that WCS)
-- `X|Y|Z`: Exactly one axis target coordinate - **REQUIRED**
+- `N`: Face — **REQUIRED** unless using legacy **`X|Y|Z`** — `0` Left (+X), `1` Right (−X), `2` Front (+Y), `3` Back (−Y), `4` Top (−Z)
+- `O`: Travel toward that face from the current jog (mm). Default **5**. Must be positive when **`N`** is used.
+- `L`: Optional XY dive depth below jog Z (ignored for Top)
+- `X|Y|Z`: Legacy absolute machine target on exactly one axis (alternative to **`N`+`O`**)
+- `S`: Face length along the face (XY only). When set: 3 pts if length ≥ 2× tip diameter; else 1. **Not used for Top.**
+- `E`: End inset for multi-point X/Y (default: `nxtCornerOffset` / 5 mm)
 - `F`: Optional speed override (mm/min)
 - `R`: Number of retries for averaging
+- `Q`: Job-start **M5011** policy when **`U`** is used (via **M6520 Q**)
 
-**Results:** Stores coordinate on specified axis in the probe results table.
+**Results:** Stores coordinate on the probed axis; X/Y multi-point may also store diagnostic **θ**.
 
 ---
 
 ### G6511: Reference Surface Probe
 
-Emitted by Fusion/FreeCAD post-processors during job preamble / WCS changes, and by `tpost.g` after every probe install. Probes the **saved** touch-probe reference surface when **both** touch probe and toolsetter are enabled. No-op if already probed this session unless `R1`.
+**`tpost`** after every probe install: **`G6511 R1 S0`** at saved **`nxtTouchProbeRefPos`** (reference surface, not the toolsetter pad). Enable Probe is raise + `T{probe}` only; tpost owns G6511.
 
-**Does not** jog-confirm over the reference — location is established in Phase 0 / `M5016` + Save. Tip install + trigger confirm happens in `tpre` / `nxt-probe-tool-ready`.
+CAM preamble without **`R1`:** **No-op when `nxtProbeVirtualTsZ` is already set**. `R1` overwrites mill datum with `meanZ − nxtDeltaMachine`.
+
+**Does not** jog-confirm over the reference — location is established in Phase 0 / `M5016` + Save.
 
 **Usage:** `G6511 [R1] [S0]`
 
 **Parameters:**
-- `R1`: Force re-probe (clears session skip)
-- `S0`: Non-standalone — do not switch to probe tool (nested call from `tpost.g`)
+- `R1`: Force re-probe of the saved reference surface (required from tpost; CAM skip-if-virtual without it)
+- `S0`: Non-standalone — do not switch to probe tool
 
-**Requirements:** `nxtTouchProbeRefPos`, `nxtDeltaMachine` configured in DWC. V2 also needs `nxtToolSetterPos`.
+**Requirements:** `nxtTouchProbeRefPos`, `nxtDeltaMachine` configured in DWC.
 
 **Speeds:** Fast find capped at **200 mm/min**, slow validate at **50 mm/min** (configured probe speeds clamped down to these maxima).
 
-**Motion (V1 and V2):** `G53 Z0` → ref XY → drop to **Z max** → **fast** `G6512` (≤200 mm/min) → **short slow** validate (target ≈ fastHit − 2 mm, ≤50 mm/min, with pair averaging) → mean → `nxtLastProbeResult`. Clears Z deflection channel (`nxtProbeDeflection[2]=0`); does **not** propose rough Dz (`nxtCalDefZ` → null).
+**Motion:** `G53 Z0` → **`nxtTouchProbeRefPos` XY** → drop to **Z max** → **fast** `G6512` toward **`refZ − travel`** (`nxtToolSetterProbeTravelMm`, default **80** mm) → **short slow** validate (target ≈ fastHit − 2 mm) → mean → `nxtLastProbeResult`. Aborts if leftover Z toward min is **less than 5 mm** after clamp. Does **not** retarget to platen/pad `Z_act − 8` when `nxtToolSetterV2` is on.
 
-**Probe target:** V1 seeks toward saved **`refZ`**. V2 (`nxtToolSetterV2`) seeks toward **`Z_act − 8`** (deeper overtravel past the pad).
+Mill **paper-touch** Z from Phase 0 / `M5016` V1 is geometry for `nxtDeltaMachine`, not a probe hit. Fast-find travel must overshoot that Z so a shorter probe still triggers.
 
 Temporarily zeros Z deflection during hits, then restores.
 
-**Results:** Sets `global.nxtRefSurfaceProbed`, `global.nxtLastProbeResult`; clears `nxtCalDefZ`.
+**Results (R1 or first run with virtual unset):** Sets `global.nxtRefSurfaceProbed`, `global.nxtLastProbeResult`, **`global.nxtProbeVirtualTsZ`** (`meanZ − nxtDeltaMachine`), session mill cache under the probe index, and rewrites **`0:/sys/nxt-probe-virtual.g`**. Clears `nxtCalDefZ`. Successful **`M5016`** writes platen virtual and **`nxt-probe-virtual-sync.g`** (does not null it). Geometry Save rewrites virtual from the new setter Z; missing live OM is not a change. Explicit invalidate: **`nxt-probe-virtual-clear.g`**.
 
 ---
 
@@ -276,7 +299,7 @@ Low-level single-axis probe move with compensation and averaging. Used by all pr
 - **Z surface contact:** `result = trigger` (**no** deflection, **no** tip radius — Z D discarded for now)
 - **A:** no linear tip/deflection compensation
 
-**Limits:** `M6515` checks **only the probed axis** target (held axes are not pre-checked). After each touch, post-trigger **backoff** (`diveHeights`) is **clamped** into that axis soft `min`/`max` so a Z probe near Z max (often `0`) does not command G1 outside machine limits.
+**Limits:** `M6515` checks **only the probed axis** target (held axes are not pre-checked). After each **linear** touch (X/Y/Z), post-trigger **backoff** (`diveHeights`) is rapid **`G53 G0`** (all axes pinned, **`M400`** first) and **clamped** into that axis soft `min`/`max` so a Z probe near Z max (often `0`) does not command outside machine limits. **A** (rotary) skips backoff — `diveHeights` are millimetres, not degrees. XYZ backoffs still pin current A.
 
 **Speeds (touch probe):** Fast/slow clamped to **≤200 / ≤50** mm/min (same caps as G6511), regardless of M558 or `F` override. Toolsetter IDs are not clamped here.
 
@@ -316,22 +339,25 @@ Probe-mode travel residual test on one axis (TR8×8 legs). Estimates **backlash 
 
 ### G6520: Vise Corner Probe
 
-Runs a single surface Z probe for vise top, then outside corner probe for X/Y position. Ends at jog **startZ** (`G53 G0 Z{startZ}`); with **`U`**, **M6520** sets X/Y/Z WCS then XY travel to work 0 while Z returns to **startZ**.
+Runs a **single** Z probe for vise top (multi-point Z deferred), then outside-corner X/Y faces with the same adaptive **H/I** multi-point / line-fit as **G6508** (including **flipped dirs** on the Y-face). Positioning is **XY then Z**; Z raises to jog start height between faces. **`C`** defaults to **5** mm. Probe id is always **`global.nxtTouchProbeID`** (**`I`** is the Y-face length). Finish matches **G6508**: **`G53 G1`** to **corner XY at jog start Z** (never work **Z0** / probed top). With **`U`**, **`nxt-wcs-apply.g`** with **X1 Y1 Z1** (no **`G0`**).
 
-**Usage:** `G6520 P<index> L<depth> [X<x-surface>] [Y<y-surface>] [I<probeID>] [F<speed>] [R<retries>] [C<clearance>] [O<overtravel>]`
+**Usage:** `G6520 P|U N<corner> L<depth> H<xFaceLen> I<yFaceLen> [X] [Y] [F] [R] [C] [O] [E] [Q]`
 
 **Parameters:**
-- `P`: Result table index (0-9) - **REQUIRED**
+- `P` or `U`: Result row **`P`** **or** workplace **`U`** (1–9) — **REQUIRED** (one of)
+- `N`: Corner index 0–3 — **REQUIRED** (same names as **G6508**)
 - `L`: Probe depth below starting position - **REQUIRED**
-- `X`: Target coordinate for X-axis surface probe (defaults to current X - overtravel)
-- `Y`: Target coordinate for Y-axis surface probe (defaults to current Y - overtravel)
-- `I`: Probe ID (defaults to global.nxtTouchProbeID if not specified)
+- `H`: X-normal face length along Y (mm) — **REQUIRED**
+- `I`: Y-normal face length along X (mm) — **REQUIRED**
+- `X`, `Y`: Optional absolute probe targets (override N-derived targets)
 - `F`: Optional speed override (mm/min)
 - `R`: Number of retries for averaging
-- `C`: Clearance distance between probes (default: 10mm)
-- `O`: Overtravel distance beyond expected surfaces (default: 2mm)
+- `C`: Approach clearance — air gap from the face being probed (default: **5** mm)
+- `O`: Overtravel toward faces (default: 2mm)
+- `E`: Corner offset — inset from the corner for samples / Z (default: `global.nxtCornerOffset`, **5** mm)
+- `Q`: Job-start **M5011** policy when **`U`** is used (via **nxt-wcs-apply Q**)
 
-**Results:** Stores X, Y, and Z coordinates in the probe results table.
+**Results:** Stores X, Y, Z and rotation slot **θ**. Sets `nxtWPCnrNum[slot]` when present.
 
 ---
 
@@ -339,7 +365,9 @@ Runs a single surface Z probe for vise top, then outside corner probe for X/Y po
 
 Performs a protected move with probe-aware safety checks. If a touch probe is triggered unexpectedly during movement, the move is aborted immediately.
 
-If the stylus is **already triggered** when `G6550` starts (non–Z-only raise), it first **`G1` toward the commanded target** by up to the probe dive-height (clear/retract). Callers such as **`G6512.1`** pass the post-touch retract point as that target. It must **never** step away from the target while triggered — that drove into the bore wall after a hit.
+If the stylus is **already triggered** when `G6550` starts (non–Z-only raise), it first **`G1` toward the commanded target** by up to the probe dive-height (clear/retract). It must **never** step away from the target while triggered — that drove into the bore wall after a hit. Post-touch backoff in **`G6512.1`** is rapid **`G53 G0`**, not **`G6550`**. Triangulation station travel still uses **`G6550`**.
+
+A clear **+Z-only** retract is unprotected **`G53 G1`** with **current XY (and A) pinned** from the M5000 snapshot. Never emit Z-only after a **`G38`** — omit-XY can resume a leftover interpolator toward the last wall (bore rim after G6500).
 
 **Usage:** `G6550 [X<pos>] [Y<pos>] [Z<pos>] [A<pos>] [I<probeID>] [F<speed>]`
 
@@ -352,14 +380,18 @@ If the stylus is **already triggered** when `G6550` starts (non–Z-only raise),
 
 ### G6600: Workpiece Probing Gateway
 
-Emitted by Fusion/FreeCAD post-processors during job preamble / WCS changes. Pauses CAM setup for operator WCS probing. Primary workflow: **DWC nxt → Probing Cycles**. On-machine menu offers vise corner (**G6520**) or handoff after DWC probing. The vise-corner path prompts a jog first so **G6520** `L` dives from the jogged machine Z (no pre-probe park).
+Emitted by Fusion/FreeCAD post-processors during job preamble / WCS changes. Pauses CAM setup for operator WCS probing. If that WCS already has live XY and Z `G10 L2` origins (not virgin `0,0,0`), the first menu is **Use existing / Reprobe / Cancel**. Primary probe workflow: **DWC nxt → Probing Cycles**. On-machine menu offers vise corner (**G6520**) or handoff after DWC probing. The vise-corner path prompts a jog first so **G6520** `L` dives from the jogged machine Z (no pre-probe park). `nxt-probe-tool-ready` runs only on that vise path.
 
 **Usage:** `G6600 [W<0..8>]`
 
 **Parameters:**
-- `W`: 0-indexed work offset (`W0` = G54). Omitted = current workplace after `G55`/`G56` switch.
+- `W`: 0-indexed work offset (`W0` = G54). Omitted = current workplace after `G55`/`G56` switch (`move.motionSystems[0].workplaceNumber` on RRF 3.7+).
 
-**Requirements:** Touch probe enabled; uses `nxt-probe-tool-ready.g` for probe tool selection.
+**Already-set origins:** Reads live `move.axes[].workplaceOffsets` for that WCS. If X, Y, and Z are present and not all near `0,0,0`, prompts **Use existing / Reprobe / Cancel** (no tip wait). **Use existing** keeps `G10 L2` and continues the job.
+
+**Requirements:** Touch probe enabled. `nxt-probe-tool-ready.g` runs only on the vise-corner path (not before Skip / Use existing / DWC handoff). Tip trigger wait stays in **`tpre`** on probe install.
+
+**Vise corner:** Jog at probe height, then native **G6520** with **N** (corner), **H** / **I** (face lengths; defaults from `nxtWPDims` or 100 mm), and **L** 10 mm from that start Z.
 
 ---
 
@@ -373,6 +405,8 @@ Safe spindle start/stop with acceleration waits.
 - `M3.9 S<rpm>` - Start spindle clockwise
 - `M4.9 S<rpm>` - Start spindle counter-clockwise
 - `M5.9` - Stop spindle
+
+**Dwell:** `M3.9` / `M4.9` wait `nxtSpindleAccelSec` (or `nxtSpindleDecelSec` when slowing), scaled by `|current−S|/max`. If that global is **unset or ≤0**, wait **10 s** then scale. Boot default in `nxt-vars.g` is **10**. ArborCTL **VFD Apply** writes `nxtSpindleAccelSec` / `nxtSpindleDecelSec` from the VFD ramp into `arborctl-user-vars.g` and `nxt-user-vars.g` (do not persist `= null`). `D` overrides the wait. Hold-to-measure on Configuration is the non-VFD path; when ArborCTL is live those fields are owned by the VFD tab.
 
 ---
 
@@ -444,6 +478,24 @@ Soft-compares CAM post `V"…"` to `global.nxtVersion` on **major.minor line onl
 When `nxtFeatureTouchProbe` is true, aborts unless `nxtProbeDeflection` is a non-zero `{X,Y,Z}` vector (factory `{0,0,0}` / unset = not calibrated). Invoked from `M4005` so CAM jobs cannot start without Phase 1 deflection.
 
 **Usage:** `M4006` (usually via `M4005`)
+
+---
+
+### M5011: Apply Rotation Compensation (job start)
+
+Applies **G68** from the last probed skew stored in **`global.nxtWPDeg`**, according to **`global.nxtG68Policy`** (armed by **M6520** / **nxt-wcs-apply** **Q**). Fusion and FreeCAD posts emit **M5011** on WCS change. Probing never issues **G68**, so jogging after a cycle stays machine-aligned.
+
+**Usage:** `M5011 [W<workOffset>]`
+
+**Parameters:**
+- `W`: Optional **0-indexed** workplace (same as **M5010**). Default: current workplace (`move.motionSystems[0].workplaceNumber`; not the obsolete `move.workplaceNumber`).
+
+**Policy (`nxtG68Policy` / last probe `Q`):**
+- **0** — `M291` prompt to apply or skip **G68**
+- **1** — apply **G68** without prompt
+- **2** — translation only; **G69** even if θ is stored
+
+**Behavior:** Non-trivial θ (`|θ| ≥ 0.0005`) plus Q0/Q1 → `G17` / `G69` / **G68 X0 Y0 R{θ}**, then arm **`nxtJobG68Deg`** / **`nxtJobG68Wcs`**. Q2, tiny/null θ, or Skip → **G69** and clear those session globals. **tpost** restores G68 only while **`nxtJobG68Deg`** is set (a running job). Cleared on **cancel** / job **stop**. Not written to **`nxt-user-vars.g`** or **`nxt-user-wcs.g`**.
 
 ---
 
@@ -522,9 +574,9 @@ Validates that target coordinates are within machine limits.
 
 ### M6520: Set WCS Offset from Probe Result
 
-Sets a Work Coordinate System (WCS) origin using coordinates from the probe results table (feature machine coordinates, minus current tool offsets), selects that workplace, travels to work **0** on flagged **X/Y/A** only (never work **Z0**), then optionally applies **G68** XY rotation when **both** `X` and `Y` are updated and the result vector has θ in `nxtProbeResults[P][#move.axes]`.
+Sets a Work Coordinate System (WCS) origin from the probe results table. **`G10 L2`** uses the stored **feature machine coordinates** (same frame as legacy **G650x.1** / **M5000** / **G6513**). Does **not** subtract `tools[].offsets`. Does **not** use **`G10 L20`**. After **G10** and WCS select, **`G53 G1`s flagged X/Y** to those stored millimetres (**Z/A pinned** from the current pose — **never work `G0 X0 Y0`**, which nested **G53/G38** treat as **machine home**). **Never `G0 Z0`**. Callers raise to jog **startZ** first. **`M400`** before **G10** and before the park. Aborts if applied XY origin is **0,0** while the mill is not near machine origin (empty table vs real origin at home).
 
-**Z:** Results are the **raw trigger** from G6512 (no deflection, no tip radius). **`M6520 … Z1`** sets that height as work **Z0** via **G10 L2** only — no post-apply **`G0 Z0`**. Cycles (**G6510** / **G6520**) return to jog **startZ**.
+**Z:** Results are the **raw trigger** from G6512 (no deflection, no tip radius). **`M6520 … Z1`** sets that height as work **Z0** via **G10 L2** only — no **`G0 Z0`**. Cycles (**G6510** / **G6520**) return to jog **startZ**.
 
 **Usage:** `M6520 P<resultIndex> W<wcsNumber> [X1] [Y1] [Z1] [A1] [Q<mode>] [T<maxSkewDeg>]`
 
@@ -532,35 +584,75 @@ Sets a Work Coordinate System (WCS) origin using coordinates from the probe resu
 - `P`: Probe results table index (0-9) — **required**
 - `W`: WCS number (1-9 for `G10 L2 P` / G54⋯) — **required**
 - `X1|Y1|Z1|A1`: Axis **presence** flags — at least one required. RRF meta needs a number after the letter (`X1`, not bare `X`); the value is ignored. See [`docs/RRF_META_PITFALLS.md`](docs/RRF_META_PITFALLS.md) §1c.
-- `Q`: Rotation policy: **0** (default) = `M291` prompt to apply or skip **G68**; **1** = apply **G68** without prompt; **2** = translation only (no **G68**)
+- `Q`: Job-start rotation policy for **M5011**: **0** = prompt at job start; **1** = apply **G68** at **M5011** without prompt; **2** = translation only (never **G68**). Omitted (Probe Results push) leaves **`nxtG68Policy`** unchanged.
 - `T`: Optional cap on `|θ|` in degrees (default `global.nxtProbeMaxSkewDeg`); abort **M6520** if exceeded
 
-**Post-apply travel** (after **G10 L2** + selecting **G54⋯**), only flagged **X/Y/A** move to work **0**:
-- **X+Y** (bore/boss/corner, with or without Z flag): **`G0 X0 Y0`** — keep current Z; never **`G0 Z0`**
-- **Z only** (top surface / `G6510 Z`): **no travel** — WCS Z set; caller returns to **startZ**
-- **X or Y only** (side surface / `G6510 X|Y`): **`G0`** on that axis only — leave the others unchanged
+**Rotation:** Does **not** issue **G68**. When both **X** and **Y** are updated and `|θ| ≥ 0.0005`, stores **`nxtWPDeg[W−1]`** and, if **Q** is present, **`nxtG68Policy`**. Always **G69** after the XY park so post-probe jogging is not rotated. CAM posts call **M5011** at job start to apply **G68 X0 Y0 R{θ}**. **G68** rotation direction was corrected in **RRF 3.6.1** (anticlockwise **R**); nxt on branch **`v0.7.0`** targets **RRF 3.7.x** ([`docs/RRF_REFERENCE.md`](docs/RRF_REFERENCE.md)). See `docs/DETAILS.md` (nxt native probing section).
 
-**Rotation:** Uses RRF **G68 X0 Y0 R** after **G10 L2** and selecting the target workplace. **G68** rotation direction was corrected in **RRF 3.6.1** (anticlockwise **R**); nxt on branch **`v0.7.0`** targets **RRF 3.7.x** ([`docs/RRF_REFERENCE.md`](docs/RRF_REFERENCE.md)). See `docs/DETAILS.md` (nxt native probing section).
+**Job scope:** **M5011** (not **M6520**) stores **`nxtJobG68Deg`** / **`nxtJobG68Wcs`** when **G68** is applied. Rotation **persists across toolchanges** (`tpost` re-asserts via `nxt-job-g68-restore.g` after paths that may `G69`). It is **cleared on cancel**, on **job finish** via `stop.g` (not while paused), and **after probing** (**M6520** **G69**). Not written to `nxt-user-vars.g`, and **not** written to **`nxt-user-wcs.g`**.
 
-**Job scope:** When **G68** is applied, nxt stores **`nxtJobG68Deg`** / **`nxtJobG68Wcs`** for the current job. Rotation **persists across toolchanges** (`tpost` re-asserts via `nxt-job-g68-restore.g` after paths that may `G69`). It is **cleared on cancel** and on **job finish** via `stop.g` (not while paused). Not written to `nxt-user-vars.g`.
+**SD persist:** After a successful apply, **`nxt-user-wcs-sync.g`** rewrites **`0:/sys/nxt-user-wcs.g`** from live **`move.axes[].workplaceOffsets`** (`G10 L2` per workplace plus current WCS select). **`nxt.g`** loads that file after the board pack so origins survive **M999** and power cycles. Disable with **`set global.nxtAutoPersistWcs = false`** in **`nxt-user-vars.g`**. UI edits go through **`nxt-wcs-set.g`** / **`nxt-wcs-clear.g`** (and Activate after **`nxt-select-wcs.g`**) so they persist. Bare **`G10 L2`** (console) is not auto-captured until the next apply/set/clear or **`M98 P"nxt-user-wcs-sync.g"`**.
 
-**Probe cycles:** With **`U`** on **G650x**/`G6510`, the macro stores results at row **`U−1`** and calls **`M6520 P{U−1} W{U} …`** directly at the end (not via **`M98`**, which cannot pass **`P`**) so the operator does not run **M6520** separately.
+**Probe cycles:** With **`U`** on most **G650x**/`G6510`, the macro stores results at row **`U−1`** and calls **`M6520 P{U−1} W{U} …`** directly (not via **`M98`**, which cannot pass **`P`**). **G6500** / **G6501** / **G6508** / **G6509** / **G6520** instead call **`M98 P"nxt-wcs-apply.g" I{U−1} W{U} …`** after self-parking (apply-only; result index is **`I`** because **`M98`** steals **`P`**).
+
+### nxt-wcs-apply.g: Apply WCS from probe result (no travel)
+
+Shared helper used by **G6500** / **G6501** / **G6508** / **G6509** / **G6520** after **G53** air park at the fit. Same **G10 L2** (feature machine coords from the stored **fit**, no tool-offset subtract; never **L20**), **`nxt-select-wcs.g`** (skipped when **W** is already active), **Q** arming, and **G69** as **M6520**. **`M400`** before **G10**. Does **not** travel (already **G53**-parked at the fit). Echoes **machinePosition**, **userPosition**, and origin-vs-machine deltas after apply (user XY should be ≈ 0; Z remains jog **startZ**). Aborts a **0,0** XY origin if the mill is not near machine origin.
+
+**Usage:** `M98 P"nxt-wcs-apply.g" I<resultIndex> W<wcsNumber> [X1] [Y1] [Z1] [A1] [Q] [T]`
+
+**Parameters:** Same axis / `Q` / `T` semantics as **M6520**, except result index is **`I`** (not **`P`** — **`M98`** reserves **`P`** for the filename).
+
+**Persist:** Same **`nxt-user-wcs-sync.g`** write as **M6520** (live **`G10 L2`** dump; **G68** not stored).
 
 **Example:**
 ```gcode
-; Auto chain (recommended from UI): bore + apply G54 + optional G68
+; Auto chain (recommended from UI): bore + apply G54 (already parked at center)
 G6500 U1 D25.4 L10 Q0
 
-; Manual legacy: measure only into P3, then apply to G55
+; Manual: measure only into P3, then apply to G55 (M6520 G53-parks at stored XY)
 G6500 P3 D25.4 L10
 M6520 P3 W2 X1 Y1 Q0
 ```
 
 **How it works:**
-- Reads the probe result from `P`, issues **G10 L2 P{W}** for flagged axes as `machine − toolOffset` (presence of the letter matters; **0** is a valid origin; unflagged axes untouched)
+- Reads the probe result from `P`, issues **G10 L2 P{W}** for flagged axes as stored M5000/G6513 feature coords (presence of the letter matters; **0** is a valid origin *at machine home*; unflagged axes untouched)
 - Selects workplace via **`M98 P"nxt-select-wcs.g" W{W}`** (literal **G54…G59.3**; RRF forbids `G{53+W}`)
-- If **X** and **Y** are flagged and `|θ|` is non-trivial and within **T**, applies **Q** (prompt / force / skip) then **G69**/**G68** as needed
-- Travels to work **0** on flagged **X/Y/A** only (**XY** → keep Z; **Z flag** → WCS only, no Z travel; **side X|Y** → that axis only). **G6510**/**G6520** return Z to **startZ**.
+- If **X** and **Y** are flagged and `|θ|` is non-trivial and within **T**, stores **`nxtWPDeg[W−1]`** and arms **`nxtG68Policy`** from **Q** (if given)
+- **`G53 G1`** flagged **XY** to stored L2 millimetres (**Z/A pinned**); **never work `G0 X0 Y0`**, **never Z0**. Echoes machine vs user vs origin. Always **G69**
+- Callers raise Z to **startZ** first; **G6510** **Top** / **G6520** also return or stay at **startZ**
+
+### nxt-user-wcs-sync.g: Persist workplace origins to SD
+
+Rewrites **`0:/sys/nxt-user-wcs.g`** from live **`move.axes[].workplaceOffsets`** as **`G10 L2 P{1…}`** plus **`nxt-select-wcs.g`** for the current workplace. Called at the end of **M6520**, **nxt-wcs-apply.g**, **nxt-wcs-set.g**, and **nxt-wcs-clear.g**. **`nxt.g`** loads the file after the board pack. See **SD persist** under **M6520**.
+
+**Usage:** `M98 P"nxt-user-wcs-sync.g"`
+
+### nxt-wcs-set.g: Set WCS origin from the UI (no travel)
+
+Operator edit of a live **G10 L2** origin (Probing → Work offsets). Same **L2** contract as **M6520** (machine coords; never **L20**). **No** `G0`, **G69**, **`nxtWPDeg`**, or WCS select. Axis letters are millimetre **values** (omit unchanged axes). Ends with **`nxt-user-wcs-sync.g`**.
+
+**Usage:** `M98 P"nxt-wcs-set.g" W<wcsNumber> [X<mm>] [Y<mm>] [Z<mm>] [A<mm>]`
+
+**Parameters:**
+- `W`: WCS number (1-9 for G54–G59.3) — **required**
+- `X`/`Y`/`Z`/`A`: Origin values to write; at least one required
+
+**Example:**
+```gcode
+M98 P"nxt-wcs-set.g" W1 X100.0000 Y50.0000
+```
+
+### nxt-wcs-clear.g: Zero WCS origin and probe metadata
+
+Zeros live **G10 L2** X/Y/Z (and **A** when that axis exists), then **`M5010 W{W−1}`** (M5010's **W** is **0-indexed**). Does **not** clear **`nxtProbeResults`**. No travel, **G69**, or WCS select. Ends with **`nxt-user-wcs-sync.g`**.
+
+**Usage:** `M98 P"nxt-wcs-clear.g" W<wcsNumber>`
+
+**Example:**
+```gcode
+M98 P"nxt-wcs-clear.g" W2
+```
 
 ---
 
@@ -682,6 +774,10 @@ Pauses or resumes the nxt daemon forever-loop so DWC/DSF can install or upgrade 
   - Updated by M5000
   - Vector: `[X, Y, Z, A]`
 
+### Workplace persist
+
+- **`global.nxtAutoPersistWcs`**: When true (default), **M6520** / **nxt-wcs-apply** / **nxt-wcs-set** / **nxt-wcs-clear** rewrite **`0:/sys/nxt-user-wcs.g`**. Set false in **`nxt-user-vars.g`** to skip SD writes. File is **`G10 L2`** + current WCS select only (not **G68**, not **`nxtProbeResults`**).
+
 ---
 
 ## Workflow Examples
@@ -692,8 +788,9 @@ Pauses or resumes the nxt daemon forever-loop so DWC/DSF can install or upgrade 
 ; 1. Bore probe to find center
 G6500 P0 D25.4 L10
 
-; 2. Z probe on same feature
-G6510 P0 Z-20
+; 2. Top-face probe on same feature (operator-relative N=4; O=travel from jog)
+G6510 P0 N4 O5
+; Legacy absolute Z target: G6510 P0 Z-20
 
 ; 3. Push complete coordinates to G54
 M6520 P0 W1 X1 Y1 Z1
@@ -715,7 +812,7 @@ M6520 P0 W1 X1 Y1 Z1    ; Push to G54
 ; Probe multiple features into different result slots
 G6500 P0 D25.4 L10   ; Bore 1
 G6500 P1 D12.7 L10   ; Bore 2
-G6508 P2 N0 L5       ; Outside corner
+G6508 P2 N0 L5       ; Outside corner Front Left (N=0)
 
 ; Push each to different WCS
 M6520 P0 W1 X1 Y1      ; Bore 1 -> G54

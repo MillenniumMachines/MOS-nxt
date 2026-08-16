@@ -49,23 +49,23 @@ These features form the core of the new nxt system and must be implemented for t
     - [x] Rotation (`G6506`) - Probe 2 points along a single surface in X or Y to find the rotation of that surface against the relevant axis (2 probe points total)
     - [x] Outside Corner (`G6508`) - Probe each surface forming an assumed-90-degree outside corner, finding the intersection point of the two surfaces (2 probe points total)
     - [x] **New:** Inside Corner (`G6509`) - Probe each surface forming an assumed-90-degree inside corner, finding the intersection point of the two surfaces (2 probe points total)
-    - [x] Single Surface (`G6510`) - Probe one surface in X, Y or Y, finding the location of the surface on the selected axis (1 probe point total)
+    - [x] Single Surface (`G6510`) - Probe one operator-relative face (Left/Right/Front/Back/Top); Top is one Z contact, XY can multi-point with face length `S`
     - [x] Vise Corner (`G6520`) - Run a single surface Z probe to find the top of a vise corner, then run an outside corner probe to find the corner point in X and Y (3 probe points total)
 
 #### **Tool Change Logic**
 - [x] **Probe-on-Removal:** Standard cutting tools will have their length measured by the toolsetter during the `tfree.g` (tool removal) phase.
-- [x] **Relative Offset Calculation:** Tool offsets will be calculated relative to the previously used tool during the tool change process, eliminating reliance on a persistent, absolute datum between machine runs.
-- [x] **Touch Probe Handling:** The touch probe is the exception. It will be measured against a reference surface upon installation (`tpost.g`) to establish its length relative to the toolsetter, ensuring accurate offsets for all subsequent tools.
+- [x] **Relative Offset Calculation:** Mill `G10 L1` is **`-(Z_act − nxtProbeVirtualTsZ)`** vs **M5016 platen Z**. No-virtual mill-to-mill uses `oldL1 − (Z_new − Z_old)`. Missing setter Z aborts (run M5016). G37.1 only when the toolsetter path is unavailable. `tfree`/`tpre` full-`G27` before M291; tpost starts `G27 Z1` and ends with a full `G27`.
+- [x] **Touch Probe Handling:** Probe `tpost` **`G6511 R1 S0`** on the saved reference surface every T49 (stylus Z0). Probe stays **`G10 L1 Z0`**. Enable Probe is raise + `T` only; tpost owns G6511.
 
 #### **UI-Driven Workflow**
 - [x] **Persistent UI Screen:** A new primary screen/view in DWC dedicated to nxt, containing always-visible widgets for core status and actions.
     - [x] **Status Widget:** Every-page CNC status via DWC `registerLayout` (`NxtShell`): selected tool name, tool Z offset, WCS, spindle (direction/RPM), axes, probe/toolsetter. First load takes over the shell (`takeoverOnFirstLoad`); switch back in **Settings → Display** or `/BuiltInLayout`. (Vue 2 global `CNCContainerPanel` override is inert on DWC 3.7.)
     - [x] **Action Confirmation Widget:** A persistent widget that replaces blocking `M291` dialogs. It will pause the job queue and display a confirmation request (e.g., "Start Spindle?") that the operator must interact with to resume the job.
 - [x] **UI-Based Configuration:** A new settings panel within the UI plugin will completely replace the `G8000` configuration wizard, allowing for non-serial, direct editing of all settings. Includes directory-driven platform/board selection and **Apply platform sys files** for homing macros ([NXT_BOARD_HOMING.md](NXT_BOARD_HOMING.md)).
-- [x] **UI-Driven Probing:** All probing cycles will be initiated and configured through the DWC UI.
+- [x] **UI-Driven Probing:** All probing cycles will be initiated and configured through the DWC UI. Probing tab **Work offsets** lists live G54–G59.3 (`workplaceOffsets`), with edit / activate / probe / clear.
 
 #### **Machine Control**
-- [x] **Spindle Control:** Core macros for safe spindle start/stop with acceleration waits (`M3.9`, `M4.9`, `M5.9`).
+- [x] **Spindle Control:** Core macros for safe spindle start/stop with acceleration waits (`M3.9`, `M4.9`, `M5.9`). Unset accel wait floors to **10 s**; ArborCTL VFD Apply persists the real ramp into `nxtSpindleAccelSec` / `nxtSpindleDecelSec`.
 - [x] **Coolant Control:** Core macros for coolant control (`M7`, `M8`, `M9`, and `M7.1`).
 - [x] **Coolant pulse:** Optional per-type pulsing for mist (`M7`) and flood (`M8`); defaults 5 s ON / 25 s OFF; configured in DWC Configuration.
 - [x] **Parking (`G27`):** A critical macro for moving the machine to a safe, known position.
@@ -95,7 +95,7 @@ These features add value but are not part of the initial core rewrite. They can 
 
 These features and concepts from the old implementation will be explicitly removed to align with the goal of simplicity and to reduce complexity and potential sources of error.
 
-- [x] **Dialog-Driven Probing System:** Removed in favor of the DWC probing UI (`ProbingCyclesPanel`, `ProbeResultsPanel`).
+- [x] **Dialog-Driven Probing System:** Removed in favor of the DWC probing UI (`WorkplaceOriginsPanel`, `ProbingCyclesPanel`, `ProbeResultsPanel`).
 - [x] **Manual Probing (Jogging Dialogs):** Removed; operators use standard DWC jogging plus probe results / WCS push workflow.
 - [x] **Multi-Axis Probing Moves:** Removed; `G6512` is strictly single-axis per command.
 - [x] **G8000 Configuration Wizard:** Replaced by the Configuration panel in the nxt DWC plugin.

@@ -1,12 +1,9 @@
 ; G6510-jog.g: SINGLE SURFACE PROBE
 ;
-; Meta macro to gather operator input before executing a
-; single surface probe (G6510). The macro will explain to
-; the operator what is about to happen and ask on which axis
-; the user would like to run a probe cycle. The macro will ask
-; the operator to jog to the starting location, then enter a
-; depth to probe at (in the case of a Z probe, this is how deep
-; we will attempt to probe from the starting location).
+; Meta macro to gather operator input before executing G6510.
+; Surface names are relative to an operator at the front of the mill
+; (nxtSurfaceNames: Left, Right, Front, Back, Top). Calls G6510 N/O
+; (and L for XY dive), not legacy G6510.1.
 
 ; Make sure this file is not executed by the secondary motion system
 if { !inputs[state.thisInput].active }
@@ -98,7 +95,20 @@ if { global.nxtTutorialMode }
         if { input != 0 }
             abort { "Single Surface probe aborted!" }
 
-; Get current machine position
-M5000 P0
+; G6510 snapshots pose (M5000) and seeks O from that air position.
+var wcsU = { move.motionSystems[0].workplaceNumber + 1 }
+if { exists(param.W) && param.W != null }
+    set var.wcsU = { param.W + 1 }
+if { var.wcsU < 1 || var.wcsU > 9 }
+    abort { "G6510-jog: WCS U must be 1-9" }
 
-G6510.1 W{exists(param.W)? param.W : null} H{var.probeAxis} I{var.probeDist} O{var.overtravel} J{global.nxtAbsPos[0]} K{global.nxtAbsPos[1]} L{global.nxtAbsPos[2] - var.probeDepth}
+var seek = { var.probeDist + var.overtravel }
+if { var.seek <= 0 }
+    abort { "G6510-jog: Probe distance plus overtravel must be positive" }
+
+if { var.isZProbe }
+    G6510 U{var.wcsU} N{var.probeAxis} O{var.seek}
+elif { var.probeDepth > 0 }
+    G6510 U{var.wcsU} N{var.probeAxis} O{var.seek} L{var.probeDepth}
+else
+    G6510 U{var.wcsU} N{var.probeAxis} O{var.seek}

@@ -25,6 +25,8 @@ export interface NxtUiStateProbeSlice {
   dialogResponse?: unknown
   lastProbeResults: NxtProbeResultRow[]
   selectedResultIndex?: number
+  /** 1-based WCS (1 = G54 … 9 = G59.3). Drives probing Target WCS. */
+  selectedWcs?: number
 }
 
 /** Map- or object-safe key lookup (DWC settings.plugins / nested buckets). */
@@ -113,6 +115,9 @@ export function readNxtUiState(plugins: unknown): NxtUiStateProbeSlice | null {
   if (raw == null || typeof raw !== 'object' || raw instanceof Map) return null
   const o = raw as Record<string, unknown>
   const last = normalizeProbeResultsTable(o.lastProbeResults)
+  const wcsRaw = o.selectedWcs
+  const selectedWcs =
+    typeof wcsRaw === 'number' && wcsRaw >= 1 && wcsRaw <= 9 ? wcsRaw : 1
   return {
     ready: !!o.ready,
     dialogActive: !!o.dialogActive,
@@ -120,7 +125,8 @@ export function readNxtUiState(plugins: unknown): NxtUiStateProbeSlice | null {
     dialogResponse: o.dialogResponse ?? null,
     lastProbeResults: last,
     selectedResultIndex:
-      typeof o.selectedResultIndex === 'number' ? o.selectedResultIndex : 0
+      typeof o.selectedResultIndex === 'number' ? o.selectedResultIndex : 0,
+    selectedWcs
   }
 }
 
@@ -139,7 +145,8 @@ export function writeNxtUiProbeResults(
     selectedResultIndex:
       selectedResultIndex !== undefined
         ? selectedResultIndex
-        : (prev?.selectedResultIndex ?? 0)
+        : (prev?.selectedResultIndex ?? 0),
+    selectedWcs: prev?.selectedWcs ?? 1
   }
   setPluginData(NXT_UI_STATE_PLUGIN, PluginDataType.globalSetting, NXT_UI_STATE_KEY, next)
 }
@@ -156,7 +163,27 @@ export function writeNxtUiSelectedResultIndex(
     dialogMessage: prev?.dialogMessage ?? null,
     dialogResponse: prev?.dialogResponse ?? null,
     lastProbeResults: prev?.lastProbeResults ?? [],
-    selectedResultIndex
+    selectedResultIndex,
+    selectedWcs: prev?.selectedWcs ?? 1
+  }
+  setPluginData(NXT_UI_STATE_PLUGIN, PluginDataType.globalSetting, NXT_UI_STATE_KEY, next)
+}
+
+/** 1-based WCS for Probing Cycles / Work offsets / Push to WCS (also slots result index). */
+export function writeNxtUiSelectedWcs(selectedWcs: number, plugins: unknown): void {
+  const wcs =
+    Number.isFinite(selectedWcs) && selectedWcs >= 1 && selectedWcs <= 9
+      ? Math.round(selectedWcs)
+      : 1
+  const prev = readNxtUiState(plugins)
+  const next: NxtUiStateProbeSlice = {
+    ready: prev?.ready ?? false,
+    dialogActive: prev?.dialogActive ?? false,
+    dialogMessage: prev?.dialogMessage ?? null,
+    dialogResponse: prev?.dialogResponse ?? null,
+    lastProbeResults: prev?.lastProbeResults ?? [],
+    selectedResultIndex: wcs - 1,
+    selectedWcs: wcs
   }
   setPluginData(NXT_UI_STATE_PLUGIN, PluginDataType.globalSetting, NXT_UI_STATE_KEY, next)
 }
@@ -207,19 +234,19 @@ export function wcsApplyTravelNote(axisFlags: string[]): string {
   const hasY = axisFlagPresent(axisFlags, 'Y')
   const hasZ = axisFlagPresent(axisFlags, 'Z')
   if (hasZ && !hasX && !hasY) {
-    return ' (WCS Z set; Z height unchanged — cycle returns to start Z)'
+    return ' (WCS Z set; cycle returns to start Z)'
   }
   if (hasX && hasY && hasZ) {
-    return ' (X0 Y0; Z unchanged — cycle returns to start Z)'
+    return ' (WCS XYZ origin set; parked at feature)'
   }
   if (hasX && hasY && !hasZ) {
-    return ' (X0 Y0 at current Z)'
+    return ' (WCS XY origin set; parked at feature)'
   }
   if (hasX && !hasY && !hasZ) {
-    return ' (X0; other axes unchanged)'
+    return ' (WCS X origin set)'
   }
   if (hasY && !hasX && !hasZ) {
-    return ' (Y0; other axes unchanged)'
+    return ' (WCS Y origin set)'
   }
   return ''
 }

@@ -19,6 +19,7 @@ import MachineStatusPanel from './MachineStatusPanel.vue'
 import ConfigurationPanel from './ConfigurationPanel.vue'
 import ProbingCyclesPanel from './ProbingCyclesPanel.vue'
 import ProbeResultsPanel from './ProbeResultsPanel.vue'
+import WorkplaceOriginsPanel from './WorkplaceOriginsPanel.vue'
 import ToolManagementPanel from './ToolManagementPanel.vue'
 import RgbLightControl from './RgbLightControl.vue'
 import Spindle0ControlPanel from './Spindle0ControlPanel.vue'
@@ -34,6 +35,7 @@ export {
   CalibrationPanel,
   ProbingCyclesPanel,
   ProbeResultsPanel,
+  WorkplaceOriginsPanel,
   ToolManagementPanel,
   RgbLightControl,
   Spindle0ControlPanel,

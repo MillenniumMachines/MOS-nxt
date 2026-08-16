@@ -2,12 +2,19 @@
 ;
 ; Three triangulated inward touches at 0/120/240 deg via G6513 (same geometry
 ; family as G6500.1). Circumcenter of the three contacts is the bore center.
-; Stays at dive Z between touches (D1 H1). Park at circumcenter at startZ.
+; Stays at dive Z between touches (D1 H1). After fit: M400, raise to startZ
+; with XY pinned, then G53 G1 to circumcenter XY. G10 uses the fit (work X0 Y0).
 ;
-; USAGE: G6500 P|U D<diameter> L<depth> [F] [R] [O] [T<skew>] [Q]
+; USAGE: G6500 P|U D<diameter> L<depth> [F] [R] [O] [Q]
+; Circle fit → center only; rotation slot forced to 0 (no skew).
 
 if { !inputs[state.thisInput].active }
     M99
+
+if { !exists(global.nxtSkipJobPark) }
+    global nxtSkipJobPark = true
+else
+    set global.nxtSkipJobPark = true
 
 if { !global.nxtFeatureTouchProbe }
     abort { "G6500: Touch probe feature not enabled" }
@@ -47,7 +54,6 @@ if { state.currentTool <= limits.tools-1 && state.currentTool >= 0 }
     set var.toolR = { global.nxtTT[state.currentTool][0] }
 var overtravel = { (exists(param.O) ? param.O : 2.0) - var.toolR }
 var probeDepth = { param.L }
-var skewLimit = { exists(param.T) ? param.T : global.nxtProbeMaxSkewDeg }
 var probeI = { global.nxtTouchProbeID }
 
 echo "G6500: Starting bore probe (3-point triangulation at 120 deg)"
@@ -105,11 +111,11 @@ var y2 = { var.pXY[1][1] }
 var x3 = { var.pXY[2][0] }
 var y3 = { var.pXY[2][1] }
 
-; Vector circumcenter (robust vs vertical chords / slope method)
+; Vector circumcenter: A = P2-P1, B = P3-P1 (not P3-P2 — that parks at a hit)
 var ax = { var.x2 - var.x1 }
 var ay = { var.y2 - var.y1 }
-var bx = { var.x3 - var.x2 }
-var by = { var.y3 - var.y2 }
+var bx = { var.x3 - var.x1 }
+var by = { var.y3 - var.y1 }
 var d = { 2 * (var.ax * var.by - var.ay * var.bx) }
 
 if { abs(var.d) < 1e-7 }
@@ -119,18 +125,6 @@ var ma = { var.ax * var.ax + var.ay * var.ay }
 var mb = { var.bx * var.bx + var.by * var.by }
 var calculatedCenterX = { var.x1 + (var.by * var.ma - var.ay * var.mb) / var.d }
 var calculatedCenterY = { var.y1 + (var.ax * var.mb - var.bx * var.ma) / var.d }
-
-; Angular registration of first (0 deg) hit vs +X from circumcenter
-var vx = { var.x1 - var.calculatedCenterX }
-var vy = { var.y1 - var.calculatedCenterY }
-var thetaDeg = { atan2(var.vy, var.vx) * 180 / pi }
-if { var.thetaDeg > 90 }
-    set var.thetaDeg = { var.thetaDeg - 180 }
-elif { var.thetaDeg <= -90 }
-    set var.thetaDeg = { var.thetaDeg + 180 }
-
-if { abs(var.thetaDeg) > var.skewLimit }
-    abort { "G6500: |skew| " ^ var.thetaDeg ^ " deg exceeds limit " ^ var.skewLimit }
 
 ; RRF ^ is string concat — use multiply for squares (not ^2)
 var dx0 = { var.calculatedCenterX - var.x1 }
@@ -144,23 +138,87 @@ var r1 = { sqrt(var.dx1 * var.dx1 + var.dy1 * var.dy1) }
 var r2 = { sqrt(var.dx2 * var.dx2 + var.dy2 * var.dy2) }
 var avgDiameter = { (2 * var.r0 + 2 * var.r1 + 2 * var.r2) / 3 }
 
+echo "G6500: radii r0=" ^ var.r0 ^ " r1=" ^ var.r1 ^ " r2=" ^ var.r2
+var rMin = { var.r0 }
+var rMax = { var.r0 }
+if { var.r1 < var.rMin }
+    set var.rMin = { var.r1 }
+if { var.r2 < var.rMin }
+    set var.rMin = { var.r2 }
+if { var.r1 > var.rMax }
+    set var.rMax = { var.r1 }
+if { var.r2 > var.rMax }
+    set var.rMax = { var.r2 }
+var rSpread = { var.rMax - var.rMin }
+var rLimit = { param.D * 0.25 }
+if { var.rSpread > var.rLimit }
+    abort { "G6500: Radii disagree — check D/O/centering (do not park at wall)" }
+
 if { global.nxtProbeResults[var.pSlot] == null || #global.nxtProbeResults[var.pSlot] < 3 }
     set global.nxtProbeResults[var.pSlot] = { vector(#move.axes + 1, 0.0) }
 
 set global.nxtProbeResults[var.pSlot][0] = { var.calculatedCenterX }
 set global.nxtProbeResults[var.pSlot][1] = { var.calculatedCenterY }
-set global.nxtProbeResults[var.pSlot][#move.axes] = { var.thetaDeg }
+set global.nxtProbeResults[var.pSlot][#move.axes] = 0.0
 
-; Still at dive Z after G6513 — park XY at circumcenter, then raise to startZ
-G6550 X{var.calculatedCenterX} Y{var.calculatedCenterY} I{var.probeI}
-G6550 Z{var.startZ} I{var.probeI}
+; M400, raise to startZ with XY pinned, then G53 G1 to fitted origin XY
+M400
+echo "G6500: fit X=" ^ var.calculatedCenterX ^ " Y=" ^ var.calculatedCenterY
+echo "G6500: jog start X=" ^ var.sX ^ " Y=" ^ var.sY
 
-echo "G6500: Bore center X=" ^ var.calculatedCenterX ^ " Y=" ^ var.calculatedCenterY ^ " skew=" ^ var.thetaDeg ^ " deg"
+var parkFeed = { sensors.probes[var.probeI].travelSpeed }
+var parkHasA = { #move.axes > 3 }
+var parkTripped = { sensors.probes[var.probeI].value[0] != 0 }
+if { var.parkTripped }
+    var curX = { move.axes[0].machinePosition }
+    var curY = { move.axes[1].machinePosition }
+    var curZ = { move.axes[2].machinePosition }
+    var dX = { var.calculatedCenterX - var.curX }
+    var dY = { var.calculatedCenterY - var.curY }
+    var mag = { sqrt(var.dX * var.dX + var.dY * var.dY) }
+    if { var.mag <= 0 }
+        abort { "G6500: Probe triggered at center — cannot clear in place" }
+    var diveH = { sensors.probes[var.probeI].diveHeights[0] }
+    var step = { var.diveH }
+    if { var.step > var.mag }
+        set var.step = { var.mag }
+    var clrX = { var.curX + (var.dX / var.mag * var.step) }
+    var clrY = { var.curY + (var.dY / var.mag * var.step) }
+    if { var.parkHasA }
+        var curA = { move.axes[3].machinePosition }
+        G53 G1 F{var.parkFeed} X{var.clrX} Y{var.clrY} Z{var.curZ} A{var.curA}
+    else
+        G53 G1 F{var.parkFeed} X{var.clrX} Y{var.clrY} Z{var.curZ}
+    M400
+    var stillOn = { sensors.probes[var.probeI].value[0] != 0 }
+    if { var.stillOn }
+        abort { "G6500: Probe still triggered after clear — unsafe to park" }
+
+G90
+var pinX = { move.axes[0].machinePosition }
+var pinY = { move.axes[1].machinePosition }
+var pinA = { 0 }
+if { var.parkHasA }
+    set var.pinA = { move.axes[3].machinePosition }
+    G53 G1 F{var.parkFeed} X{var.pinX} Y{var.pinY} Z{var.startZ} A{var.pinA}
+else
+    G53 G1 F{var.parkFeed} X{var.pinX} Y{var.pinY} Z{var.startZ}
+M400
+if { var.parkHasA }
+    G53 G1 F{var.parkFeed} X{var.calculatedCenterX} Y{var.calculatedCenterY} Z{var.startZ} A{var.pinA}
+else
+    G53 G1 F{var.parkFeed} X{var.calculatedCenterX} Y{var.calculatedCenterY} Z{var.startZ}
+M400
+
+echo "G6500: Bore center X=" ^ var.calculatedCenterX ^ " Y=" ^ var.calculatedCenterY
+echo "G6500: parked machine X=" ^ move.axes[0].machinePosition ^ " Y=" ^ move.axes[1].machinePosition
 echo "G6500: Mean diameter (from 3 radii) ~" ^ var.avgDiameter
 echo "G6500: Result index " ^ var.pSlot
 
+; Apply WCS without M6520 G0 (avoids post-center rapid off feature)
 if { exists(param.U) && param.U != null }
     if { exists(param.Q) && param.Q != null }
-        M6520 P{var.pSlot} W{param.U} X1 Y1 T{var.skewLimit} Q{param.Q}
+        M98 P"nxt-wcs-apply.g" I{var.pSlot} W{param.U} X1 Y1 Q{param.Q}
     else
-        M6520 P{var.pSlot} W{param.U} X1 Y1 T{var.skewLimit}
+        M98 P"nxt-wcs-apply.g" I{var.pSlot} W{param.U} X1 Y1
+M98 P"nxt-g38-cancel.g"

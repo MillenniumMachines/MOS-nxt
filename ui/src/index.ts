@@ -60,7 +60,8 @@ function registerNxtSideEffects(): void {
       dialogMessage: null,
       dialogResponse: null,
       lastProbeResults: [],
-      selectedResultIndex: 0
+      selectedResultIndex: 0,
+      selectedWcs: 1
     })
 
     registerPluginData('nxt', PluginDataType.globalSetting, 'nxtRgbUiState', {

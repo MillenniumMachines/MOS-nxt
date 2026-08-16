@@ -187,6 +187,7 @@
 </template>
 
 <script lang="ts">
+import store from '../../compat/dwcStore'
 import { defineNxtComponent } from '../base/BaseComponent.vue'
 import { isNxtFeatureTouchProbe } from '../../utils/nxtEnableProbe'
 import { readFirmwareGlobal } from '../../utils/nxtToolChangerOm'
@@ -200,6 +201,7 @@ import {
   suggestPushAxesFromRow,
   wcsApplyTravelNote,
   writeNxtUiProbeResults,
+  writeNxtUiSelectedWcs,
   type NxtProbeResultRow
 } from '../../utils/nxtProbeResultsUi'
 
@@ -219,7 +221,6 @@ export default defineNxtComponent({
       // Vuetify 3's v-data-table binds selection to an array of `item-value` values
       // (the row's `index` field), not full row objects like Vuetify 2's v-data-table did
       selectedResults: [] as number[],
-      selectedWcs: 1,
       pushAxes: {
         x: true,
         y: true,
@@ -326,6 +327,15 @@ export default defineNxtComponent({
     pluginsState(): unknown {
       return this.$store.state.settings?.plugins
     },
+    selectedWcs: {
+      get(): number {
+        const w = readNxtUiState(store.state.settings?.plugins)?.selectedWcs
+        return typeof w === 'number' && w >= 1 && w <= 9 ? w : 1
+      },
+      set(v: number) {
+        writeNxtUiSelectedWcs(v, store.state.settings?.plugins)
+      }
+    },
     uiSelectedResultIndex(): number | null {
       const ui = readNxtUiState(this.pluginsState)
       if (ui == null || typeof ui.selectedResultIndex !== 'number') return null
@@ -383,7 +393,7 @@ export default defineNxtComponent({
       }
       // Slot index + 1 matches U / M6520 W (G54 = 1)
       const wcs = idx + 1
-      if (wcs >= 1 && wcs <= 9) {
+      if (wcs >= 1 && wcs <= 9 && this.selectedWcs !== wcs) {
         this.selectedWcs = wcs
       }
     },

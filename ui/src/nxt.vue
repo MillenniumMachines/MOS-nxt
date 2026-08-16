@@ -146,7 +146,16 @@
                 <div class="pa-4">
                   <v-row>
                     <v-col cols="12">
-                      <nxt-probing-cycles-panel />
+                      <nxt-workplace-origins-panel
+                        :can-probe="cyclesCanExecute"
+                        @probe="onProbeWcs"
+                      />
+                    </v-col>
+                    <v-col cols="12">
+                      <nxt-probing-cycles-panel
+                        ref="probingCycles"
+                        @can-execute="onCyclesCanExecute"
+                      />
                     </v-col>
                     <v-col cols="12">
                       <nxt-probe-results-panel />
@@ -188,6 +197,7 @@ import MachineStatusPanel from './components/panels/MachineStatusPanel.vue'
 import ConfigurationPanel from './components/panels/ConfigurationPanel.vue'
 import ProbingCyclesPanel from './components/panels/ProbingCyclesPanel.vue'
 import ProbeResultsPanel from './components/panels/ProbeResultsPanel.vue'
+import WorkplaceOriginsPanel from './components/panels/WorkplaceOriginsPanel.vue'
 import MaintenancePanel from './components/panels/MaintenancePanel.vue'
 import CalibrationPanel from './components/panels/CalibrationPanel.vue'
 import VfdPanel from './components/panels/VfdPanel.vue'
@@ -208,6 +218,7 @@ export default defineNxtComponent({
     NxtCalibrationPanel: CalibrationPanel,
     NxtProbingCyclesPanel: ProbingCyclesPanel,
     NxtProbeResultsPanel: ProbeResultsPanel,
+    NxtWorkplaceOriginsPanel: WorkplaceOriginsPanel,
     NxtMaintenancePanel: MaintenancePanel,
     NxtVfdPanel: VfdPanel
   },
@@ -218,6 +229,7 @@ export default defineNxtComponent({
       preparingDaemon: false,
       resumingDaemon: false,
       daemonPausedForUpdate: false,
+      cyclesCanExecute: false
     }
   },
 
@@ -348,6 +360,27 @@ export default defineNxtComponent({
   },
 
   methods: {
+    onCyclesCanExecute(ok: boolean): void {
+      this.cyclesCanExecute = !!ok
+    },
+    async onProbeWcs(_wcs: number): Promise<void> {
+      await this.$nextTick()
+      const cycles = this.$refs.probingCycles as {
+        canExecute?: boolean
+        executeCycle?: () => Promise<void>
+      } | undefined
+      if (!cycles?.executeCycle) {
+        return
+      }
+      if (!cycles.canExecute) {
+        this.$store.dispatch('machine/showMessage', {
+          type: 'warning',
+          message: this.$t('plugins.nxt.panels.workplaceOrigins.probeNeedCycle').toString()
+        })
+        return
+      }
+      await cycles.executeCycle()
+    },
     onGotoCalibration() {
       this.activeTab = 'calibration'
     },

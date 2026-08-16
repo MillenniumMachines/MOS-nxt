@@ -64,6 +64,13 @@ var startZ = { global.nxtAbsPos[2] }
 
 var probeDistance = { var.pocketWidth / 2 + var.overtravel }
 var probeZ = { var.startZ - var.probeDepth }
+
+; Hoist before if/else — RRF block-scopes var declarations
+var resultX = 0
+var resultY = 0
+var calculatedCenter = 0
+var actualWidth = 0
+
 G6550 Z{var.probeZ}
 
 if { var.probeAxis == 0 }
@@ -77,10 +84,10 @@ if { var.probeAxis == 0 }
     G6512 X{var.xMinusTarget} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries}
     var minusEdge = { global.nxtLastProbeResult }
     G6550 X{var.centerX}
-    var calculatedCenter = { (var.plusEdge + var.minusEdge) / 2 }
-    var actualWidth = { var.plusEdge - var.minusEdge }
-    var resultX = { var.calculatedCenter }
-    var resultY = { var.centerY }
+    set var.calculatedCenter = { (var.plusEdge + var.minusEdge) / 2 }
+    set var.actualWidth = { var.plusEdge - var.minusEdge }
+    set var.resultX = { var.calculatedCenter }
+    set var.resultY = { var.centerY }
 else
     echo "G6505: Probing +Y edge"
     var yPlusTarget = { var.centerY + var.probeDistance }
@@ -92,10 +99,10 @@ else
     G6512 Y{var.yMinusTarget} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries}
     var minusEdge = { global.nxtLastProbeResult }
     G6550 Y{var.centerY}
-    var calculatedCenter = { (var.plusEdge + var.minusEdge) / 2 }
-    var actualWidth = { var.plusEdge - var.minusEdge }
-    var resultX = { var.centerX }
-    var resultY = { var.calculatedCenter }
+    set var.calculatedCenter = { (var.plusEdge + var.minusEdge) / 2 }
+    set var.actualWidth = { var.plusEdge - var.minusEdge }
+    set var.resultX = { var.centerX }
+    set var.resultY = { var.calculatedCenter }
 
 if { global.nxtProbeResults[var.pSlot] == null || #global.nxtProbeResults[var.pSlot] < 3 }
     set global.nxtProbeResults[var.pSlot] = { vector(#move.axes + 1, 0.0) }

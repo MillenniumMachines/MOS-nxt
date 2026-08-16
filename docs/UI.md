@@ -179,15 +179,15 @@ This document outlines the functionality of the legacy MillenniumOS User Interfa
 *   **Enabled Features:** (Not yet enabled).
 
 ### `ui/src/components/panels/WorkplaceOriginsPanel.vue`
-*   **Purpose:** To display and manage Work Coordinate System (WCS) origins (G54-G59.3).
+*   **Purpose:** Live Work Coordinate System (WCS) origins (G54–G59.3) on the Probing tab.
 *   **Key Functionality:**
-    *   Displays a table listing all available workplaces.
-    *   Shows the X, Y, Z offsets for each workplace.
-    *   Allows direct editing of individual axis offsets for each workplace using `mos-axis-input` components.
-    *   Clearly indicates the currently active workplace.
-    *   Provides buttons to activate a specific workplace and to clear a workplace's offsets (resetting them to zero).
-*   **How it works:** Extends `BaseComponent.vue`. It dynamically generates table `headers` and `items` based on `limits.workplaces` and visible axes. It uses `mos-axis-input` for inline editing of offsets. The `switchWorkplace` method sends G-code (e.g., `G54`, `G55`) to activate a workplace. The `clearWorkplace` method sends `G10 L2 P<workplace-number> X0 Y0 Z0` to reset offsets. `workplaceItemClass` and `selectWorkplace` handle visual selection and styling.
-*   **Enabled Features:** Provides comprehensive management of WCS origins, enabling operators to define, modify, activate, and reset coordinate systems directly from the UI. This is fundamental for setting up jobs and managing multiple work offsets.
+    *   Table of up to nine workplaces from RRF `move.axes[].workplaceOffsets` (not `nxtProbeResults`).
+    *   Inline edit of X/Y/Z (and A if visible) via `nxt-wcs-set.g` (`G10 L2` values; persist with `nxt-user-wcs-sync.g`).
+    *   Read-only rotation from `global.nxtWPDeg`.
+    *   Activate (`nxt-select-wcs.g`), run the configured probe cycle on that WCS, or clear (`nxt-wcs-clear.g` + `M5010`).
+    *   Selected row is shared `nxtUiState.selectedWcs` with Probing Cycles Target WCS and Probe Results Push to WCS.
+*   **How it works:** Extends `BaseComponent.vue`. Highlights the active OM workplace separately from the selected row. Activate never sends `G{53+n}` (that would be G60 for WCS7).
+*   **Enabled Features:** Operators can inspect, type in, switch, probe into, and zero work offsets without leaving the Probing tab.
 
 ---
 

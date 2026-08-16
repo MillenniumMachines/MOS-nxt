@@ -6,7 +6,7 @@ This document outlines the custom G and M codes implemented in nxt, detailing th
 
 ## nxt native probing: workplace `U`, skew, and `M6520`
 
-nxt **`G650x`** cycle macros accept **`U1`–`U9`** to select the target workplace (same numbering as **`M6520 W`** / `G10 L2 P`: **1 = G54**, …, **9** last standard offset). The probe result is stored at row **`P = U − 1`** in **`global.nxtProbeResults`**. With **`U`** set, the cycle ends by calling **`M6520`** directly with **`P`**, **`W=U`**, and the appropriate axis flags (`X` `Y`, etc.) — not via **`M98`** (which cannot pass **`P`**) — so the operator does not run **`M6520`** as a separate step.
+nxt **`G650x`** cycle macros accept **`U1`–`U9`** to select the target workplace (same numbering as **`M6520 W`** / `G10 L2 P`: **1 = G54**, …, **9** last standard offset). The probe result is stored at row **`P = U − 1`** in **`global.nxtProbeResults`**. With **`U`** set, most cycles call **`M6520`** directly with **`P`**, **`W=U`**, and the appropriate axis flags (`X1` `Y1`, etc.) — not via **`M98`** (which cannot pass **`P`**). **G6500** / **G6501** / **G6508** / **G6509** / **G6520** **G53**-park at the fit then call **`M98 P"nxt-wcs-apply.g"`** (no post-apply `G0`).
 
 **Legacy:** omit **`U`** and pass **`P`** only to store results without applying a WCS.
 
@@ -24,7 +24,9 @@ In nxt, **“skew” means in-plane workpiece rotation vs machine +X**, not mach
 
 **G68 polarity:** RRF **≥ 3.6.1** rotates **anticlockwise** for positive **R**. nxt passes measured θ through unchanged into **`G68 X0 Y0 R{θ}`** so a stock edge at +α from machine +X aligns programmed +X with that edge. Offline checks: `node dist/check-rotation-skew-math.mjs`.
 
-**`M6520`:** After **`G10 L2`** translation (axis flags apply even when the origin coordinate is **0**), optional **`G68`** when both **X** and **Y** are updated. **`Q`**: **0** = prompt; **1** = force; **2** = translation only. Successful **G68** arms job-scoped session globals **`nxtJobG68Deg`** / **`nxtJobG68Wcs`** (not saved to `nxt-user-vars.g`).
+**`M6520`:** After **`G10 L2`** of stored feature machine coords (same as **G650x.1**; not `machine − toolOffset`; never **L20**), stores θ in **`nxtWPDeg[W−1]`** when both **X** and **Y** are updated. **Does not issue `G68`**. Then **`G53 G1`** flagged **XY** to those stored millimetres (**Z/A pinned**; **never work `G0 X0 Y0`**, **never `G0 Z0`**). Callers raise to jog **startZ** first. **`M400`** before **G10** and before the park. Aborts a **0,0** XY origin if the mill is not near machine origin. **`Q`** arms job-start policy on **`nxtG68Policy`**: **0** = prompt at **M5011**; **1** = always at **M5011**; **2** = translation only. Always **G69** after the XY park so post-probe jogging is unrotated.
+
+**`M5011`:** CAM posts call this on WCS change / job start. Applies **`G68 X0 Y0 R{θ}`** from **`nxtWPDeg`** according to **`nxtG68Policy`**. Successful **G68** arms **`nxtJobG68Deg`** / **`nxtJobG68Wcs`** (not saved to `nxt-user-vars.g`).
 
 **`M6522`:** Circular mean of two θ slots when both non-zero.
 
@@ -34,7 +36,9 @@ In nxt, **“skew” means in-plane workpiece rotation vs machine +X**, not mach
 
 | Event | Behavior |
 |-------|----------|
-| **M6520** applies G68 | Set `nxtJobG68Deg` / `nxtJobG68Wcs` |
+| **M6520** | **G10 L2**, **G53 G1** flagged XY to stored origin (never Z0), store θ + **Q**, **G69**, clear `nxtJobG68Deg` / `nxtJobG68Wcs` |
+| **nxt-wcs-apply** | Same **G10 L2** + **Q** + **G69** (no **G0** — already G53-parked) |
+| **M5011** (job start) | Apply **G68** per **Q** (or **G69**); set session globals only when applied |
 | Toolchange (`tpost`) | Native **G6512** uses **G53** (safe under G68). End of `tpost` always **`nxt-job-g68-restore.g`** so **G6512.2**/**G37.1** `G69` does not drop job rotation |
 | Pause / resume | Leave G68; resume re-asserts restore helper if needed |
 | **cancel.g** | Always **`nxt-job-g68-clear.g`** (`G69` + null globals) |
@@ -286,17 +290,16 @@ In nxt, **“skew” means in-plane workpiece rotation vs machine +X**, not mach
 ### M5011: APPLY ROTATION COMPENSATION
 
 *   **Code:** `M5011`
-*   **Description:** Applies rotation compensation to the current Work Coordinate System (WCS) if a rotation has been previously probed and stored for that WCS. This helps align machining operations with a rotated workpiece.
+*   **Description:** At **job start**, applies rotation compensation (`G68`) to the current Work Coordinate System if a rotation was previously probed and stored. Probing (**M6520**) stores θ and policy but does **not** apply **G68**.
 *   **Arguments:**
-    *   `W<work-offset>`: (Optional) The 0-indexed work offset number for which to apply rotation compensation. Defaults to the current workplace number.
+    *   `W<work-offset>`: (Optional) The 0-indexed work offset number. Defaults to the current workplace number.
 *   **How it works:**
-    *   Validates the `W` parameter, ensuring it's within the valid range of workplaces.
-    *   Checks `global.mosWPDeg[var.workOffset]` to determine if a non-default rotation angle has been stored for the specified WCS.
-    *   If a rotation exists:
-        *   It prompts the user via `M291` to confirm applying the rotation compensation, displaying the detected angle.
-        *   If the user confirms, it applies the rotation using the `G68` command, rotating around the origin (X0 Y0) by the stored angle.
-        *   It echoes a confirmation message about the applied rotation.
-    *   If no rotation exists or the user cancels, it executes `G69` to cancel any existing rotation compensation.
+    *   Validates the `W` parameter against `limits.workplaces`.
+    *   Reads `global.nxtWPDeg[var.workOffset]` (stored by **M6520** / **nxt-wcs-apply** on XY apply) and `global.nxtG68Policy` (last probe **Q**).
+    *   **Q2** or no non-trivial θ: **`G69`**, clear `nxtJobG68Deg` / `nxtJobG68Wcs`.
+    *   **Q1**: apply **`G68 X0 Y0 R{θ}`** without prompt; arm session globals.
+    *   **Q0** (default): `M291` Apply/Skip; **G68** or **G69** accordingly.
+    *   CAM posts emit **M5011** after switching WCS.
 
 ### M5012: RESET PROBE COUNTS
 

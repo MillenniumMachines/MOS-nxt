@@ -8,6 +8,7 @@
 ;
 ; atan2(dy,dx) of the segment between averaged contacts gives edge angle; midpoint is stored as
 ; XY “anchor” point with that θ in the rotation slot for M6520.
+; Finish: G6550 to startZ (XY pinned), then G6550 to midpoint XY, then M6520.
 ;
 ; USAGE: G6506 P|U N<axis> D<dir> S<spacing> L<depth> [F] [R] [O] [T] [Q]
 
@@ -156,6 +157,10 @@ set global.nxtProbeResults[var.pSlot][#move.axes] = { var.rotationDeg }
 echo "G6506: Edge midpoint X=" ^ var.midpointX ^ " Y=" ^ var.midpointY
 echo "G6506: Edge angle vs machine X: " ^ var.rotationDeg ^ " deg"
 echo "G6506: Index " ^ var.pSlot
+
+; Raise to startZ with XY pinned (G6550 +Z pins current XY), then midpoint XY
+G6550 Z{var.startZ}
+G6550 X{var.midpointX} Y{var.midpointY}
 
 if { exists(param.U) && param.U != null }
     if { exists(param.Q) && param.Q != null }
