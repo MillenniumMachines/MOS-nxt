@@ -65,7 +65,7 @@ These features form the core of the new nxt system and must be implemented for t
 - [x] **UI-Driven Probing:** All probing cycles will be initiated and configured through the DWC UI. Probing tab **Work offsets** lists live G54–G59.3 (`workplaceOffsets`), with edit / activate / probe / clear.
 
 #### **Machine Control**
-- [x] **Spindle Control:** Core macros for safe spindle start/stop with acceleration waits (`M3.9`, `M4.9`, `M5.9`). Unset accel wait floors to **10 s**; ArborCTL VFD Apply persists the real ramp into `nxtSpindleAccelSec` / `nxtSpindleDecelSec`.
+- [x] **Spindle Control:** Core macros for safe spindle start/stop with acceleration waits (`M3.9`, `M4.9`, `M5.9`). Unset accel/decel wait floors to **10 s**; ArborCTL VFD Apply persists the real ramp into `nxtSpindleAccelSec` / `nxtSpindleDecelSec`.
 - [x] **Coolant Control:** Core macros for coolant control (`M7`, `M8`, `M9`, and `M7.1`).
 - [x] **Coolant pulse:** Optional per-type pulsing for mist (`M7`) and flood (`M8`); defaults 5 s ON / 25 s OFF; configured in DWC Configuration.
 - [x] **Parking (`G27`):** A critical macro for moving the machine to a safe, known position.
@@ -78,7 +78,7 @@ These features form the core of the new nxt system and must be implemented for t
 These features add value but are not part of the initial core rewrite. They can be implemented in a later phase after the critical systems are stable.
 
 - [x] **Drilling Canned Cycles:** `G80`, `G81`, `G73`, `G83`, plus `G82`, `G85`, `G89`, and `G98`/`G99` retract mode (see `docs/CODE.md` §8.1). LinuxCNC-oriented; absolute XY/Z only in v1.
-- [ ] **Variable Spindle Speed Control (VSSC):** Planned for a later phase; not yet implemented in nxt (legacy MillenniumOS VSSC is not ported). See `docs/ROADMAP.md`.
+- [x] **Variable Spindle Speed Control (VSSC):** CAM `M7000 P… V…` / `M7001`; daemon sine around programmed RPM (`nxt-run-vssc.g`). No operator override UI yet.
 - [ ] **Spindle Feedback:** Use sensor input to detect when the spindle has reached target speed or stopped.
 - [x] **Stock Preparation UI (Issue #34):** A dedicated UI panel for generating facing toolpaths to prepare raw stock. Features include:
   - [x] Multiple pattern types: rectilinear, zigzag, and spiral

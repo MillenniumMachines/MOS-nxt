@@ -12,6 +12,7 @@ This document provides reference documentation for custom G-codes and M-codes im
   - [M3.9 / M4.9 / M5.9](#m39-m49-m59-spindle-control)
   - [M7 / M7.1 / M8 / M9](#m7-m71-m8-m9-coolant-control)
   - [M80.9 / M81.9](#m809-m819-atx-power-control)
+  - [M7000 / M7001](#m7000-m7001-variable-spindle-speed-control)
   - [M4000](#m4000-define-tool) … [M6525](#m6525-prepare-for-plugin-update)
 - [Global Variables](#global-variables)
 - [Workflow Examples](#workflow-examples)
@@ -406,7 +407,19 @@ Safe spindle start/stop with acceleration waits.
 - `M4.9 S<rpm>` - Start spindle counter-clockwise
 - `M5.9` - Stop spindle
 
-**Dwell:** `M3.9` / `M4.9` wait `nxtSpindleAccelSec` (or `nxtSpindleDecelSec` when slowing), scaled by `|current−S|/max`. If that global is **unset or ≤0**, wait **10 s** then scale. Boot default in `nxt-vars.g` is **10**. ArborCTL **VFD Apply** writes `nxtSpindleAccelSec` / `nxtSpindleDecelSec` from the VFD ramp into `arborctl-user-vars.g` and `nxt-user-vars.g` (do not persist `= null`). `D` overrides the wait. Hold-to-measure on Configuration is the non-VFD path; when ArborCTL is live those fields are owned by the VFD tab.
+**Dwell:** `M3.9` / `M4.9` wait `nxtSpindleAccelSec` (or `nxtSpindleDecelSec` when slowing), scaled by `|current−S|/max`. `M5.9` waits `nxtSpindleDecelSec`, scaled by `|current|/max`. If that global is **unset or ≤0**, wait **10 s** then scale. Boot default in `nxt-vars.g` is **10** for both accel and decel. ArborCTL **VFD Apply** writes `nxtSpindleAccelSec` / `nxtSpindleDecelSec` from the VFD ramp into `arborctl-user-vars.g` and `nxt-user-vars.g` (do not persist `= null`). `D` overrides the wait. Hold-to-measure on Configuration is the non-VFD path; when ArborCTL is live those fields are owned by the VFD tab.
+
+---
+
+### M7000, M7001: Variable Spindle Speed Control
+
+CAM-driven VSSC. The daemon slowly varies commanded spindle RPM around the programmed speed (sine over period `P`, peak/trough **half** of variance `V`) so resonances cannot build. Fusion/FreeCAD posts emit these by default.
+
+**Usage:**
+- `M7000 P<period-ms> V<variance-rpm>` — enable (period must be a multiple of `nxtDaemonInterval`, default **250** ms)
+- `M7001` — disable and restore the last programmed base RPM
+
+**Runtime globals** (session only; not written to `nxt-user-vars.g`): `nxtVSEnabled`, `nxtVSP`, `nxtVSV`, `nxtVSPS`, `nxtVSPT`. The tick runs from `nxt-daemon.g` → `nxt-run-vssc.g`. ArborCTL follows `spindles[].active` on the next poll; there is no Configuration UI toggle in this pass.
 
 ---
 

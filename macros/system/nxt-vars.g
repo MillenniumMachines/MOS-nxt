@@ -208,9 +208,16 @@ if { !exists(global.nxtSpindleAccelSec) }
 else
     set global.nxtSpindleAccelSec = 10
 if { !exists(global.nxtSpindleDecelSec) }
-    global nxtSpindleDecelSec = null
+    global nxtSpindleDecelSec = 10
 else
-    set global.nxtSpindleDecelSec = null
+    set global.nxtSpindleDecelSec = 10
+
+; VSSC session state (M7000/M7001 overlay; do not persist to nxt-user-vars.g)
+global nxtVSEnabled = false ; Daemon gate for nxt-run-vssc.g
+global nxtVSP = 0           ; Period (ms) of one speed-adjustment cycle
+global nxtVSV = 0           ; Full-swing variance (RPM)
+global nxtVSPS = 0          ; Programmed base RPM
+global nxtVSPT = 0          ; Last phase timestamp (millis())
 
 ; --- Canned drilling cycles (G81, G73, G83, …) ---
 ; When non-null, nxtCannedCycle is a vector:

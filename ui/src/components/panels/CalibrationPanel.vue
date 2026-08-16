@@ -1746,7 +1746,10 @@ export default defineNxtComponent({
       }
       this.probeLoadBusy = true
       try {
-        await enableNxtProbeTool((c: string) => this.sendCode(c), toolId)
+        await enableNxtProbeTool(
+          (c: string) => this.sendCode(c),
+          toolId
+        )
         this.show(
           this.$t('plugins.nxt.panels.calibration.enableProbeDone', [toolId]).toString(),
           'success'

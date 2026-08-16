@@ -32,20 +32,19 @@ while { iterations < #spindles && !var.doWait }
 
 ; Must calculate dwell time before spindle speed is changed.
 
-; Default is to not dwell
-var dwellTime = 0
+; Dwell: nxtSpindleDecelSec (10 s if unset/<=0). D overrides.
+var dwellTime = 10
+if { exists(global.nxtSpindleDecelSec) }
+    if { global.nxtSpindleDecelSec != null }
+        if { global.nxtSpindleDecelSec > 0 }
+            set var.dwellTime = { global.nxtSpindleDecelSec }
 
 ; D parameter always overrides the dwell time
 if { exists(param.D) }
     set var.dwellTime = { param.D }
 elif { var.doWait }
-    ; Dwell time defaults to the previously timed spindle deceleration time.
-    set var.dwellTime = { global.nxtSpindleDecelSec }
-
-    ; We want to run M5 regardless of if var.spindleID is valid or not, so we check
-    ; for nulls on the individual values before doing the dwellTime calculation.
-    ; If the current spindle is not valid then M5 will be called but we wont
-    ; wait for it to stop.
+    ; Scale wait by |current|/max. If the indexed spindle is invalid,
+    ; M5 still runs below but we do not wait.
     if { spindles[var.spindleID].current != null && spindles[var.spindleID].max != null }
         set var.dwellTime = { ceil(var.dwellTime * (abs(spindles[var.spindleID].current) / spindles[var.spindleID].max) * 1.05) }
 
@@ -60,7 +59,7 @@ M5
 if { !var.doWait }
     M99
 
-; Spindle feedback functionality is now part of the 'Nice-to-Have' features and will be implemented later.
-
-elif { var.dwellTime > 0 }
+if { var.dwellTime > 0 }
+    if { !global.nxtExpertMode }
+        echo { "nxt: Waiting " ^ var.dwellTime ^ " seconds for spindle #" ^ var.spindleID ^ " to stop" }
     G4 S{var.dwellTime}

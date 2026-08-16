@@ -22,6 +22,10 @@ if { exists(global.nxtDaemonHookToolsReload) && global.nxtDaemonHookToolsReload 
 if { exists(global.nxtCoolantPulseActive) && global.nxtCoolantPulseActive }
     M98 P"nxt-coolant-pulse-daemon.g"
 
+; Variable Spindle Speed Control (M7000 / M7001)
+if { exists(global.nxtVSEnabled) && global.nxtVSEnabled }
+    M98 P"nxt-run-vssc.g"
+
 ; RGB status LED renderer
 if { global.nxtFeatureRgbLight }
     M98 P"nxt/nxt-run-rgb.g"

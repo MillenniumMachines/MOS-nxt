@@ -15,7 +15,7 @@ We build _on top of_ RepRapFirmware, providing operators of the Millennium Machi
 - Canned probing cycles usable directly from gcode or via Duet Web Control as named macros.
 - Fallbacks to guided manual probing when touch probe and / or toolsetter is not available.
 - Safety checks at every step to instill confidence in novice machinists.
-- Variable Spindle Speed Control (planned; not yet in v0.6 betas).
+- Variable Spindle Speed Control (`M7000` / `M7001`; CAM posts enable this by default).
 - Compatible with Millennium Machines Milo GCode Dialect.
 
 ## Usage
