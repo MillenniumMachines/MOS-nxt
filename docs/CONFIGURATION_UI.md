@@ -70,7 +70,7 @@ Select the machine platform and board pack that match your hardware. Platforms a
 
 | Control | Description |
 |---------|-------------|
-| **Platform** | e.g. `v1.5`, `v1.6`, `v2.0`, or `custom` — sets `global.nxtPlatformProfile` |
+| **Platform** | e.g. `v1.5`, `v1.6`, `v2.0-milo`, `v2.0-miley`, or `custom` — sets `global.nxtPlatformProfile` |
 | **Board profile** | Override `global.nxtBoardShortNameOverride` or leave Auto (first board in object model) |
 | **Scylla motor voltage** | Required for Scylla packs: `24` or `48` V variant |
 | **Bootstrap mode** | **Auto** — Save creates `0:/sys/nxt-board-bootstrap.requested`. **Off** — Save removes it. |
@@ -78,7 +78,7 @@ Select the machine platform and board pack that match your hardware. Platforms a
 | **Check SD board packs** | Compares bundled manifest to `0:/sys/nxt-config/` (stale plugin warning) |
 | **Save Configuration** | Writes `nxt-user-vars.g` including `nxtBoardPackExpectedEntry` and syncs bootstrap sentinels |
 
-When you change platform, the UI may prompt to deploy homing files for that platform immediately. Homing direction requirements differ between v1.5 and v1.6/v2.0 — see [NXT_BOARD_HOMING.md](NXT_BOARD_HOMING.md).
+When you change platform, the UI may prompt to deploy homing files for that platform immediately. Homing direction requirements differ between v1.5, v1.6, V2.0 Milo, and V2.0 Miley — see [NXT_BOARD_HOMING.md](NXT_BOARD_HOMING.md).
 
 Platform **Custom** expands Configuration with:
 
@@ -320,7 +320,7 @@ To restore configuration:
 ## Related Documentation
 
 - [Board configuration & pack layout](NXT_BOARD_CONFIG.md)
-- [Homing requirements (v1.5 vs v1.6 / v2.0 / custom)](NXT_BOARD_HOMING.md)
+- [Homing requirements (v1.5 vs v1.6 / v2.0-milo / v2.0-miley / custom)](NXT_BOARD_HOMING.md)
 - [UI Implementation Details](UI_IMPLEMENTATION.md)
 - [Features Overview](FEATURES.md)
 - [Development Roadmap](ROADMAP.md)

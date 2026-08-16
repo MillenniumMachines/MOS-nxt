@@ -35,8 +35,11 @@ function machineDisplayTitle(id: string, overviewTitle: string): string {
   if (id === 'v1.6') {
     return 'Milo v1.6'
   }
-  if (id === 'v2.0') {
-    return 'Milo v2.0'
+  if (id === 'v2.0-milo' || id === 'v2.0') {
+    return 'V2.0 Milo'
+  }
+  if (id === 'v2.0-miley') {
+    return 'V2.0 Miley'
   }
   if (id === 'custom') {
     return 'Custom'
@@ -44,7 +47,7 @@ function machineDisplayTitle(id: string, overviewTitle: string): string {
   return overviewTitle.replace(/\s*(nxt)\s*$/i, '').trim() || id
 }
 
-/** Migrate legacy combined platform id to v1.6. */
+/** Migrate legacy platform ids (combined v1.6_v2; unsplit v2.0). */
 export function migratePlatformProfileId(id: string | null | undefined): string | null {
   if (id == null || typeof id !== 'string') {
     return null
@@ -55,6 +58,9 @@ export function migratePlatformProfileId(id: string | null | undefined): string 
   }
   if (s === 'v1.6_v2') {
     return 'v1.6'
+  }
+  if (s === 'v2.0') {
+    return 'v2.0-milo'
   }
   return s
 }

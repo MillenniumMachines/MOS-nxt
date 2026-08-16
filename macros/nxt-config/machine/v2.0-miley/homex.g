@@ -1,5 +1,5 @@
-; homex.g — nxt platform v2.0 (Milo v2.0)
-; Requirements: see docs/NXT_BOARD_HOMING.md (v2.0 — X toward min)
+; homex.g — nxt platform v2.0-miley (V2.0 Miley)
+; Requirements: see docs/NXT_BOARD_HOMING.md (v2.0-miley — X toward max)
 
 ; homex.g - Lifts Z, then homes X using existing machine limits.
 
@@ -11,16 +11,16 @@ G94
 ; Raise Z towards machine limit as it is already homed
 G53 G0 Z{move.axes[2].max}
 
-; Move quickly to X axis endstop and stop there (first pass)
-G53 G1 H1 X{-(move.axes[0].max - move.axes[0].min + 5) } F{1800}
+; Move quickly to X axis endstop and stop there (first pass) — toward X max
+G53 G1 H1 X{move.axes[0].max - move.axes[0].min + 5} F{1800}
 
 ; Endstop should now be triggered, verify
 if { ! sensors.endstops[0].triggered }
     abort {"X endstop not triggered after full axis travel. Check that your X motor is connected and the endstop is working!"}
 
 ; Move away from X endstop
-G53 G1 H2 X{5}
+G53 G1 H2 X{-5}
 
 ; Repeat X home at low speed. Do not move further than
 ; 2 * 5 further than the expected endstop location.
-G53 G1 H1 X{-5*2} F{180}
+G53 G1 H1 X{5*2} F{180}

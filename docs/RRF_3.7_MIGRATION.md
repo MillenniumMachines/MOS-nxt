@@ -49,7 +49,7 @@ config.g → M98 P"nxt.g"
        → else: M98 P"nxt-config/machine/<profile>/network-default.g"
 ```
 
-**Vendored defaults** ([`network-default.g`](../macros/nxt-config/machine/v1.5/network-default.g) for `v1.5`, `v1.6`, `v2.0`, and `custom`) already include (standalone only):
+**Vendored defaults** ([`network-default.g`](../macros/nxt-config/machine/v1.5/network-default.g) for `v1.5`, `v1.6`, `v2.0-milo`, `v2.0-miley`, and `custom`) already include (standalone only):
 
 ```gcode
 if { exists(sbc) }

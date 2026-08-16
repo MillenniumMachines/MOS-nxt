@@ -14,7 +14,7 @@ nxt-config/
       motor-24v/ | motor-48v/ Optional supply variants
 
   machine/
-    <machineId>/              global.nxtPlatformProfile (e.g. v1.5, v1.6, v2.0, custom)
+    <machineId>/              global.nxtPlatformProfile (e.g. v1.5, v1.6, v2.0-milo, v2.0-miley, custom)
       OVERVIEW.txt
       entry.g                 Machine motion chain (no homing at boot)
       movement.g, limits.g, general.g, network-default.g, steps.g
@@ -31,7 +31,8 @@ Build-time manifest: `dist/generate-nxt-config-manifest.mjs` → `ui/src/generat
 |---------|---------------|-----------------|
 | `v1.5` | Y → max, Z steps 1600 | `scylla1_0_h723` 24/48 V |
 | `v1.6` | Y → min (Y0), Z steps 800 | same board tree |
-| `v2.0` | Same as v1.6 for now (diverge when hardware differs) | same board tree |
+| `v2.0-milo` | Moving-table X, Y → min (Y0), Z steps 800; X homes to min | same board tree |
+| `v2.0-miley` | Stationary X, Y → min (Y0), Z steps 800; X homes to max, X308 | same board tree |
 | `custom` | Generated home*.g from endstop Min/Max; full Custom editor (`nxtCustom*`) | same board tree |
 
 **RRF 3.7:** Fly CDYv3 (`cdy3_f4`) is **not** supported and is not shipped. Use Scylla packs only.
@@ -71,7 +72,7 @@ Machine packs load network settings from **`machine/<id>/entry.g`** (not board p
 1. If **`0:/sys/network.g`** exists → `M98 P"network.g"` (user override; nxt does not ship this file).
 2. Else → `M98 P"nxt-config/machine/<id>/network-default.g"` (vendored default).
 
-**`network-default.g`** (v1.5 / v1.6 / v2.0 / custom) enables WiFi AP mode and **`M586 P0 S1`** (HTTP) on **standalone** boards. On **RRF 3.7+**, HTTP is off by default — the default file satisfies DWC and nxt Configuration saves without editing root `config.g`. In **SBC mode** (`exists(sbc)`), it skips `M552`/`M586` so boot does not error; the Pi/DSF owns networking.
+**`network-default.g`** (v1.5 / v1.6 / v2.0-milo / v2.0-miley / custom) enables WiFi AP mode and **`M586 P0 S1`** (HTTP) on **standalone** boards. On **RRF 3.7+**, HTTP is off by default — the default file satisfies DWC and nxt Configuration saves without editing root `config.g`. In **SBC mode** (`exists(sbc)`), it skips `M552`/`M586` so boot does not error; the Pi/DSF owns networking.
 
 | Situation | Action |
 |-----------|--------|

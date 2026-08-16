@@ -106,7 +106,7 @@ export const NXT_GLOBAL_MANIFEST: NxtGlobalManifestEntry[] = [
   { key: 'nxtCannedCycle', description: 'Active canned cycle state vector' },
   { key: 'nxtCannedRetractMode', description: 'G98/G99 retract mode' },
   { key: 'nxtCannedZi', description: 'Canned cycle scratch: Z axis index' },
-  { key: 'nxtPlatformProfile', description: 'Machine profile (v1.5 / v1.6 / v2.0 / custom); nxt-config/machine/<id>/ at boot' },
+  { key: 'nxtPlatformProfile', description: 'Machine profile (v1.5 / v1.6 / v2.0-milo / v2.0-miley / custom); nxt-config/machine/<id>/ at boot' },
   { key: 'nxtCustomXMin', description: 'Custom platform X min (M208)' },
   { key: 'nxtCustomXMax', description: 'Custom platform X max (M208)' },
   { key: 'nxtCustomYMin', description: 'Custom platform Y min (M208)' },

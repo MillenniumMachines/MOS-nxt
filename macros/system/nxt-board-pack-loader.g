@@ -53,6 +53,11 @@ if { !exists(global.nxtPlatformProfile) || global.nxtPlatformProfile == null || 
     M117 "nxt board pack no platform"
     M99
 
+; one-release alias: former v2.0 id → v2.0-milo (OVERVIEW lives under the new directory)
+if { global.nxtPlatformProfile == "v2.0" }
+    set global.nxtPlatformProfile = "v2.0-milo"
+    echo "[nxt] machine pack: aliased v2.0 → v2.0-milo"
+
 if { !fileexists("0:/sys/nxt-config/machine/" ^ global.nxtPlatformProfile ^ "/OVERVIEW.txt") }
     if { !fileexists("0:/sys/nxt/config/" ^ global.nxtPlatformProfile ^ "/OVERVIEW.txt") }
         echo "[nxt] board pack: machine profile not on SD — reinstall nxt plugin"

@@ -124,7 +124,7 @@ To install the nxt plugin on your physical machine:
 3. Click **Install Plugin** and upload the ZIP. Start the plugin once installed.
 4. **Mandatory Firmware Step:** Open your `0:/sys/config.g` via the System Directory and add `M98 P"nxt.g"` to the end of the file. (If you are upgrading from `mos`, ensure you remove the old `M98 P"mos.g"` and replace it with `nxt.g`).
 5. Run `M999` to restart the board and load the new nxt globals.
-6. In **Configuration**, select your **platform** (`v1.5`, `v1.6`, `v2.0`, or `custom`), then **Apply platform sys files** so `0:/sys/home*.g` match that platform ([homing requirements](docs/NXT_BOARD_HOMING.md)).
+6. In **Configuration**, select your **platform** (`v1.5`, `v1.6`, `v2.0-milo`, `v2.0-miley`, or `custom`), then **Apply platform sys files** so `0:/sys/home*.g` match that platform ([homing requirements](docs/NXT_BOARD_HOMING.md)).
 7. Optional tuning: the plugin installs `0:/sys/nxt-user-overrides.g.example`; copy it to `nxt-user-overrides.g` to override globals last in `nxt.g` before `global.nxtLoaded` is set (probe repeatability, etc.).
 
 ## DWC Plugin Development

@@ -1,5 +1,5 @@
-; homey.g — nxt platform v2.0 (Milo v2.0)
-; Requirements: see docs/NXT_BOARD_HOMING.md (v2.0 — Y toward min / Y0)
+; homey.g — nxt platform v2.0-miley (V2.0 Miley)
+; Requirements: see docs/NXT_BOARD_HOMING.md (v2.0-miley — Y toward min / Y0)
 
 ; homey.g - Lifts Z, then homes Y using existing machine limits.
 
