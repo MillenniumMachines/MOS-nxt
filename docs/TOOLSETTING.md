@@ -1,6 +1,6 @@
-# NeXT Tool Setting and Offsetting Workflow
+# nxt Tool Setting and Offsetting Workflow
 
-This document outlines the complete tool setting and Z-offsetting workflow for NeXT. It combines a **Static Datum** (calibrated once) for machine geometry with a **Relative Offsetting** (with caching) approach for tool changes to ensure accuracy, efficiency, and ease of use.
+This document outlines the complete tool setting and Z-offsetting workflow for nxt. It combines a **Static Datum** (calibrated once) for machine geometry with a **Relative Offsetting** (with caching) approach for tool changes to ensure accuracy, efficiency, and ease of use.
 
 ---
 

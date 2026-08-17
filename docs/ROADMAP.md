@@ -1,15 +1,15 @@
-# NeXT Rewrite Roadmap
+# nxt Rewrite Roadmap
 
-This document outlines the development roadmap for the complete rewrite of MillenniumOS, codenamed "NeXT" (Next-Gen Extended Tooling). The primary goal is to refactor the system for simplicity, accuracy, and maintainability, starting from a clean slate.
+This document outlines the development roadmap for the complete rewrite of MillenniumOS as **nxt**. The primary goal is to refactor the system for simplicity, accuracy, and maintainability, starting from a clean slate.
 
-**Development repository:** [MillenniumMachines/NeXT](https://github.com/MillenniumMachines/NeXT) — active line on branch `v0.6.0`, pre-releases tagged `v0.6.0-beta.N`.
+**Development repository:** [MillenniumMachines/MOS-nxt](https://github.com/MillenniumMachines/MOS-nxt) — active line on branch `v0.6.0`, pre-releases tagged `v0.6.0-beta.N`.
 
 ---
 
 ## Project Naming and Conventions
 
-- **Project Name:** The official name for this rewrite is **NeXT**.
-- **Variable Naming:** All global variables created for the NeXT system must be prefixed with `nxt` to avoid conflicts with other plugins or user variables (e.g., `nxtDeltaMachine`).
+- **Product name:** **nxt** (lowercase). Unofficial repo name: **MOS-nxt**.
+- **Variable Naming:** All global variables created for the nxt system must be prefixed with `nxt` to avoid conflicts with other plugins or user variables (e.g., `nxtDeltaMachine`).
 - **File Naming:** Core system files should also adopt this prefix where appropriate (e.g., the main entrypoint will be `nxt.g`).
 
 ---
@@ -38,7 +38,7 @@ The goal of this phase is to establish a clean and organized repository structur
         *   `macros/utilities/` (for parking, reloading, power control etc.)
 
 4.  **New Repository:** ✅
-    *   The new directory structure lives in the NeXT repository ([MillenniumMachines/NeXT](https://github.com/MillenniumMachines/NeXT)).
+    *   The new directory structure lives in the MOS-nxt repository ([MillenniumMachines/MOS-nxt](https://github.com/MillenniumMachines/MOS-nxt)).
     *   This provides full control over development and refactoring without affecting legacy MillenniumOS macro sources in the old repo.
     *   Stable releases will merge to `main`; the `v0.6.0` branch carries the current beta line.
 
@@ -186,10 +186,10 @@ Pre-releases on `v0.6.0` (`v0.6.0-beta.1` …). Themes shipped in recent betas:
 | Theme | Status |
 |-------|--------|
 | Strict consecutive-pair probe tolerance (`G6512`, 3 touches, default 0.0075 mm) | ✅ beta.5+ |
-| MOS → NeXT configuration migration (`nxt-mos-import.g`, auto-detect on boot) | ✅ |
+| MOS → nxt configuration migration (`nxt-mos-import.g`, auto-detect on boot) | ✅ |
 | `auto-major` DWC/RRF compatibility in built `plugin.json` | ✅ |
 | Configuration panel save to SD via DWC upload API | ✅ |
-| CI: NeXT-only checkout; DWC via read-only tarball (`ci/dwc-build-ref` → v3.6.2) | ✅ beta.6+ |
+| CI: nxt-only checkout; DWC via read-only tarball (`ci/dwc-build-ref` → v3.6.2) | ✅ beta.6+ |
 
 Manual DWC install and smoke-test remain required before treating a beta as release-ready (see `.cursor/rules/release-plugin-verify.mdc`).
 
@@ -221,7 +221,7 @@ This phase focuses on testing, documentation, and preparing for a public release
 2.  **Documentation:**
     *   Update all documentation (`README.md`, `DETAILS.md`, `UI.md`, etc.) to reflect the new architecture, features, and UI workflow.
     *   Create a migration guide for existing MillenniumOS users (`docs/MIGRATION.md`).
-    *   Rewrite [millennium-os manual](https://millenniummachines.github.io/docs/millennium-os/) on `next-docs` branch (install NeXT ZIP, Configuration panel, probing tolerance, MOS import).
+    *   Rewrite [millennium-os manual](https://millenniummachines.github.io/docs/millennium-os/) on `next-docs` branch (install nxt ZIP, Configuration panel, probing tolerance, MOS import).
     *   Align README / FEATURES with implemented vs planned items (e.g. VSSC).
 
 3.  **Release Preparation:**

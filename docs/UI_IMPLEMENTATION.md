@@ -1,6 +1,6 @@
-# NeXT UI Plugin
+# nxt UI Plugin
 
-This directory contains the Vue.js-based UI plugin for NeXT (Next-Gen Extended Tooling) that integrates with Duet Web Control (DWC).
+This directory contains the Vue.js-based UI plugin for **nxt** that integrates with Duet Web Control (DWC).
 
 ## Phase 2.1 Implementation Status
 
@@ -9,12 +9,12 @@ This directory contains the Vue.js-based UI plugin for NeXT (Next-Gen Extended T
 - `plugin.json` manifest file for DWC registration
 - Main Vue plugin entry point (`src/index.ts`)
 - Base component with common functionality (`BaseComponent.vue`)
-- Main layout component (`NeXT.vue`)
+- Main layout component (`nxt.vue`)
 - Core Status Widget for persistent machine status display
 - Action Confirmation Widget for M291 dialog integration
 - Component registration system for modular organization
 - Localization support (English)
-- Integration with NeXT global variables
+- Integration with nxt global variables
 
 ## Phase 2.2 Implementation Status
 
@@ -34,13 +34,13 @@ This directory contains the Vue.js-based UI plugin for NeXT (Next-Gen Extended T
 ## Components
 
 ### Core Components
-- **`NeXT.vue`**: Main dashboard layout with tabbed interface
+- **`nxt.vue`**: Main dashboard layout with tabbed interface
 - **`BaseComponent.vue`**: Foundation component with common properties and methods
 
 ### Panel Components
 - **`StatusWidget.vue`**: Persistent status bar showing tool, WCS, spindle, and position
 - **`ActionConfirmationWidget.vue`**: Non-blocking dialog interface for M291 dialogs
-- **`MachineStatusPanel.vue`**: Detailed machine and NeXT system status
+- **`MachineStatusPanel.vue`**: Detailed machine and nxt system status
 - **`ConfigurationPanel.vue`**: Comprehensive settings interface replacing G8000 wizard
 
 ### Wizard Components
@@ -58,7 +58,7 @@ This directory contains the Vue.js-based UI plugin for NeXT (Next-Gen Extended T
 1. **Vue 2.7 Architecture**: Clean, modern Vue.js structure
 2. **DWC Integration**: Proper plugin registration and store integration
 3. **Persistent UI**: Non-blocking status and dialog widgets
-4. **Global Variable Integration**: Direct access to NeXT backend variables
+4. **Global Variable Integration**: Direct access to nxt backend variables
 5. **Modular Design**: Component-based architecture for easy extension
 6. **Localization Ready**: i18n support with English strings
 
@@ -66,7 +66,7 @@ This directory contains the Vue.js-based UI plugin for NeXT (Next-Gen Extended T
 
 The Action Confirmation Widget integrates with the M291 dialog system from PR #16:
 - **MessageBoxDialog Override**: Replaces DWC's built-in MessageBoxDialog component with conditional rendering
-- **Persistent Dialogs**: When NeXT UI is active, dialogs appear in the ActionConfirmationWidget instead of blocking modals
+- **Persistent Dialogs**: When nxt UI is active, dialogs appear in the ActionConfirmationWidget instead of blocking modals
 - **Critical Message Fallback**: Emergency/error messages still show as blocking modals for safety
 - **Automatic Detection**: Uses `global.nxtLoaded` and message content analysis to determine MessageBox rendering mode
 - Responds to dialogs using M292 commands

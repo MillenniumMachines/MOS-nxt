@@ -1,17 +1,17 @@
-# NeXT Plugin Spec
+# nxt Plugin Spec
 
-NeXT plugins reuse DWC `plugin.json` metadata and generate RRF macro dispatchers at build time. Runtime macros never parse JSON.
+nxt plugins reuse DWC `plugin.json` metadata and generate RRF macro dispatchers at build time. Runtime macros never parse JSON.
 
 ## Metadata Source
 
-Each plugin uses DWC `plugin.json` and may include NeXT runtime metadata in `data.nxt`.
+Each plugin uses DWC `plugin.json` and may include nxt runtime metadata in `data.nxt`.
 
 ### Required DWC Fields
 
 - `id`
 - `version`
 
-### NeXT Metadata (`data.nxt`)
+### nxt Metadata (`data.nxt`)
 
 - `tag` (string): must equal `nxt-plugin` to opt in.
 - `enabled` (bool): defaults to `true` if omitted.
@@ -29,7 +29,7 @@ Example snippet:
 
 ```json
 {
-  "id": "NeXT",
+  "id": "nxt",
   "version": "1.0.0",
   "data": {
     "nxt": {
@@ -84,12 +84,15 @@ dispatcher generation.
 Use `docs/future-state-plugin-template.md` for net-new plugin requirements,
 catalog usage, and baseline automation patterns for external plugin repos.
 
+For local build, test, and sibling-directory layout, see
+[LOCAL_PLUGIN_BUILD_AND_TEST.md](LOCAL_PLUGIN_BUILD_AND_TEST.md).
+
 ## Runtime Integration Points
 
 - `nxt.g` calls the generated init dispatcher once boot checks pass.
 - `nxt-daemon.g` runs every daemon cycle and calls init dispatcher first, daemon dispatcher second.
 - system event macros (`pause.g`, `resume.g`, `stop.g`, `cancel.g`) call corresponding generated event dispatchers when present.
-- The built-in NeXT plugin `plugins/next/next-init.g` echoes board-related globals (`nxtPlatformProfile`, `nxtBoardPackEntry`, `nxtBoardPackExpectedEntry`, `nxtBoardMotorVoltage`) for diagnostics after `nxt.g` has run; it does not load hardware board packs (that is `macros/system/nxt-board-pack-loader.g`). See [NXT_BOARD_CONFIG.md](NXT_BOARD_CONFIG.md).
+- The built-in nxt plugin `plugins/next/next-init.g` echoes board-related globals (`nxtPlatformProfile`, `nxtBoardPackEntry`, `nxtBoardPackExpectedEntry`, `nxtBoardMotorVoltage`) for diagnostics after `nxt.g` has run; it does not load hardware board packs (that is `macros/system/nxt-board-pack-loader.g`). See [NXT_BOARD_CONFIG.md](NXT_BOARD_CONFIG.md).
 
 ## Load Semantics
 
@@ -117,4 +120,4 @@ Flags are in-memory and reset on reboot.
 
 - Existing hooks (`arborctl-daemon.g`, `nxt-daemon.g`, `user-daemon.g`) remain valid.
 - Generated dispatchers add metadata-driven loading without removing legacy hooks.
-- Missing generated dispatcher files must not break core NeXT startup.
+- Missing generated dispatcher files must not break core nxt startup.

@@ -13,6 +13,25 @@ on:
       - 'v*.*.*-beta.*'
 
 jobs:
+  naming-and-contract:
+    name: nxt naming and plugin contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Naming regression guard
+        run: |
+          chmod +x dist/audit-naming.sh
+          ./dist/audit-naming.sh
+
+      - name: Plugin id / path contract
+        run: node dist/verify-nxt-plugin-contract.mjs
+
+      - name: Post-processor naming (FreeCAD _post.py)
+        run: |
+          chmod +x dist/verify-post-processor-naming.sh
+          ./dist/verify-post-processor-naming.sh
+
   macro-line-length:
     name: Macro line length (RRF ≤255)
     runs-on: ubuntu-latest
@@ -23,6 +42,31 @@ jobs:
         run: |
           chmod +x dist/check-macro-line-length.sh
           ./dist/check-macro-line-length.sh
+
+  line-endings:
+    name: LF line endings (no CRLF)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check tracked files for CR
+        run: |
+          chmod +x dist/check-line-endings.sh
+          ./dist/check-line-endings.sh
+
+  om-global-budget:
+    name: OM global size hygiene
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check OM budget rules
+        run: node dist/check-om-global-budget.mjs
+
+      - name: Check CDYv3 endstop-y.g conditionals
+        run: |
+          chmod +x dist/check-cdy-endstop-y.sh
+          ./dist/check-cdy-endstop-y.sh
 
   dwc-build-pin:
     name: DWC build pin alignment

@@ -55,7 +55,7 @@ export async function scanNxtConfigOnSd(
       missingMachines: bundledMachineIds,
       missingEntryPaths: [],
       extraMachineIds: [],
-      scanError: `Could not read ${machineRoot} or ${boardRoot} (reinstall NeXT plugin)`
+      scanError: `Could not read ${machineRoot} or ${boardRoot} (reinstall nxt plugin)`
     }
   }
   const installedMachineIds = machineNames ?? []
@@ -95,7 +95,7 @@ export function formatSdScanWarnings(result: NxtConfigSdScanResult): string[] {
   }
   if (result.missingMachines.length > 0) {
     messages.push(
-      `Missing on SD (reinstall NeXT plugin): ${result.missingMachines.map((id) => `${NXT_CONFIG_SD_ROOT}/machine/${id}`).join(', ')}`
+      `Missing on SD (reinstall nxt plugin): ${result.missingMachines.map((id) => `${NXT_CONFIG_SD_ROOT}/machine/${id}`).join(', ')}`
     )
   }
   if (result.missingEntryPaths.length > 0) {

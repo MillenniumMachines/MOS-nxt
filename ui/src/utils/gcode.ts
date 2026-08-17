@@ -60,7 +60,7 @@ function generateHeader(params: ToolpathGenerationParams, currentTool: number): 
 
   const lines: string[] = []
 
-  lines.push('; NeXT Stock Preparation - Generated Facing Operation')
+  lines.push('; nxt Stock Preparation - Generated Facing Operation')
 
   if (stock.shape === 'rectangular') {
     lines.push(`; Stock: Rectangular ${formatNumber(stock.x || 0)}x${formatNumber(stock.y || 0)}mm`)

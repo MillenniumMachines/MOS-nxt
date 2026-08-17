@@ -38,14 +38,8 @@ if { state.currentTool == global.nxtProbeToolID && global.nxtFeatureTouchProbe }
         if { global.nxtDeltaMachine == null }
             M291 P"Touch probe installed but nxtDeltaMachine not calibrated. Please run configuration wizard first." R"Configuration Required" S2
             abort { "tpost.g: nxtDeltaMachine calibration required for touch probe" }
-        echo "tpost.g: Measuring touch probe against reference surface"
-        ; ATC: replace with known reference approach position if changer defines it
-        M291 P"Please jog the touch probe close to the reference surface, then press OK to continue with automatic measurement." R"Position Touch Probe" S3
-        var tpSamples = { exists(global.nxtTouchProbeInnerSampleCount) && global.nxtTouchProbeInnerSampleCount > 0 ? global.nxtTouchProbeInnerSampleCount : global.nxtProbeInnerSampleCount }
-        var tpTol = { exists(global.nxtTouchProbeMaxSampleSpreadMm) && global.nxtTouchProbeMaxSampleSpreadMm >= 0 ? global.nxtTouchProbeMaxSampleSpreadMm : global.nxtProbeMaxSampleSpreadMm }
-        var tpHasOuterRetries = { exists(global.nxtTouchProbeSampleOuterRetries) && global.nxtTouchProbeSampleOuterRetries >= 0 }
-        var tpOuterRetries = { var.tpHasOuterRetries ? floor(global.nxtTouchProbeSampleOuterRetries) : global.nxtProbeSampleOuterRetries }
-        G6512 Z{move.axes[2].min + 50} I{global.nxtTouchProbeID} R{var.tpSamples} L{var.tpTol} O{var.tpOuterRetries}
+        echo "tpost.g: Probing touch probe against reference surface (G6511)"
+        G6511 S0 R1
         var probeRefPos = { global.nxtLastProbeResult }
         var probeVirtualToolsetterPos = { var.probeRefPos - global.nxtDeltaMachine }
         set global.nxtToolCache[state.currentTool] = { var.probeVirtualToolsetterPos }
@@ -125,9 +119,9 @@ elif { global.nxtFeatureToolSetter && global.nxtToolSetterPos != null }
         G10 L1 P{state.currentTool} Z0
         echo "tpost.g: First measured tool - offset set to 0 (establishes reference)"
 else
-    ; No toolsetter available - manual offset required
-    M291 P"Toolsetter not available. Please set tool offset manually." R"Manual Offset Required" S2
-    echo "tpost.g: Manual tool offset required - no automatic measurement available"
+    ; No toolsetter — re-zero Z origin in current WCS with the installed tool.
+    echo "tpost.g: Toolsetter unavailable — running G37.1 to set Z origin"
+    G37.1
 
 ; Clear tool change state to indicate completion
 set global.nxtToolChangeState = null

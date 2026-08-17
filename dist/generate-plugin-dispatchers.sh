@@ -18,32 +18,32 @@ mkdir -p "${OUT_DIR}"
 
 cat > "${INIT_FILE}" <<'EOF'
 ; Auto-generated. Do not edit.
-; NeXT plugin init dispatcher
+; nxt plugin init dispatcher
 EOF
 
 cat > "${DAEMON_FILE}" <<'EOF'
 ; Auto-generated. Do not edit.
-; NeXT plugin daemon dispatcher
+; nxt plugin daemon dispatcher
 EOF
 
 cat > "${PAUSE_FILE}" <<'EOF'
 ; Auto-generated. Do not edit.
-; NeXT plugin pause hooks dispatcher
+; nxt plugin pause hooks dispatcher
 EOF
 
 cat > "${RESUME_FILE}" <<'EOF'
 ; Auto-generated. Do not edit.
-; NeXT plugin resume hooks dispatcher
+; nxt plugin resume hooks dispatcher
 EOF
 
 cat > "${STOP_FILE}" <<'EOF'
 ; Auto-generated. Do not edit.
-; NeXT plugin stop hooks dispatcher
+; nxt plugin stop hooks dispatcher
 EOF
 
 cat > "${CANCEL_FILE}" <<'EOF'
 ; Auto-generated. Do not edit.
-; NeXT plugin cancel hooks dispatcher
+; nxt plugin cancel hooks dispatcher
 EOF
 
 warn() {

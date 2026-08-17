@@ -2,27 +2,27 @@
   <v-card>
     <v-card-title>
       <v-icon left>mdi-information-outline</v-icon>
-      {{ $t('plugins.next.panels.status.caption') }}
+      {{ $t('plugins.nxt.panels.status.caption') }}
       <v-spacer />
       <div v-if="!isConnected || !nxtReady" class="d-flex align-center">
         <v-icon small class="mr-2" color="warning">{{ !isConnected ? 'mdi-lan-disconnect' : 'mdi-alert-circle-outline' }}</v-icon>
         <span class="text-caption">{{
-          !isConnected ? $t('plugins.next.messages.disconnectedShort') : $t('plugins.next.messages.notReadyShort')
+          !isConnected ? $t('plugins.nxt.messages.disconnectedShort') : $t('plugins.nxt.messages.notReadyShort')
         }}</span>
       </div>
     </v-card-title>
     
     <v-card-text>
       <v-row>
-        <!-- NeXT System Status -->
+        <!-- nxt System Status -->
         <v-col cols="12" md="6">
           <v-card outlined>
-            <v-card-subtitle>NeXT System</v-card-subtitle>
+            <v-card-subtitle>nxt System</v-card-subtitle>
             <v-card-text>
               <v-list dense>
                 <v-list-item>
                   <v-list-item-content>
-                    <v-list-item-title>NeXT loaded (firmware)</v-list-item-title>
+                    <v-list-item-title>nxt loaded (firmware)</v-list-item-title>
                     <v-list-item-subtitle class="text-caption">
                       <code>global.nxtLoaded</code> true after successful boot
                     </v-list-item-subtitle>
@@ -95,7 +95,7 @@
         <!-- Feature Status -->
         <v-col cols="12">
           <v-card outlined>
-            <v-card-subtitle>NeXT Features</v-card-subtitle>
+            <v-card-subtitle>nxt Features</v-card-subtitle>
             <v-card-text>
               <v-row>
                 <v-col cols="6" sm="4">
@@ -133,9 +133,24 @@
                     Coolant Control
                   </div>
                 </v-col>
+                <v-col cols="6" sm="4" v-if="rgbHardwareConfigured">
+                  <div class="feature-status">
+                    <v-icon 
+                      :color="globals.nxtFeatureRgbLight ? 'success' : 'grey'"
+                      left
+                    >
+                      mdi-lightbulb-on
+                    </v-icon>
+                    RGB Work Light
+                  </div>
+                </v-col>
               </v-row>
             </v-card-text>
           </v-card>
+        </v-col>
+
+        <v-col v-if="rgbHardwareConfigured" cols="12">
+          <nxt-rgb-light-control />
         </v-col>
       </v-row>
     </v-card-text>
@@ -144,11 +159,13 @@
 
 <script lang="ts">
 import BaseComponent from '../base/BaseComponent.vue'
+import { isRgbLightHardwareConfigured, readOmLedsFromMachineModel } from '../../utils/nxtRgbAvailability'
+import store from '@/store'
 
 /**
- * NeXT Machine Status Panel
+ * nxt Machine Status Panel
  * 
- * Displays detailed machine and NeXT system status information
+ * Displays detailed machine and nxt system status information
  */
 export default BaseComponent.extend({
   name: 'NxtMachineStatusPanel',
@@ -192,7 +209,22 @@ export default BaseComponent.extend({
       if (!this.globals.nxtFeatureTouchProbe || this.probeToolId === null) {
         return false
       }
-      return this.currentTool === this.probeToolId
+      return this.currentTool?.number === this.probeToolId
+    },
+
+    rgbHardwareConfigured(): boolean {
+      const boards = store.state.machine.model.boards
+      const boardShortName =
+        this.globals.nxtBoardShortNameOverride != null &&
+        String(this.globals.nxtBoardShortNameOverride).trim().length > 0
+          ? String(this.globals.nxtBoardShortNameOverride).trim()
+          : Array.isArray(boards) && boards[0]?.shortName
+            ? String(boards[0].shortName)
+            : null
+      return isRgbLightHardwareConfigured({
+        leds: readOmLedsFromMachineModel(store.state.machine.model),
+        boardShortName
+      })
     }
   },
 

@@ -1,7 +1,16 @@
 # machineId	boardShortName	motorVoltage	boardEntryPath	machineEntryPath
+custom	cdy3_f4		nxt-config/board/cdy3_f4/entry.g	nxt-config/machine/custom/entry.g
+custom	scylla1_0_h723	24v	nxt-config/board/scylla1_0_h723/motor-24v/entry.g	nxt-config/machine/custom/entry.g
+custom	scylla1_0_h723	48v	nxt-config/board/scylla1_0_h723/motor-48v/entry.g	nxt-config/machine/custom/entry.g
 v1.5	cdy3_f4		nxt-config/board/cdy3_f4/entry.g	nxt-config/machine/v1.5/entry.g
 v1.5	scylla1_0_h723	24v	nxt-config/board/scylla1_0_h723/motor-24v/entry.g	nxt-config/machine/v1.5/entry.g
 v1.5	scylla1_0_h723	48v	nxt-config/board/scylla1_0_h723/motor-48v/entry.g	nxt-config/machine/v1.5/entry.g
+v1.6	cdy3_f4		nxt-config/board/cdy3_f4/entry.g	nxt-config/machine/v1.6/entry.g
+v1.6	scylla1_0_h723	24v	nxt-config/board/scylla1_0_h723/motor-24v/entry.g	nxt-config/machine/v1.6/entry.g
+v1.6	scylla1_0_h723	48v	nxt-config/board/scylla1_0_h723/motor-48v/entry.g	nxt-config/machine/v1.6/entry.g
 v1.6_v2	cdy3_f4		nxt-config/board/cdy3_f4/entry.g	nxt-config/machine/v1.6_v2/entry.g
 v1.6_v2	scylla1_0_h723	24v	nxt-config/board/scylla1_0_h723/motor-24v/entry.g	nxt-config/machine/v1.6_v2/entry.g
 v1.6_v2	scylla1_0_h723	48v	nxt-config/board/scylla1_0_h723/motor-48v/entry.g	nxt-config/machine/v1.6_v2/entry.g
+v2.0	cdy3_f4		nxt-config/board/cdy3_f4/entry.g	nxt-config/machine/v2.0/entry.g
+v2.0	scylla1_0_h723	24v	nxt-config/board/scylla1_0_h723/motor-24v/entry.g	nxt-config/machine/v2.0/entry.g
+v2.0	scylla1_0_h723	48v	nxt-config/board/scylla1_0_h723/motor-48v/entry.g	nxt-config/machine/v2.0/entry.g

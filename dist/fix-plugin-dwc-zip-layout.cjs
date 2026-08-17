@@ -1,23 +1,23 @@
 #!/usr/bin/env node
 /**
  * Fix ZIP layout for DSF www install:
- *   dwc/NeXT/js/...  →  dwc/js/...   (wrong double-NeXT folder)
+ *   dwc/nxt/js/...  →  dwc/js/...   (wrong double-nxt folder)
  *   dwc/js/...       →  unchanged    (correct)
- * Then re-inject plugin.json dwcFiles as NeXT/js/...
+ * Then re-inject plugin.json dwcFiles as nxt/js/...
  *
- * Usage: DWC_REPO_PATH=<dwc> node dist/fix-plugin-dwc-zip-layout.cjs <NeXT.zip>
+ * Usage: DWC_REPO_PATH=<dwc> node dist/fix-plugin-dwc-zip-layout.cjs <nxt.zip>
  */
 'use strict'
 
 const fs = require('fs')
 const path = require('path')
 
-const PLUGIN_ID = 'NeXT'
+const PLUGIN_ID = 'nxt'
 const dwcRoot = process.env.DWC_REPO_PATH || path.join(__dirname, '..', '..', 'DuetWebControl')
 const zipPath = process.argv[2]
 
 if (!zipPath || !fs.existsSync(zipPath)) {
-  console.error('usage: DWC_REPO_PATH=<dwc> node dist/fix-plugin-dwc-zip-layout.cjs <NeXT.zip>')
+  console.error('usage: DWC_REPO_PATH=<dwc> node dist/fix-plugin-dwc-zip-layout.cjs <nxt.zip>')
   process.exit(1)
 }
 
@@ -29,7 +29,7 @@ const JSZip = require(path.join(dwcRoot, 'node_modules', 'jszip'))
 
   for (const name of Object.keys(zip.files)) {
     if (zip.files[name].dir) continue
-    const nested = name.match(/^dwc\/NeXT\/(js|css)\/(NeXT\.[a-f0-9]+\.(js|css))$/)
+    const nested = name.match(/^dwc\/nxt\/(js|css)\/(nxt\.[a-f0-9]+\.(js|css))$/)
     if (!nested) continue
     const flatName = `dwc/${nested[1]}/${nested[2]}`
     if (zip.files[flatName]) {
@@ -44,7 +44,7 @@ const JSZip = require(path.join(dwcRoot, 'node_modules', 'jszip'))
   }
 
   if (fixed.length === 0) {
-    console.log('fix-plugin-dwc-zip-layout: no dwc/NeXT/js|css entries (layout OK or empty)')
+    console.log('fix-plugin-dwc-zip-layout: no dwc/nxt/js|css entries (layout OK or empty)')
   } else {
     fixed.forEach((line) => console.log(`  ${line}`))
   }

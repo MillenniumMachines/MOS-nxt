@@ -1,17 +1,47 @@
-# NeXT Custom G-Code and M-Code Reference
+# nxt Custom G-Code and M-Code Reference
 
-This document provides reference documentation for custom G-codes and M-codes implemented in NeXT.
+This document provides reference documentation for custom G-codes and M-codes implemented in nxt.
 
 ## Table of Contents
 
-- [Probing Cycles](#probing-cycles)
-- [Utility Macros](#utility-macros)
-- [Movement Control](#movement-control)
-- [Machine Control](#machine-control)
+- [G-codes](#g-codes)
+  - [G27](#g27-parking)
+  - [G37](#g37-tool-length-probe)
+  - [G6500](#g6500-bore-probe) … [G6600](#g6600-workpiece-probing-gateway)
+- [M-codes](#m-codes)
+  - [M3.9 / M4.9 / M5.9](#m39-m49-m59-spindle-control)
+  - [M7 / M7.1 / M8 / M9](#m7-m71-m8-m9-coolant-control)
+  - [M80.9 / M81.9](#m809-m819-atx-power-control)
+  - [M4000](#m4000-define-tool) … [M6524](#m6524-set-rgb-work-light)
+- [Global Variables](#global-variables)
+- [Workflow Examples](#workflow-examples)
 
 ---
 
-## Probing Cycles
+## G-codes
+
+### G27: Parking
+
+Moves the machine to a safe, known parking position.
+
+RRF homing uses `0:/sys/homeall.g`, `homex.g`, `homey.g`, and `homez.g`. nxt vendors homing sources under `nxt-config/machine/<profile>/` and deploys them from the Configuration panel (not loaded at boot). See [docs/NXT_BOARD_HOMING.md](docs/NXT_BOARD_HOMING.md) for axis directions and verification.
+
+**Usage:** `G27 [X<level>] [Y<level>] [Z<level>]`
+
+**Parameters:**
+- `X|Y|Z`: Parking level (0-2), where higher levels are safer/further from workpiece
+
+---
+
+### G37: Tool Length Probe
+
+Measures the active tool on the configured toolsetter (single **G6512** Z probe at `nxtToolSetterPos`).
+
+**Usage:** `G37`
+
+**Requirements:** `nxtToolSetterPos`, `nxtToolSetterID`, tool loaded over setter.
+
+---
 
 ### G6500: Bore Probe
 
@@ -204,6 +234,22 @@ Probes one surface in X, Y, or Z to find the surface location.
 
 ---
 
+### G6511: Reference Surface Probe
+
+Emitted by Fusion/FreeCAD post-processors during job preamble / WCS changes. Probes the touch-probe reference surface when **both** touch probe and toolsetter are enabled. No-op if already probed this session unless `R1`.
+
+**Usage:** `G6511 [R1] [S0]`
+
+**Parameters:**
+- `R1`: Force re-probe (clears session skip)
+- `S0`: Non-standalone — do not switch to probe tool (nested call from `tpost.g`)
+
+**Requirements:** `nxtTouchProbeRefPos`, `nxtDeltaMachine` configured in DWC.
+
+**Results:** Sets `global.nxtRefSurfaceProbed`; Z touch in `global.nxtLastProbeResult`.
+
+---
+
 ### G6512: Single-Axis Probing (Core)
 
 Low-level single-axis probe move with compensation and averaging. Used by all probing cycles.
@@ -257,7 +303,91 @@ Performs a protected move with probe-aware safety checks. If a touch probe is tr
 
 ---
 
-## Utility Macros
+### G6600: Workpiece Probing Gateway
+
+Emitted by Fusion/FreeCAD post-processors during job preamble / WCS changes. Pauses CAM setup for operator WCS probing. Primary workflow: **DWC nxt → Probing Cycles**. On-machine menu offers vise corner (**G6520**) or handoff after DWC probing.
+
+**Usage:** `G6600 [W<0..8>]`
+
+**Parameters:**
+- `W`: 0-indexed work offset (`W0` = G54). Omitted = current workplace after `G55`/`G56` switch.
+
+**Requirements:** Touch probe enabled; uses `nxt-probe-tool-ready.g` for probe tool selection.
+
+---
+
+## M-codes
+
+### M3.9, M4.9, M5.9: Spindle Control
+
+Safe spindle start/stop with acceleration waits.
+
+**Usage:**
+- `M3.9 S<rpm>` - Start spindle clockwise
+- `M4.9 S<rpm>` - Start spindle counter-clockwise
+- `M5.9` - Stop spindle
+
+---
+
+### M7, M7.1, M8, M9: Coolant Control
+
+**Usage:**
+- `M7` - Mist coolant on (air blast steady; mist pin steady or pulsed per Configuration)
+- `M7.1` - Air blast on
+- `M8` - Flood coolant on (steady or pulsed per Configuration)
+- `M9` - All coolant off (stops pulsing). `M9 R1` restores state saved on pause.
+
+**Coolant pulse (optional):** When enabled in DWC Configuration for mist and/or flood, `M7`/`M8` cycle the relevant output using `global.nxtCoolantPulseOnSec` (default **5** s) and `global.nxtCoolantPulseOffSec` (default **25** s). Mist pulsing keeps air blast on continuously. Mixed mode is supported (e.g. steady mist + pulsed flood). Requires the nxt daemon loop (`global.nxtDaemonEnabled`, `global.nxtDaemonInterval`).
+
+**Related globals:** `nxtCoolantMistPulseEnabled`, `nxtCoolantFloodPulseEnabled`, `nxtCoolantPulseOnSec`, `nxtCoolantPulseOffSec` (persisted in `nxt-user-vars.g`); runtime flags `nxtCoolantMistRequested`, `nxtCoolantFloodRequested`, `nxtCoolantPulseActive`.
+
+---
+
+### M80.9, M81.9: ATX Power Control
+
+Safe, operator-confirmed ATX power control.
+
+**Usage:**
+- `M80.9` - Power on (with confirmation)
+- `M81.9` - Power off (with confirmation)
+
+---
+
+### M4000: Define Tool
+
+Registers a tool in RRF (`M563`) and stores CAM metadata in `global.mosTT` (radius, optional probe deflection, flute count/length). Used by CAM preamble and DWC Tool Library.
+
+**Usage:** `M4000 P<index> R<radius> S"description" [I<spindle>] [X] [Y] [F] [L]`
+
+**Parameters:**
+- `P`: Tool index (0 … `limits.tools−1`) — **required**
+- `R`: Cutter radius (mm) — **required**
+- `S`: Description string — **required**
+- `I`: Spindle ID (default `global.nxtSpindleID`)
+- `X`, `Y`: Touch-probe deflection (mm) for probe tools
+- `F`: Flute count; `L`: Flute length (mm)
+
+When `global.nxtAutoPersistTools` is true, rewrites `0:/sys/nxt-user-tools.g` via `nxt-user-tools-sync.g`.
+
+---
+
+### M4001: Remove Tool
+
+Removes tool index `P` from RRF and clears `mosTT` row.
+
+**Usage:** `M4001 P<index>`
+
+---
+
+### M4005: Post-Processor Version Check
+
+Compares CAM post `V"…"` string to `global.nxtVersion` (exact match).
+
+**Usage:** `M4005 V"<version>"`
+
+**Example:** `M4005 V"v0.6.0"` in job preamble.
+
+---
 
 ### M5000: Get Machine Position
 
@@ -295,7 +425,7 @@ Sets a Work Coordinate System (WCS) origin using coordinates from the probe resu
 - `Q`: Rotation policy: **0** (default) = `M291` prompt to apply or skip **G68**; **1** = apply **G68** without prompt; **2** = translation only (no **G68**)
 - `T`: Optional cap on `|θ|` in degrees (default `global.nxtProbeMaxSkewDeg`); abort **M6520** if exceeded
 
-**Rotation:** Uses RRF **G68 X0 Y0 R** after **G10 L2** and selecting the target workplace. **G68** rotation direction was corrected in **RRF 3.6.1**; NeXT development/review targets **RRF 3.6.2** as the reference build ([`docs/RRF_REFERENCE.md`](docs/RRF_REFERENCE.md)). See `docs/DETAILS.md` (NeXT native probing section).
+**Rotation:** Uses RRF **G68 X0 Y0 R** after **G10 L2** and selecting the target workplace. **G68** rotation direction was corrected in **RRF 3.6.1**; nxt development/review targets **RRF 3.6.2** as the reference build ([`docs/RRF_REFERENCE.md`](docs/RRF_REFERENCE.md)). See `docs/DETAILS.md` (nxt native probing section).
 
 **Probe cycles:** With **`U`** on **G650x**/`G6510`, the macro stores results at row **`U−1`** and calls **`M6520`** via **`M98`** at the end so the operator does not run **M6520** separately.
 
@@ -353,51 +483,87 @@ M6520 P0 W1 X Y       ; Push averaged result to G54
 
 ---
 
-## Movement Control
+### M6523: Probe Cycle Output Calibration (repeatability)
 
-RRF homing uses `0:/sys/homeall.g`, `homex.g`, `homey.g`, and `homez.g`. NeXT vendors homing sources under `nxt-config/machine/<profile>/` and deploys them from the Configuration panel (not loaded at boot). See [docs/NXT_BOARD_HOMING.md](docs/NXT_BOARD_HOMING.md) for axis directions and verification.
+Runs multiple full **G6512** Z probe cycles at a fixed reference surface (touch probe or toolsetter), then reports **min**, **max**, **range**, and **mean** of the compensated Z results. Use to validate or tune probe repeatability limits (`nxtTouchProbe*` / `nxtToolSetter*` or `nxt-user-overrides.g`). See [docs/CALIBRATION.md](docs/CALIBRATION.md).
 
-### G27: Parking
-
-Moves the machine to a safe, known parking position.
-
-**Usage:** `G27 [X<level>] [Y<level>] [Z<level>]`
+**Usage:** `M6523 [B<0|1>] [C<count>] [Z<targetZ>] [F<feed>] [L<limitMm>] [O<outerRetries>]`
 
 **Parameters:**
-- `X|Y|Z`: Parking level (0-2), where higher levels are safer/further from workpiece
+- `B`: Reference probe — **0** = touch probe, **1** = toolsetter (default: touch if feature enabled, else toolsetter)
+- `C`: Number of **G6512** cycles (default **10**, max **50**)
+- `Z`: Machine Z target for **G6512** (default: reference surface Z from `nxtTouchProbeRefPos` or `nxtToolSetterPos`)
+- `F`, `L`, `O`: Passed through to **G6512** (`L`/`O` default from probe-specific globals)
+
+**Requirements:**
+- **B0:** Touch probe enabled (`nxtFeatureTouchProbe` or legacy `mosFeatTouchProbe`), `nxtTouchProbeRefPos` set, valid `nxtTouchProbeID` sensor; selects **`T{global.nxtProbeToolID}`** if another tool is active (runs normal tool-change macros); prompts until the probe input reads active
+- **B1:** Toolsetter enabled (`nxtFeatureToolSetter` or legacy `mosFeatToolSetter`), `nxtToolSetterPos` set, current tool over setter (same as **G37**)
+
+**Examples:**
+```gcode
+M6523 B0 C10            ; selects probe tool if needed, then 10 cycles at touch reference
+M6523 B1 C10            ; 10 cycles at toolsetter
+M6523 B0 C20 Z120.5 L0.01
+```
+
+Does not modify globals or `nxt-user-overrides.g` (report only).
 
 ---
 
-## Machine Control
+### M6524: Set RGB Work Light
 
-### M3.9, M4.9, M5.9: Spindle Control
+Sets the addressable RGB work light via **M150** when the RGB light feature is enabled.
 
-Safe spindle start/stop with acceleration waits.
+**Usage:** `M6524 R<0-255> G<0-255> B<0-255>`
 
-**Usage:**
-- `M3.9 S<rpm>` - Start spindle clockwise
-- `M4.9 S<rpm>` - Start spindle counter-clockwise
-- `M5.9` - Stop spindle
+**Parameters:**
+- `R`, `G`, `B`: Color components (each clamped to 0–255; default 0 if omitted)
 
----
+**Requirements:** `nxtFeatureRgbLight`, `nxtRgbLedIndex` configured in DWC.
 
-### M7, M7.1, M8, M9: Coolant Control
-
-**Usage:**
-- `M7` - Mist coolant on
-- `M7.1` - Air blast on
-- `M8` - Flood coolant on
-- `M9` - All coolant off
+**Behavior:** Issues `M150 R… G… B… P{nxtRgbLedIndex}`.
 
 ---
 
-### M80.9, M81.9: ATX Power Control
+## Jake probing execute layer (v0.6.0 backport)
 
-Safe, operator-confirmed ATX power control.
+Higher-level probing macros used by the Probing UI and calibration flows. Each `G65xx.1.g` wraps planning + **G6513** surface probing.
 
-**Usage:**
-- `M80.9` - Power on (with confirmation)
-- `M81.9` - Power off (with confirmation)
+### G6513: Multi-point surface probe
+
+Probes one or more flat surfaces (pairs of start/target vectors). Used internally by `G6500.1`–`G6512.1` and **G6520.1**.
+
+**Usage:** `G6513 P{ … } [I<probeId>] [D1]`
+
+**Parameters:** `P` — nested vector of surface probe legs (see macro header in `macros/probing/G6513.g`). `I` — optional probe sensor id. `D1` — continuation mode when chaining surfaces.
+
+### G6520.1: Vise corner execute
+
+Probes the top surface of a workpiece at a vise corner using **G6513**, then stores compensated coordinates in the probe results table.
+
+### G37.1: Probe Z with current tool
+
+When the toolsetter is disabled, probes a Z surface with the **active tool** (relative tool lengths unknown). Used for manual datum setup before **M5016**.
+
+### G9000: Automated axis travel calibration
+
+Probe-assisted travel calibration: for each leg (8 / 16 / 24 mm), probe → move away → probe again. Invoked from the **Calibration** tab (probe mode). Requires touch probe enabled and reference geometry configured.
+
+---
+
+## WCS probe utilities (M5010–M5016, M7601)
+
+| Code | Purpose |
+|------|---------|
+| **M5010** | Reset WCS probe details for workplace `W` |
+| **M5012** | Reset probe cycle counts |
+| **M5013** | Set per-axis maintenance service threshold (mm); used by Maintenance tab |
+| **M5014** | Calibration phase 1 — indicator zero / travel / return (manual mode) |
+| **M5015** | Calibration — jog, **G6512** probe, return |
+| **M5016** | Static datum setup (toolsetter + probe reference) |
+| **M7601** | Print workplace probe details (debug) |
+
+See [CALIBRATION.md](docs/CALIBRATION.md) and the nxt **Calibration** / **Maintenance** tabs in DWC.
 
 ---
 

@@ -1,2 +1,2 @@
 ; next-cancel.g
-; Cancel hook for the built-in NeXT plugin.
+; Cancel hook for the built-in nxt plugin.

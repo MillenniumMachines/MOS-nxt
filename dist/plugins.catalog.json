@@ -1,7 +1,7 @@
 {
   "plugins": [
     {
-      "id": "NeXT",
+      "id": "nxt",
       "repoPath": ".",
       "manifestPath": "ui/plugin.json",
       "required": true

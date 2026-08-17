@@ -1,4 +1,4 @@
-; Example: NeXT persisted tool library (copy to 0:/sys/nxt-user-tools.g to use)
+; Example: nxt persisted tool library (copy to 0:/sys/nxt-user-tools.g to use)
 ; Loaded automatically by nxt.g after nxt-user-vars.g when the file exists (see global.nxtUserToolsFilePresent).
 ; Optional: with global.nxtUserToolsDaemonReload = true, touch 0:/sys/nxt-user-tools.reload.requested to reload from daemon.
 ; Runtime: M4000/M4001 also run M98 P"nxt-user-tools-sync.g" to refresh this file (optional: nxtAutoPersistTools).

@@ -1,14 +1,14 @@
-Milo v1.6 / v2.0 board packs (NeXT)
+Milo v1.6 / v2.0 board packs (nxt)
 ===================================
 Homing requirements: docs/NXT_BOARD_HOMING.md (v1.6_v2 — Y toward Y0, Z reversed, Z800).
 
-This tree mirrors the NeXT v1.5 board layout; edit under nxt-config/v1.6_v2/ for
+This tree mirrors the nxt v1.5 board layout; edit under nxt-config/v1.6_v2/ for
 Milo v1.6 / v2.0 without disturbing v1.5 users.
 
 Automatic pack load (opt-in) runs from nxt.g after nxt-vars.g and nxt-user-vars.g
 via macros/system/nxt-board-pack-loader.g — see docs/NXT_BOARD_CONFIG.md.
 
-1. NeXT Configuration: Platform v1.6_v2, bootstrap Auto, Save (writes nxt-user-vars.g and nxt-board-bootstrap.requested).
+1. nxt Configuration: Platform v1.6_v2, bootstrap Auto, Save (writes nxt-user-vars.g and nxt-board-bootstrap.requested).
 2. Optionally create 0:/sys/nxt-board-bootstrap.skip to hard-disable pack load.
 3. For motor-variant boards: global nxtBoardMotorVoltage = 24 or 48 in nxt-user-vars.g.
 4. For a fully manual chain, add 0:/sys/nxt-user-board.g with M98 P"nxt-config/v1.6_v2/boards/.../entry.g"

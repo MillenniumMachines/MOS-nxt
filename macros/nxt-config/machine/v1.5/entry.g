@@ -1,6 +1,6 @@
-; NeXT machine pack — Milo v1.5 motion (no homing; deploy home*.g via Configuration UI)
+; nxt machine pack — Milo v1.5 motion (no homing; deploy home*.g via Configuration UI)
 
-M117 "NeXT machine v1.5"
+M117 "nxt machine v1.5"
 M98 P"nxt-config/machine/v1.5/general.g"
 M98 P"nxt-config/machine/v1.5/movement.g"
 M98 P"nxt-config/machine/v1.5/limits.g"

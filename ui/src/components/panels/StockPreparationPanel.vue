@@ -2,12 +2,12 @@
     <v-card class="nxt-stock-preparation-panel">
     <v-card-title>
       <v-icon left>mdi-cube-outline</v-icon>
-      {{ $t('plugins.next.panels.stockPreparation.caption') }}
+      {{ $t('plugins.nxt.panels.stockPreparation.caption') }}
       <v-spacer />
       <div v-if="!isConnected || !nxtReady" class="d-flex align-center mr-2">
         <v-icon small class="mr-2" color="warning">{{ !isConnected ? 'mdi-lan-disconnect' : 'mdi-alert-circle-outline' }}</v-icon>
         <span class="text-caption mr-2">{{
-          !isConnected ? $t('plugins.next.messages.disconnectedShort') : $t('plugins.next.messages.notReadyShort')
+          !isConnected ? $t('plugins.nxt.messages.disconnectedShort') : $t('plugins.nxt.messages.notReadyShort')
         }}</span>
       </div>
       <v-spacer />
@@ -808,7 +808,7 @@ export default BaseComponent.extend({
         const toolNum = this.currentTool.number
         const radius = this.globals.nxtToolRadius?.[toolNum]
         if (radius !== undefined && radius !== null) {
-          return `Tool T${toolNum} radius from NeXT: ${radius}mm`
+          return `Tool T${toolNum} radius from nxt: ${radius}mm`
         }
       }
       return 'Enter tool radius manually'
@@ -1299,7 +1299,7 @@ export default BaseComponent.extend({
         await this.sendCode(`M98 P"${fullPath}"`)
 
         alert('G-code is running. Monitor progress in DWC.')
-        this.$router.push('/NeXT/Status')
+        this.$router.push('/nxt/Status')
       } catch (error) {
         console.error('Error running G-code:', error)
         alert('Error running G-code: ' + error)

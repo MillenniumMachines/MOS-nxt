@@ -2,9 +2,46 @@
   <v-container fluid class="nxt-tool-management nxt-tc pa-2">
     <v-card outlined>
       <v-card-title class="subtitle-1 d-flex flex-wrap align-center py-3">
-        <v-icon left class="mr-2">mdi-bookshelf</v-icon>
-        <span>{{ $t('plugins.next.panels.toolManagement.caption') }}</span>
+        <v-icon left>mdi-bookshelf</v-icon>
+        <span>{{ $t('plugins.nxt.panels.toolManagement.caption') }}</span>
         <v-spacer />
+        <v-btn
+          v-if="isConnected && nxtReady"
+          class="mr-2"
+          small
+          outlined
+          :color="locked ? 'warning' : 'default'"
+          :disabled="uiFrozen"
+          @click="toggleLock"
+        >
+          <v-icon class="mr-1" small>{{ locked ? 'mdi-lock' : 'mdi-lock-open-variant' }}</v-icon>
+          {{
+            locked
+              ? $t('plugins.nxt.panels.toolManagement.unlockTable')
+              : $t('plugins.nxt.panels.toolManagement.lockTable')
+          }}
+        </v-btn>
+        <v-btn
+          v-if="isConnected && nxtReady && !locked"
+          class="mr-2"
+          small
+          outlined
+          color="primary"
+          :disabled="uiFrozen"
+          @click="openAdd"
+        >
+          {{ $t('plugins.nxt.panels.toolManagement.addTool') }}
+        </v-btn>
+        <v-btn
+          v-if="isConnected && nxtReady && !locked"
+          class="mr-2"
+          small
+          outlined
+          :disabled="uiFrozen"
+          @click="openImport"
+        >
+          {{ $t('plugins.nxt.panels.toolManagement.importFusion') }}
+        </v-btn>
         <v-btn
           v-if="isConnected && nxtReady"
           class="mr-2"
@@ -15,43 +52,62 @@
           :disabled="uiFrozen || persistingTools"
           @click="saveToolLibraryToBoard"
         >
-          {{ $t('plugins.next.panels.toolManagement.saveToBoard') }}
+          {{ $t('plugins.nxt.panels.toolManagement.saveToBoard') }}
         </v-btn>
         <v-btn
           v-if="isConnected && nxtReady"
           small
           outlined
-          :disabled="uiFrozen || persistingTools"
+          :loading="reloadingTools"
+          :disabled="uiFrozen || reloadingTools"
           @click="reloadToolLibraryFromSd"
         >
-          {{ $t('plugins.next.panels.toolManagement.reloadFromSd') }}
+          {{ $t('plugins.nxt.panels.toolManagement.reloadFromSd') }}
         </v-btn>
         <div v-if="!isConnected || !nxtReady" class="d-flex align-center">
           <v-icon small class="mr-2" color="warning">{{ !isConnected ? 'mdi-lan-disconnect' : 'mdi-alert-circle-outline' }}</v-icon>
           <span class="text-caption">{{
-            !isConnected ? $t('plugins.next.messages.disconnectedShort') : $t('plugins.next.messages.notReadyShort')
+            !isConnected ? $t('plugins.nxt.messages.disconnectedShort') : $t('plugins.nxt.messages.notReadyShort')
           }}</span>
         </div>
       </v-card-title>
       <v-divider />
       <v-card-text class="pa-3">
-        <p class="body-2 grey--text text--darken-1 mb-3">
-          {{ $t('plugins.next.panels.toolManagement.libraryIntro') }}
+        <p class="text-body-2 grey--text-darken-1 mb-3">
+          {{ $t('plugins.nxt.panels.toolManagement.libraryIntro') }}
         </p>
-        <p class="body-2 grey--text text--darken-1 mb-3">
-          {{ $t('plugins.next.panels.toolManagement.persistenceHint') }}
+        <p class="text-body-2 grey--text-darken-1 mb-3">
+          {{ $t('plugins.nxt.panels.toolManagement.persistenceHint') }}
         </p>
-        <v-simple-table dense class="nxt-tc-tool-lib-table">
+        <p v-if="locked" class="text-body-2 text-warning mb-3">
+          {{ $t('plugins.nxt.panels.toolManagement.lockedHint') }}
+        </p>
+        <p class="text-body-2 mb-3">
+          {{ $t('plugins.nxt.panels.toolManagement.activeToolLabel') }}:
+          <strong>{{ activeToolLabel }}</strong>
+          <v-btn
+            v-if="currentToolIndex >= 0 && isConnected && nxtReady"
+            size="x-small"
+            text
+            class="ml-2"
+            :disabled="uiFrozen"
+            @click="clearActive"
+          >
+            {{ $t('plugins.nxt.panels.toolManagement.clearActive') }}
+          </v-btn>
+        </p>
+        <v-table dense class="nxt-tc-tool-lib-table">
           <template #default>
             <thead>
               <tr>
-                <th class="text-left">{{ $t('plugins.next.panels.toolManagement.colToolNumber') }}</th>
-                <th class="text-left">{{ $t('plugins.next.panels.toolManagement.colDescription') }}</th>
-                <th class="text-left">{{ $t('plugins.next.panels.toolManagement.colRadius') }}</th>
-                <th class="text-left">{{ $t('plugins.next.panels.toolManagement.colFlutes') }}</th>
-                <th class="text-left">{{ $t('plugins.next.panels.toolManagement.colFluteLength') }}</th>
-                <th class="text-left">{{ $t('plugins.next.panels.toolManagement.colStatus') }}</th>
-                <th class="text-left">{{ $t('plugins.next.panels.toolManagement.colLife') }}</th>
+                <th class="text-left">{{ $t('plugins.nxt.panels.toolManagement.colToolNumber') }}</th>
+                <th class="text-left">{{ $t('plugins.nxt.panels.toolManagement.colDescription') }}</th>
+                <th class="text-left">{{ $t('plugins.nxt.panels.toolManagement.colRadius') }}</th>
+                <th class="text-left">{{ $t('plugins.nxt.panels.toolManagement.colFlutes') }}</th>
+                <th class="text-left">{{ $t('plugins.nxt.panels.toolManagement.colFluteLength') }}</th>
+                <th class="text-left">{{ $t('plugins.nxt.panels.toolManagement.colStatus') }}</th>
+                <th class="text-left">{{ $t('plugins.nxt.panels.toolManagement.colLife') }}</th>
+                <th class="text-left">{{ $t('plugins.nxt.panels.toolManagement.colActions') }}</th>
               </tr>
             </thead>
             <tbody>
@@ -60,7 +116,19 @@
                 :key="'tl' + row.index"
                 :class="{ 'nxt-tc-row-spindle': row.inSpindle }"
               >
-                <td class="text-no-wrap">T{{ row.index }}</td>
+                <td class="text-no-wrap">
+                  T{{ row.index }}
+                  <v-chip
+                    v-if="row.isReservedSlot"
+                    size="x-small"
+                    color="deep-purple"
+                    text-color="white"
+                    label
+                    class="ml-1"
+                  >
+                    {{ $t('plugins.nxt.panels.toolManagement.reservedBadge') }}
+                  </v-chip>
+                </td>
                 <td>{{ row.description }}</td>
                 <td>{{ row.radiusLabel }}</td>
                 <td>{{ row.flutesLabel }}</td>
@@ -68,66 +136,338 @@
                 <td>
                   <v-chip
                     v-if="row.statusKind === 'spindle'"
-                    x-small
+                    size="x-small"
                     color="success"
                     text-color="white"
                     label
                   >
-                    {{ $t('plugins.next.panels.toolManagement.statusInSpindle') }}
+                    {{ $t('plugins.nxt.panels.toolManagement.statusInSpindle') }}
                   </v-chip>
                   <v-chip
                     v-else-if="row.statusKind === 'probe'"
-                    x-small
+                    size="x-small"
                     color="deep-purple"
                     text-color="white"
                     label
                   >
-                    {{ $t('plugins.next.panels.toolManagement.statusProbe') }}
+                    {{ $t('plugins.nxt.panels.toolManagement.statusProbe') }}
                   </v-chip>
-                  <v-chip v-else x-small outlined label>
-                    {{ $t('plugins.next.panels.toolManagement.statusManual') }}
+                  <v-chip v-else size="x-small" outlined label>
+                    {{ $t('plugins.nxt.panels.toolManagement.statusManual') }}
                   </v-chip>
                 </td>
-                <td class="grey--text">—</td>
+                <td>
+                  <span>{{ row.lifeLabel }}</span>
+                  <v-btn
+                    v-if="row.lifeSeconds > 0 && !row.isReservedSlot && isConnected && nxtReady"
+                    icon
+                    size="x-small"
+                    text
+                    :disabled="uiFrozen"
+                    :title="$t('plugins.nxt.panels.toolManagement.resetLife')"
+                    @click="confirmResetLife(row)"
+                  >
+                    <v-icon small>mdi-restore</v-icon>
+                  </v-btn>
+                </td>
+                <td class="text-no-wrap">
+                  <v-btn
+                    v-if="isConnected && nxtReady && !row.isReservedSlot"
+                    size="x-small"
+                    text
+                    :disabled="uiFrozen"
+                    @click="setActive(row)"
+                  >
+                    {{ $t('plugins.nxt.panels.toolManagement.setActive') }}
+                  </v-btn>
+                  <v-btn
+                    v-if="isConnected && nxtReady && !locked && !row.isReservedSlot"
+                    size="x-small"
+                    text
+                    :disabled="uiFrozen"
+                    @click="openEdit(row)"
+                  >
+                    {{ $t('plugins.nxt.panels.toolManagement.editTool') }}
+                  </v-btn>
+                  <v-btn
+                    v-if="isConnected && nxtReady && !locked && !row.isReservedSlot && row.configured"
+                    size="x-small"
+                    text
+                    color="error"
+                    :disabled="uiFrozen"
+                    @click="confirmRemove(row)"
+                  >
+                    {{ $t('plugins.nxt.panels.toolManagement.deleteTool') }}
+                  </v-btn>
+                </td>
               </tr>
             </tbody>
           </template>
-        </v-simple-table>
-        <p v-if="toolLibraryRows.length === 0" class="body-2 grey--text mb-0">
-          {{ $t('plugins.next.panels.toolManagement.noTools') }}
+        </v-table>
+        <p v-if="toolLibraryRows.length === 0" class="text-body-2 grey--text mb-0">
+          {{ $t('plugins.nxt.panels.toolManagement.noTools') }}
         </p>
       </v-card-text>
     </v-card>
+
+    <v-dialog v-model="editDialog" max-width="480">
+      <v-card>
+        <v-card-title>
+          {{
+            editing.isAdd
+              ? $t('plugins.nxt.panels.toolManagement.addTool')
+              : $t('plugins.nxt.panels.toolManagement.editTool')
+          }}
+        </v-card-title>
+        <v-card-text>
+          <v-text-field
+            v-model.number="editing.index"
+            type="number"
+            :label="$t('plugins.nxt.panels.toolManagement.colToolNumber')"
+            :disabled="!editing.isAdd"
+            :error-messages="indexError"
+            dense
+            outlined
+          />
+          <v-text-field
+            v-model="editing.name"
+            :label="$t('plugins.nxt.panels.toolManagement.colDescription')"
+            :error-messages="nameError"
+            dense
+            outlined
+          />
+          <v-text-field
+            v-model.number="editing.radius"
+            type="number"
+            step="0.001"
+            :label="$t('plugins.nxt.panels.toolManagement.colRadius')"
+            dense
+            outlined
+          />
+          <v-text-field
+            v-model.number="editing.flutes"
+            type="number"
+            :label="$t('plugins.nxt.panels.toolManagement.colFlutes')"
+            dense
+            outlined
+            clearable
+          />
+          <v-text-field
+            v-model.number="editing.fluteLen"
+            type="number"
+            step="0.001"
+            :label="$t('plugins.nxt.panels.toolManagement.colFluteLength')"
+            dense
+            outlined
+            clearable
+          />
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn text @click="editDialog = false">{{ $t('plugins.nxt.panels.toolManagement.cancel') }}</v-btn>
+          <v-btn color="primary" :loading="savingTool" :disabled="!canSave" @click="saveTool">
+            {{ $t('plugins.nxt.panels.toolManagement.save') }}
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <v-dialog v-model="removeDialog" max-width="420">
+      <v-card>
+        <v-card-title>{{ $t('plugins.nxt.panels.toolManagement.deleteTool') }}</v-card-title>
+        <v-card-text>
+          {{ $t('plugins.nxt.panels.toolManagement.deleteConfirm', { tool: removingLabel }) }}
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn text @click="removeDialog = false">{{ $t('plugins.nxt.panels.toolManagement.cancel') }}</v-btn>
+          <v-btn color="error" :loading="removingBusy" @click="doRemove">
+            {{ $t('plugins.nxt.panels.toolManagement.deleteTool') }}
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <v-dialog v-model="resetLifeDialog" max-width="420">
+      <v-card>
+        <v-card-title>{{ $t('plugins.nxt.panels.toolManagement.resetLife') }}</v-card-title>
+        <v-card-text>
+          {{ $t('plugins.nxt.panels.toolManagement.resetLifeConfirm', { tool: resetLifeLabel }) }}
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn text @click="resetLifeDialog = false">{{ $t('plugins.nxt.panels.toolManagement.cancel') }}</v-btn>
+          <v-btn color="primary" :loading="resettingLife" @click="doResetLife">
+            {{ $t('plugins.nxt.panels.toolManagement.resetLife') }}
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <v-dialog v-model="importDialog" max-width="720">
+      <v-card>
+        <v-card-title>{{ $t('plugins.nxt.panels.toolManagement.importFusion') }}</v-card-title>
+        <v-card-text>
+          <p class="text-body-2 grey--text-darken-1">
+            {{ $t('plugins.nxt.panels.toolManagement.importFusionHint') }}
+          </p>
+          <v-file-input
+            accept=".tools,.json,application/zip,application/json"
+            show-size
+            truncate-length="40"
+            :label="$t('plugins.nxt.panels.toolManagement.importFile')"
+            :disabled="importing"
+            @input="onImportFile"
+          />
+          <v-checkbox
+            v-model="replaceImport"
+            :label="$t('plugins.nxt.panels.toolManagement.importReplace')"
+            hide-details
+            class="mt-0"
+          />
+          <v-alert v-if="importError" type="error" dense outlined class="mt-3">
+            {{ importError }}
+          </v-alert>
+          <v-alert
+            v-for="(w, wi) in importWarnings"
+            :key="'iw' + wi"
+            type="warning"
+            dense
+            outlined
+            class="mt-2"
+          >
+            {{ w }}
+          </v-alert>
+          <v-table v-if="importRows.length > 0" dense class="mt-3">
+            <thead>
+              <tr>
+                <th>T#</th>
+                <th>{{ $t('plugins.nxt.panels.toolManagement.colDescription') }}</th>
+                <th>{{ $t('plugins.nxt.panels.toolManagement.colRadius') }}</th>
+                <th>{{ $t('plugins.nxt.panels.toolManagement.colFlutes') }}</th>
+                <th>{{ $t('plugins.nxt.panels.toolManagement.colFluteLength') }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in importRows" :key="'imp' + row.index">
+                <td>T{{ row.index }}</td>
+                <td>{{ row.name }}</td>
+                <td>{{ row.radius }}</td>
+                <td>{{ row.flutes != null ? row.flutes : '—' }}</td>
+                <td>{{ row.fluteLengthMm != null ? row.fluteLengthMm : '—' }}</td>
+              </tr>
+            </tbody>
+          </v-table>
+          <v-progress-linear
+            v-if="importing"
+            class="mt-3"
+            :value="importProgressPercent"
+            height="8"
+            rounded
+          />
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn text :disabled="importing" @click="importDialog = false">
+            {{ $t('plugins.nxt.panels.toolManagement.cancel') }}
+          </v-btn>
+          <v-btn
+            color="primary"
+            :loading="importing"
+            :disabled="importRows.length === 0"
+            @click="confirmImport"
+          >
+            {{ $t('plugins.nxt.panels.toolManagement.importConfirm') }}
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </v-container>
 </template>
 
 <script lang="ts">
 // @ts-nocheck — Vue 2 + BaseComponent.extend(): tsc does not merge computeds onto `this`.
-import BaseComponent from '../base/BaseComponent.vue'
+import { defineNxtComponent } from '../base/BaseComponent.vue'
 import store from '@/store'
 import {
   readFirmwareGlobal,
   NxtToolChangerOmKeys,
-  augmentRrfToolForNeXtUi
+  augmentRrfToolForNxtUi,
+  readMosTTRow,
+  readOmVectorCell
 } from '../../utils/nxtToolChangerOm'
 import {
-  isNeXtToolSlotConfiguredInLibrary,
+  isNxtToolSlotConfiguredInLibrary,
   isToolRecord,
-  buildNxtUserToolsGContent
+  buildNxtUserToolsGContent,
+  sendM4000
 } from '../../utils/nxtUserToolsFile'
 import { uploadDwcFile, NXT_USER_TOOLS_DWC_PATH } from '../../utils/nxtFileUpload'
+import {
+  buildFusionImportPreview,
+  maxUserToolIndex,
+  parseFusionToolsFile
+} from '../../utils/fusionToolsImport'
 
 function machineModel(): Record<string, any> {
   const m = store.state.machine?.model
   return m != null && typeof m === 'object' ? (m as Record<string, any>) : {}
 }
 
-export default BaseComponent.extend({
+function formatNum(n: unknown): string {
+  if (typeof n !== 'number' || !Number.isFinite(n)) {
+    return '—'
+  }
+  return String(Math.round(n * 1000) / 1000)
+}
+
+function formatLife(seconds: unknown): string {
+  if (typeof seconds !== 'number' || !Number.isFinite(seconds) || seconds <= 0) {
+    return '—'
+  }
+  const h = Math.floor(seconds / 3600)
+  const m = Math.floor((seconds % 3600) / 60)
+  const s = Math.floor(seconds % 60)
+  if (h > 0) {
+    return `${h}h ${m}m`
+  }
+  if (m > 0) {
+    return `${m}m`
+  }
+  return `${s}s`
+}
+
+export default defineNxtComponent({
   name: 'NxtToolManagementPanel',
 
   data() {
     return {
-      persistingTools: false
+      persistingTools: false,
+      reloadingTools: false,
+      editDialog: false,
+      savingTool: false,
+      removeDialog: false,
+      removingBusy: false,
+      removing: { index: -1, name: '' },
+      resetLifeDialog: false,
+      resettingLife: false,
+      resetLifeTool: { index: -1, name: '' },
+      importDialog: false,
+      importError: '',
+      importWarnings: [],
+      importRows: [],
+      importing: false,
+      importProgress: 0,
+      importTotal: 0,
+      replaceImport: true,
+      editing: {
+        isAdd: true,
+        index: 0,
+        name: '',
+        radius: 0,
+        flutes: null,
+        fluteLen: null
+      }
     }
   },
 
@@ -140,6 +480,20 @@ export default BaseComponent.extend({
     rrfState() {
       const st = machineModel().state
       return st != null && typeof st === 'object' ? st : {}
+    },
+
+    limitsTools() {
+      const lim = machineModel().limits
+      return lim != null && typeof lim.tools === 'number' ? lim.tools : null
+    },
+
+    reservedFrom() {
+      const v = readFirmwareGlobal(this.firmwareGlobals, 'nxtReservedFrom')
+      return typeof v === 'number' && v >= 0 ? v : null
+    },
+
+    maxUserIndex() {
+      return maxUserToolIndex(this.limitsTools, this.reservedFrom)
     },
 
     currentToolIndex() {
@@ -157,6 +511,72 @@ export default BaseComponent.extend({
       return typeof id === 'number' && id >= 0 ? id : -1
     },
 
+    locked() {
+      const v = readFirmwareGlobal(this.firmwareGlobals, 'nxtTTLocked')
+      return v === true || v === 1
+    },
+
+    toolLifeVector() {
+      return readFirmwareGlobal(this.firmwareGlobals, 'nxtToolLife')
+    },
+
+    activeToolLabel() {
+      const ct = this.currentToolIndex
+      if (ct < 0) {
+        return this.$t('plugins.nxt.panels.toolManagement.activeNone').toString()
+      }
+      const tools = machineModel().tools
+      let name = ''
+      if (Array.isArray(tools) && tools[ct] && typeof tools[ct].name === 'string') {
+        name = tools[ct].name
+      }
+      return name.length > 0 ? `T${ct} — ${name}` : `T${ct}`
+    },
+
+    indexError() {
+      if (!this.editing.isAdd) {
+        return ''
+      }
+      const e = this.editing.index
+      if (typeof e !== 'number' || Number.isNaN(e)) {
+        return this.$t('plugins.nxt.panels.toolManagement.indexRequired').toString()
+      }
+      if (e < 0 || e > this.maxUserIndex) {
+        return this.$t('plugins.nxt.panels.toolManagement.indexOutOfRange', {
+          max: this.maxUserIndex
+        }).toString()
+      }
+      if (e === this.probeToolIndexForLibrary) {
+        return this.$t('plugins.nxt.panels.toolManagement.indexProbeReserved').toString()
+      }
+      return ''
+    },
+
+    nameError() {
+      return this.editing.name && String(this.editing.name).trim().length > 0
+        ? ''
+        : this.$t('plugins.nxt.panels.toolManagement.nameRequired').toString()
+    },
+
+    canSave() {
+      return !this.indexError && !this.nameError && !this.savingTool
+    },
+
+    removingLabel() {
+      return this.removing.name || `T${this.removing.index}`
+    },
+
+    resetLifeLabel() {
+      return this.resetLifeTool.name || `T${this.resetLifeTool.index}`
+    },
+
+    importProgressPercent() {
+      if (this.importTotal < 1) {
+        return 0
+      }
+      return Math.round((this.importProgress / this.importTotal) * 100)
+    },
+
     toolLibraryRows() {
       const tools = machineModel().tools
       if (!Array.isArray(tools)) {
@@ -164,63 +584,88 @@ export default BaseComponent.extend({
       }
       const ct = this.currentToolIndex
       const probeIdx = this.probeToolIndexForLibrary
+      const lifeVec = this.toolLifeVector
       const rows = []
       for (let i = 0; i < tools.length; i++) {
         const t = tools[i]
-        if (t == null) {
+        const isReservedSlot = probeIdx >= 0 && i === probeIdx
+        if (t == null && !isReservedSlot) {
           continue
         }
         const inSpindle = i === ct
-        const isProbeSlot = probeIdx >= 0 && i === probeIdx
-        if (!inSpindle && !isProbeSlot && !isNeXtToolSlotConfiguredInLibrary(t)) {
+        if (!inSpindle && !isReservedSlot && !isNxtToolSlotConfiguredInLibrary(t)) {
           continue
         }
-        const isProbe = isProbeSlot || this.probeNameMatch(t)
-        const augmented = augmentRrfToolForNeXtUi(t, this.firmwareGlobals, i)
-        const radiusLabel =
-          augmented.nxtRadiusMm != null ? String(augmented.nxtRadiusMm) : '—'
-        const flutesLabel =
-          augmented.nxtFluteCount != null ? String(augmented.nxtFluteCount) : '—'
-        const fluteLengthLabel =
-          augmented.nxtFluteLengthMm != null ? String(augmented.nxtFluteLengthMm) : '—'
+        if (!isReservedSlot && i > this.maxUserIndex) {
+          continue
+        }
+        const isProbe = isReservedSlot || this.probeNameMatch(t)
+        const augmented = t != null ? augmentRrfToolForNxtUi(t, this.firmwareGlobals, i) : null
+        const row = readMosTTRow(this.firmwareGlobals, i)
+        const radiusRaw =
+          augmented?.nxtRadiusMm ??
+          (row != null && typeof readOmVectorCell(row, 0) === 'number'
+            ? readOmVectorCell(row, 0)
+            : null)
+        const flutesRaw =
+          augmented?.nxtFluteCount ??
+          (row != null && readOmVectorCell(row, 2) >= 0 ? readOmVectorCell(row, 2) : null)
+        const fluteLenRaw =
+          augmented?.nxtFluteLengthMm ??
+          (row != null && readOmVectorCell(row, 3) >= 0 ? readOmVectorCell(row, 3) : null)
         const description =
-          typeof augmented.name === 'string' && augmented.name.length > 0 ? augmented.name : '—'
+          augmented && typeof augmented.name === 'string' && augmented.name.length > 0
+            ? augmented.name
+            : isReservedSlot
+              ? this.$t('plugins.nxt.panels.toolManagement.statusProbe').toString()
+              : '—'
         let statusKind = 'manual'
         if (inSpindle) {
           statusKind = 'spindle'
         } else if (isProbe) {
           statusKind = 'probe'
         }
+        const lifeSeconds =
+          Array.isArray(lifeVec) && typeof lifeVec[i] === 'number' ? lifeVec[i] : 0
         rows.push({
           index: i,
           description,
-          radiusLabel,
-          flutesLabel,
-          fluteLengthLabel,
+          radiusLabel: formatNum(radiusRaw),
+          flutesLabel: flutesRaw != null ? String(flutesRaw) : '—',
+          fluteLengthLabel: formatNum(fluteLenRaw),
+          rawRadius: typeof radiusRaw === 'number' ? radiusRaw : 0,
+          rawFlutes: typeof flutesRaw === 'number' ? flutesRaw : null,
+          rawFluteLen: typeof fluteLenRaw === 'number' ? fluteLenRaw : null,
+          rawName:
+            augmented && typeof augmented.name === 'string' ? augmented.name : `T${i}`,
           inSpindle,
-          statusKind
+          statusKind,
+          isReservedSlot,
+          configured: isNxtToolSlotConfiguredInLibrary(t),
+          lifeSeconds,
+          lifeLabel: formatLife(lifeSeconds)
         })
       }
       if (
-        ct >= 0 &&
-        ct < tools.length &&
-        !rows.some((r) => r.index === ct) &&
-        isToolRecord(tools[ct])
+        probeIdx >= 0 &&
+        !rows.some((r) => r.index === probeIdx)
       ) {
-        const t = tools[ct]
-        const augmented = augmentRrfToolForNeXtUi(t, this.firmwareGlobals, ct)
         rows.push({
-          index: ct,
-          description:
-            typeof augmented.name === 'string' && augmented.name.length > 0 ? augmented.name : '—',
-          radiusLabel:
-            augmented.nxtRadiusMm != null ? String(augmented.nxtRadiusMm) : '—',
-          flutesLabel:
-            augmented.nxtFluteCount != null ? String(augmented.nxtFluteCount) : '—',
-          fluteLengthLabel:
-            augmented.nxtFluteLengthMm != null ? String(augmented.nxtFluteLengthMm) : '—',
-          inSpindle: true,
-          statusKind: 'spindle'
+          index: probeIdx,
+          description: this.$t('plugins.nxt.panels.toolManagement.statusProbe').toString(),
+          radiusLabel: '—',
+          flutesLabel: '—',
+          fluteLengthLabel: '—',
+          rawRadius: 0,
+          rawFlutes: null,
+          rawFluteLen: null,
+          rawName: 'Touch Probe',
+          inSpindle: probeIdx === ct,
+          statusKind: probeIdx === ct ? 'spindle' : 'probe',
+          isReservedSlot: true,
+          configured: false,
+          lifeSeconds: 0,
+          lifeLabel: '—'
         })
       }
       rows.sort((a, b) => a.index - b.index)
@@ -234,6 +679,188 @@ export default BaseComponent.extend({
         return false
       }
       return String(toolObj.name).toLowerCase().includes('touch probe')
+    },
+
+    openAdd() {
+      this.editing = {
+        isAdd: true,
+        index: 0,
+        name: '',
+        radius: 0,
+        flutes: null,
+        fluteLen: null
+      }
+      this.editDialog = true
+    },
+
+    openEdit(row) {
+      this.editing = {
+        isAdd: false,
+        index: row.index,
+        name: row.rawName,
+        radius: row.rawRadius,
+        flutes: row.rawFlutes,
+        fluteLen: row.rawFluteLen
+      }
+      this.editDialog = true
+    },
+
+    async saveTool() {
+      if (!this.canSave || !this.isConnected || !this.nxtReady) {
+        return
+      }
+      this.savingTool = true
+      try {
+        await sendM4000(this.sendCode.bind(this), {
+          toolIndex: this.editing.index,
+          radius: this.editing.radius,
+          name: String(this.editing.name).trim(),
+          flutes: this.editing.flutes,
+          fluteLengthMm: this.editing.fluteLen,
+          reservedFrom: this.reservedFrom,
+          includeTc: false
+        })
+        this.editDialog = false
+      } catch (e) {
+        console.error('nxt: saveTool', e)
+      } finally {
+        this.savingTool = false
+      }
+    },
+
+    confirmRemove(row) {
+      this.removing = { index: row.index, name: row.rawName }
+      this.removeDialog = true
+    },
+
+    async doRemove() {
+      if (!this.isConnected || !this.nxtReady) {
+        return
+      }
+      this.removingBusy = true
+      try {
+        await this.sendCode(`M4001 P${this.removing.index}`)
+        this.removeDialog = false
+      } catch (e) {
+        console.error('nxt: doRemove', e)
+      } finally {
+        this.removingBusy = false
+      }
+    },
+
+    confirmResetLife(row) {
+      this.resetLifeTool = { index: row.index, name: row.rawName }
+      this.resetLifeDialog = true
+    },
+
+    async doResetLife() {
+      if (!this.isConnected || !this.nxtReady) {
+        return
+      }
+      this.resettingLife = true
+      try {
+        await this.sendCode(`set global.nxtToolLife[${this.resetLifeTool.index}] = 0`)
+        this.resetLifeDialog = false
+      } catch (e) {
+        console.error('nxt: doResetLife', e)
+      } finally {
+        this.resettingLife = false
+      }
+    },
+
+    async setActive(row) {
+      await this.sendCode(`T${row.index} P0`)
+    },
+
+    async clearActive() {
+      await this.sendCode('T-1 P0')
+    },
+
+    async toggleLock() {
+      if (!this.isConnected || !this.nxtReady) {
+        return
+      }
+      const next = !this.locked
+      await this.sendCode(`set global.nxtTTLocked = ${next ? 'true' : 'false'}`)
+      await this.sendCode('M98 P"nxt-user-tools-sync.g"')
+    },
+
+    openImport() {
+      this.importError = ''
+      this.importRows = []
+      this.importWarnings = []
+      this.importProgress = 0
+      this.importTotal = 0
+      this.importDialog = true
+    },
+
+    async onImportFile(value) {
+      this.importError = ''
+      this.importRows = []
+      this.importWarnings = []
+      const file = Array.isArray(value) ? value[0] : value
+      if (!file) {
+        return
+      }
+      try {
+        const records = await parseFusionToolsFile(file)
+        const preview = buildFusionImportPreview(records, {
+          maxIndex: this.maxUserIndex,
+          probeIndex: this.probeToolIndexForLibrary
+        })
+        this.importRows = preview.rows
+        this.importWarnings = preview.warnings
+        if (preview.rows.length === 0 && preview.warnings.length === 0) {
+          this.importError = this.$t('plugins.nxt.panels.toolManagement.importEmpty').toString()
+        }
+      } catch (e) {
+        this.importError =
+          e && typeof e.message === 'string'
+            ? e.message
+            : this.$t('plugins.nxt.panels.toolManagement.importFailed').toString()
+      }
+    },
+
+    async confirmImport() {
+      if (!this.isConnected || !this.nxtReady || this.importRows.length === 0) {
+        return
+      }
+      this.importing = true
+      this.importTotal = this.importRows.length
+      this.importProgress = 0
+      try {
+        if (this.replaceImport) {
+          await this.sendCode('M4002')
+        }
+        for (const row of this.importRows) {
+          await sendM4000(this.sendCode.bind(this), {
+            toolIndex: row.index,
+            radius: row.radius,
+            name: row.name,
+            flutes: row.flutes,
+            fluteLengthMm: row.fluteLengthMm,
+            reservedFrom: this.reservedFrom,
+            includeTc: false
+          })
+          this.importProgress += 1
+        }
+        this.importDialog = false
+        await this.$store.dispatch('machine/showMessage', {
+          type: 'success',
+          message: this.$t('plugins.nxt.panels.toolManagement.importSuccess', {
+            count: this.importRows.length
+          })
+        })
+      } catch (e) {
+        const msg =
+          e && typeof e.message === 'string'
+            ? e.message
+            : this.$t('plugins.nxt.panels.toolManagement.importFailed')
+        console.error('nxt: confirmImport', e)
+        await this.$store.dispatch('machine/showMessage', { type: 'error', message: msg })
+      } finally {
+        this.importing = false
+      }
     },
 
     async saveToolLibraryToBoard() {
@@ -261,7 +888,7 @@ export default BaseComponent.extend({
         await uploadDwcFile(NXT_USER_TOOLS_DWC_PATH, body)
         await this.$store.dispatch('machine/showMessage', {
           type: 'success',
-          message: this.$t('plugins.next.panels.toolManagement.saveToBoardSuccess', {
+          message: this.$t('plugins.nxt.panels.toolManagement.saveToBoardSuccess', {
             path: NXT_USER_TOOLS_DWC_PATH
           })
         })
@@ -269,8 +896,8 @@ export default BaseComponent.extend({
         const msg =
           e && typeof e.message === 'string'
             ? e.message
-            : this.$t('plugins.next.panels.toolManagement.saveToBoardFailed')
-        console.error('NeXT: saveToolLibraryToBoard', e)
+            : this.$t('plugins.nxt.panels.toolManagement.saveToBoardFailed')
+        console.error('nxt: saveToolLibraryToBoard', e)
         await this.$store.dispatch('machine/showMessage', {
           type: 'error',
           message: msg
@@ -284,22 +911,25 @@ export default BaseComponent.extend({
       if (!this.isConnected || !this.nxtReady) {
         return
       }
+      this.reloadingTools = true
       try {
         await this.sendCode('M98 P"nxt-user-tools.g"')
         await this.$store.dispatch('machine/showMessage', {
           type: 'success',
-          message: this.$t('plugins.next.panels.toolManagement.reloadFromSdSuccess')
+          message: this.$t('plugins.nxt.panels.toolManagement.reloadFromSdSuccess')
         })
       } catch (e) {
         const msg =
           e && typeof e.message === 'string'
             ? e.message
-            : this.$t('plugins.next.panels.toolManagement.reloadFromSdFailed')
-        console.error('NeXT: reloadToolLibraryFromSd', e)
+            : this.$t('plugins.nxt.panels.toolManagement.reloadFromSdFailed')
+        console.error('nxt: reloadToolLibraryFromSd', e)
         await this.$store.dispatch('machine/showMessage', {
           type: 'error',
           message: msg
         })
+      } finally {
+        this.reloadingTools = false
       }
     }
   }

@@ -1,5 +1,5 @@
 /**
- * Build `0:/sys/nxt-user-tools.g` content for NeXT: M4000 (library) + G10 L1 (offsets).
+ * Build `0:/sys/nxt-user-tools.g` content for nxt: M4000 (library) + G10 L1 (offsets).
  * Loaded at boot from nxt.g when the file exists; optional UI upload via rr_upload.
  * Also rewritten on the board by `nxt-user-tools-sync.g` after M4000/M4001 (unless load depth > 0).
  */
@@ -32,7 +32,7 @@ export function isToolRecord(t: unknown): t is Record<string, unknown> {
 }
 
 /** Match ToolManagementPanel: RRF slots that count as “configured” for listing. */
-export function isNeXtToolSlotConfiguredInLibrary(tool: unknown): boolean {
+export function isNxtToolSlotConfiguredInLibrary(tool: unknown): boolean {
   if (!isToolRecord(tool)) {
     return false
   }
@@ -111,11 +111,125 @@ function readMosTTProbeDeflection(
   return out
 }
 
+function readMosTTFlags(
+  firmwareGlobals: unknown,
+  toolIndex: number
+): { tcCapable?: number; tsCapable?: number } {
+  const row = readMosTTRow(firmwareGlobals, toolIndex)
+  if (row == null) {
+    return {}
+  }
+  const out: { tcCapable?: number; tsCapable?: number } = {}
+  const c = readOmVectorCell(row, 4)
+  const b = readOmVectorCell(row, 5)
+  if (typeof c === 'number' && Number.isFinite(c)) {
+    out.tcCapable = c
+  }
+  if (typeof b === 'number' && Number.isFinite(b)) {
+    out.tsCapable = b
+  }
+  return out
+}
+
+export type BuildM4000LineOptions = {
+  /** First reserved system index (probe/datum). Appends K1 when toolIndex >= this. */
+  reservedFrom?: number | null
+  /** When false, omit C even if nxtTT defines it (live Fusion import). */
+  includeTc?: boolean
+  /** Explicit C/B override for panel edits; omit to read nxtTT. */
+  tcCapable?: boolean | null
+  tsCapable?: boolean | null
+}
+
+export function escapeM4000Name(raw: string): string {
+  return String(raw).replace(/"/g, '""')
+}
+
+export function buildM4000Command(args: {
+  toolIndex: number
+  radius: number
+  name: string
+  spindleId?: number | null
+  defaultSpindleId?: number
+  deflX?: number | null
+  deflY?: number | null
+  flutes?: number | null
+  fluteLengthMm?: number | null
+  reservedFrom?: number | null
+  includeTc?: boolean
+  tcCapable?: boolean | null
+  tsCapable?: boolean | null
+}): string {
+  const {
+    toolIndex,
+    radius,
+    name,
+    spindleId,
+    defaultSpindleId = 0,
+    deflX,
+    deflY,
+    flutes,
+    fluteLengthMm,
+    reservedFrom,
+    includeTc = false,
+    tcCapable,
+    tsCapable
+  } = args
+
+  let line = `M4000 P${toolIndex} R${fmtAxis(radius)} S"${escapeM4000Name(name)}"`
+
+  if (
+    typeof spindleId === 'number' &&
+    Number.isFinite(spindleId) &&
+    spindleId >= 0 &&
+    spindleId !== defaultSpindleId
+  ) {
+    line += ` I${spindleId}`
+  }
+  if (typeof deflX === 'number' && Number.isFinite(deflX)) {
+    line += ` X${fmtAxis(deflX)}`
+  }
+  if (typeof deflY === 'number' && Number.isFinite(deflY)) {
+    line += ` Y${fmtAxis(deflY)}`
+  }
+  if (typeof flutes === 'number' && Number.isFinite(flutes) && flutes >= 0) {
+    line += ` F${flutes}`
+  }
+  if (typeof fluteLengthMm === 'number' && Number.isFinite(fluteLengthMm) && fluteLengthMm >= 0) {
+    line += ` L${fmtAxis(fluteLengthMm)}`
+  }
+
+  if (includeTc && tcCapable === false) {
+    line += ' C0'
+  } else if (includeTc && tcCapable === true) {
+    line += ' C1'
+  }
+  if (tsCapable === false) {
+    line += ' B0'
+  } else if (tsCapable === true) {
+    line += ' B1'
+  }
+
+  if (typeof reservedFrom === 'number' && Number.isFinite(reservedFrom) && toolIndex >= reservedFrom) {
+    line += ' K1'
+  }
+
+  return line
+}
+
+export async function sendM4000(
+  sendCode: (code: string) => Promise<unknown>,
+  args: Parameters<typeof buildM4000Command>[0]
+): Promise<void> {
+  await sendCode(buildM4000Command(args))
+}
+
 function buildM4000Line(
   toolIndex: number,
   tool: Record<string, unknown>,
   firmwareGlobals: unknown,
-  defaultSpindleId: number
+  defaultSpindleId: number,
+  lineOpts?: BuildM4000LineOptions
 ): string {
   const radiusRaw = resolveToolRadiusMm(tool, firmwareGlobals, toolIndex)
   const radius = radiusRaw != null && Number.isFinite(radiusRaw) ? radiusRaw : 0
@@ -126,34 +240,49 @@ function buildM4000Line(
       : `T${toolIndex}`
   desc = sanitizeM4000Description(desc, toolIndex)
 
-  let line = `M4000 P${toolIndex} R${fmtAxis(radius)} S"${desc}"`
-
   const spin =
     typeof tool.spindle === 'number' && Number.isFinite(tool.spindle) && tool.spindle >= 0
       ? tool.spindle
       : defaultSpindleId
-  if (spin !== defaultSpindleId) {
-    line += ` I${spin}`
-  }
 
   const defl = readMosTTProbeDeflection(firmwareGlobals, toolIndex)
-  if (defl.x !== undefined) {
-    line += ` X${fmtAxis(defl.x)}`
-  }
-  if (defl.y !== undefined) {
-    line += ` Y${fmtAxis(defl.y)}`
-  }
-
   const nxtFluteCount = resolveToolFluteCount(tool, firmwareGlobals, toolIndex)
-  if (nxtFluteCount != null && nxtFluteCount >= 0) {
-    line += ` F${nxtFluteCount}`
-  }
   const { nxtFluteLengthMm } = readMosTTFluteMeta(firmwareGlobals, toolIndex)
-  if (nxtFluteLengthMm != null && nxtFluteLengthMm >= 0) {
-    line += ` L${fmtAxis(nxtFluteLengthMm)}`
+  const flags = readMosTTFlags(firmwareGlobals, toolIndex)
+
+  const includeTc = lineOpts?.includeTc !== false
+  let tcCapable: boolean | null = lineOpts?.tcCapable ?? null
+  if (tcCapable == null && includeTc && flags.tcCapable === 0) {
+    tcCapable = false
   }
 
-  return line
+  let tsCapable: boolean | null = lineOpts?.tsCapable ?? null
+  if (tsCapable == null && flags.tsCapable === 0) {
+    tsCapable = false
+  }
+
+  const reservedFrom =
+    lineOpts?.reservedFrom ??
+    (() => {
+      const v = readFirmwareGlobal(firmwareGlobals, 'nxtReservedFrom')
+      return typeof v === 'number' && Number.isFinite(v) ? v : null
+    })()
+
+  return buildM4000Command({
+    toolIndex,
+    radius,
+    name: desc,
+    spindleId: spin,
+    defaultSpindleId,
+    deflX: defl.x,
+    deflY: defl.y,
+    flutes: nxtFluteCount,
+    fluteLengthMm: nxtFluteLengthMm,
+    reservedFrom,
+    includeTc: includeTc && tcCapable != null,
+    tcCapable,
+    tsCapable: tsCapable === false ? false : null
+  })
 }
 
 /**
@@ -225,7 +354,7 @@ function shouldIncludeToolIndex(
   }
   const inSpindle = toolIndex === currentToolIndex
   const isProbeSlot = probeToolIndex >= 0 && toolIndex === probeToolIndex
-  if (!inSpindle && !isProbeSlot && !isNeXtToolSlotConfiguredInLibrary(t)) {
+  if (!inSpindle && !isProbeSlot && !isNxtToolSlotConfiguredInLibrary(t)) {
     return false
   }
   return true
@@ -257,13 +386,18 @@ export function buildNxtUserToolsGContent(args: BuildNxtUserToolsGArgs): string 
   } = args
 
   const defaultSpindleId = readDefaultSpindleId(firmwareGlobals)
+  const reservedFromRaw = readFirmwareGlobal(firmwareGlobals, 'nxtReservedFrom')
+  const reservedFrom =
+    typeof reservedFromRaw === 'number' && Number.isFinite(reservedFromRaw)
+      ? reservedFromRaw
+      : null
   const lines: string[] = [
-    '; NeXT user tool library (persisted)',
+    '; nxt user tool library (persisted)',
     '; Auto-generated — Tool Library "Save to board", M4000/M4001 (nxt-user-tools-sync.g), or edit on SD.',
     `; Generated: ${generatedAt}`,
     '',
     '; Load order: nxt-tooltable.g then nxt-user-vars.g then this file.',
-    '; M4000 defines M563 + mosTT; G10 L1 restores axis offsets per tool.',
+    '; M4000 defines M563 + nxtTT; G10 L1 restores axis offsets per tool.',
     '; Wrapper: nxtUserToolsLoadDepth keeps M98 load from calling sync until the file finishes.',
     ...NXT_USER_TOOLS_LOAD_DEPTH_OPEN
   ]
@@ -292,7 +426,12 @@ export function buildNxtUserToolsGContent(args: BuildNxtUserToolsGArgs): string 
       continue
     }
     const rec = t as Record<string, unknown>
-    lines.push(buildM4000Line(i, rec, firmwareGlobals, defaultSpindleId))
+    lines.push(
+      buildM4000Line(i, rec, firmwareGlobals, defaultSpindleId, {
+        reservedFrom,
+        includeTc: true
+      })
+    )
     const g10 = buildG10L1Line(i, rec, axes)
     if (g10) {
       lines.push(g10)

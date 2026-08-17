@@ -1,6 +1,6 @@
 # Phase 3 Implementation Summary
 
-This document summarizes the Phase 3 implementation of Advanced Probing & Results Management for NeXT.
+This document summarizes the Phase 3 implementation of Advanced Probing & Results Management for nxt.
 
 ## Overview
 
@@ -100,7 +100,7 @@ A user-friendly interface for executing all probing cycles:
 
 ### UI Integration
 
-**Main Dashboard Updates (NeXT.vue):**
+**Main Dashboard Updates (nxt.vue):**
 - Added both panels to Probing tab
 - Replaced placeholder message with functional UI
 - Proper component registration in panels/index.ts

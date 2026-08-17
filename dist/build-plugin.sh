@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Build the NeXT DWC plugin only (no full SD release zip).
+# Build the nxt DWC plugin only (no full SD release zip).
 # Run from anywhere; paths are resolved from this script's location.
 #
 # Usage:
 #   ./dist/build-plugin.sh [path-to-DuetWebControl]
 #   ./dist/build-plugin.sh --clean-only [path-to-DuetWebControl]
 #
-# Default DWC path: <NeXT-repo>/../DuetWebControl
+# Default DWC path: <MOS-nxt-repo>/../DuetWebControl
 #
 # Output: dist/nxt-<ref>-<sha>[-dirty].zip
 #
@@ -15,10 +15,10 @@
 #
 # Cleanup removes:
 #   - DuetWebControl/dist/          (webpack output: js/, css/, zips from last build)
-#   - DuetWebControl/src/plugins/NeXT/  (staged plugin tree if a prior build stopped early)
+#   - DuetWebControl/src/plugins/nxt/  (staged plugin tree if a prior build stopped early)
 #   - DuetWebControl/node_modules/.cache/ (vue-cli / webpack cache; optional but helps stale chunks)
 #   - DuetWebControl/scripts/build-plugin.js.next-bak (leftover if a build was interrupted)
-#   - NeXT/dist/nxt-*.zip        (previous plugin zip outputs only; other files under dist/ are kept)
+#   - MOS-nxt/dist/nxt-*.zip        (previous plugin zip outputs only; other files under dist/ are kept)
 
 set -euo pipefail
 
@@ -49,18 +49,18 @@ sanitize_ref() {
 
 clean_next_plugin_artifacts() {
   local dwc="$1"
-  echo "NeXT plugin artifact cleanup (DWC: ${dwc})"
+  echo "nxt plugin artifact cleanup (DWC: ${dwc})"
   if [[ -d "${dwc}/dist" ]]; then
     echo "  rm -rf ${dwc}/dist"
     rm -rf "${dwc}/dist"
   else
     echo "  (skip) no ${dwc}/dist"
   fi
-  if [[ -d "${dwc}/src/plugins/NeXT" ]]; then
-    echo "  rm -rf ${dwc}/src/plugins/NeXT"
-    rm -rf "${dwc}/src/plugins/NeXT"
+  if [[ -d "${dwc}/src/plugins/nxt" ]]; then
+    echo "  rm -rf ${dwc}/src/plugins/nxt"
+    rm -rf "${dwc}/src/plugins/nxt"
   else
-    echo "  (skip) no ${dwc}/src/plugins/NeXT"
+    echo "  (skip) no ${dwc}/src/plugins/nxt"
   fi
   local bak="${dwc}/scripts/build-plugin.js.next-bak"
   if [[ -f "${bak}" ]]; then
@@ -76,7 +76,7 @@ clean_next_plugin_artifacts() {
   mkdir -p "${OUT_DIR}"
   local found_zip=false
   shopt -s nullglob
-  for z in "${OUT_DIR}"/nxt-*.zip "${OUT_DIR}"/NeXT-*.zip; do
+  for z in "${OUT_DIR}"/nxt-*.zip "${OUT_DIR}"/nxt-*.zip; do
     echo "  rm -f ${z}"
     rm -f "${z}"
     found_zip=true
@@ -110,6 +110,13 @@ fi
 echo "Checking RRF macro line lengths (max 200)..."
 node "${ROOT}/dist/check-gcode-line-length.mjs" || exit 1
 
+echo "Checking OM global size budget hygiene..."
+node "${ROOT}/dist/check-om-global-budget.mjs" || exit 1
+
+echo "Checking CDYv3 endstop-y.g conditionals..."
+chmod +x "${ROOT}/dist/check-cdy-endstop-y.sh"
+"${ROOT}/dist/check-cdy-endstop-y.sh" || exit 1
+
 TMP_DIR="$(mktemp -d -t next-plugin-build-XXXXX)"
 
 # shellcheck source=dist/resolve-build-version.sh
@@ -122,7 +129,7 @@ else
 fi
 
 # Embedded %%NXT_VERSION%% uses release line (e.g. v0.6.0); zip basename includes ref+sha for uniqueness.
-DWC_PLUGIN_ZIP="NeXT-${BUILD_VERSION}.zip"
+DWC_PLUGIN_ZIP="nxt-${BUILD_VERSION}.zip"
 OUT_ZIP="nxt-$(sanitize_ref "${BUILD_REF}")-${BUILD_SHA}${DIRTY_SUFFIX}.zip"
 echo "nxt plugin build: embedded version ${BUILD_VERSION} (ref ${BUILD_REF}, zip ${OUT_ZIP})"
 BUILD_PLUGIN_JS="${DWC_REPO_PATH}/scripts/build-plugin.js"
@@ -149,27 +156,27 @@ generate_nxt_plugin_dispatchers() {
 
   cat > "${init_dispatch}" <<'EOF'
 ; Auto-generated. Do not edit.
-; NeXT plugin init dispatcher
+; nxt plugin init dispatcher
 EOF
   cat > "${daemon_dispatch}" <<'EOF'
 ; Auto-generated. Do not edit.
-; NeXT plugin daemon dispatcher
+; nxt plugin daemon dispatcher
 EOF
   cat > "${pause_dispatch}" <<'EOF'
 ; Auto-generated. Do not edit.
-; NeXT plugin pause hooks dispatcher
+; nxt plugin pause hooks dispatcher
 EOF
   cat > "${resume_dispatch}" <<'EOF'
 ; Auto-generated. Do not edit.
-; NeXT plugin resume hooks dispatcher
+; nxt plugin resume hooks dispatcher
 EOF
   cat > "${stop_dispatch}" <<'EOF'
 ; Auto-generated. Do not edit.
-; NeXT plugin stop hooks dispatcher
+; nxt plugin stop hooks dispatcher
 EOF
   cat > "${cancel_dispatch}" <<'EOF'
 ; Auto-generated. Do not edit.
-; NeXT plugin cancel hooks dispatcher
+; nxt plugin cancel hooks dispatcher
 EOF
 
   if ! jq -e '.data.nxt.tag == "nxt-plugin" and (.data.nxt.enabled // true)' "${plugin_json}" >/dev/null 2>&1; then
@@ -245,7 +252,7 @@ EOF
 }
 
 echo "Building nxt plugin (${OUT_ZIP}) using DWC at ${DWC_REPO_PATH}..."
-echo "Build basis: ${BUILD_BASIS}"
+echo "Build basis: ${BUILD_REF} (${BUILD_VERSION}) @ ${BUILD_SHA}"
 
 # Stage sd/sys*: same layout as release.sh — macros/system/ → sd/sys/; macros/daemon/
 # (nxt-daemon.g, nxt-user-tools-reload-daemon.g, …) → sd/sys/nxt/.
@@ -310,7 +317,7 @@ if [[ ! -f "${DWC_REPO_PATH}/dist/${DWC_PLUGIN_ZIP}" ]]; then
 fi
 mv "${DWC_REPO_PATH}/dist/${DWC_PLUGIN_ZIP}" "${DWC_REPO_PATH}/dist/${OUT_ZIP}"
 
-# build-plugin copies then deletes src/plugins/NeXT; restore imports.ts so dwc dev is not left broken
+# build-plugin copies then deletes src/plugins/nxt; restore imports.ts so dwc dev is not left broken
 node "${ROOT}/dist/regenerate-dwc-plugin-imports.cjs" "${DWC_REPO_PATH}"
 
 node "${ROOT}/dist/verify-plugin-zip.mjs" "${DWC_REPO_PATH}/dist/${OUT_ZIP}"
@@ -333,7 +340,12 @@ DWC_REPO_PATH="${DWC_REPO_PATH}" node "${ROOT}/dist/merge-sd-into-plugin-zip.cjs
 DWC_REPO_PATH="${DWC_REPO_PATH}" node "${ROOT}/dist/inject-plugin-dwcfiles.cjs" \
   "${DWC_REPO_PATH}/dist/${OUT_ZIP}"
 
-_zip_js="$(unzip -Z1 "${DWC_REPO_PATH}/dist/${OUT_ZIP}" 'dwc/NeXT/js/NeXT*.js' | head -1)"
+set +o pipefail
+_zip_js="$(unzip -Z1 "${DWC_REPO_PATH}/dist/${OUT_ZIP}" 'dwc/js/nxt*.js' 2>/dev/null | head -1)"
+if [[ -z "${_zip_js}" ]]; then
+  _zip_js="$(unzip -Z1 "${DWC_REPO_PATH}/dist/${OUT_ZIP}" 'dwc/nxt/js/nxt*.js' 2>/dev/null | head -1)"
+fi
+set -o pipefail
 if [[ -n "${_zip_js}" ]]; then
   _tmp_js="$(mktemp --suffix=.js)"
   unzip -p "${DWC_REPO_PATH}/dist/${OUT_ZIP}" "${_zip_js}" > "${_tmp_js}"

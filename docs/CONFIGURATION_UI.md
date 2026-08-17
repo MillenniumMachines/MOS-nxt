@@ -1,20 +1,20 @@
-# NeXT Configuration UI Guide
+# nxt Configuration UI Guide
 
 ## Overview
 
-The NeXT Configuration UI is a comprehensive web-based interface that replaces the legacy G8000 configuration wizard. It provides direct, real-time editing of all NeXT settings through an intuitive interface within Duet Web Control.
+The nxt Configuration UI is a comprehensive web-based interface that replaces the legacy G8000 configuration wizard. It provides direct, real-time editing of all nxt settings through an intuitive interface within Duet Web Control.
 
 ## Accessing the Configuration UI
 
 1. Open Duet Web Control in your browser
-2. Navigate to **Control** → **NeXT**
+2. Navigate to **Control** → **nxt**
 3. Select the **Configuration** tab
 
 ## Configuration Sections
 
 ### 1. Features
 
-Toggle switches to enable or disable major NeXT features:
+Toggle switches to enable or disable major nxt features:
 
 - **Touch Probe**: Enable automated touch probe operations
 - **Tool Setter**: Enable automatic tool length measurement
@@ -70,7 +70,7 @@ Select the machine platform and board pack that match your hardware. Platforms a
 
 | Control | Description |
 |---------|-------------|
-| **Platform** | e.g. `v1.5` or `v1.6_v2` — sets `global.nxtPlatformProfile` |
+| **Platform** | `v1.5`, **`v1.6`**, **`v2.0`**, or **`custom`** — sets `global.nxtPlatformProfile` (legacy `v1.6_v2` migrates to `v1.6` on load/save) |
 | **Board profile** | Override `global.nxtBoardShortNameOverride` or leave Auto (first board in object model) |
 | **Scylla motor voltage** | Required for Scylla packs: `24` or `48` V variant |
 | **Bootstrap mode** | **Auto** — Save creates `0:/sys/nxt-board-bootstrap.requested`. **Off** — Save removes it. |
@@ -78,7 +78,7 @@ Select the machine platform and board pack that match your hardware. Platforms a
 | **Check SD board packs** | Compares bundled manifest to `0:/sys/nxt-config/` (stale plugin warning) |
 | **Save Configuration** | Writes `nxt-user-vars.g` including `nxtBoardPackExpectedEntry` and syncs bootstrap sentinels |
 
-When you change platform, the UI may prompt to deploy homing files for that platform immediately. Homing direction requirements differ between v1.5 and v1.6_v2 — see [NXT_BOARD_HOMING.md](NXT_BOARD_HOMING.md).
+When you change platform, the UI may prompt to deploy homing files for that platform immediately. Homing direction requirements differ between v1.5 (Y toward max) and v1.6 / v2.0 (Y toward min) — see [NXT_BOARD_HOMING.md](NXT_BOARD_HOMING.md).
 
 **Reload** re-runs `M98 P"nxt-user-vars.g"` and shows warnings if bootstrap files or pack paths do not match saved intent (`nxtBoardPackExpectedEntry` vs `nxtBoardPackEntry`).
 
@@ -95,11 +95,29 @@ Configure GPIO pins for coolant control:
 | Air Blast Pin ID | GP Output port for air blast | `0` |
 | Mist Coolant Pin ID | GP Output port for mist coolant | `1` |
 | Flood Coolant Pin ID | GP Output port for flood coolant | `2` |
+| Pulse mist (M7) | Cycle mist output on/off; air blast stays on | off |
+| Pulse flood (M8) | Cycle flood output on/off | off |
+| Pulse ON duration | Seconds coolant output stays on per cycle | `5` |
+| Pulse OFF duration | Seconds coolant output stays off per cycle | `25` |
 
 **Usage Notes:**
 - Pin IDs correspond to RRF general purpose output ports
 - Set to `null` or leave empty if not using that coolant type
 - Used by M7, M8, M9 coolant control macros
+- Pulse timing requires `macros/system/daemon.g` (enabled by default via `global.nxtDaemonEnabled`)
+- When pulsing is enabled for a type, `M7`/`M8` turn that output on in cycles; `M9` stops pulsing immediately
+- Pause saves coolant **intent** (not instantaneous OFF phase) so resume restores pulsing correctly
+
+## Related nxt tabs (v0.6.0)
+
+The main nxt dashboard (**Control → nxt**) includes tabs beyond Configuration:
+
+| Tab | Panel | Purpose |
+|-----|-------|---------|
+| **Calibration** | `CalibrationPanel.vue` | Manual and probe-assisted steps-per-mm / backlash / deflection workflow ([CALIBRATION.md](CALIBRATION.md)); drives **M5014**–**M5016**, **G9000**, **M6523** |
+| **Maintenance** | `MaintenancePanel.vue` | Axis and tool service counters; **M5013** thresholds, daemon save to `nxt-maintenance.g` |
+
+Platform **custom** generates a pack under `nxt-config/machine/custom/` when selected — see [NXT_BOARD_CONFIG.md](NXT_BOARD_CONFIG.md).
 
 ## Configuration Actions
 
@@ -114,7 +132,7 @@ Runtime values are still updated immediately via `set global.*` when you change 
 The **"Reload"** button:
 
 - If **`nxt-user-vars.g` exists** on SD (`global.nxtUserVarsPresent`): runs **`M98 P"nxt-user-vars.g"`**, then syncs the form from the object model.
-- If the file is **missing** (first install): **no error** — the form is rebuilt from live NeXT globals, MillenniumOS `mos*` globals (when present), and singleton auto-picks (e.g. one spindle → ID 0). Use **Save Configuration** to create `nxt-user-vars.g`.
+- If the file is **missing** (first install): **no error** — the form is rebuilt from live nxt globals, MillenniumOS `mos*` globals (when present), and singleton auto-picks (e.g. one spindle → ID 0). Use **Save Configuration** to create `nxt-user-vars.g`.
 
 Use Reload to apply hand-edits on the SD card, discard unsaved form changes, or refresh after external `set global.*` changes.
 
@@ -196,8 +214,8 @@ All configuration values are stored as RRF global variables:
 
 On the machine, configuration lives on the SD card as **`0:/sys/nxt-user-vars.g`**; the UI saves it via **`rr_upload?name=/sys/nxt-user-vars.g`** (full-file HTTP upload):
 
-- Loads automatically when NeXT starts (`M98 P"nxt-user-vars.g"` from `nxt.g`) when the file exists
-- If the file is missing at boot, NeXT still loads (`global.nxtConfigPending = true`) so this panel is available — review settings and **Save** to create the file
+- Loads automatically when nxt starts (`M98 P"nxt-user-vars.g"` from `nxt.g`) when the file exists
+- If the file is missing at boot, nxt still loads (`global.nxtConfigPending = true`) so this panel is available — review settings and **Save** to create the file
 - Survives machine restarts
 - Can be edited manually on the SD card if needed
 - **Probe repeatability** (G6512 sample count, pair tolerance, retries) is **not** in `nxt-user-vars.g` — defaults live in **`nxt-vars.g`**. The plugin ships **`0:/sys/nxt-user-overrides.g.example`** on SD; copy it to **`nxt-user-overrides.g`** to enable overrides. Only **`nxt-user-overrides.g`** is loaded (never the `.example` file), and only **last** in `nxt.g` after board pack and boot.
@@ -288,7 +306,7 @@ To restore configuration:
 ## Related Documentation
 
 - [Board configuration & pack layout](NXT_BOARD_CONFIG.md)
-- [Homing requirements (v1.5 vs v1.6_v2)](NXT_BOARD_HOMING.md)
+- [Homing requirements (v1.5 vs v1.6 / v2.0)](NXT_BOARD_HOMING.md)
 - [UI Implementation Details](UI_IMPLEMENTATION.md)
 - [Features Overview](FEATURES.md)
 - [Development Roadmap](ROADMAP.md)

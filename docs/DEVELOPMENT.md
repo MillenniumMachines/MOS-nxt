@@ -1,6 +1,6 @@
-# NeXT Development Workflow
+# nxt Development Workflow
 
-This document outlines the development process, branching strategy, and code review workflow to be followed for the NeXT rewrite. The primary goal is to ensure all changes are structured, reviewed, and aligned with the project's core principles of simplicity and accuracy.
+This document outlines the development process, branching strategy, and code review workflow to be followed for the nxt rewrite. The primary goal is to ensure all changes are structured, reviewed, and aligned with the project's core principles of simplicity and accuracy.
 
 ---
 
@@ -14,8 +14,8 @@ This document outlines the development process, branching strategy, and code rev
 
 ## 2. Repository & Branching Strategy
 
-1.  **NeXT Repository:**
-    *   Development has moved to a dedicated repository: `benagricola/NeXT` (https://github.com/benagricola/NeXT)
+1.  **MOS-nxt repo:**
+    *   Development repository: [MillenniumMachines/MOS-nxt](https://github.com/MillenniumMachines/MOS-nxt)
     *   This provides full control over the development process without affecting the legacy MillenniumOS codebase.
 
 2.  **Main Integration Branch (`main`):**

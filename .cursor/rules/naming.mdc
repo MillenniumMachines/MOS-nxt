@@ -1,0 +1,43 @@
+---
+description: Product, repository, and DWC plugin naming — nxt firmware, MOS-nxt repo
+alwaysApply: true
+---
+
+# Naming: nxt and MOS-nxt
+
+## Product and DWC plugin id: `nxt`
+
+- Firmware / operations system name: **`nxt`** (lowercase).
+- **`plugin.json` → `id`** and **`dwcWebpackChunk`**: **`nxt`**
+- DWC dev tree: **`DuetWebControl/src/plugins/nxt`** (directory name must match `id`)
+- Routes: **`/nxt`**, **`/nxt/ToolLibrary`**
+- **`registerPluginData('nxt', …)`**; store: **`plugins.get('nxt')`**
+- Built assets: **`dwc/js/nxt.<hash>.js`**, **`dwc/css/nxt.<hash>.css`**
+- **`dwc-plugins.json`** top-level key: **`nxt`**
+- Main component: **`ui/src/nxt.vue`**
+
+## Repository: `MOS-nxt`
+
+- Checkout folder: **`MOS-nxt/`** next to **`DuetWebControl/`**
+- **URL:** `https://github.com/MillenniumMachines/MOS-nxt` (releases under `/releases`)
+
+## i18n
+
+- Locale bundle id: **`nxt`** via `registerPluginLocalization('nxt', …)`.
+- Template keys: **`plugins.nxt.*`** (must match plugin `id`).
+
+## Release / SD
+
+- Plugin ZIP: **`nxt-<version>.zip`**
+- Macros on SD: **`nxt.g`**, **`nxt-config/`**, **`global.nxt*`**
+
+## Before merge (plugin id / paths)
+
+Run from repo root:
+
+```bash
+./dist/audit-naming.sh
+./dist/verify-nxt-plugin-contract.mjs
+```
+
+See [docs/NAMING.md](../../docs/NAMING.md).

@@ -25,7 +25,7 @@ M584 X0 Y1 Z2
 M350 X32 Y32 Z32 I0
 
 ; Milo lead-screws are 8mm pitch, with 1.8 degree motors or 200 steps per revolution
-; Z axis is geared 2-1
+; Z axis is geared 2-1 for v1.5
 
 ; Steps/mm: machine/<profile>/steps.g
 

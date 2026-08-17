@@ -14,12 +14,12 @@ BUILD_VERSION="${1:?BUILD_VERSION required (e.g. v0.6.0 or v0.6.0-beta.5)}"
 OUT_DIR="${2:-${ROOT}/dist/post-processors/${BUILD_VERSION}}"
 MANIFEST="${ROOT}/dist/post-processors-staging.env"
 
-F360_CPS_NAME="next-${BUILD_VERSION}-post-f360.cps"
-FREECAD_PY_NAME="next-${BUILD_VERSION}-post-freecad.py"
+F360_CPS_NAME="nxt-${BUILD_VERSION}-f360.cps"
+FREECAD_PY_NAME="nxt-${BUILD_VERSION}_post.py"
 MCH_NAME="milo-v1.5-std.mch"
 
-SRC_F360="${ROOT}/post-processors/fusion-360/next.cps"
-SRC_FREECAD="${ROOT}/post-processors/freecad/next_post.py"
+SRC_F360="${ROOT}/post-processors/fusion-360/nxt.cps"
+SRC_FREECAD="${ROOT}/post-processors/freecad/nxt_post.py"
 SRC_MCH="${ROOT}/post-processors/fusion-360/milo-v1.5-std.mch"
 
 for f in "${SRC_F360}" "${SRC_FREECAD}" "${SRC_MCH}"; do

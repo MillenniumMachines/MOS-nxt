@@ -10,12 +10,12 @@ import store from "@/store";
 import { readFirmwareGlobal } from "../../utils/nxtToolChangerOm";
 
 /**
- * BaseComponent - Foundation component for all NeXT UI components
+ * BaseComponent - Foundation component for all nxt UI components
  * 
  * Provides common computed properties and methods for consistent
  * interaction with the DWC store and RRF object model.
  */
-export default Vue.extend({
+const BaseComponent = Vue.extend({
   name: 'BaseComponent',
   computed: {
     /**
@@ -122,7 +122,7 @@ export default Vue.extend({
     },
 
     /**
-     * NeXT firmware globals are present and boot reported success (`global.nxtLoaded`).
+     * nxt firmware globals are present and boot reported success (`global.nxtLoaded`).
      * No DWC→RRF UI handshake; avoids false negatives when OM lags or Map shape differs.
      */
     nxtReady(): boolean {
@@ -178,10 +178,19 @@ export default Vue.extend({
       try {
         return await store.dispatch('machine/sendCode', code)
       } catch (error) {
-        console.error('NeXT UI: Failed to send code:', code, error)
+        console.error('nxt UI: Failed to send code:', code, error)
         throw error
       }
     }
   }
 })
+
+/**
+ * Vue 2 helper: extend BaseComponent with panel options (replaces v0.7.0 compat/vueCompat).
+ */
+export function defineNxtComponent(options: Record<string, unknown>) {
+  return BaseComponent.extend(options)
+}
+
+export default BaseComponent
 </script>

@@ -1,10 +1,11 @@
 /**
- * Board pack metadata for NeXT Configuration UI and nxt-board-pack-loader.g.
+ * Board pack metadata for nxt Configuration UI and nxt-board-pack-loader.g.
  * Boards: nxt-config/board/<shortName>/ — machines: nxt-config/machine/<profile>/.
  */
 import {
   boardEntriesList,
   machinesList,
+  nxtBoardPackFromManifest,
   nxtConfigManifest,
   nxtMachineFromManifest,
   nxtPlatformFromManifest
@@ -24,7 +25,6 @@ export type NxtBundledBoardMeta = {
 }
 
 const BOARD_TITLE_OVERRIDE: Record<string, string> = {
-  cdy3_f4: 'Fly CDYv3',
   scylla1_0_h723: 'Scylla v1.0'
 }
 
@@ -32,10 +32,31 @@ function machineDisplayTitle(id: string, overviewTitle: string): string {
   if (id === 'v1.5') {
     return 'Milo v1.5'
   }
-  if (id === 'v1.6_v2') {
-    return 'Milo v1.6 / v2.0'
+  if (id === 'v1.6') {
+    return 'Milo v1.6'
   }
-  return overviewTitle.replace(/\s*\(NeXT\)\s*$/i, '').trim() || id
+  if (id === 'v2.0') {
+    return 'Milo v2.0'
+  }
+  if (id === 'custom') {
+    return 'Custom'
+  }
+  return overviewTitle.replace(/\s*(nxt)\s*$/i, '').trim() || id
+}
+
+/** Migrate legacy combined platform id to v1.6. */
+export function migratePlatformProfileId(id: string | null | undefined): string | null {
+  if (id == null || typeof id !== 'string') {
+    return null
+  }
+  const s = id.trim()
+  if (s === '') {
+    return null
+  }
+  if (s === 'v1.6_v2') {
+    return 'v1.6'
+  }
+  return s
 }
 
 export const NXT_PLATFORM_OPTIONS: Array<{ value: NxtPlatformId; title: string }> =
@@ -143,7 +164,7 @@ export function nxtKitEntryPath(
 
 /** @deprecated */
 export const NXT_KIT_ENTRY_PATH: Record<NxtBoardKitKey, string | null> = {
-  fly_cdyv3: nxtKitEntryPath('v1.5', 'fly_cdyv3'),
+  fly_cdyv3: null,
   scylla_24: nxtKitEntryPath('v1.5', 'scylla_24'),
   scylla_48: nxtKitEntryPath('v1.5', 'scylla_48')
 }
@@ -156,26 +177,402 @@ export function suggestBundledBoardShortName(shortName: string | null | undefine
   return bundledBoardMeta(s) != null ? s : null
 }
 
-export type GpOutItem = { id: number; name: string }
+export type GpOutItem = {
+  id: number
+  name: string
+  /** When true, another role already owns this pin — show but do not select. */
+  disabled?: boolean
+  pinLabel?: string
+}
 
+export type ProbeSelectItem = {
+  id: number
+  name: string
+  type: number
+  disabled?: boolean
+  pinLabel?: string
+}
+
+export type GpOutRoleOccupancy = {
+  nxtRelayID?: number | null
+  nxtAux1ID?: number | null
+  nxtAux2ID?: number | null
+  nxtAux3ID?: number | null
+  nxtCoolantAirID?: number | null
+  nxtCoolantMistID?: number | null
+  nxtCoolantFloodID?: number | null
+}
+
+export type ProbeRoleOccupancy = {
+  nxtTouchProbeID?: number | null
+  nxtToolSetterID?: number | null
+}
+
+const GPOUT_ROLE_LABELS: Array<{ key: keyof GpOutRoleOccupancy; label: string }> = [
+  { key: 'nxtRelayID', label: 'Relay' },
+  { key: 'nxtAux1ID', label: 'Aux 1' },
+  { key: 'nxtAux2ID', label: 'Aux 2' },
+  { key: 'nxtAux3ID', label: 'Aux 3' },
+  { key: 'nxtCoolantAirID', label: 'Air' },
+  { key: 'nxtCoolantMistID', label: 'Mist' },
+  { key: 'nxtCoolantFloodID', label: 'Flood' }
+]
+
+const PROBE_ROLE_LABELS: Array<{ key: keyof ProbeRoleOccupancy; label: string }> = [
+  { key: 'nxtTouchProbeID', label: 'Touch probe' },
+  { key: 'nxtToolSetterID', label: 'Toolsetter' }
+]
+
+export function gpOutRoleLabelForId(
+  id: number,
+  occupancy: GpOutRoleOccupancy | null | undefined
+): string | null {
+  if (occupancy == null) {
+    return null
+  }
+  const labels: string[] = []
+  for (const { key, label } of GPOUT_ROLE_LABELS) {
+    if (occupancy[key] === id) {
+      labels.push(label)
+    }
+  }
+  return labels.length ? labels.join(', ') : null
+}
+
+export function probeRoleLabelForId(
+  id: number,
+  occupancy: ProbeRoleOccupancy | null | undefined
+): string | null {
+  if (occupancy == null) {
+    return null
+  }
+  const labels: string[] = []
+  for (const { key, label } of PROBE_ROLE_LABELS) {
+    if (occupancy[key] === id) {
+      labels.push(label)
+    }
+  }
+  return labels.length ? labels.join(', ') : null
+}
+
+/**
+ * Pin literal for M558 C"…" from board pinmap.
+ * Prefer hardware pin (matches board toolsetter.g / touchprobe.g); fall back to alias.
+ * Does not include invert (`!`) prefix.
+ */
+export function probePinLiteralForIndex(
+  boardShortName: string | null | undefined,
+  probeIndex: number | null | undefined
+): string | null {
+  if (probeIndex == null || probeIndex < 0) {
+    return null
+  }
+  const pack = nxtBoardPackFromManifest(boardShortName)
+  const entries = [...(pack?.pinmap?.assigned ?? []), ...(pack?.pinmap?.free ?? [])]
+  const hit = entries.find(
+    (p) => p.kind === 'probe' && p.probeIndex === probeIndex
+  )
+  if (hit == null) {
+    return null
+  }
+  if (hit.pin != null && String(hit.pin).trim().length > 0) {
+    return String(hit.pin).trim().replace(/^!/, '')
+  }
+  const alias = hit.aliases?.find((a) => typeof a === 'string' && a.trim().length > 0)
+  if (alias) {
+    return String(alias).trim().replace(/^!/, '')
+  }
+  return null
+}
+
+/** Build M558 pin argument with optional active-low invert (`!` prefix). */
+export function formatProbeM558Pin(pinLiteral: string, invert: boolean): string {
+  const bare = String(pinLiteral).trim().replace(/^!+/, '')
+  return invert ? `!${bare}` : bare
+}
+
+/**
+ * RRF M558 requires P (probe type) whenever the probe is (re)configured.
+ * Prefer live OM type; else role/index defaults (touch=P5, toolsetter=P8).
+ */
+export function resolveProbeM558Type(
+  omType: number | null | undefined,
+  probeIndex: number,
+  roleHint?: 'touch' | 'toolsetter' | null
+): number {
+  if (omType != null && omType >= 5 && omType <= 11) {
+    return omType
+  }
+  if (roleHint === 'toolsetter' || probeIndex === 1) {
+    return 8
+  }
+  if (roleHint === 'touch' || probeIndex === 0) {
+    return 5
+  }
+  return 8
+}
+
+/** Full M558 line to set pin polarity without dropping required P. */
+export function buildProbeM558PinCommand(opts: {
+  probeId: number
+  pinLiteral: string
+  invert: boolean
+  type: number
+}): string {
+  const c = formatProbeM558Pin(opts.pinLiteral, opts.invert)
+  return `M558 K${opts.probeId} P${opts.type} C"${c}"`
+}
+
+function formatPinSelectName(label: string, pin: string | undefined): string {
+  return pin != null && pin.length > 0 ? `${label} (${pin})` : label
+}
+
+function probeTypeLabel(t: number): string {
+  if (t === 5) return 'switch'
+  if (t === 6) return 'digital'
+  if (t === 7) return 'filtered'
+  if (t === 8) return 'analog'
+  return `type ${t}`
+}
+
+/**
+ * Named gpOut options from board pinmap free[] (kind gpout), with occupancy disable.
+ * Falls back to Output N when the board has no named free outputs.
+ */
 export function gpOutItemsForBoard(
   boardShortName: string | null | undefined,
-  maxPorts: number
+  maxPorts: number,
+  occupancy?: GpOutRoleOccupancy | null,
+  options?: {
+    currentRoleKey?: keyof GpOutRoleOccupancy | null
+    motorVoltage?: number | null
+  }
 ): GpOutItem[] {
+  const pack = nxtBoardPackFromManifest(boardShortName)
+  const free = (pack?.pinmap?.free ?? []).filter(
+    (p) => p.kind === 'gpout' && typeof p.gpOutIndex === 'number' && p.gpOutIndex >= 0
+  )
+  const currentKey = options?.currentRoleKey ?? null
+  const currentId =
+    currentKey != null && occupancy != null ? occupancy[currentKey] ?? null : null
+  const volt = options?.motorVoltage
+
+  if (free.length > 0) {
+    return free
+      .map((p) => {
+        const id = p.gpOutIndex as number
+        const role = gpOutRoleLabelForId(id, occupancy)
+        const ownedByOther = role != null && id !== currentId
+        let label = p.label ?? p.aliases?.[0] ?? `Output ${id}`
+        let pin = p.pin
+        if (p.id === 'aux_spare') {
+          if (volt === 24) {
+            label = 'Aux 1'
+            pin = 'A.5'
+          } else if (volt === 48) {
+            label = 'Aux 0'
+            pin = 'A.4'
+          }
+        }
+        // Keep the human pin name clean; occupancy only disables the row.
+        const name = ownedByOther
+          ? `${formatPinSelectName(label, pin)} — used by ${role}`
+          : formatPinSelectName(label, pin)
+        return {
+          id,
+          pinLabel: label,
+          name,
+          disabled: ownedByOther
+        }
+      })
+      .sort((a, b) => a.id - b.id)
+  }
+
   const n = Math.max(0, Math.min(maxPorts, 32))
-  const meta = bundledBoardMeta(boardShortName)
-  const prefix =
-    boardShortName === 'cdy3_f4'
-      ? 'Fly CDYv3'
-      : boardShortName === 'scylla1_0_h723'
-        ? 'Scylla'
-        : meta != null
-          ? meta.title
-          : 'GP out'
-  return Array.from({ length: n }, (_, i) => ({
-    id: i,
-    name: `${prefix} — out ${i}`
-  }))
+  return Array.from({ length: n }, (_, i) => {
+    const role = gpOutRoleLabelForId(i, occupancy)
+    const ownedByOther = role != null && i !== currentId
+    return {
+      id: i,
+      pinLabel: `Output ${i}`,
+      name: ownedByOther ? `Output ${i} — used by ${role}` : `Output ${i}`,
+      disabled: ownedByOther
+    }
+  })
+}
+
+/**
+ * Probe / toolsetter options from board pinmap (Probe, Toolsetter as separate pins).
+ * OM probes enrich type when present; pinmap entries stay selectable even if not yet in OM.
+ */
+export function probeSelectItemsForBoard(
+  boardShortName: string | null | undefined,
+  omProbes: Array<{ id: number; type: number }>,
+  occupancy?: ProbeRoleOccupancy | null,
+  options?: { currentRoleKey?: keyof ProbeRoleOccupancy | null }
+): ProbeSelectItem[] {
+  const pack = nxtBoardPackFromManifest(boardShortName)
+  const pinProbes = [
+    ...(pack?.pinmap?.assigned ?? []),
+    ...(pack?.pinmap?.free ?? [])
+  ].filter((p) => p.kind === 'probe' && typeof p.probeIndex === 'number')
+
+  const byId = new Map<number, ProbeSelectItem>()
+  const currentKey = options?.currentRoleKey ?? null
+  const currentId =
+    currentKey != null && occupancy != null ? occupancy[currentKey] ?? null : null
+
+  for (const p of pinProbes) {
+    const id = p.probeIndex as number
+    const role = probeRoleLabelForId(id, occupancy)
+    const ownedByOther = role != null && id !== currentId
+    const label = p.label ?? p.aliases?.[0] ?? `Probe ${id}`
+    const om = omProbes.find((o) => o.id === id)
+    const type = om?.type && om.type > 0 ? om.type : 0
+    const base = formatPinSelectName(label, p.pin)
+    byId.set(id, {
+      id,
+      type,
+      pinLabel: label,
+      name: ownedByOther ? `${base} — used by ${role}` : base,
+      disabled: ownedByOther
+    })
+  }
+
+  for (const om of omProbes) {
+    // Skip empty / unused probe slots (type 0).
+    if (!om.type || om.type < 5 || om.type > 8) {
+      continue
+    }
+    const existing = byId.get(om.id)
+    if (existing) {
+      existing.type = om.type
+      continue
+    }
+    const role = probeRoleLabelForId(om.id, occupancy)
+    const ownedByOther = role != null && om.id !== currentId
+    const label = `Probe ${om.id}`
+    const base = `${label} (${probeTypeLabel(om.type)})`
+    byId.set(om.id, {
+      id: om.id,
+      type: om.type,
+      pinLabel: label,
+      name: ownedByOther ? `${base} — used by ${role}` : base,
+      disabled: ownedByOther
+    })
+  }
+
+  return Array.from(byId.values()).sort((a, b) => a.id - b.id)
+}
+
+/** Keys that share the gpOut pool (mutual exclusion). */
+export const NXT_GPOUT_ROLE_KEYS = [
+  'nxtRelayID',
+  'nxtAux1ID',
+  'nxtAux2ID',
+  'nxtAux3ID',
+  'nxtCoolantAirID',
+  'nxtCoolantMistID',
+  'nxtCoolantFloodID'
+] as const
+
+export type NxtGpOutRoleKey = (typeof NXT_GPOUT_ROLE_KEYS)[number]
+
+export const NXT_PROBE_ROLE_KEYS = ['nxtTouchProbeID', 'nxtToolSetterID'] as const
+
+export type NxtProbeRoleKey = (typeof NXT_PROBE_ROLE_KEYS)[number]
+
+/** Keys that share the Custom endstop pin pool (mutual exclusion). */
+export const NXT_CUSTOM_ENDSTOP_ROLE_KEYS = [
+  'nxtCustomXEndstopPin',
+  'nxtCustomYEndstopPin',
+  'nxtCustomZEndstopPin',
+  'nxtCustomAEndstopPin'
+] as const
+
+export type NxtCustomEndstopRoleKey = (typeof NXT_CUSTOM_ENDSTOP_ROLE_KEYS)[number]
+
+export type CustomEndstopRoleOccupancy = {
+  nxtCustomXEndstopPin?: string | null
+  nxtCustomYEndstopPin?: string | null
+  nxtCustomZEndstopPin?: string | null
+  nxtCustomAEndstopPin?: string | null
+}
+
+export type EndstopPinSelectItem = {
+  value: string
+  title: string
+  disabled?: boolean
+  pinLabel?: string
+}
+
+const CUSTOM_ENDSTOP_ROLE_LABELS: Array<{ key: keyof CustomEndstopRoleOccupancy; label: string }> = [
+  { key: 'nxtCustomXEndstopPin', label: 'X' },
+  { key: 'nxtCustomYEndstopPin', label: 'Y' },
+  { key: 'nxtCustomZEndstopPin', label: 'Z' },
+  { key: 'nxtCustomAEndstopPin', label: 'A' }
+]
+
+/** Split "+" joined endstop pin lists (dual homing). */
+export function parseCustomEndstopPins(raw: string | null | undefined): string[] {
+  if (raw == null || !String(raw).trim()) return []
+  return String(raw)
+    .split('+')
+    .map((s) => s.replace(/"/g, '').trim())
+    .filter((s) => s.length > 0)
+}
+
+export function customEndstopRoleLabelForPin(
+  pin: string,
+  occupancy: CustomEndstopRoleOccupancy | null | undefined
+): string | null {
+  if (occupancy == null || !pin) {
+    return null
+  }
+  const labels: string[] = []
+  for (const { key, label } of CUSTOM_ENDSTOP_ROLE_LABELS) {
+    const owned = occupancy[key]
+    const pins = parseCustomEndstopPins(owned)
+    if (pins.includes(pin)) {
+      labels.push(label)
+    }
+  }
+  return labels.length ? labels.join(', ') : null
+}
+
+/** Endstop pin options from board pinmap for Custom M574 remapping. */
+export function endstopPinItemsForBoard(
+  boardShortName: string | null | undefined,
+  occupancy?: CustomEndstopRoleOccupancy | null,
+  options?: { currentRoleKey?: NxtCustomEndstopRoleKey | null }
+): EndstopPinSelectItem[] {
+  const pack = nxtBoardPackFromManifest(boardShortName)
+  const entries = [...(pack?.pinmap?.assigned ?? []), ...(pack?.pinmap?.free ?? [])].filter(
+    (p) => p.kind === 'endstop'
+  )
+  const currentKey = options?.currentRoleKey ?? null
+  const currentPins =
+    currentKey != null && occupancy != null
+      ? parseCustomEndstopPins(occupancy[currentKey] ?? null)
+      : []
+
+  const byPin = new Map<string, EndstopPinSelectItem>()
+  for (const p of entries) {
+    if (p.pin == null || !String(p.pin).trim()) continue
+    const pin = String(p.pin).trim()
+    const assignment = (p.aliases?.[0] ?? p.label ?? pin).trim()
+    const role = customEndstopRoleLabelForPin(pin, occupancy)
+    const ownedByOther = role != null && !currentPins.includes(pin)
+    const base = formatPinSelectName(assignment, pin)
+    byPin.set(pin, {
+      value: pin,
+      title: ownedByOther ? `${base} — used by ${role}` : base,
+      pinLabel: assignment,
+      disabled: ownedByOther
+    })
+  }
+
+  return Array.from(byPin.values()).sort((a, b) => a.title.localeCompare(b.title))
 }
 
 /** @deprecated Use gpOutItemsForBoard */
@@ -190,8 +587,9 @@ export function migrateLegacyBoardKitKey(
   if (kit == null || kit === ('' as any)) {
     return null
   }
+  // Fly CDYv3 is not supported on RRF 3.7 — treat as unset so the UI re-prompts.
   if (kit === 'fly_cdyv3') {
-    return { shortName: 'cdy3_f4', motorVoltage: null }
+    return null
   }
   if (kit === 'scylla_24') {
     return { shortName: 'scylla1_0_h723', motorVoltage: 24 }
@@ -205,9 +603,6 @@ export function migrateLegacyBoardKitKey(
 /** @deprecated */
 export function suggestKitKeyFromBoardShortName(shortName: string | null | undefined): NxtBoardKitKey | null {
   const s = suggestBundledBoardShortName(shortName)
-  if (s === 'cdy3_f4') {
-    return 'fly_cdyv3'
-  }
   if (s === 'scylla1_0_h723') {
     return 'scylla_24'
   }

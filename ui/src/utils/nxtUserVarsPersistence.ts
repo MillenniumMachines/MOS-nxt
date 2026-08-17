@@ -1,25 +1,40 @@
 /**
- * NeXT Configuration panel — nxt-user-vars.g persistence helpers.
+ * nxt Configuration panel — nxt-user-vars.g persistence helpers.
  */
+import { migratePlatformProfileId } from './nxtBoardManifest'
 import { readFirmwareGlobal } from './nxtToolChangerOm'
 
 export type NxtUserConfigDraft = {
   nxtFeatureTouchProbe: boolean
   nxtFeatureToolSetter: boolean
   nxtFeatureCoolantControl: boolean
+  nxtFeatureRgbLight: boolean
+  nxtFeatureFourthAxis: boolean
+  nxtRgbLedIndex: number | null
   nxtProbeToolID: number | null
   nxtDeltaMachine: number | null
   nxtSpindleID: number | null
   nxtSpindleAccelSec: number | null
   nxtSpindleDecelSec: number | null
   nxtTouchProbeID: number | null
+  nxtTouchProbeInvert: boolean
   nxtProbeTipRadius: number | null
   nxtProbeDeflection: number | null
   nxtToolSetterID: number | null
+  nxtToolSetterInvert: boolean
   nxtToolSetterPos: number[] | null
+  nxtTouchProbeRefPos: number[] | null
   nxtCoolantAirID: number | null
   nxtCoolantMistID: number | null
   nxtCoolantFloodID: number | null
+  nxtCoolantMistPulseEnabled: boolean
+  nxtCoolantFloodPulseEnabled: boolean
+  nxtCoolantPulseOnSec: number
+  nxtCoolantPulseOffSec: number
+  nxtRelayID: number | null
+  nxtAux1ID: number | null
+  nxtAux2ID: number | null
+  nxtAux3ID: number | null
   nxtPlatformProfile: string | null
   nxtBoardShortNameOverride: string | null
   nxtBoardKitKey: string | null
@@ -27,32 +42,112 @@ export type NxtUserConfigDraft = {
   nxtBoardBootstrapMode: string
   nxtBoardPackExpectedEntry: string | null
   nxtBoardSysDeployPlatform: string | null
+  nxtCustomXMin: number | null
+  nxtCustomXMax: number | null
+  nxtCustomYMin: number | null
+  nxtCustomYMax: number | null
+  nxtCustomZMin: number | null
+  nxtCustomZMax: number | null
+  nxtCustomAMin: number | null
+  nxtCustomAMax: number | null
+  nxtCustomXSteps: number | null
+  nxtCustomYSteps: number | null
+  nxtCustomZSteps: number | null
+  nxtCustomASteps: number | null
+  nxtCustomXHomeAt: number | null
+  nxtCustomYHomeAt: number | null
+  nxtCustomZHomeAt: number | null
+  nxtCustomAHomeAt: number | null
+  nxtCustomXEndstopPin: string | null
+  nxtCustomYEndstopPin: string | null
+  nxtCustomZEndstopPin: string | null
+  nxtCustomAEndstopPin: string | null
+  nxtCustomXDrives: string | null
+  nxtCustomYDrives: string | null
+  nxtCustomZDrives: string | null
+  nxtCustomADrives: string | null
+  nxtCustomXCurrent: number | null
+  nxtCustomYCurrent: number | null
+  nxtCustomZCurrent: number | null
+  nxtCustomACurrent: number | null
+  nxtCustomDriveDirs: string | null
+  nxtCustomXBacklash: number | null
+  nxtCustomYBacklash: number | null
+  nxtCustomZBacklash: number | null
+  nxtCustomABacklash: number | null
 }
 
 export const NXT_USER_VARS_PERSISTED_KEYS = [
   'nxtFeatureTouchProbe',
   'nxtFeatureToolSetter',
   'nxtFeatureCoolantControl',
+  'nxtFeatureRgbLight',
+  'nxtFeatureFourthAxis',
+  'nxtRgbLedIndex',
   'nxtProbeToolID',
   'nxtDeltaMachine',
   'nxtSpindleID',
   'nxtSpindleAccelSec',
   'nxtSpindleDecelSec',
   'nxtTouchProbeID',
+  'nxtTouchProbeInvert',
   'nxtProbeTipRadius',
   'nxtProbeDeflection',
   'nxtToolSetterID',
+  'nxtToolSetterInvert',
   'nxtToolSetterPos',
+  'nxtTouchProbeRefPos',
   'nxtCoolantAirID',
   'nxtCoolantMistID',
   'nxtCoolantFloodID',
+  'nxtCoolantMistPulseEnabled',
+  'nxtCoolantFloodPulseEnabled',
+  'nxtCoolantPulseOnSec',
+  'nxtCoolantPulseOffSec',
+  'nxtRelayID',
+  'nxtAux1ID',
+  'nxtAux2ID',
+  'nxtAux3ID',
   'nxtPlatformProfile',
   'nxtBoardShortNameOverride',
   'nxtBoardKitKey',
   'nxtBoardMotorVoltage',
   'nxtBoardBootstrapMode',
   'nxtBoardPackExpectedEntry',
-  'nxtBoardSysDeployPlatform'
+  'nxtBoardSysDeployPlatform',
+  'nxtCustomXMin',
+  'nxtCustomXMax',
+  'nxtCustomYMin',
+  'nxtCustomYMax',
+  'nxtCustomZMin',
+  'nxtCustomZMax',
+  'nxtCustomAMin',
+  'nxtCustomAMax',
+  'nxtCustomXSteps',
+  'nxtCustomYSteps',
+  'nxtCustomZSteps',
+  'nxtCustomASteps',
+  'nxtCustomXHomeAt',
+  'nxtCustomYHomeAt',
+  'nxtCustomZHomeAt',
+  'nxtCustomAHomeAt',
+  'nxtCustomXEndstopPin',
+  'nxtCustomYEndstopPin',
+  'nxtCustomZEndstopPin',
+  'nxtCustomAEndstopPin',
+  'nxtCustomXDrives',
+  'nxtCustomYDrives',
+  'nxtCustomZDrives',
+  'nxtCustomADrives',
+  'nxtCustomXCurrent',
+  'nxtCustomYCurrent',
+  'nxtCustomZCurrent',
+  'nxtCustomACurrent',
+  'nxtCustomDriveDirs',
+  'nxtCustomXBacklash',
+  'nxtCustomYBacklash',
+  'nxtCustomZBacklash',
+  'nxtCustomABacklash'
 ] as const
 
 export type MachineListContext = {
@@ -114,26 +209,73 @@ export function emptyConfigDraft(): NxtUserConfigDraft {
     nxtFeatureTouchProbe: false,
     nxtFeatureToolSetter: false,
     nxtFeatureCoolantControl: false,
+    nxtFeatureRgbLight: false,
+    nxtFeatureFourthAxis: false,
+    nxtRgbLedIndex: 0,
     nxtProbeToolID: null,
     nxtDeltaMachine: null,
     nxtSpindleID: null,
     nxtSpindleAccelSec: null,
     nxtSpindleDecelSec: null,
     nxtTouchProbeID: null,
+    nxtTouchProbeInvert: true,
     nxtProbeTipRadius: null,
     nxtProbeDeflection: null,
     nxtToolSetterID: null,
+    nxtToolSetterInvert: false,
     nxtToolSetterPos: null,
+    nxtTouchProbeRefPos: null,
     nxtCoolantAirID: null,
     nxtCoolantMistID: null,
     nxtCoolantFloodID: null,
+    nxtCoolantMistPulseEnabled: false,
+    nxtCoolantFloodPulseEnabled: false,
+    nxtCoolantPulseOnSec: 5,
+    nxtCoolantPulseOffSec: 25,
+    nxtRelayID: null,
+    nxtAux1ID: null,
+    nxtAux2ID: null,
+    nxtAux3ID: null,
     nxtPlatformProfile: null,
     nxtBoardShortNameOverride: null,
     nxtBoardKitKey: null,
     nxtBoardMotorVoltage: null,
     nxtBoardBootstrapMode: 'off',
     nxtBoardPackExpectedEntry: null,
-    nxtBoardSysDeployPlatform: null
+    nxtBoardSysDeployPlatform: null,
+    nxtCustomXMin: null,
+    nxtCustomXMax: null,
+    nxtCustomYMin: null,
+    nxtCustomYMax: null,
+    nxtCustomZMin: null,
+    nxtCustomZMax: null,
+    nxtCustomAMin: null,
+    nxtCustomAMax: null,
+    nxtCustomXSteps: null,
+    nxtCustomYSteps: null,
+    nxtCustomZSteps: null,
+    nxtCustomASteps: null,
+    nxtCustomXHomeAt: null,
+    nxtCustomYHomeAt: null,
+    nxtCustomZHomeAt: null,
+    nxtCustomAHomeAt: null,
+    nxtCustomXEndstopPin: null,
+    nxtCustomYEndstopPin: null,
+    nxtCustomZEndstopPin: null,
+    nxtCustomAEndstopPin: null,
+    nxtCustomXDrives: null,
+    nxtCustomYDrives: null,
+    nxtCustomZDrives: null,
+    nxtCustomADrives: null,
+    nxtCustomXCurrent: null,
+    nxtCustomYCurrent: null,
+    nxtCustomZCurrent: null,
+    nxtCustomACurrent: null,
+    nxtCustomDriveDirs: null,
+    nxtCustomXBacklash: null,
+    nxtCustomYBacklash: null,
+    nxtCustomZBacklash: null,
+    nxtCustomABacklash: null
   }
 }
 
@@ -189,20 +331,48 @@ export function snapshotConfigFromOm(globalVal: unknown): NxtUserConfigDraft {
   draft.nxtFeatureTouchProbe = readConfigBool(readFirmwareGlobal(globalVal, 'nxtFeatureTouchProbe'))
   draft.nxtFeatureToolSetter = readConfigBool(readFirmwareGlobal(globalVal, 'nxtFeatureToolSetter'))
   draft.nxtFeatureCoolantControl = readConfigBool(readFirmwareGlobal(globalVal, 'nxtFeatureCoolantControl'))
+  draft.nxtFeatureRgbLight = readConfigBool(readFirmwareGlobal(globalVal, 'nxtFeatureRgbLight'))
+  draft.nxtFeatureFourthAxis = readConfigBool(readFirmwareGlobal(globalVal, 'nxtFeatureFourthAxis'))
+  draft.nxtRgbLedIndex = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtRgbLedIndex'))
   draft.nxtProbeToolID = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtProbeToolID'))
   draft.nxtDeltaMachine = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtDeltaMachine'))
   draft.nxtSpindleID = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtSpindleID'))
   draft.nxtSpindleAccelSec = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtSpindleAccelSec'))
   draft.nxtSpindleDecelSec = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtSpindleDecelSec'))
   draft.nxtTouchProbeID = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtTouchProbeID'))
+  {
+    const inv = readFirmwareGlobal(globalVal, 'nxtTouchProbeInvert')
+    draft.nxtTouchProbeInvert = inv === undefined ? true : readConfigBool(inv)
+  }
   draft.nxtProbeTipRadius = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtProbeTipRadius'))
   draft.nxtProbeDeflection = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtProbeDeflection'))
   draft.nxtToolSetterID = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtToolSetterID'))
+  {
+    const inv = readFirmwareGlobal(globalVal, 'nxtToolSetterInvert')
+    draft.nxtToolSetterInvert = inv === undefined ? false : readConfigBool(inv)
+  }
   draft.nxtToolSetterPos = readConfigVector(readFirmwareGlobal(globalVal, 'nxtToolSetterPos'))
+  draft.nxtTouchProbeRefPos = readConfigVector(readFirmwareGlobal(globalVal, 'nxtTouchProbeRefPos'))
   draft.nxtCoolantAirID = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtCoolantAirID'))
   draft.nxtCoolantMistID = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtCoolantMistID'))
   draft.nxtCoolantFloodID = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtCoolantFloodID'))
-  draft.nxtPlatformProfile = readConfigString(readFirmwareGlobal(globalVal, 'nxtPlatformProfile'))
+  draft.nxtCoolantMistPulseEnabled = readConfigBool(
+    readFirmwareGlobal(globalVal, 'nxtCoolantMistPulseEnabled')
+  )
+  draft.nxtCoolantFloodPulseEnabled = readConfigBool(
+    readFirmwareGlobal(globalVal, 'nxtCoolantFloodPulseEnabled')
+  )
+  const pulseOn = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtCoolantPulseOnSec'))
+  draft.nxtCoolantPulseOnSec = pulseOn !== null && pulseOn >= 1 ? pulseOn : 5
+  const pulseOff = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtCoolantPulseOffSec'))
+  draft.nxtCoolantPulseOffSec = pulseOff !== null && pulseOff >= 1 ? pulseOff : 25
+  draft.nxtRelayID = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtRelayID'))
+  draft.nxtAux1ID = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtAux1ID'))
+  draft.nxtAux2ID = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtAux2ID'))
+  draft.nxtAux3ID = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtAux3ID'))
+  draft.nxtPlatformProfile = migratePlatformProfileId(
+    readConfigString(readFirmwareGlobal(globalVal, 'nxtPlatformProfile'))
+  )
   draft.nxtBoardShortNameOverride = readConfigString(readFirmwareGlobal(globalVal, 'nxtBoardShortNameOverride'))
   draft.nxtBoardKitKey = readConfigString(readFirmwareGlobal(globalVal, 'nxtBoardKitKey'))
   draft.nxtBoardMotorVoltage = readBoardMotorVoltageFromOm(globalVal)
@@ -211,9 +381,42 @@ export function snapshotConfigFromOm(globalVal: unknown): NxtUserConfigDraft {
   draft.nxtBoardPackExpectedEntry = readConfigString(
     readFirmwareGlobal(globalVal, 'nxtBoardPackExpectedEntry')
   )
-  draft.nxtBoardSysDeployPlatform = readConfigString(
-    readFirmwareGlobal(globalVal, 'nxtBoardSysDeployPlatform')
+  draft.nxtBoardSysDeployPlatform = migratePlatformProfileId(
+    readConfigString(readFirmwareGlobal(globalVal, 'nxtBoardSysDeployPlatform'))
   )
+  draft.nxtCustomXMin = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtCustomXMin'))
+  draft.nxtCustomXMax = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtCustomXMax'))
+  draft.nxtCustomYMin = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtCustomYMin'))
+  draft.nxtCustomYMax = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtCustomYMax'))
+  draft.nxtCustomZMin = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtCustomZMin'))
+  draft.nxtCustomZMax = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtCustomZMax'))
+  draft.nxtCustomAMin = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtCustomAMin'))
+  draft.nxtCustomAMax = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtCustomAMax'))
+  draft.nxtCustomXSteps = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtCustomXSteps'))
+  draft.nxtCustomYSteps = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtCustomYSteps'))
+  draft.nxtCustomZSteps = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtCustomZSteps'))
+  draft.nxtCustomASteps = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtCustomASteps'))
+  draft.nxtCustomXHomeAt = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtCustomXHomeAt'))
+  draft.nxtCustomYHomeAt = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtCustomYHomeAt'))
+  draft.nxtCustomZHomeAt = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtCustomZHomeAt'))
+  draft.nxtCustomAHomeAt = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtCustomAHomeAt'))
+  draft.nxtCustomXEndstopPin = readConfigString(readFirmwareGlobal(globalVal, 'nxtCustomXEndstopPin'))
+  draft.nxtCustomYEndstopPin = readConfigString(readFirmwareGlobal(globalVal, 'nxtCustomYEndstopPin'))
+  draft.nxtCustomZEndstopPin = readConfigString(readFirmwareGlobal(globalVal, 'nxtCustomZEndstopPin'))
+  draft.nxtCustomAEndstopPin = readConfigString(readFirmwareGlobal(globalVal, 'nxtCustomAEndstopPin'))
+  draft.nxtCustomXDrives = readConfigString(readFirmwareGlobal(globalVal, 'nxtCustomXDrives'))
+  draft.nxtCustomYDrives = readConfigString(readFirmwareGlobal(globalVal, 'nxtCustomYDrives'))
+  draft.nxtCustomZDrives = readConfigString(readFirmwareGlobal(globalVal, 'nxtCustomZDrives'))
+  draft.nxtCustomADrives = readConfigString(readFirmwareGlobal(globalVal, 'nxtCustomADrives'))
+  draft.nxtCustomXCurrent = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtCustomXCurrent'))
+  draft.nxtCustomYCurrent = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtCustomYCurrent'))
+  draft.nxtCustomZCurrent = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtCustomZCurrent'))
+  draft.nxtCustomACurrent = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtCustomACurrent'))
+  draft.nxtCustomDriveDirs = readConfigString(readFirmwareGlobal(globalVal, 'nxtCustomDriveDirs'))
+  draft.nxtCustomXBacklash = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtCustomXBacklash'))
+  draft.nxtCustomYBacklash = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtCustomYBacklash'))
+  draft.nxtCustomZBacklash = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtCustomZBacklash'))
+  draft.nxtCustomABacklash = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtCustomABacklash'))
   return draft
 }
 
@@ -228,6 +431,10 @@ export function mapMosGlobalsToConfig(globalVal: unknown, draft: NxtUserConfigDr
   }
   if (isDraftFieldUnset(draft, 'nxtFeatureCoolantControl') && mosBool('mosFeatCoolantControl') !== undefined) {
     draft.nxtFeatureCoolantControl = readConfigBool(mosBool('mosFeatCoolantControl'))
+  }
+  if (isDraftFieldUnset(draft, 'nxtFeatureFourthAxis') && mosBool('mosFAE') !== undefined) {
+    const raw = mosBool('mosFAE')
+    draft.nxtFeatureFourthAxis = raw === true || raw === 1 || (typeof raw === 'number' && raw !== 0)
   }
   const mosNum = (mosKey: string, draftKey: keyof NxtUserConfigDraft) => {
     if (!isDraftFieldUnset(draft, draftKey)) {
@@ -249,6 +456,7 @@ export function mapMosGlobalsToConfig(globalVal: unknown, draft: NxtUserConfigDr
   mosNum('mosCAID', 'nxtCoolantAirID')
   mosNum('mosCMID', 'nxtCoolantMistID')
   mosNum('mosCFID', 'nxtCoolantFloodID')
+  mosNum('mosRelayID', 'nxtRelayID')
 
   if (isDraftFieldUnset(draft, 'nxtToolSetterPos') && readFirmwareGlobal(globalVal, 'mosTSP') !== undefined) {
     draft.nxtToolSetterPos = readConfigVector(readFirmwareGlobal(globalVal, 'mosTSP'))
@@ -335,7 +543,7 @@ function formatPersistedString(value: string | null | undefined): string {
 
 export function buildNxtUserVarsGcode(config: NxtUserConfigDraft): string {
   const lines = [
-    '; NeXT User Configuration',
+    '; nxt User Configuration',
     '; Auto-generated - Do not edit manually',
     '; Last updated: ' + new Date().toISOString(),
     '',
@@ -343,6 +551,11 @@ export function buildNxtUserVarsGcode(config: NxtUserConfigDraft): string {
     `set global.nxtFeatureTouchProbe = ${formatPersistedBool(config.nxtFeatureTouchProbe)}`,
     `set global.nxtFeatureToolSetter = ${formatPersistedBool(config.nxtFeatureToolSetter)}`,
     `set global.nxtFeatureCoolantControl = ${formatPersistedBool(config.nxtFeatureCoolantControl)}`,
+    `set global.nxtFeatureRgbLight = ${formatPersistedBool(config.nxtFeatureRgbLight)}`,
+    `set global.nxtFeatureFourthAxis = ${formatPersistedBool(config.nxtFeatureFourthAxis)}`,
+    '',
+    '; RGB work light (M150)',
+    `set global.nxtRgbLedIndex = ${formatPersistedNumber(config.nxtRgbLedIndex)}`,
     '',
     '; Probe tool index (null in UI → last tool at load) and static datum (touch probe calibration)',
     `set global.nxtProbeToolID = ${formatPersistedProbeToolID(config.nxtProbeToolID)}`,
@@ -355,18 +568,29 @@ export function buildNxtUserVarsGcode(config: NxtUserConfigDraft): string {
     '',
     '; Touch Probe Configuration',
     `set global.nxtTouchProbeID = ${formatPersistedNumber(config.nxtTouchProbeID)}`,
+    `set global.nxtTouchProbeInvert = ${formatPersistedBool(config.nxtTouchProbeInvert)}`,
     `set global.nxtProbeTipRadius = ${formatPersistedNumber(config.nxtProbeTipRadius)}`,
     `set global.nxtProbeDeflection = ${formatPersistedNumber(config.nxtProbeDeflection)}`,
     '; Probe repeatability: defaults in nxt-vars.g; optional 0:/sys/nxt-user-overrides.g',
     '',
     '; Tool Setter Configuration',
     `set global.nxtToolSetterID = ${formatPersistedNumber(config.nxtToolSetterID)}`,
+    `set global.nxtToolSetterInvert = ${formatPersistedBool(config.nxtToolSetterInvert)}`,
     `set global.nxtToolSetterPos = ${formatPersistedVector(config.nxtToolSetterPos)}`,
+    `set global.nxtTouchProbeRefPos = ${formatPersistedVector(config.nxtTouchProbeRefPos)}`,
     '',
-    '; Coolant Configuration',
+    '; Coolant / output roles',
     `set global.nxtCoolantAirID = ${formatPersistedNumber(config.nxtCoolantAirID)}`,
     `set global.nxtCoolantMistID = ${formatPersistedNumber(config.nxtCoolantMistID)}`,
     `set global.nxtCoolantFloodID = ${formatPersistedNumber(config.nxtCoolantFloodID)}`,
+    `set global.nxtCoolantMistPulseEnabled = ${formatPersistedBool(config.nxtCoolantMistPulseEnabled)}`,
+    `set global.nxtCoolantFloodPulseEnabled = ${formatPersistedBool(config.nxtCoolantFloodPulseEnabled)}`,
+    `set global.nxtCoolantPulseOnSec = ${Math.max(1, config.nxtCoolantPulseOnSec ?? 5)}`,
+    `set global.nxtCoolantPulseOffSec = ${Math.max(1, config.nxtCoolantPulseOffSec ?? 25)}`,
+    `set global.nxtRelayID = ${formatPersistedNumber(config.nxtRelayID)}`,
+    `set global.nxtAux1ID = ${formatPersistedNumber(config.nxtAux1ID)}`,
+    `set global.nxtAux2ID = ${formatPersistedNumber(config.nxtAux2ID)}`,
+    `set global.nxtAux3ID = ${formatPersistedNumber(config.nxtAux3ID)}`,
     '',
     '; --- Board pack (Configuration panel) ---',
     `; Bootstrap: ${config.nxtBoardBootstrapMode === 'auto' ? 'auto (syncs nxt-board-bootstrap.requested on Save)' : 'off'}`,
@@ -380,12 +604,68 @@ export function buildNxtUserVarsGcode(config: NxtUserConfigDraft): string {
       : '; Homing sys deploy platform: (not recorded — use Apply platform sys files)',
     `set global.nxtPlatformProfile = ${formatPersistedString(config.nxtPlatformProfile)}`,
     `set global.nxtBoardShortNameOverride = ${formatPersistedString(config.nxtBoardShortNameOverride)}`,
-    `set global.nxtBoardKitKey = ${formatPersistedString(config.nxtBoardKitKey)}`,
     `set global.nxtBoardMotorVoltage = ${formatPersistedNumber(config.nxtBoardMotorVoltage)}`,
     `set global.nxtBoardBootstrapMode = "${config.nxtBoardBootstrapMode === 'auto' ? 'auto' : 'off'}"`,
     `set global.nxtBoardPackExpectedEntry = ${formatPersistedString(config.nxtBoardPackExpectedEntry)}`,
     `set global.nxtBoardSysDeployPlatform = ${formatPersistedString(config.nxtBoardSysDeployPlatform)}`
   ]
+
+  // Omit null optional keys — each `set global.foo = null` recreates an OM entry and
+  // can push the SBC `global` JSON over the 8KB SPI limit.
+  if (config.nxtBoardKitKey != null && config.nxtBoardKitKey !== '') {
+    lines.push(`set global.nxtBoardKitKey = ${formatPersistedString(config.nxtBoardKitKey)}`)
+  }
+
+  const customPairs: Array<[string, number | string | null | undefined]> = [
+    ['nxtCustomXMin', config.nxtCustomXMin],
+    ['nxtCustomXMax', config.nxtCustomXMax],
+    ['nxtCustomYMin', config.nxtCustomYMin],
+    ['nxtCustomYMax', config.nxtCustomYMax],
+    ['nxtCustomZMin', config.nxtCustomZMin],
+    ['nxtCustomZMax', config.nxtCustomZMax],
+    ['nxtCustomAMin', config.nxtCustomAMin],
+    ['nxtCustomAMax', config.nxtCustomAMax],
+    ['nxtCustomXSteps', config.nxtCustomXSteps],
+    ['nxtCustomYSteps', config.nxtCustomYSteps],
+    ['nxtCustomZSteps', config.nxtCustomZSteps],
+    ['nxtCustomASteps', config.nxtCustomASteps],
+    ['nxtCustomXHomeAt', config.nxtCustomXHomeAt],
+    ['nxtCustomYHomeAt', config.nxtCustomYHomeAt],
+    ['nxtCustomZHomeAt', config.nxtCustomZHomeAt],
+    ['nxtCustomAHomeAt', config.nxtCustomAHomeAt],
+    ['nxtCustomXEndstopPin', config.nxtCustomXEndstopPin],
+    ['nxtCustomYEndstopPin', config.nxtCustomYEndstopPin],
+    ['nxtCustomZEndstopPin', config.nxtCustomZEndstopPin],
+    ['nxtCustomAEndstopPin', config.nxtCustomAEndstopPin],
+    ['nxtCustomXDrives', config.nxtCustomXDrives],
+    ['nxtCustomYDrives', config.nxtCustomYDrives],
+    ['nxtCustomZDrives', config.nxtCustomZDrives],
+    ['nxtCustomADrives', config.nxtCustomADrives],
+    ['nxtCustomXCurrent', config.nxtCustomXCurrent],
+    ['nxtCustomYCurrent', config.nxtCustomYCurrent],
+    ['nxtCustomZCurrent', config.nxtCustomZCurrent],
+    ['nxtCustomACurrent', config.nxtCustomACurrent],
+    ['nxtCustomDriveDirs', config.nxtCustomDriveDirs],
+    ['nxtCustomXBacklash', config.nxtCustomXBacklash],
+    ['nxtCustomYBacklash', config.nxtCustomYBacklash],
+    ['nxtCustomZBacklash', config.nxtCustomZBacklash],
+    ['nxtCustomABacklash', config.nxtCustomABacklash]
+  ]
+  const customLines: string[] = []
+  for (const [k, v] of customPairs) {
+    if (v == null || v === '') continue
+    // Declare happens in nxt.g via nxt-custom-globals.g — user-vars only overlays with set.
+    customLines.push(
+      typeof v === 'number'
+        ? `set global.${k} = ${formatPersistedNumber(v)}`
+        : `set global.${k} = ${formatPersistedString(v as string)}`
+    )
+  }
+  if (customLines.length) {
+    lines.push('', '; Custom platform (set overlay — declared in nxt-custom-globals.g at boot)')
+    lines.push(...customLines)
+  }
+
   return lines.join('\n')
 }
 
@@ -398,6 +678,12 @@ export function runNxtUserVarsPersistenceSelfTest(): void {
     gcode.includes('nxtProbeSampleOuterRetries')
   ) {
     throw new Error('nxt-user-vars.g must not persist probe repeatability (use nxt-user-overrides.g)')
+  }
+  if (gcode.includes('set global.nxtCustomXMin = null')) {
+    throw new Error('nxt-user-vars.g must not persist null custom platform keys (OM size)')
+  }
+  if (gcode.includes('set global.nxtBoardKitKey = null')) {
+    throw new Error('nxt-user-vars.g must not persist null nxtBoardKitKey (OM size)')
   }
   const draft = buildInitialConfigDraft(
     { mosSID: 0, mosTPID: 1, mosFeatTouchProbe: true },

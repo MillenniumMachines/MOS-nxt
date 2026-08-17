@@ -1,4 +1,4 @@
-; nxt-user-tools-reload-daemon.g — Lives under 0:/sys/nxt/ with other NeXT daemon hooks.
+; nxt-user-tools-reload-daemon.g — Lives under 0:/sys/nxt/ with other nxt daemon hooks.
 ; Periodic entry from nxt-daemon.g (see global.nxtUserToolsDaemonReload).
 ; If 0:/sys/nxt-user-tools.reload.requested exists, deletes it and M98-reloads the persisted library
 ; so tools[] / mosTT match the file (e.g. after uploading nxt-user-tools.g from DWC).
@@ -26,6 +26,6 @@ if { state.status != "idle" }
 if { exists(global.nxtUserToolsLoadDepth) && global.nxtUserToolsLoadDepth > 0 }
     M99
 
-echo "NeXT: daemon reloading tool library (nxt-user-tools.reload.requested)"
+echo "nxt: daemon reloading tool library (nxt-user-tools.reload.requested)"
 M472 P{"0:/sys/nxt-user-tools.reload.requested"}
 M98 P"nxt-user-tools.g"

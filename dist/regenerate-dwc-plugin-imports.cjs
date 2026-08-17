@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
  * Regenerate DuetWebControl/src/plugins/imports.ts from directories under src/plugins/.
- * Run after build-plugin.sh so orphaned built-in entries (e.g. NeXT) are removed when
- * src/plugins/NeXT was only staged temporarily for the ZIP build.
+ * Run after build-plugin.sh so orphaned built-in entries (e.g. nxt) are removed when
+ * src/plugins/nxt was only staged temporarily for the ZIP build.
  *
  * Usage: node dist/regenerate-dwc-plugin-imports.cjs [path-to-DuetWebControl]
  */

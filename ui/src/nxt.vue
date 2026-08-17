@@ -1,6 +1,6 @@
 <template>
   <v-container fluid class="pa-2">
-    <!-- NeXT Main Dashboard Layout -->
+    <!-- nxt Main Dashboard Layout -->
     <!-- Status strip removed: CNC dashboard override supplies its own status UI -->
 
     <v-row>
@@ -18,7 +18,7 @@
             <v-spacer />
             <div v-if="!isConnected" class="d-flex align-center">
               <v-icon small class="mr-2" color="warning">mdi-lan-disconnect</v-icon>
-              <span class="text-caption">{{ $t('plugins.next.messages.disconnectedShort') }}</span>
+              <span class="text-caption">{{ $t('plugins.nxt.messages.disconnectedShort') }}</span>
             </div>
           </v-card-title>
           
@@ -34,10 +34,10 @@
                 <div>
                   <div class="font-weight-bold">
                     <v-icon left>mdi-restart</v-icon>
-                    {{ $t('plugins.next.messages.restartRequired') }}
+                    {{ $t('plugins.nxt.messages.restartRequired') }}
                   </div>
                   <div class="text-caption mt-1">
-                    {{ $t('plugins.next.messages.restartMessage') }}
+                    {{ $t('plugins.nxt.messages.restartMessage') }}
                   </div>
                 </div>
                 <v-btn 
@@ -45,7 +45,7 @@
                   @click="restartMachine"
                   :loading="restarting"
                 >
-                  {{ $t('plugins.next.messages.restartButton') }}
+                  {{ $t('plugins.nxt.messages.restartButton') }}
                 </v-btn>
               </div>
               <v-alert 
@@ -55,43 +55,52 @@
                 class="mt-3 mb-0"
               >
                 <v-icon left small>mdi-alert</v-icon>
-                {{ $t('plugins.next.messages.restartWarning') }}
+                {{ $t('plugins.nxt.messages.restartWarning') }}
               </v-alert>
             </v-alert>
 
             <!-- Informational header - plugin readiness is shown on individual pages -->
             <v-alert type="info" outlined class="mb-4">
               <v-icon left>mdi-information-outline</v-icon>
-              {{ $t('plugins.next.messages.chooseSubsection') }}
+              {{ $t('plugins.nxt.messages.chooseSubsection') }}
               <span class="text-caption d-block mt-2">
-                {{ $t('plugins.next.messages.toolLibraryInMenu') }}
+                {{ $t('plugins.nxt.messages.toolLibraryInMenu') }}
               </span>
             </v-alert>
 
             <!-- Tab Navigation for different sections -->
             <v-tabs v-model="activeTab" grow>
-              <v-tab>{{ $t('plugins.next.panels.status.caption') }}</v-tab>
-              <v-tab>{{ $t('plugins.next.panels.configuration.caption') }}</v-tab>
-              <v-tab>{{ $t('plugins.next.panels.probing.caption') }}</v-tab>
+              <v-tab>{{ $t('plugins.nxt.panels.status.caption') }}</v-tab>
+              <v-tab>{{ $t('plugins.nxt.panels.configuration.caption') }}</v-tab>
+              <v-tab>{{ $t('plugins.nxt.panels.calibration.caption') }}</v-tab>
+              <v-tab>{{ $t('plugins.nxt.panels.probing.caption') }}</v-tab>
+              <v-tab>{{ $t('plugins.nxt.panels.maintenance.caption') }}</v-tab>
             </v-tabs>
 
-            <v-tabs-items v-model="activeTab">
+            <v-window v-model="activeTab">
               <!-- Status Tab -->
-              <v-tab-item>
+              <v-window-item>
                 <div class="pa-4">
                   <nxt-machine-status-panel />
                 </div>
-              </v-tab-item>
+              </v-window-item>
 
               <!-- Configuration Tab -->
-              <v-tab-item>
+              <v-window-item>
                 <div class="pa-4">
                   <nxt-configuration-panel />
                 </div>
-              </v-tab-item>
+              </v-window-item>
+
+              <!-- Calibration Tab -->
+              <v-window-item>
+                <div class="pa-4">
+                  <nxt-calibration-panel />
+                </div>
+              </v-window-item>
 
               <!-- Probing Tab -->
-              <v-tab-item>
+              <v-window-item>
                 <div class="pa-4">
                   <v-row>
                     <v-col cols="12">
@@ -102,8 +111,15 @@
                     </v-col>
                   </v-row>
                 </div>
-              </v-tab-item>
-            </v-tabs-items>
+              </v-window-item>
+
+              <!-- Maintenance Tab -->
+              <v-window-item>
+                <div class="pa-4">
+                  <nxt-maintenance-panel />
+                </div>
+              </v-window-item>
+            </v-window>
           </v-card-text>
         </v-card>
       </v-col>
@@ -112,25 +128,42 @@
 </template>
 
 <script lang="ts">
-import BaseComponent from './components/base/BaseComponent.vue'
+// @ts-nocheck — Vue 2 + defineNxtComponent.extend(): tsc does not merge data/computed onto `this`.
+import { defineNxtComponent } from './components/base/BaseComponent.vue'
 import { readFirmwareGlobal } from './utils/nxtToolChangerOm'
+import ActionConfirmationWidget from './components/panels/ActionConfirmationWidget.vue'
+import MachineStatusPanel from './components/panels/MachineStatusPanel.vue'
+import ConfigurationPanel from './components/panels/ConfigurationPanel.vue'
+import ProbingCyclesPanel from './components/panels/ProbingCyclesPanel.vue'
+import ProbeResultsPanel from './components/panels/ProbeResultsPanel.vue'
+import MaintenancePanel from './components/panels/MaintenancePanel.vue'
+import CalibrationPanel from './components/panels/CalibrationPanel.vue'
 
 /**
- * NeXT Main Dashboard Component
+ * nxt Main Dashboard Component
  * 
- * Provides the primary interface for NeXT functionality within DWC.
+ * Provides the primary interface for nxt functionality within DWC.
  * Includes the persistent status widget and action confirmation widget
  * as specified in the Phase 2.1 requirements.
  */
-export default BaseComponent.extend({
-  name: 'NeXT',
+export default defineNxtComponent({
+  name: 'nxt',
+  components: {
+    NxtActionConfirmationWidget: ActionConfirmationWidget,
+    NxtMachineStatusPanel: MachineStatusPanel,
+    NxtConfigurationPanel: ConfigurationPanel,
+    NxtCalibrationPanel: CalibrationPanel,
+    NxtProbingCyclesPanel: ProbingCyclesPanel,
+    NxtProbeResultsPanel: ProbeResultsPanel,
+    NxtMaintenancePanel: MaintenancePanel
+  },
   data() {
     return {
       activeTab: 0,
       restarting: false,
     }
   },
-  
+
   computed: {
     /**
      * Check if we're connected to a machine
@@ -155,48 +188,76 @@ export default BaseComponent.extend({
      * Check if there's an active dialog requiring user action
      */
     hasActiveDialog(): boolean {
-      const messageBox = this.$store.state.machine.model.messageBox
+      const messageBox = this.$store.state.machine.model.state.messageBox
       return messageBox && messageBox.message ? true : false
     },
 
     statusCaption(): string {
-      const key = 'plugins.next.panels.status.caption'
+      const key = 'plugins.nxt.panels.status.caption'
       const t = (this as any).$t(key).toString()
       return t === key ? 'Status' : t
     },
 
     configurationCaption(): string {
-      const key = 'plugins.next.panels.configuration.caption'
+      const key = 'plugins.nxt.panels.configuration.caption'
       const t = (this as any).$t(key).toString()
       return t === key ? 'Configuration' : t
     },
 
     stockPreparationCaption(): string {
-      const key = 'plugins.next.panels.stockPreparation.caption'
+      const key = 'plugins.nxt.panels.stockPreparation.caption'
       const t = (this as any).$t(key).toString()
       return t === key ? 'Stock Preparation' : t
     },
 
     probingCaption(): string {
-      const key = 'plugins.next.panels.probing.caption'
+      const key = 'plugins.nxt.panels.probing.caption'
       const t = (this as any).$t(key).toString()
       return t === key ? 'Probing' : t
     },
 
+    maintenanceCaption(): string {
+      const key = 'plugins.nxt.panels.maintenance.caption'
+      const t = (this as any).$t(key).toString()
+      return t === key ? 'Maintenance' : t
+    },
+
+    calibrationCaption(): string {
+      const key = 'plugins.nxt.panels.calibration.caption'
+      const t = (this as any).$t(key).toString()
+      return t === key ? 'Calibration' : t
+    },
+
     pageTitle(): string {
       const path = this.$route?.path || ''
-      if (path.startsWith('/NeXT/Configuration')) return this.configurationCaption
-      if (path.startsWith('/NeXT/StockPreparation')) return this.stockPreparationCaption
-      if (path.startsWith('/NeXT/Probing')) return this.probingCaption
-      if (path === '/NeXT' || path === '/NeXT/') {
+      if (path.startsWith('/nxt/Configuration')) return this.configurationCaption
+      if (path.startsWith('/nxt/StockPreparation')) return this.stockPreparationCaption
+      if (path.startsWith('/nxt/Probing')) return this.probingCaption
+      if (path === '/nxt' || path === '/nxt/') {
         if (this.activeTab === 1) return this.configurationCaption
-        if (this.activeTab === 2) return this.probingCaption
+        if (this.activeTab === 2) return this.calibrationCaption
+        if (this.activeTab === 3) return this.probingCaption
+        if (this.activeTab === 4) return this.maintenanceCaption
       }
       return this.statusCaption
     }
   },
 
   methods: {
+    onGotoCalibration() {
+      // Status=0, Configuration=1, Calibration=2
+      this.activeTab = 2
+    },
+    applyTabFromQuery() {
+      try {
+        const q = new URLSearchParams(window.location.search)
+        if (q.get('tab') === 'calibration' || window.location.hash === '#calibration') {
+          this.activeTab = 2
+        }
+      } catch {
+        /* ignore */
+      }
+    },
     /**
      * Restart the machine using M999
      */
@@ -206,21 +267,27 @@ export default BaseComponent.extend({
         await this.sendCode('M999')
         // M999 will restart the machine, so UI will disconnect
       } catch (error) {
-        console.error('NeXT: Failed to restart machine:', error)
+        console.error('nxt: Failed to restart machine:', error)
         // Reset loading state if restart fails
         this.restarting = false
       }
     }
   },
-  
+
   mounted() {
-    console.log('NeXT: Main dashboard component mounted')
-    console.log('NeXT: Connected to machine:', this.isConnected)
+    window.addEventListener('nxt-goto-calibration', this.onGotoCalibration as EventListener)
+    this.applyTabFromQuery()
+    console.log('nxt: Main dashboard component mounted')
+    console.log('nxt: Connected to machine:', this.isConnected)
     if (this.isConnected && this.restartRequired) {
-      console.log('NeXT: Machine restart required - nxtLoaded variable not found')
+      console.log('nxt: Machine restart required - nxtLoaded variable not found')
     } else if (!this.isConnected) {
-      console.log('NeXT: Not connected to machine - some features will be unavailable')
+      console.log('nxt: Not connected to machine - some features will be unavailable')
     }
+  },
+
+  beforeUnmount() {
+    window.removeEventListener('nxt-goto-calibration', this.onGotoCalibration as EventListener)
   }
 })
 </script>
