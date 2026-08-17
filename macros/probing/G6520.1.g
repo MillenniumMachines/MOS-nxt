@@ -16,6 +16,8 @@
 if { !inputs[state.thisInput].active }
     M99
 
+M98 P"nxt-wp-ensure.g"
+
 if { exists(param.W) && param.W != null && (param.W < 0 || param.W >= limits.workplaces) }
     abort { "Work Offset (W..) must be between 0 and " ^ limits.workplaces-1 ^ "!" }
 
@@ -28,7 +30,7 @@ if { !exists(param.P) }
 if { (!exists(param.Q) || param.Q == 0) && (!exists(param.H) || !exists(param.I)) }
     abort { "Must provide an approximate X length and Y length using H and I parameters when using full probe, Q0!" }
 
-if { !exists(param.N) || param.N == null || param.N < 0 || param.N >= (#global.nxtCornerNames) }
+if { !exists(param.N) || param.N == null || param.N < 0 || param.N > 3 }
     abort { "Must provide a valid corner index using the N parameter!" }
 
 if { exists(param.T) && param.T != null && param.T <= 0 }

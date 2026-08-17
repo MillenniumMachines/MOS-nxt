@@ -92,10 +92,12 @@ while { true }
     ; cancel option.
     set var.vDN = { vector(var.vDC+1, "Unknown") }
 
+    var nxtDistN = { "50mm", "10mm", "5mm", "1mm", "0.1mm", "0.01mm", "Finish", "Back-Off 1mm" }
+
     ; Append the valid distance to the list of valid distances and names
     while { iterations < var.vDC }
         set var.vD[iterations] = { global.nxtManualProbeDistances[iterations + var.vDI] }
-        set var.vDN[iterations] = { global.nxtManualProbeDistNames[iterations + var.vDI] }
+        set var.vDN[iterations] = { var.nxtDistN[iterations + var.vDI] }
 
     ; Add cancel button
     set var.vDN[#var.vDN-1] = "Cancel"

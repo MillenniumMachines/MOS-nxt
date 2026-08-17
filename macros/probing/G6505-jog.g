@@ -62,7 +62,11 @@ var axis = { input }
 var pocketLetter = { (var.axis == 0) ? "X" : "Y" }
 var lengthLetter = { (var.axis == 0) ? "Y" : "X" }
 
-var bW = { (global.nxtWPDims[var.workOffset][0] != null) ? global.nxtWPDims[var.workOffset][0] : 100 }
+var bW = { 100 }
+if { exists(global.nxtWPDims) && global.nxtWPDims != null }
+    if { var.workOffset < #global.nxtWPDims }
+        if { global.nxtWPDims[var.workOffset] != null && global.nxtWPDims[var.workOffset][0] != null }
+            set var.bW = { global.nxtWPDims[var.workOffset][0] }
 
 M291 P{"Please enter approximate <b>pocket width</b> in mm.<br/><b>NOTE</b>: <b>Width</b> is measured along the <b>" ^ var.pocketLetter ^ " axis."} R"nxt: Probe Pocket" J1 T0 S6 F{var.bW}
 if { result != 0 }
@@ -78,7 +82,11 @@ var pocketLength = { null }
 ; 0 = Full mode, 1 = Quick mode
 ; Only prompt for length if in full mode
 if { var.mode == 0 }
-    var bL = { (global.nxtWPDims[var.workOffset][1] != null) ? global.nxtWPDims[var.workOffset][1] : 100 }
+    var bL = { 100 }
+    if { exists(global.nxtWPDims) && global.nxtWPDims != null }
+        if { var.workOffset < #global.nxtWPDims }
+            if { global.nxtWPDims[var.workOffset] != null && global.nxtWPDims[var.workOffset][1] != null }
+                set var.bL = { global.nxtWPDims[var.workOffset][1] }
 
     M291 P{"Please enter approximate <b>pocket length</b> in mm.<br/><b>NOTE</b>: <b>Length</b> is measured along the <b>" ^ var.lengthLetter ^ "</b> axis."} R"nxt: Probe Pocket" J1 T0 S6 F{var.bL}
     if { result != 0 }

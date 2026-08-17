@@ -52,7 +52,11 @@ var wcsNumber = { var.workOffset + 1 }
 ; after the M291 has been acknowledged.
 
 ; Prompt for bore diameter
-M291 P"Please enter approximate bore diameter in mm." R"nxt: Probe Bore" J1 T0 S6 F{(global.nxtWPRad[var.workOffset] != global.nxtDfltWPRad) ? global.nxtWPRad[var.workOffset]*2 : 0}
+var nxtBoreF = { 0 }
+if { exists(global.nxtWPRad) && exists(global.nxtDfltWPRad) }
+    if { global.nxtWPRad[var.workOffset] != global.nxtDfltWPRad }
+        set var.nxtBoreF = { global.nxtWPRad[var.workOffset] * 2 }
+M291 P"Please enter approximate bore diameter in mm." R"nxt: Probe Bore" J1 T0 S6 F{var.nxtBoreF}
 if { result != 0 }
     abort { "Bore probe aborted!" }
 

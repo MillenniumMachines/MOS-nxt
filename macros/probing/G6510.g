@@ -97,8 +97,10 @@ if { var.hasFace }
         set var.targetCoord = { var.startZ - var.travel }
 
 var sName = { move.axes[var.probeAxis].letter }
-if { var.faceIdx != null && exists(global.nxtSurfaceNames) }
-    set var.sName = { global.nxtSurfaceNames[var.faceIdx] }
+if { var.faceIdx != null }
+    var nxtSfc = { "Left", "Right", "Front", "Back", "Top" }
+    if { var.faceIdx >= 0 && var.faceIdx < #var.nxtSfc }
+        set var.sName = { var.nxtSfc[var.faceIdx] }
 echo "G6510: Single surface " ^ var.sName
 
 var probeFeed = { exists(param.F) ? param.F : null }

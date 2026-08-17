@@ -78,10 +78,7 @@ M291 P{var.nxtJogMsgB} R"Workpiece probe" X1 Y1 Z1 J1 T0 S3
 if { result != 0 }
     abort { "G6600: Vise corner probing cancelled" }
 
-if { !exists(global.nxtCornerNames) }
-    abort { "G6600: nxtCornerNames not configured" }
-
-M291 P"Select the corner under the probe." R"Vise corner" S4 K{global.nxtCornerNames} F0
+M98 P"nxt-m291-corners.g" R"Vise corner" Q1 F0
 if { result != 0 }
     abort { "G6600: Vise corner probing cancelled" }
 var cnr = { input }

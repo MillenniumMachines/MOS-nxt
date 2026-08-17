@@ -7,6 +7,8 @@
 if { !inputs[state.thisInput].active }
     M99
 
+M98 P"nxt-wp-ensure.g"
+
 if { exists(param.W) && param.W != null && (param.W < 0 || param.W >= limits.workplaces) }
     abort { "Work Offset (W..) must be between 0 and " ^ limits.workplaces-1 ^ "!" }
 
@@ -364,7 +366,7 @@ G6550 I{var.pID} X{var.cX} Y{var.cY}
 ; Report probe results if requested
 if { !exists(param.R) || param.R != 0 }
     M7601 W{var.workOffset}
-    echo { "nxt: Setting WCS " ^ var.wcsNumber ^ " X,Y origin to " ^ global.nxtCornerNames[param.N] ^ " corner." }
+    echo { "nxt: Setting WCS " ^ var.wcsNumber ^ " X,Y origin to corner " ^ param.N }
 
 ; Set WCS origin to the probed corner
 G10 L2 P{var.wcsNumber} X{var.cX} Y{var.cY}

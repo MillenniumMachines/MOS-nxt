@@ -68,11 +68,11 @@ if { !exists(global.nxtTT) }
 if { exists(global.mosTT) && exists(global.nxtTT) }
     echo "nxt: WARNING mosTT and nxtTT both exist — remove MOS from config.g after migration (OM global >8KB)"
 
-; WCS probing pack — gate on WP sentinel (not nxtOvertravel; align may set overtravel from MOS).
-if { !exists(global.nxtWPCtrPos) }
+; Probe scalars + nxtWPDeg — gate on Deg (not overtravel / CtrPos; WP* is nxt-wp-ensure.g).
+if { !exists(global.nxtWPDeg) }
     M98 P"nxt-probe-wcs.g"
 
-; After WP allocate, copy mos WCS / overtravel into nxt* when MOS data is still present.
+; After Deg/scalars, copy mos WCS / overtravel into nxt* when MOS data is still present.
 if { exists(global.mosWPCtrPos) || exists(global.mosOT) }
     M98 P"nxt-mos-globals-align.g"
 

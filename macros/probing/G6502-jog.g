@@ -46,7 +46,11 @@ if { exists(param.W) && param.W != null }
 ; the number of the work co-ordinate system, so is 1-indexed.
 var wcsNumber = { var.workOffset + 1 }
 
-var bW = { (global.nxtWPDims[var.workOffset][0] != global.nxtDfltWPDims[0]) ? global.nxtWPDims[var.workOffset][0] : 100 }
+var bW = { 100 }
+if { exists(global.nxtWPDims) && global.nxtWPDims != null }
+    if { var.workOffset < #global.nxtWPDims }
+        if { global.nxtWPDims[var.workOffset] != null && global.nxtWPDims[var.workOffset][0] != null }
+            set var.bW = { global.nxtWPDims[var.workOffset][0] }
 
 M291 P{"Please enter approximate <b>pocket width</b> in mm.<br/><b>NOTE</b>: <b>Width</b> is measured along the <b>X</b> axis."} R"nxt: Probe Rect. Pocket" J1 T0 S6 F{var.bW}
 if { result != 0 }
@@ -57,7 +61,11 @@ var pocketWidth = { input }
 if { var.pocketWidth < 1 }
     abort { "Pocket width too low!" }
 
-var bL = { (global.nxtWPDims[var.workOffset][1] != global.nxtDfltWPDims[1]) ? global.nxtWPDims[var.workOffset][1] : 100 }
+var bL = { 100 }
+if { exists(global.nxtWPDims) && global.nxtWPDims != null }
+    if { var.workOffset < #global.nxtWPDims }
+        if { global.nxtWPDims[var.workOffset] != null && global.nxtWPDims[var.workOffset][1] != null }
+            set var.bL = { global.nxtWPDims[var.workOffset][1] }
 
 M291 P{"Please enter approximate <b>pocket length</b> in mm.<br/><b>NOTE</b>: <b>Length</b> is measured along the <b>Y</b> axis."} R"nxt: Probe Rect. Pocket" J1 T0 S6 F{var.bL}
 if { result != 0 }

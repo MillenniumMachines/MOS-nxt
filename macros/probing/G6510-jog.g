@@ -2,15 +2,16 @@
 ;
 ; Meta macro to gather operator input before executing G6510.
 ; Surface names are relative to an operator at the front of the mill
-; (nxtSurfaceNames: Left, Right, Front, Back, Top). Calls G6510 N/O
+; (surfaces: Left, Right, Front, Back, Top). Calls G6510 N/O
 ; (and L for XY dive), not legacy G6510.1.
 
 ; Make sure this file is not executed by the secondary motion system
 if { !inputs[state.thisInput].active }
     M99
 
-; Index of the zProbe entry as this requires different inputs.
-var zProbeI = { #global.nxtSurfaceNames - 1 }
+; Index of the zProbe entry as this requires different inputs (Top).
+var zProbeI = { 4 }
+var nxtSfc = { "Left", "Right", "Front", "Back", "Top" }
 
 ; Display description of surface probe if not displayed this session
 if { global.nxtTutorialMode && !global.nxtDialogDisplayed[4] }
@@ -53,9 +54,9 @@ M291 P{var.nxtM291Msg8} R"nxt: Probe Surface" X1 Y1 Z1 T0 S3
 if { result != 0 }
     abort { "Surface probe aborted!" }
 
-; Prompt the operator for the location of the surface
-var nxtM291Msg9 = "Please select the surface to probe.<br/><b>NOTE</b>: These surface names are relative to an operator standing at the front of the machine."
-M291 P{var.nxtM291Msg9} R"nxt: Probe Surface" T0 S4 F{var.zProbeI} K{global.nxtSurfaceNames}
+M98 P"nxt-m291-surfaces.g" F{var.zProbeI}
+if { result != 0 }
+    abort { "Surface probe aborted!" }
 var probeAxis = { input }
 
 ; For Z probes, our depth is 0 but our distance is the probing depth
@@ -86,12 +87,12 @@ if { var.probeDist < 0 }
 
 if { global.nxtTutorialMode }
     if { !var.isZProbe }
-        var nxtM291Msg11 = {"Probe will now move down <b>" ^ var.probeDepth ^ "</b> mm and probe towards the <b>" ^ global.nxtSurfaceNames[var.probeAxis] ^ "</b> surface." }
+        var nxtM291Msg11 = {"Probe will now move down <b>" ^ var.probeDepth ^ "</b> mm and probe towards the <b>" ^ var.nxtSfc[var.probeAxis] ^ "</b> surface." }
         M291 P{var.nxtM291Msg11} R"nxt: Probe Surface" T0 S4 K{"Continue", "Cancel"} F0
         if { input != 0 }
             abort { "Single Surface probe aborted!" }
     else
-        M291 P{"Probe will now move towards the <b>" ^ global.nxtSurfaceNames[var.probeAxis] ^ "</b> surface." } R"nxt: Probe Surface" T0 S4 K{"Continue", "Cancel"} F0
+        M291 P{"Probe will now move towards the <b>" ^ var.nxtSfc[var.probeAxis] ^ "</b> surface." } R"nxt: Probe Surface" T0 S4 K{"Continue", "Cancel"} F0
         if { input != 0 }
             abort { "Single Surface probe aborted!" }
 

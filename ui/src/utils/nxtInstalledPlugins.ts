@@ -85,6 +85,6 @@ export function isArborCtlFirmwareLive(global: unknown): boolean {
     return undefined
   }
   if (read('arborctlLdd') === true) return true
-  const models = read('arborAvailableModels')
-  return Array.isArray(models) && models.length > 0
+  const cfg = read('arborVFDConfig')
+  return Array.isArray(cfg) && cfg.length > 0
 }

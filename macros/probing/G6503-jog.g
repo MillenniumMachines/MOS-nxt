@@ -30,7 +30,11 @@ if { exists(param.W) && param.W != null }
     set var.workOffset = { param.W }
 var wcsNumber = { var.workOffset + 1 }
 
-var bW = { (global.nxtWPDims[var.workOffset][0] != null) ? global.nxtWPDims[var.workOffset][0] : 100 }
+var bW = { 100 }
+if { exists(global.nxtWPDims) && global.nxtWPDims != null }
+    if { var.workOffset < #global.nxtWPDims }
+        if { global.nxtWPDims[var.workOffset] != null && global.nxtWPDims[var.workOffset][0] != null }
+            set var.bW = { global.nxtWPDims[var.workOffset][0] }
 
 M291 P{"Please enter approximate <b>block width</b> in mm.<br/><b>NOTE</b>: <b>Width</b> is measured along the <b>X</b> axis."} R"nxt: Probe Rect. Block" J1 T0 S6 F{var.bW}
 if { result != 0 }
@@ -41,7 +45,11 @@ var blockWidth = { input }
 if { var.blockWidth < 1 }
     abort { "Block width too low!" }
 
-var bL = { (global.nxtWPDims[var.workOffset][1] != null) ? global.nxtWPDims[var.workOffset][1] : 100 }
+var bL = { 100 }
+if { exists(global.nxtWPDims) && global.nxtWPDims != null }
+    if { var.workOffset < #global.nxtWPDims }
+        if { global.nxtWPDims[var.workOffset] != null && global.nxtWPDims[var.workOffset][1] != null }
+            set var.bL = { global.nxtWPDims[var.workOffset][1] }
 
 M291 P{"Please enter approximate <b>block length</b> in mm.<br/><b>NOTE</b>: <b>Length</b> is measured along the <b>Y</b> axis."} R"nxt: Probe Rect. Block" J1 T0 S6 F{var.bL}
 if { result != 0 }

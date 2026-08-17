@@ -55,7 +55,7 @@ Homing macros are **not** `M98`'d at boot. Root `board.txt` pin changes need a *
 ## Boot order (firmware)
 
 1. `config.g` → `M98 P"nxt.g"`.
-2. `nxt.g` → `nxt-vars.g` → gated **`nxt-custom-globals.g`** → optional MOS import (nested skips double custom/user-vars load) → **`nxt-tooltable.g`** → **`nxt-probe-wcs.g`** (if `!nxtWPCtrPos`) → align WCS/OT → **`nxt-user-vars.g`** → **`nxt-board-pack-loader.g`** → tools → **`nxt-boot.g`** (probe sync only; sets `nxtBootOk`) → plugin-init once → RGB colours + single `M950` → **`nxt-user-overrides.g` (last)** → **`nxtLoaded`**.
+2. `nxt.g` → `nxt-vars.g` → gated **`nxt-custom-globals.g`** → optional MOS import (nested skips double custom/user-vars load) → **`nxt-tooltable.g`** → **`nxt-probe-wcs.g`** (if `!nxtWPDeg`) → align WCS/OT → **`nxt-user-vars.g`** → **`nxt-board-pack-loader.g`** → tools → **`nxt-boot.g`** (probe sync only; sets `nxtBootOk`) → plugin-init once → RGB colours + single `M950` → **`nxt-user-overrides.g` (last)** → **`nxtLoaded`**.
 3. Loader: `nxt-board-pack-resolve.g` → board entry → `machine/<nxtPlatformProfile>/entry.g` → optional `nxt-user-pinmap.g`.
 
 Board `rgb.g` sets pin/strip only; strip type (`nxtRGBType`), colour order (`nxtRGBOrder`), and LED count (`nxtRGBCount`) come from Configuration → `nxt-user-vars.g`. `nxt.g` owns the post-colour `M950` (`T`/`K`/`U`). Daemon caches plugin hook paths and runs plugin-init at most once (`nxtPluginsInited`).

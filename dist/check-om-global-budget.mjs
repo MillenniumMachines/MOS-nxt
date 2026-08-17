@@ -11,6 +11,7 @@
  *   1) Structural hygiene (Custom gating, null session vectors, nxtTT fill, …)
  *   2) Known bloat patterns (e.g. nxtToolLife filled with 0.0 at boot)
  *   3) Estimated JSON size for lean boot + Custom-null worst case
+ *   4) Sibling idle: probe-wcs + ArborCTL vars + MosFourthAxis init (when present)
  *
  * See docs/OM_GLOBAL_SIZE.md and .cursor/rules/om-global-size.mdc.
  */
@@ -35,6 +36,12 @@ const ASSUME_TOOLS = 50;
 const ASSUME_AXES = 4;
 /** Assumed min(limits.gpOutPorts, 8). */
 const ASSUME_GPOUT = 8;
+/** Assumed workplaces when expanding nxtWPDeg / WP* (RRF mill default 9). */
+const ASSUME_WORKPLACES = 9;
+/** Assumed spindles for ArborCTL vector(limits.spindles) estimates. */
+const ASSUME_SPINDLES = 4;
+/** Fail lean + probe-wcs + sibling plugins idle estimate above this. */
+const OM_SIBLINGS_FAIL = 7500;
 
 const failures = [];
 const warnings = [];
@@ -64,9 +71,9 @@ function stripComments(gcode) {
  * Collect `global name = rhs` assigns (bare or indented under if/else).
  * Skips `set global.` — those are overlays, not declares.
  */
-function collectGlobalDeclares(body) {
+function collectGlobalDeclares(body, prefix = "nxt") {
 	const out = [];
-	const re = /^\s*global\s+(nxt\w+)\s*=\s*(.+?)\s*$/gm;
+	const re = new RegExp(`^\\s*global\\s+(${prefix}\\w*)\\s*=\\s*(.+?)\\s*$`, "gm");
 	let m;
 	while ((m = re.exec(body)) !== null) {
 		out.push({ name: m[1], rhs: m[2].trim() });
@@ -83,6 +90,8 @@ function evalCountExpr(expr) {
 	if (/^max\(#move\.axes,4\)$/.test(e) || /^max\(4,#move\.axes\)$/.test(e)) {
 		return ASSUME_AXES;
 	}
+	if (/^limits\.workplaces$/.test(e)) return ASSUME_WORKPLACES;
+	if (/^limits\.spindles$/.test(e)) return ASSUME_SPINDLES;
 	if (/^min\(limits\.gpOutPorts,8\)$/.test(e) || /^min\(8,limits\.gpOutPorts\)$/.test(e)) {
 		return ASSUME_GPOUT;
 	}
@@ -258,11 +267,11 @@ function estimateObjectBytes(entries) {
 	// Probe WCS pack must gate on WP sentinel, not overtravel (align may set OT from MOS first).
 	if (/!exists\s*\(\s*global\.nxtOvertravel\s*\)[\s\S]{0,120}nxt-probe-wcs\.g/.test(body)) {
 		failures.push(
-			"macros/system/nxt.g must not gate nxt-probe-wcs.g on nxtOvertravel — use !exists(global.nxtWPCtrPos)"
+			"macros/system/nxt.g must not gate nxt-probe-wcs.g on nxtOvertravel — use !exists(global.nxtWPDeg)"
 		);
 	}
-	if (!/!exists\s*\(\s*global\.nxtWPCtrPos\s*\)/.test(body) || !/nxt-probe-wcs\.g/.test(body)) {
-		failures.push("macros/system/nxt.g must load nxt-probe-wcs.g when !exists(global.nxtWPCtrPos)");
+	if (!/!exists\s*\(\s*global\.nxtWPDeg\s*\)/.test(body) || !/nxt-probe-wcs\.g/.test(body)) {
+		failures.push("macros/system/nxt.g must load nxt-probe-wcs.g when !exists(global.nxtWPDeg)");
 	}
 }
 
@@ -400,6 +409,21 @@ function estimateObjectBytes(entries) {
 	}
 }
 
+// --- nxt-probe-wcs.g: Deg always-on; no string catalogs / no boot WP* pack ---
+{
+	const body = stripComments(read("macros/system/nxt-probe-wcs.g"));
+	for (const banned of ["nxtCornerNames", "nxtSurfaceNames", "nxtManualProbeDistNames", "nxtWPCtrPos"]) {
+		if (new RegExp(`global\\s+${banned}\\s*=`, "i").test(body)) {
+			failures.push(
+				`macros/system/nxt-probe-wcs.g must not declare ${banned} at boot (OM ~8KB) — labels are local-var; WP* besides Deg via nxt-wp-ensure.g`
+			);
+		}
+	}
+	if (!/global\s+nxtWPDeg\s*=/.test(body)) {
+		failures.push("macros/system/nxt-probe-wcs.g must declare nxtWPDeg for M5011");
+	}
+}
+
 // --- Estimated JSON size (lean boot + Custom worst case) ---
 {
 	const varsBody = stripComments(read("macros/system/nxt-vars.g"));
@@ -451,6 +475,35 @@ function estimateObjectBytes(entries) {
 		);
 	}
 
+	const extraEntries = [];
+	const extraBits = [];
+	function addExtraFile(rel, prefix) {
+		const abs = path.join(ROOT, rel);
+		if (!fs.existsSync(abs)) {
+			warnings.push(`sibling OM estimate skipped (missing ${rel})`);
+			return;
+		}
+		const decls = collectGlobalDeclares(stripComments(fs.readFileSync(abs, "utf8")), prefix);
+		for (const d of decls) {
+			const bytes = estimateEntryBytes(d.name, d.rhs);
+			extraEntries.push(bytes);
+			extraBits.push(`${d.name}=${bytes}`);
+		}
+	}
+	addExtraFile("macros/system/nxt-probe-wcs.g", "nxt");
+	addExtraFile(path.join("..", "ArborCTL", "sys", "arborctl-vars.g"), "arbor");
+	addExtraFile(
+		path.join("..", "mos-fourth-axis", "sd", "plugins", "mos-fourth-axis", "mos-fourth-axis-init.g"),
+		"rotary"
+	);
+	const extraBytes = extraEntries.reduce((a, b) => a + b, 0);
+	const siblingsIdle = estimateObjectBytes(leanEntries.concat(extraEntries));
+	if (siblingsIdle > OM_SIBLINGS_FAIL) {
+		failures.push(
+			`estimated lean+probe-wcs+siblings idle JSON ~${siblingsIdle}B exceeds fail ${OM_SIBLINGS_FAIL} (limit ${OM_GLOBAL_LIMIT})`
+		);
+	}
+
 	// Always print estimate so CI/logs show trend
 	const top = leanBreakdown
 		.slice(0, 8)
@@ -458,9 +511,13 @@ function estimateObjectBytes(entries) {
 		.join(", ");
 	console.log(
 		`check-om-global-budget: estimate lean≈${leanBytes}B customNulls≈${customOnly}B lean+custom≈${customBootBytes}B ` +
-			`(limit ${OM_GLOBAL_LIMIT}; fail lean>${OM_LEAN_FAIL} custom>${OM_CUSTOM_FAIL})`
+			`siblingsIdle≈${siblingsIdle}B extra≈${extraBytes}B ` +
+			`(limit ${OM_GLOBAL_LIMIT}; fail lean>${OM_LEAN_FAIL} custom>${OM_CUSTOM_FAIL} siblings>${OM_SIBLINGS_FAIL})`
 	);
 	console.log(`check-om-global-budget: largest lean entries: ${top}`);
+	if (extraBits.length) {
+		console.log(`check-om-global-budget: sibling extras: ${extraBits.slice(0, 12).join(", ")}`);
+	}
 }
 
 if (warnings.length) {

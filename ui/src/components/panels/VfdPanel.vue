@@ -282,11 +282,6 @@ export default defineNxtComponent({
     },
 
     modelItems(): Array<{ text: string; value: number }> {
-      const g = this.$store.state.machine.model.global
-      const m = readFirmwareGlobal(g, 'arborAvailableModels')
-      if (Array.isArray(m)) {
-        return m.map((text: unknown, i: number) => ({ text: String(text), value: i }))
-      }
       return FALLBACK_ARBOR_MODELS.map((text, i) => ({ text, value: i }))
     },
 
@@ -444,11 +439,8 @@ export default defineNxtComponent({
       this.applyOk = false
       this.applying = true
       try {
-        const g = this.$store.state.machine.model.global
-        const models = readFirmwareGlobal(g, 'arborAvailableModels') as string[] | null
-        const internals = readFirmwareGlobal(g, 'arborModelInternalNames') as string[] | null
-        const typeName = arborTypeName(this.form.typeIndex, models)
-        const internal = arborInternalName(this.form.typeIndex, internals)
+        const typeName = arborTypeName(this.form.typeIndex)
+        const internal = arborInternalName(this.form.typeIndex)
         const hz = this.hzLimits
         const content = buildArborCtlUserVarsFile(this.form, hz, typeName)
         await uploadDwcFile(ARBORCTL_USER_VARS_PATH, content)

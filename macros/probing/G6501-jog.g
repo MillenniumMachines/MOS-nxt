@@ -47,7 +47,11 @@ if { exists(param.W) && param.W != null }
 var wcsNumber = { var.workOffset + 1 }
 
 ; Prompt for boss diameter
-M291 P"Please enter approximate boss diameter in mm." R"nxt: Probe Boss" J1 T0 S6 F{(global.nxtWPRad[var.workOffset] != global.nxtDfltWPRad) ? global.nxtWPRad[var.workOffset]*2 : 0}
+var nxtBossF = { 0 }
+if { exists(global.nxtWPRad) && exists(global.nxtDfltWPRad) }
+    if { global.nxtWPRad[var.workOffset] != global.nxtDfltWPRad }
+        set var.nxtBossF = { global.nxtWPRad[var.workOffset] * 2 }
+M291 P"Please enter approximate boss diameter in mm." R"nxt: Probe Boss" J1 T0 S6 F{var.nxtBossF}
 if { result != 0 }
     abort { "Boss probe aborted!" }
 

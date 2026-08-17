@@ -73,7 +73,11 @@ var ySL  = null
 ; 0 = Full mode, 1 = Quick mode
 if { var.mode == 0 }
 
-    var sW = { (global.nxtWPDims[var.workOffset][0] != null) ? global.nxtWPDims[var.workOffset][0] : 100 }
+    var sW = { 100 }
+    if { exists(global.nxtWPDims) && global.nxtWPDims != null }
+        if { var.workOffset < #global.nxtWPDims }
+            if { global.nxtWPDims[var.workOffset] != null && global.nxtWPDims[var.workOffset][0] != null }
+                set var.sW = { global.nxtWPDims[var.workOffset][0] }
     var nxtM291Msg6 = {"Please enter approximate <b>surface length</b> along the X axis in mm.<br/><b>NOTE</b>: Along the X axis means the surface facing towards or directly away from the operator."}
     M291 P{var.nxtM291Msg6} R"nxt: Probe Vise Corner" J1 T0 S6 F{var.sW}
     if { result != 0 }
@@ -84,7 +88,11 @@ if { var.mode == 0 }
     if { var.xSL < var.tR }
         abort { "X surface length too low. Cannot probe distances smaller than the tool radius (" ^ var.tR ^ ")!"}
 
-    var sL = { (global.nxtWPDims[var.workOffset][1] != null) ? global.nxtWPDims[var.workOffset][1] : 100 }
+    var sL = { 100 }
+    if { exists(global.nxtWPDims) && global.nxtWPDims != null }
+        if { var.workOffset < #global.nxtWPDims }
+            if { global.nxtWPDims[var.workOffset] != null && global.nxtWPDims[var.workOffset][1] != null }
+                set var.sL = { global.nxtWPDims[var.workOffset][1] }
     var nxtM291Msg7 = {"Please enter approximate <b>surface length</b> along the Y axis in mm.<br/><b>NOTE</b>: Along the Y axis means the surface to the left or the right of the operator."}
     M291 P{var.nxtM291Msg7} R"nxt: Probe Vise Corner" J1 T0 S6 F{var.sL}
     if { result != 0 }
@@ -137,8 +145,7 @@ M291 P{var.nxtM291Msg11} R"nxt: Probe Vise Corner" X1 Y1 Z1 J1 T0 S3
 if { result != 0 }
     abort { "Vise corner probe aborted!" }
 
-var nxtM291Msg12 = "Please select the corner to probe.<br/><b>NOTE</b>: These surface names are relative to an operator standing at the front of the machine."
-M291 P{var.nxtM291Msg12} R"nxt: Probe Vise Corner" T0 S4 K{global.nxtCornerNames}
+M98 P"nxt-m291-corners.g" R"nxt: Probe Vise Corner"
 if { result != 0 }
     abort { "Vise corner probe aborted!" }
 
@@ -156,7 +163,8 @@ if { var.probeDepth < 0 }
 
 ; Run the block probe cycle
 if { global.nxtTutorialMode }
-    var cN = { global.nxtCornerNames[var.cnr] }
+    var nxtCnr = { "Front Left", "Front Right", "Back Right", "Back Left" }
+    var cN = { var.nxtCnr[var.cnr] }
     var nxtM291Msg14 = {"We will now probe the top surface, then move outside the <b>" ^ var.cN ^ "</b> corner, down " ^ var.probeDepth ^ "mm, and probe each surface forming the corner." }
     M291 P{var.nxtM291Msg14} R"nxt: Probe Vise Corner" T0 S4 K{"Continue", "Cancel"} F0
     if { input != 0 }

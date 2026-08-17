@@ -1,7 +1,7 @@
 ; nxt-mos-globals-align.g
 ; One-shot: copy legacy MOS global *data* into nxt-named globals when nxt is unset.
 ; Called from nxt-mos-import.g after mos-vars / mos-user-vars are loaded, and from
-; nxt.g after nxt-probe-wcs.g so WCS vectors exist before mosWP* → nxtWP* copies.
+; nxt.g after nxt-probe-wcs.g. WP* besides Deg are ensured only when MOS has data.
 ; Safe to re-run.
 ;
 ; Tool table: nxt-tooltable.g owns mosTT/mosET → nxtTT/nxtET (do not duplicate here).
@@ -18,20 +18,26 @@ if { exists(global.mosCL) && exists(global.nxtClearance) }
     set global.nxtClearance = { global.mosCL }
 if { exists(global.mosMPS) && exists(global.nxtManualProbeFeeds) }
     set global.nxtManualProbeFeeds = { global.mosMPS }
-if { exists(global.mosMPDN) && exists(global.nxtManualProbeDistNames) }
-    set global.nxtManualProbeDistNames = { global.mosMPDN }
 if { exists(global.mosMPD) && exists(global.nxtManualProbeDistances) }
     set global.nxtManualProbeDistances = { global.mosMPD }
 if { exists(global.mosMPSI) && exists(global.nxtManualProbeSlowIdx) }
     set global.nxtManualProbeSlowIdx = { global.mosMPSI }
 if { exists(global.mosAngleTol) && exists(global.nxtProbeAngleTol) }
     set global.nxtProbeAngleTol = { global.mosAngleTol }
-if { exists(global.mosCornerNames) && exists(global.nxtCornerNames) }
-    set global.nxtCornerNames = { global.mosCornerNames }
-if { exists(global.mosSurfaceNames) && exists(global.nxtSurfaceNames) }
-    set global.nxtSurfaceNames = { global.mosSurfaceNames }
 
-; --- WCS probed metadata (overwrite nxt defaults when MOS had data) ---
+; --- WCS probed metadata (lazy WP* via nxt-wp-ensure; Deg is always-on) ---
+var nxtMosWP = false
+if { exists(global.mosWPCtrPos) || exists(global.mosWPRad) }
+    set var.nxtMosWP = true
+if { exists(global.mosWPDims) || exists(global.mosWPCnrPos) }
+    set var.nxtMosWP = true
+if { exists(global.mosWPCnrNum) || exists(global.mosWPCnrDeg) }
+    set var.nxtMosWP = true
+if { exists(global.mosWPSfcPos) || exists(global.mosWPSfcAxis) || exists(global.mosWPDimsErr) }
+    set var.nxtMosWP = true
+if { var.nxtMosWP }
+    M98 P"nxt-wp-ensure.g"
+
 if { exists(global.mosWPCtrPos) && exists(global.nxtWPCtrPos) }
     set global.nxtWPCtrPos = { global.mosWPCtrPos }
 if { exists(global.mosWPRad) && exists(global.nxtWPRad) }

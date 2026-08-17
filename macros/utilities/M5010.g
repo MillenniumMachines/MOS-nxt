@@ -3,6 +3,8 @@
 if { exists(param.W) && param.W != null && (param.W < 0 || param.W >= limits.workplaces) }
     abort { "Work Offset (W..) must be between 0 and " ^ limits.workplaces-1 ^ "!" }
 
+M98 P"nxt-wp-ensure.g"
+
 ; Default workOffset to the current workplace number if not specified
 ; with the W parameter.
 var workOffset = { move.motionSystems[0].workplaceNumber }
