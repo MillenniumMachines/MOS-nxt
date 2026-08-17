@@ -74,7 +74,7 @@ global nxtJobG68Wcs = null         ; workplace 1–9 that owns nxtJobG68Deg
 ; Defaults below. Optional touch/toolsetter-specific keys: declare+set in nxt-user-overrides.g
 ; (see nxt-user-overrides.g.example). Not in Configuration UI.
 global nxtProbeInnerSampleCount = 3
-global nxtProbeMaxSampleSpreadMm = 0.0075
+global nxtProbeMaxSampleSpreadMm = 0.075
 global nxtProbeSampleOuterRetries = 1
 global nxtCornerOffset = 5.0   ; Along-face inset from corner before Z dive (mm)
 
