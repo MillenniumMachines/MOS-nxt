@@ -169,6 +169,16 @@ Probe **triangulation** (`G6500` / `G6501` via **`G6513`** → **`G6512.1`**) re
 
 A correct `G10 L2` plus a real work-space `G0 X0 Y0` would park at the **feature**. Work XY ≈ 0 at machine ≈ corner is success. Reaching **machine** 0,0 means leftover G38/G53 (or `stop.g` `G27`). Never switch apply to **`G10 L20`**.
 
+## 10. Console **M5011** / **G68** then work `G0` outside M208
+
+| Symptom | Cause |
+|---------|--------|
+| After **M5011**, `G0 X0 Y0` / `Y±1` → **G0: target position outside machine limits**; **G69** restores jogging | Console **M5011** applied **G68** (often **Q1**) during setup. RRF 3.7 does not clamp; mill **M208** min is **0**. Tiny **R** around the wrong centre maps work 0 near machine 0. |
+
+**Do:** **G68** only while `job.file.fileName` is set (CAM **M5011**). Console **M5011** **G69**s and echoes signed skew (`+` CCW / `-` CW). Probe apply already **G69**s (`nxt-job-g68-clear.g`). Job apply uses **`nxt-job-g68-apply.g`**. Job **cancel** / **stop** (not pause) clear session keys.
+
+**Do not:** Sanity-check a probe by Console **M5011** then work `G0 X0 Y0` under **G68**. Do not loosen **M208** or **M564 S0**.
+
 ## Checklist before claiming probe-macro work done
 
 ```bash
@@ -195,5 +205,6 @@ Repo scan after documenting these pitfalls:
 | `!exists \|\| <=` without `== null` on UI D/L/W/H/S | Hardened (`G6502`/`03`/`06`/`08`, `.1` N checks) |
 | `G6510` `{ param.X, param.Y, param.Z }` | Rewritten to `exists()` fill |
 | Deflection element `null * 1000` | Guarded in `G6512` |
+| Console **M5011** applying **G68** | Job-file gate; Console **G69** |
 
 Still intentional (out of UI dive path): `G6511` / `G6512.1` error-path `G27 Z1` park; Enable Probe raise to Z max before `T…`.

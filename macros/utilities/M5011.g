@@ -2,7 +2,8 @@
 ;
 ; CAM posts call this on WCS change. Reads probed skew from nxtWPDeg
 ; and UI policy from nxtG68Policy (armed by M6520 / nxt-wcs-apply Q).
-; Does not run after probing — setup jogging stays unrotated.
+; G68 only while a gcode job file is running. Console M5011 is G69
+; so setup jogging stays unrotated.
 ;
 ; USAGE: M5011 [W<workOffset>]
 ;   W: optional 0-indexed workplace (default: current workplace)
@@ -40,33 +41,41 @@ var hasTheta = false
 if { var.thetaDeg != null && abs(var.thetaDeg) >= 0.0005 }
     set var.hasTheta = true
 
+var nxtSkewTxt = { "none" }
+if { var.hasTheta }
+    var nxtSign = { "+" }
+    var nxtSense = { "CCW" }
+    if { var.thetaDeg < 0 }
+        set var.nxtSign = { "-" }
+        set var.nxtSense = { "CW" }
+    var nxtMag = { abs(var.thetaDeg) }
+    set var.nxtSkewTxt = { var.nxtSign ^ var.nxtMag ^ " deg (" ^ var.nxtSense ^ ")" }
+
+var nxtHaveJob = false
+if { exists(job.file.fileName) && job.file.fileName != null }
+    if { job.file.fileName != "" }
+        set var.nxtHaveJob = true
+
 var applyG68 = false
 
 if { !var.hasTheta }
     echo "M5011: No probed rotation for G" ^ (53 + var.wcsNumber)
+elif { !var.nxtHaveJob }
+    echo "M5011: No job file - G69 (setup). Stored skew " ^ var.nxtSkewTxt
 elif { var.qPolicy == 2 }
-    echo "M5011: Skipping G68 (Q2 translation only)"
+    echo "M5011: Skipping G68 (Q2). Skew " ^ var.nxtSkewTxt
 elif { var.qPolicy == 1 }
     set var.applyG68 = true
 else
-    var promptP = { "Probe skew: " ^ var.thetaDeg ^ " deg. Apply G68 to G" }
+    var promptP = { "Skew: " ^ var.nxtSkewTxt ^ ". Apply G68 to G" }
     set var.promptP = { var.promptP ^ (53 + var.wcsNumber) ^ "?" }
     M291 P{var.promptP} R"nxt: Rotation" S4 K{"Apply", "Skip"} F1
     if { input == 0 }
         set var.applyG68 = true
 
 if { var.applyG68 }
-    G17
-    G69
-    M98 P"nxt-select-wcs.g" W{var.wcsNumber}
-    G68 X0 Y0 R{var.thetaDeg}
-    set global.nxtJobG68Deg = { var.thetaDeg }
-    set global.nxtJobG68Wcs = { var.wcsNumber }
-    echo "M5011: G68 rotation applied R" ^ var.thetaDeg ^ " deg"
+    M98 P"nxt-job-g68-apply.g" R{var.thetaDeg} W{var.wcsNumber}
+    echo "M5011: G68 applied " ^ var.nxtSkewTxt ^ " on G" ^ (53 + var.wcsNumber)
     M99
 
-G69
-if { exists(global.nxtJobG68Deg) }
-    set global.nxtJobG68Deg = null
-if { exists(global.nxtJobG68Wcs) }
-    set global.nxtJobG68Wcs = null
+M98 P"nxt-job-g68-clear.g"

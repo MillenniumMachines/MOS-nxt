@@ -32,9 +32,8 @@ G90
 G21
 G94
 
-; Cancel rotation compensation as we use G53 on the probe move.
-; Leaving rotation compensation active causes us to fail position
-; checks.
+; Temporary G69 for probe (G53/position checks). Do not clear nxtJobG68Deg —
+; tpost / resume restore while a job owns rotation.
 G69
 
 set global.nxtProbeRetryTotal = { var.retries }

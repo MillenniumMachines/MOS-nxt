@@ -16,10 +16,9 @@
 ;   X1/Y1/Z1/A1: Axis presence flags (RRF needs letter+number; value ignored)
 ;       Bare X/Y/Z/A often do NOT populate exists(param.X) — use X1 not X
 ;   Q: Job-start rotation policy for M5011 (not applied here):
-;      0 — prompt (M291) when the job calls M5011
+;      0 — prompt (M291) when the job calls M5011 (default if Q omitted)
 ;      1 — apply G68 at M5011 without prompt
 ;      2 — translation only; M5011 will not apply G68
-;      Omitted — leave nxtG68Policy unchanged (Probe Results push)
 ;   T: Optional override for max |skew| allowed (deg); default global.nxtProbeMaxSkewDeg
 ;
 ; XY apply stores theta in nxtWPDeg[W-1] for M5011. Always G69 after G10/park.
@@ -124,12 +123,14 @@ if { var.offsetA != null }
 
 M98 P"nxt-select-wcs.g" W{var.wcsNumber}
 
+var nxtQPol = { 0 }
 if { exists(param.Q) && param.Q != null }
-    if { !exists(global.nxtG68Policy) }
-        global nxtG68Policy = { param.Q }
-    else
-        set global.nxtG68Policy = { param.Q }
-    echo "M6520: Armed job rotation policy Q" ^ param.Q
+    set var.nxtQPol = { param.Q }
+if { !exists(global.nxtG68Policy) }
+    global nxtG68Policy = { var.nxtQPol }
+else
+    set global.nxtG68Policy = { var.nxtQPol }
+echo "M6520: Armed job rotation policy Q" ^ var.nxtQPol
 
 var workOffset = { var.wcsNumber - 1 }
 var storeDeg = { exists(param.X) && exists(param.Y) }
@@ -163,12 +164,8 @@ if { var.offsetX != null || var.offsetY != null }
         G53 G1 F{var.parkFeed} X{var.parkX} Y{var.parkY} Z{var.pinZ}
     M400
 
-; Cancel live G68 so jogging after probe is not rotated. M5011 re-applies.
-G69
-if { exists(global.nxtJobG68Deg) }
-    set global.nxtJobG68Deg = null
-if { exists(global.nxtJobG68Wcs) }
-    set global.nxtJobG68Wcs = null
+; G69 + clear job G68 so setup jogging is unrotated. Job-start M5011 re-applies.
+M98 P"nxt-job-g68-clear.g"
 
 var nxtMx = { move.axes[0].machinePosition }
 var nxtMy = { move.axes[1].machinePosition }

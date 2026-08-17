@@ -12,7 +12,7 @@
 ;   I: Probe results table index (0-9) — REQUIRED (M98 cannot pass P)
 ;   W: WCS number (1-9 for G54-G59.3) — REQUIRED
 ;   X1/Y1/Z1/A1: Axis presence flags (use X1 not bare X)
-;   Q: Job-start rotation policy for M5011 (same as M6520 Q)
+;   Q: Job-start rotation policy for M5011 (same as M6520 Q; omitted = Q0 prompt)
 ;   T: Optional max |skew| (deg); default global.nxtProbeMaxSkewDeg
 
 if { !inputs[state.thisInput].active }
@@ -122,12 +122,14 @@ var nxtWpSel = { var.nxtWpIdx + 1 }
 if { var.nxtWpSel != var.wcsNumber }
     M98 P"nxt-select-wcs.g" W{var.wcsNumber}
 
+var nxtQPol = { 0 }
 if { exists(param.Q) && param.Q != null }
-    if { !exists(global.nxtG68Policy) }
-        global nxtG68Policy = { param.Q }
-    else
-        set global.nxtG68Policy = { param.Q }
-    echo "nxt-wcs-apply: Armed job rotation policy Q" ^ param.Q
+    set var.nxtQPol = { param.Q }
+if { !exists(global.nxtG68Policy) }
+    global nxtG68Policy = { var.nxtQPol }
+else
+    set global.nxtG68Policy = { var.nxtQPol }
+echo "nxt-wcs-apply: Armed job rotation policy Q" ^ var.nxtQPol
 
 var workOffset = { var.wcsNumber - 1 }
 var storeDeg = { exists(param.X) && exists(param.Y) }
@@ -138,12 +140,8 @@ if { var.storeDeg && exists(global.nxtWPDeg) }
     else
         set global.nxtWPDeg[var.workOffset] = { global.nxtDfltWPDeg }
 
-; Cancel live G68 so jogging after probe is not rotated. M5011 re-applies.
-G69
-if { exists(global.nxtJobG68Deg) }
-    set global.nxtJobG68Deg = null
-if { exists(global.nxtJobG68Wcs) }
-    set global.nxtJobG68Wcs = null
+; G69 + clear job G68 so setup jogging is unrotated. Job-start M5011 re-applies.
+M98 P"nxt-job-g68-clear.g"
 
 var nxtMx = { move.axes[0].machinePosition }
 var nxtMy = { move.axes[1].machinePosition }

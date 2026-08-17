@@ -8,6 +8,9 @@
 if { !inputs[state.thisInput].active }
     M99
 
+; Temporary G69 for jog + Z probe. Do not clear nxtJobG68Deg — tpost restores.
+G69
+
 var wPN = { move.motionSystems[0].workplaceNumber + 1 }
 
 if { global.nxtTutorialMode && !global.nxtDialogDisplayed[12] }

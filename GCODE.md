@@ -496,19 +496,19 @@ When `nxtFeatureTouchProbe` is true, aborts unless `nxtProbeDeflection` is a non
 
 ### M5011: Apply Rotation Compensation (job start)
 
-Applies **G68** from the last probed skew stored in **`global.nxtWPDeg`**, according to **`global.nxtG68Policy`** (armed by **M6520** / **nxt-wcs-apply** **Q**). Fusion and FreeCAD posts emit **M5011** on WCS change. Probing never issues **G68**, so jogging after a cycle stays machine-aligned.
+Applies **G68** from the last probed skew stored in **`global.nxtWPDeg`**, according to **`global.nxtG68Policy`** (armed by **M6520** / **nxt-wcs-apply** **Q**). Fusion and FreeCAD posts emit **M5011** on WCS change. **G68 runs only while a gcode job file is running** (`job.file.fileName`). Console **M5011** after probing **G69**s and echoes stored skew as **signed** deg (`+` CCW / `-` CW). Probing never issues **G68**.
 
 **Usage:** `M5011 [W<workOffset>]`
 
 **Parameters:**
 - `W`: Optional **0-indexed** workplace (same as **M5010**). Default: current workplace (`move.motionSystems[0].workplaceNumber`; not the obsolete `move.workplaceNumber`).
 
-**Policy (`nxtG68Policy` / last probe `Q`):**
-- **0** — `M291` prompt to apply or skip **G68**
-- **1** — apply **G68** without prompt
+**Policy (`nxtG68Policy` / last probe `Q`) — only when a job file is running.** Default **0** when **Q** was omitted on the last **M6520** / **nxt-wcs-apply** (or never armed):
+- **0** — `M291` prompt (`Skew: +0.047 deg (CCW). Apply G68 to G54?` / `-` and **CW**). Apply / Skip
+- **1** — apply **G68** without prompt (unattended CAM)
 - **2** — translation only; **G69** even if θ is stored
 
-**Behavior:** Non-trivial θ (`|θ| ≥ 0.0005`) plus Q0/Q1 → `G17` / `G69` / **G68 X0 Y0 R{θ}**, then arm **`nxtJobG68Deg`** / **`nxtJobG68Wcs`**. Q2, tiny/null θ, or Skip → **G69** and clear those session globals. **tpost** restores G68 only while **`nxtJobG68Deg`** is set (a running job). Cleared on **cancel** / job **stop**. Not written to **`nxt-user-vars.g`** or **`nxt-user-wcs.g`**.
+**Behavior:** No job file, Q2, tiny/null θ, or Skip → **G69** via **`nxt-job-g68-clear.g`**. Job Q0 Apply / Q1 → **`nxt-job-g68-apply.g`** (`G90` / `G17` / `G68` bound to live G10). Arms **`nxtJobG68Deg`** / **`nxtJobG68Wcs`**. **tpost** restores G68 only while **`nxtJobG68Deg`** is set. Cleared on **cancel** / job **stop** / probe apply / Console **M5011**. Not written to **`nxt-user-vars.g`** or **`nxt-user-wcs.g`**.
 
 ---
 
@@ -597,12 +597,12 @@ Sets a Work Coordinate System (WCS) origin from the probe results table. **`G10 
 - `P`: Probe results table index (0-9) — **required**
 - `W`: WCS number (1-9 for `G10 L2 P` / G54⋯) — **required**
 - `X1|Y1|Z1|A1`: Axis **presence** flags — at least one required. RRF meta needs a number after the letter (`X1`, not bare `X`); the value is ignored. See [`docs/RRF_META_PITFALLS.md`](docs/RRF_META_PITFALLS.md) §1c.
-- `Q`: Job-start rotation policy for **M5011**: **0** = prompt at job start; **1** = apply **G68** at **M5011** without prompt; **2** = translation only (never **G68**). Omitted (Probe Results push) leaves **`nxtG68Policy`** unchanged.
+- `Q`: Job-start rotation policy for **M5011** (only while a job file is running): **0** = prompt at job start; **1** = apply **G68** at **M5011** without prompt; **2** = translation only (never **G68**). Console **M5011** always **G69**. **Omitted = Q0** (prompt), including Probe Results push.
 - `T`: Optional cap on `|θ|` in degrees (default `global.nxtProbeMaxSkewDeg`); abort **M6520** if exceeded
 
-**Rotation:** Does **not** issue **G68**. When both **X** and **Y** are updated and `|θ| ≥ 0.0005`, stores **`nxtWPDeg[W−1]`** and, if **Q** is present, **`nxtG68Policy`**. Always **G69** after the XY park so post-probe jogging is not rotated. CAM posts call **M5011** at job start to apply **G68 X0 Y0 R{θ}**. **G68** rotation direction was corrected in **RRF 3.6.1** (anticlockwise **R**); nxt on branch **`v0.7.0`** targets **RRF 3.7.x** ([`docs/RRF_REFERENCE.md`](docs/RRF_REFERENCE.md)). See `docs/DETAILS.md` (nxt native probing section).
+**Rotation:** Does **not** issue **G68**. When both **X** and **Y** are updated and `|θ| ≥ 0.0005`, stores **`nxtWPDeg[W−1]`**. Arms **`nxtG68Policy`** from **Q** (**omitted = Q0** prompt). Always **G69** (via **`nxt-job-g68-clear.g`**) after the XY park so post-probe jogging is not rotated. CAM posts call **M5011** at job start; **G68** applies only if a job file is running. **G68** rotation direction was corrected in **RRF 3.6.1** (anticlockwise **R**); nxt on branch **`v0.7.0`** targets **RRF 3.7.x** ([`docs/RRF_REFERENCE.md`](docs/RRF_REFERENCE.md)). See `docs/DETAILS.md` (nxt native probing section).
 
-**Job scope:** **M5011** (not **M6520**) stores **`nxtJobG68Deg`** / **`nxtJobG68Wcs`** when **G68** is applied. Rotation **persists across toolchanges** (`tpost` re-asserts via `nxt-job-g68-restore.g` after paths that may `G69`). It is **cleared on cancel**, on **job finish** via `stop.g` (not while paused), and **after probing** (**M6520** **G69**). Not written to `nxt-user-vars.g`, and **not** written to **`nxt-user-wcs.g`**.
+**Job scope:** **M5011** (not **M6520**) stores **`nxtJobG68Deg`** / **`nxtJobG68Wcs`** when **G68** is applied. Rotation **persists across toolchanges** (`tpost` re-asserts via `nxt-job-g68-restore.g` after paths that may `G69`). It is **cleared on cancel**, on **job finish** via `stop.g` (not while paused), **after probing** (**M6520** / **nxt-wcs-apply** **G69**), and on **Console M5011**. Not written to `nxt-user-vars.g`, and **not** written to **`nxt-user-wcs.g`**.
 
 **SD persist:** After a successful apply, **`nxt-user-wcs-sync.g`** rewrites **`0:/sys/nxt-user-wcs.g`** from live **`move.axes[].workplaceOffsets`** (`G10 L2` per workplace plus current WCS select). **`nxt.g`** loads that file after the board pack so origins survive **M999** and power cycles. Disable with **`set global.nxtAutoPersistWcs = false`** in **`nxt-user-vars.g`**. UI edits go through **`nxt-wcs-set.g`** / **`nxt-wcs-clear.g`** (and Activate after **`nxt-select-wcs.g`**) so they persist. Bare **`G10 L2`** (console) is not auto-captured until the next apply/set/clear or **`M98 P"nxt-user-wcs-sync.g"`**.
 
@@ -631,7 +631,7 @@ M6520 P3 W2 X1 Y1 Q0
 **How it works:**
 - Reads the probe result from `P`, issues **G10 L2 P{W}** for flagged axes as stored M5000/G6513 feature coords (presence of the letter matters; **0** is a valid origin *at machine home*; unflagged axes untouched)
 - Selects workplace via **`M98 P"nxt-select-wcs.g" W{W}`** (literal **G54…G59.3**; RRF forbids `G{53+W}`)
-- If **X** and **Y** are flagged and `|θ|` is non-trivial and within **T**, stores **`nxtWPDeg[W−1]`** and arms **`nxtG68Policy`** from **Q** (if given)
+- If **X** and **Y** are flagged and `|θ|` is non-trivial and within **T**, stores **`nxtWPDeg[W−1]`**. Arms **`nxtG68Policy`** from **Q** (**omitted = Q0**)
 - **`G53 G1`** flagged **XY** to stored L2 millimetres (**Z/A pinned**); **never work `G0 X0 Y0`**, **never Z0**. Echoes machine vs user vs origin. Always **G69**
 - Callers raise Z to **startZ** first; **G6510** **Top** / **G6520** also return or stay at **startZ**
 

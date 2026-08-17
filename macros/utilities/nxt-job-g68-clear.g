@@ -1,6 +1,8 @@
 ; nxt-job-g68-clear.g: cancel workplace G68 and clear job-scoped rotation
 ;
-; Call from cancel.g and from stop.g when the job is truly ending (not pause).
+; Hard clear (no restore): cancel.g, stop.g (not pause), Console M5011,
+; M6520 / nxt-wcs-apply after probe. Job tpost/resume restore only while
+; nxtJobG68Deg is set.
 
 G69
 if { exists(global.nxtJobG68Deg) }

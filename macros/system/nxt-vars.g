@@ -65,8 +65,8 @@ global nxtFaceCornerY = null
 global nxtFaceThetaDeg = 0
 global nxtProbeMaxSkewDeg = 5.0   ; Abort rectangle/bore skew solve if |theta| exceeds this (deg)
 ; Job-scoped G68 (session only — not persisted to nxt-user-vars.g)
-; Policy armed by M6520 Q; G68 itself is applied only by M5011 at job start.
-global nxtG68Policy = 0            ; 0=prompt at M5011, 1=always, 2=never (translation)
+; Policy armed by M6520 Q. G68 only from M5011 while a job file is running.
+global nxtG68Policy = 0            ; 0=prompt at M5011, 1=always (job file), 2=never (translation)
 global nxtJobG68Deg = null         ; null = no job rotation; else degrees last applied
 global nxtJobG68Wcs = null         ; workplace 1–9 that owns nxtJobG68Deg
 
