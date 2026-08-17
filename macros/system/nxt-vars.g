@@ -10,6 +10,7 @@ global nxtFeatureToolSetter = false
 global nxtFeatureCoolantControl = false ; Coolant Control feature flag
 global nxtFeatureRgbLight = false       ; RGB work light (M150 addressable strip)
 global nxtFeatureFourthAxis = false     ; Fourth axis (requires MosFourthAxis DWC plugin on SD)
+global nxtFeatureSafetyNet = false      ; Safety Net — prompt operator to activate ATX power at boot
 
 ; --- Operator / tutorial modes ---
 global nxtExpertMode = false            ; Skip confirmation dialogs when true

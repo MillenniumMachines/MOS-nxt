@@ -56,4 +56,9 @@ if { exists(global.nxtProbeToolID) && global.nxtProbeToolID != null }
 
 ; Probe result rows stay null until written (see probing macros / M6521).
 set global.nxtConfigPending = false
+set global.nxtLoaded = true
+
+; Activate machine power if safety net is configured
+if { global.nxtFeatureSafetyNet }
+    M80.9
 set global.nxtBootOk = true
