@@ -190,32 +190,12 @@ if { global.nxtBootOk && global.nxtDaemonHookPluginInit && !global.nxtPluginsIni
 elif { global.nxtBootOk && global.nxtDaemonHookPluginInit }
     set global.nxtPluginsInited = true
 
-; MosFourthAxis (optional sibling plugin) — only when feature on and files present.
-; Prefer 0:/sys/mos-fourth-axis.g (init + M4800). Else init under plugins/ + M4800.
-; Feature flag is boolean (same as other nxtFeature*); do not compare to 1.
-var nxtFaOn = false
-if { exists(global.nxtFeatureFourthAxis) && global.nxtFeatureFourthAxis }
-    set var.nxtFaOn = true
-
-if { var.nxtFaOn }
-    if { fileexists("0:/sys/mos-fourth-axis.g") }
-        M117 "nxt mos-fourth-axis"
-        M98 P"mos-fourth-axis.g"
-    elif { fileexists("0:/sys/plugins/mos-fourth-axis/mos-fourth-axis-init.g") }
-        M117 "nxt mos-fourth-axis-init"
-        M98 P"plugins/mos-fourth-axis/mos-fourth-axis-init.g"
-        if { fileexists("0:/sys/M4800.g") }
-            M4800
-    elif { fileexists("0:/plugins/mos-fourth-axis/mos-fourth-axis-init.g") }
-        M117 "nxt mos-fourth-axis-init"
-        M98 P"0:/plugins/mos-fourth-axis/mos-fourth-axis-init.g"
-        if { fileexists("0:/sys/M4800.g") }
-            M4800
-    else
-        echo "nxt: nxtFeatureFourthAxis on but MosFourthAxis macros missing on SD"
+; MosFourthAxis loads via nxt-plugin-init-dispatch.g when nxtFeatureFourthAxis is
+; on (catalog plugin). Mapping in rotary-plugin-config.g is skipped if A already
+; exists (Scylla axis-a.g). Do not M98 rotary-plugin-config.g from config.g.
 
 ; MosAtc (optional sibling plugin) — only when feature on and init macros present.
-; Init is NOT via nxt-plugin-init-dispatch (OM budget); same pattern as MosFourthAxis.
+; Init is NOT via nxt-plugin-init-dispatch (OM budget for atc* globals).
 var nxtAtcOn = false
 var nxtAtcLoaded = false
 if { exists(global.nxtFeatureAtc) && global.nxtFeatureAtc }
@@ -241,8 +221,6 @@ if { var.nxtAtcLoaded }
     if { !exists(global.nxtPluginLoaded_mosatc) }
         global nxtPluginLoaded_mosatc = false
     set global.nxtPluginLoaded_mosatc = true
-
-; Do not M98 rotary-plugin-config.g here — Scylla axis-a.g already maps A; avoid duplicate M584/M574.
 
 ; Persisted RGB colour map (written by nxt-save-rgb.g from Status / RGB panel).
 if { fileexists("0:/sys/nxt-rgb-colours.g") }

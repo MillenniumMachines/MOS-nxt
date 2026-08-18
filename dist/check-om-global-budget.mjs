@@ -11,7 +11,7 @@
  *   1) Structural hygiene (Custom gating, null session vectors, nxtTT fill, …)
  *   2) Known bloat patterns (e.g. nxtToolLife filled with 0.0 at boot)
  *   3) Estimated JSON size for lean boot + Custom-null worst case
- *   4) Sibling idle: probe-wcs + ArborCTL vars + MosFourthAxis init (when present)
+ *   4) Sibling idle: probe-wcs + ArborCTL vars + MosFourthAxis M4800.g (when present)
  *
  * See docs/OM_GLOBAL_SIZE.md and .cursor/rules/om-global-size.mdc.
  */
@@ -493,7 +493,7 @@ function estimateObjectBytes(entries) {
 	addExtraFile("macros/system/nxt-probe-wcs.g", "nxt");
 	addExtraFile(path.join("..", "ArborCTL", "sys", "arborctl-vars.g"), "arbor");
 	addExtraFile(
-		path.join("..", "mos-fourth-axis", "sd", "plugins", "mos-fourth-axis", "mos-fourth-axis-init.g"),
+		path.join("..", "mos-fourth-axis", "sys", "M4800.g"),
 		"rotary"
 	);
 	const extraBytes = extraEntries.reduce((a, b) => a + b, 0);

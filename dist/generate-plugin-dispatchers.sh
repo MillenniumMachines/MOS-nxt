@@ -200,9 +200,15 @@ while IFS= read -r plugin; do
       if [[ -n "${feature_flag}" && "${feature_flag}" != "null" ]]; then
         cat >> "${INIT_FILE}" <<EOF
 if { exists(global.${feature_flag}) && global.${feature_flag} }
+    if { !exists(global.nxtPluginLoaded_${plugin_global}) }
+        global nxtPluginLoaded_${plugin_global} = false
+    if { !global.nxtPluginLoaded_${plugin_global} }
+        M98 P"${normalized_init}"
+        set global.nxtPluginLoaded_${plugin_global} = true
+
 EOF
-      fi
-      cat >> "${INIT_FILE}" <<EOF
+      else
+        cat >> "${INIT_FILE}" <<EOF
 if { !exists(global.nxtPluginLoaded_${plugin_global}) }
     global nxtPluginLoaded_${plugin_global} = false
 
@@ -210,8 +216,6 @@ if { !global.nxtPluginLoaded_${plugin_global} }
     M98 P"${normalized_init}"
     set global.nxtPluginLoaded_${plugin_global} = true
 EOF
-      if [[ -n "${feature_flag}" && "${feature_flag}" != "null" ]]; then
-        echo "" >> "${INIT_FILE}"
       fi
       ENTRY_COUNT=$((ENTRY_COUNT + 1))
     fi

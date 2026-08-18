@@ -58,7 +58,7 @@ If you install a **compatible macro pack** on the machine (same object-model wir
 - `atcEnabled`, `atcToolChangeMode`, `atcBayMode`
 - Job sequence arrays (`atcJobSeq*`) if your post processor fills them
 
-**Enable:** Configuration → **Tool Changer (ATC)** → `nxtFeatureAtc` → **Save**, then reboot. Boot loads MosAtc init macros from SD only when the flag is on (same pattern as MosFourthAxis). Install the **MosAtc** DWC plugin for operator UI. Leave the flag **off** when ATC is not installed — avoids ~800B+ `atc*` globals in the OM `global` key.
+**Enable:** Configuration → **Tool Changer (ATC)** → `nxtFeatureAtc` → **Save**, then reboot. Boot loads MosAtc init macros from SD only when the flag is on (`skipInitDispatch` in `nxt.g`). Install the **MosAtc** DWC plugin for operator UI. Leave the flag **off** when ATC is not installed — avoids ~800B+ `atc*` globals in the OM `global` key.
 
 Base **nxt** does not drive those from its Tool Library panel. Use the **mos-atc** DWC plugin (paired with that macro pack) for magazine layout, bay cards, job sequence, and M870–M879 / M401x controls. **`ui/src/utils/nxtToolChangerOm.ts`** remains the shared OM key / M-code map for that plugin or forks.
 

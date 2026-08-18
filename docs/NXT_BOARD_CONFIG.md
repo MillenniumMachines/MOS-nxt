@@ -151,9 +151,9 @@ Firmware `serial.aux2`: TX=`PD_8` (`tx3`), RX=`PD_9` (`rx3`). [`uart.g`](../macr
 
 **Enable:** Configuration → **Fourth Axis (A / Rotary)** → enable `nxtFeatureFourthAxis` → **Save**, then reboot with board bootstrap. MOS import may also set the flag from `mosFAE`.
 
-**MosFourthAxis on boot:** When the feature flag is on, [`nxt.g`](../macros/system/nxt.g) soft-loads (with `fileexists`) `0:/sys/mos-fourth-axis.g`, or else `plugins/mos-fourth-axis/mos-fourth-axis-init.g` + `M4800` if present. Missing macros only `echo` a warning — boot continues.
+**MosFourthAxis on boot:** When the feature flag is on, generated [`nxt-plugin-init-dispatch.g`](../dist/generate-plugin-dispatchers.sh) runs `plugins/mos-fourth-axis/mos-fourth-axis-init.g` → `mos-fourth-axis.g` (same catalog pattern as ArborCTL). Missing macros do not fail nxt boot (`failureMode: soft`).
 
-**Still from MosFourthAxis:** steps/° (`M92 A` / `M4806`), soft limits, speeds, and `homea.g`. Do **not** also `M98` `rotary-plugin-config.g` when Scylla `axis-a.g` already mapped A (duplicate `M584` / `M574` / `M569`).
+**Still from MosFourthAxis:** steps/° (`M92 A` / `M4806`), soft limits, speeds, and `homea.g`. `rotary-plugin-config.g` is loaded from that bootstrap; mapping (`M584` / `M574` / `M569`) is skipped when Scylla `axis-a.g` already mapped A. Do **not** also `M98` it from `config.g`.
 
 ## Adding hardware
 

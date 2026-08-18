@@ -38,7 +38,7 @@ Configuration / Calibration **Save** and Custom **Apply** share [`ui/src/utils/n
 9. Tool-length mill cache is session scalars (`nxtToolCacheIdx` / `nxtToolCacheZ`). Mill datum (`nxtProbeVirtualTsZ`) is M5016 platen Z, persisted in `nxt-user-vars.g` (omit null) and `0:/sys/nxt-probe-virtual.g`.
 10. `nxtPinStates` stays `null` until `pause.g`; do not persist it in user-vars.
 11. Custom A-axis keys only when `0:/sys/nxt-custom-a.requested` exists (Save syncs when any `nxtCustomA*` is set).
-12. **MosAtc / MosFourthAxis:** optional sibling plugins load from `nxt.g` only when `nxtFeatureAtc` / `nxtFeatureFourthAxis` is true and SD init macros exist — not via unconditional plugin-init dispatch (saves ~800B+ `atc*` globals when ATC is off).
+12. **MosAtc:** still skipInitDispatch — `nxt.g` loads MosAtc only when `nxtFeatureAtc` is true (saves ~800B+ `atc*` globals when ATC is off). **MosFourthAxis:** catalog init dispatch gated on `nxtFeatureFourthAxis` (rotary scalars are small; mapping is skipped if A already exists).
 13. Board pack path telemetry (`nxtBoardPackEntry` / Expected / ShortName / SysDeploy) is declare-on-use — not always-on nulls in `nxt-vars.g`.
 
 ## Checking size

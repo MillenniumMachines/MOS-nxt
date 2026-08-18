@@ -19,6 +19,13 @@
       "repoPath": "../ArborCTL",
       "manifestPath": "dwc-plugin/plugin.json",
       "required": false
+    },
+    {
+      "id": "MosFourthAxis",
+      "repoPath": "../mos-fourth-axis",
+      "manifestPath": "dwc-plugin/plugin.json",
+      "required": false,
+      "featureFlag": "nxtFeatureFourthAxis"
     }
   ]
 }

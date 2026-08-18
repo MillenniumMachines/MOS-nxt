@@ -4,8 +4,8 @@
 ; Pins: amin=PD_15 (D.15), amax=PD_13 (D.13). Driver 3 is the 4th TMC5160.
 ;
 ; Steps/mm, soft limits, and speeds: prefer MosFourthAxis
-; 0:/sys/rotary-plugin-config.g (M98 from config.g after nxt) — or calibrate
-; with M4806. Do not duplicate M584 A / M574 A there if this file already ran.
+; (rotary-plugin-config.g via plugin init; mapping skipped if A already exists).
+; Calibrate with M4806. Do not M98 rotary-plugin-config.g from config.g.
 
 ; Direction for physical drive 3
 M569 P3 S1

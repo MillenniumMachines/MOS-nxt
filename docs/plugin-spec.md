@@ -18,7 +18,7 @@ Each plugin uses DWC `plugin.json` and may include nxt runtime metadata in `data
 - `loadOrder` (number): lower values initialize first.
 - `failureMode` (`soft` or `strict`): defaults to `soft`.
 - `featureFlag` (string, optional): global name (e.g. `nxtFeatureAtc`) — init dispatch runs only when that global is true.
-- `skipInitDispatch` (bool, optional): when true, init is **not** emitted in `nxt-plugin-init-dispatch.g`; load from `nxt.g` when the feature flag and SD macros are present (MosAtc / MosFourthAxis pattern).
+- `skipInitDispatch` (bool, optional): when true, init is **not** emitted in `nxt-plugin-init-dispatch.g`; load from `nxt.g` when the feature flag and SD macros are present (MosAtc pattern).
 - `entrypoints` (object):
   - `init` (string, optional): one-time init macro path under `/sys`.
   - `daemon` (string, optional): periodic daemon macro path under `/sys`.
@@ -121,6 +121,7 @@ Flags are in-memory and reset on reboot.
 ## Compatibility
 
 - **ArborCTL** (optional catalog plugin): spindle polling runs via `data.nxt` daemon entrypoint `plugins/arborctl/arborctl-daemon-hook.g` → `arborctl/arborctl-daemon.g`. Install the ArborCTL DWC ZIP (or stage sibling `../ArborCTL`) so entrypoints exist; `macros/system/daemon.g` no longer hard-codes a direct `arborctl-daemon.g` call (avoids double-polling).
+- **MosFourthAxis** (optional catalog plugin): init runs via `data.nxt` + catalog `featureFlag` `nxtFeatureFourthAxis` (`plugins/mos-fourth-axis/mos-fourth-axis-init.g` → `mos-fourth-axis.g`). Mapping in `rotary-plugin-config.g` is skipped when A is already mapped (Scylla `axis-a.g`). Do not add an `M98` of that file to `config.g`.
 - Legacy standalone ArborCTL installs (no nxt) still use their own `daemon.g` → `arborctl-daemon.g`.
 - `nxt-daemon.g` and `user-daemon.g` remain valid.
 - Missing generated dispatcher files must not break core nxt startup.
