@@ -74,6 +74,32 @@ String echoes / `M291` text that *display* `(53 + wcs)` are fine — those are n
 
 **Gate:** `node dist/check-no-dynamic-gm-codes.mjs` (also run by `build-plugin.sh`).
 
+## 1e. No `millis()` — use `state.upTime * 1000 + state.msUpTime`
+
+RRF meta has **no `millis()` function**. Calling it aborts the macro with `unknown function`; any `var` assigned on that line is never created (cascade: `unknown variable 'nowMs'`).
+
+| Symptom | Cause |
+|---------|--------|
+| `unknown function` on a line with `millis()` | `millis()` is not in the RRF meta function list |
+| `unknown variable 'nowMs'` on the next line | Assignment failed because the expression aborted |
+
+**Do:**
+
+```gcode
+var nowMs = { state.upTime * 1000 + state.msUpTime }
+if { var.nowMs < global.nxtVSPT }
+    set global.nxtVSPT = { var.nowMs }
+    M99
+```
+
+Read `state.upTime` and `state.msUpTime` in the **same expression** — RRF synchronizes rollover. For elapsed time, subtract stored timestamps; guard backwards jumps when a stored value is newer than the current sample.
+
+Raw `state.upTime * 1000 + state.msUpTime` overflows signed 32-bit int after ~24 days of uptime; irrelevant for job-scoped VSSC and coolant pulse.
+
+**Do not:** `{ millis() }` or `{ state.upTime }` alone when sub-second resolution is required.
+
+**Gate:** `node dist/check-no-millis.mjs` (also run by `build-plugin.sh`).
+
 ## 2. Axis count — never assume A exists
 
 `#move.axes` is often **3** (Milo / no rotary). Arrays sized to `#move.axes` have no index `[3]`.

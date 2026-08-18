@@ -40,7 +40,7 @@ if { var.curRpm == 0 }
 if { global.nxtVSP <= 0 || global.nxtVSV <= 0 }
     M99
 
-var nowMs = { millis() }
+var nowMs = { state.upTime * 1000 + state.msUpTime }
 if { var.nowMs < global.nxtVSPT }
     set global.nxtVSPT = { var.nowMs }
     M99

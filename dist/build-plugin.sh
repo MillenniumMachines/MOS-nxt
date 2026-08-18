@@ -125,6 +125,8 @@ echo "Checking M6520 axis flags must be X1/Y1/Z1/A1 (not bare X)..."
 node "${ROOT}/dist/check-m6520-axis-flags.mjs" || exit 1
 echo "Checking no dynamic G{/M{ command numbers (T{ only)..."
 node "${ROOT}/dist/check-no-dynamic-gm-codes.mjs" || exit 1
+echo "Checking no millis() in macros (use state.upTime*1000+state.msUpTime)..."
+node "${ROOT}/dist/check-no-millis.mjs" || exit 1
 echo "Checking RRF caret-as-power misuse..."
 node "${ROOT}/dist/check-rrf-caret-power.mjs" || exit 1
 echo "Checking G6512 single-axis call contract..."

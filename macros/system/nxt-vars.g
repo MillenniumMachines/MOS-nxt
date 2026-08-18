@@ -190,7 +190,7 @@ global nxtCoolantMistRequested = false ; Runtime: M7 issued (cleared by M9)
 global nxtCoolantFloodRequested = false ; Runtime: M8 issued (cleared by M9)
 global nxtCoolantPulseActive = false ; Runtime: daemon should tick pulse phases
 global nxtCoolantPulsePhaseOn = true ; Runtime: current pulse phase (true = ON)
-global nxtCoolantPulseLastMs = 0 ; Runtime: millis() at last phase transition
+global nxtCoolantPulseLastMs = 0 ; Runtime: state.upTime*1000+state.msUpTime at last phase transition
 
 ; --- Daemon loop (coolant pulse, plugins, user hooks) ---
 global nxtDaemonEnabled = true ; Enable macros/system/daemon.g background loop
@@ -217,7 +217,7 @@ global nxtVSEnabled = false ; Daemon gate for nxt-run-vssc.g
 global nxtVSP = 0           ; Period (ms) of one speed-adjustment cycle
 global nxtVSV = 0           ; Full-swing variance (RPM)
 global nxtVSPS = 0          ; Programmed base RPM
-global nxtVSPT = 0          ; Last phase timestamp (millis())
+global nxtVSPT = 0          ; Last phase timestamp (state.upTime*1000+state.msUpTime)
 
 ; --- Canned drilling cycles (G81, G73, G83, …) ---
 ; When non-null, nxtCannedCycle is a vector:
