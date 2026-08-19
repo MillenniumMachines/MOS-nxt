@@ -239,7 +239,7 @@ Same adaptive multi-point / line-fit behavior as **G6508**, with pocket-air dirs
 
 ### G6510: Single Surface Probe
 
-Probes one workpiece face relative to an operator at the **front** of the mill (**−Y** toward the operator, **+X** to the right). **Top** is a **single** G6512 contact (**multi-point Z averaging is deferred**). **Left/Right/Front/Back** with **`S`** (face length along the face) use the same adaptive 1/3-pt helper centered on the jog station; omit **`S`** for a single contact. Travel **`O`** is from the jogged pose toward that face after **`M5000`**. Optional **`L`** dives XY from jog Z (ignored for Top). With **`U`**, chains **`M6520`** on the resolved axis; **Top** returns to jog **startZ**.
+Probes one workpiece face relative to an operator at the **front** of the mill (**−Y** toward the operator, **+X** to the right). **Top** is a **single** G6512 contact (**multi-point Z averaging is deferred**). **Left/Right/Front/Back** with **`S`** (face length along the face) use the same adaptive 1/3-pt helper centered on the jog station; omit **`S`** for a single contact. Travel **`O`** is from the jogged pose toward that face after **`M5000`**. Optional **`L`** dives XY from jog Z (ignored for Top). With **`U`**, chains **`M6520`** on the resolved axis (**X1** / **Y1** / **Z1**, or **A1** when `probeAxis` is 3); **Top** returns to jog **startZ**.
 
 **Usage:** `G6510 P|U N[0-4] [O] [S] [E] [L] [F] [R] [Q]`
 
@@ -591,12 +591,15 @@ Sets a Work Coordinate System (WCS) origin from the probe results table. **`G10 
 
 **Z:** Results are the **raw trigger** from G6512 (no deflection, no tip radius). **`M6520 … Z1`** sets that height as work **Z0** via **G10 L2** only — no **`G0 Z0`**. Cycles (**G6510** / **G6520**) return to jog **startZ**.
 
+**A:** **`M6520 … A1`** touches off the **current homed machine A** (`move.axes[3].machinePosition`), not probe-table slot 3 (XY/Z cycles leave that slot **0**). **`G10 L2 A{current}`** so work A reads **0**; A is **not** G53-parked. Aborts if A is unmapped or not homed.
+
 **Usage:** `M6520 P<resultIndex> W<wcsNumber> [X1] [Y1] [Z1] [A1] [Q<mode>] [T<maxSkewDeg>]`
 
 **Parameters:**
 - `P`: Probe results table index (0-9) — **required**
 - `W`: WCS number (1-9 for `G10 L2 P` / G54⋯) — **required**
-- `X1|Y1|Z1|A1`: Axis **presence** flags — at least one required. RRF meta needs a number after the letter (`X1`, not bare `X`); the value is ignored. See [`docs/RRF_META_PITFALLS.md`](docs/RRF_META_PITFALLS.md) §1c.
+- `X1|Y1|Z1`: Axis **presence** flags — at least one of these or **A1** required. RRF meta needs a number after the letter (`X1`, not bare `X`); the value is ignored. See [`docs/RRF_META_PITFALLS.md`](docs/RRF_META_PITFALLS.md) §1c.
+- `A1`: Touch off the live rotary pose (not table slot 3). Same presence-flag form as **X1**.
 - `Q`: Job-start rotation policy for **M5011** (only while a job file is running): **0** = prompt at job start; **1** = apply **G68** at **M5011** without prompt; **2** = translation only (never **G68**). Console **M5011** always **G69**. **Omitted = Q0** (prompt), including Probe Results push.
 - `T`: Optional cap on `|θ|` in degrees (default `global.nxtProbeMaxSkewDeg`); abort **M6520** if exceeded
 
@@ -610,7 +613,7 @@ Sets a Work Coordinate System (WCS) origin from the probe results table. **`G10 
 
 ### nxt-wcs-apply.g: Apply WCS from probe result (no travel)
 
-Shared helper used by **G6500** / **G6501** / **G6508** / **G6509** / **G6520** after **G53** air park at the fit. Same **G10 L2** (feature machine coords from the stored **fit**, no tool-offset subtract; never **L20**), **`nxt-select-wcs.g`** (skipped when **W** is already active), **Q** arming, and **G69** as **M6520**. **`M400`** before **G10**. Does **not** travel (already **G53**-parked at the fit). Echoes **machinePosition**, **userPosition**, and origin-vs-machine deltas after apply (user XY should be ≈ 0; Z remains jog **startZ**). Aborts a **0,0** XY origin if the mill is not near machine origin.
+Shared helper used by **G6500** / **G6501** / **G6508** / **G6509** / **G6520** after **G53** air park at the fit. Same **G10 L2** (feature machine coords from the stored **fit**, no tool-offset subtract; never **L20**), **`nxt-select-wcs.g`** (skipped when **W** is already active), **Q** arming, and **G69** as **M6520**. **`A1`** is current-pose A touch-off, same as **M6520**. **`M400`** before **G10**. Does **not** travel (already **G53**-parked at the fit). Echoes **machinePosition**, **userPosition**, and origin-vs-machine deltas after apply (user XY should be ≈ 0; Z remains jog **startZ**). Aborts a **0,0** XY origin if the mill is not near machine origin.
 
 **Usage:** `M98 P"nxt-wcs-apply.g" I<resultIndex> W<wcsNumber> [X1] [Y1] [Z1] [A1] [Q] [T]`
 

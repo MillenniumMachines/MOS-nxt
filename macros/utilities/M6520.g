@@ -4,8 +4,8 @@
 ; Same contract as legacy G650x.1: G10 L2 gets the feature's M5000
 ; machine coords as stored (no tool-offset subtract). Never G10 L20.
 ; After G10 + WCS select, G53 G1 flagged X/Y to stored L2 machine coords
-; (Z/A pinned from current pose). Never work G0 X0 Y0 — nested G53/G38
-; would treat that as machine home. Never G0 Z0 / A0.
+; (Z/A pinned from current pose). A1 touches off live rotary pose (G10 L2 A
+; = current machine A so work A reads 0). Never work G0 X0 Y0.
 ; Does not apply G68 — that is M5011 at job start. Q only arms policy.
 ;
 ; USAGE: M6520 P<resultIndex> W<wcsNumber> [X1] [Y1] [Z1] [A1] [Q<mode>] [T<maxSkew>]
@@ -13,8 +13,9 @@
 ; Parameters:
 ;   P: Probe results table index (0-9) - REQUIRED
 ;   W: WCS number (1-9 for G54-G59.3) - REQUIRED
-;   X1/Y1/Z1/A1: Axis presence flags (RRF needs letter+number; value ignored)
+;   X1/Y1/Z1: Axis presence flags (RRF needs letter+number; value ignored)
 ;       Bare X/Y/Z/A often do NOT populate exists(param.X) — use X1 not X
+;   A1: Touch off current homed machine A (not probe-table slot 3)
 ;   Q: Job-start rotation policy for M5011 (not applied here):
 ;      0 — prompt (M291) when the job calls M5011 (default if Q omitted)
 ;      1 — apply G68 at M5011 without prompt
@@ -59,12 +60,21 @@ if { abs(var.thetaDeg) > var.skewLimit }
 var wcsNumber = { param.W }
 
 ; Legacy G10 L2: feature M5000 coords as stored (no tools[].offsets subtract)
+; A1 = touch off current rotary pose (not result slot 3, which XY cycles leave 0).
 var offsetX = { exists(param.X) ? var.resultVector[0] : null }
 var offsetY = { exists(param.Y) ? var.resultVector[1] : null }
 var offsetZ = { exists(param.Z) ? var.resultVector[2] : null }
 var offsetA = null
-if { exists(param.A) && #var.resultVector > 3 }
-    set var.offsetA = { var.resultVector[3] }
+var nxtHasA = { #move.axes > 3 }
+var nxtAHomed = false
+if { var.nxtHasA }
+    set var.nxtAHomed = { move.axes[3].homed }
+if { exists(param.A) }
+    if { !var.nxtHasA }
+        abort { "M6520: A flag requires a mapped A axis" }
+    if { !var.nxtAHomed }
+        abort { "M6520: Homing A is required to touch off WCS A" }
+    set var.offsetA = { move.axes[3].machinePosition }
 
 ; Empty table is vector(..., 0). 0,0 is legal only if already near machine origin.
 var nxtBothXY = { var.offsetX != null && var.offsetY != null }

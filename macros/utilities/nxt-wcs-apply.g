@@ -2,7 +2,8 @@
 ;
 ; Same G10 L2 as M6520 (never L20). No travel — caller already G53-parked
 ; at the fit (G6500/G6501/G6508/G6509/G6520). M6520 G53 G1s stored L2 XY.
-; Does not apply G68 — that is M5011 at job start. Q only arms policy.
+; A1 touches off live rotary pose (not result slot 3). Does not apply G68 —
+; that is M5011 at job start. Q only arms policy.
 ; M98 steals P for the filename — result slot is I (not P).
 ; Skips nxt-select-wcs when workplace W is already active (no redundant G54).
 ;
@@ -11,7 +12,8 @@
 ; Parameters:
 ;   I: Probe results table index (0-9) — REQUIRED (M98 cannot pass P)
 ;   W: WCS number (1-9 for G54-G59.3) — REQUIRED
-;   X1/Y1/Z1/A1: Axis presence flags (use X1 not bare X)
+;   X1/Y1/Z1: Axis presence flags (use X1 not bare X)
+;   A1: Touch off current homed machine A (not probe-table slot 3)
 ;   Q: Job-start rotation policy for M5011 (same as M6520 Q; omitted = Q0 prompt)
 ;   T: Optional max |skew| (deg); default global.nxtProbeMaxSkewDeg
 
@@ -48,12 +50,21 @@ if { abs(var.thetaDeg) > var.skewLimit }
 var wcsNumber = { param.W }
 
 ; Legacy G10 L2: feature M5000 coords as stored (no tools[].offsets subtract)
+; A1 = touch off current rotary pose (not result slot 3, which XY cycles leave 0).
 var offsetX = { exists(param.X) ? var.resultVector[0] : null }
 var offsetY = { exists(param.Y) ? var.resultVector[1] : null }
 var offsetZ = { exists(param.Z) ? var.resultVector[2] : null }
 var offsetA = null
-if { exists(param.A) && #var.resultVector > 3 }
-    set var.offsetA = { var.resultVector[3] }
+var nxtHasA = { #move.axes > 3 }
+var nxtAHomed = false
+if { var.nxtHasA }
+    set var.nxtAHomed = { move.axes[3].homed }
+if { exists(param.A) }
+    if { !var.nxtHasA }
+        abort { "nxt-wcs-apply: A flag requires a mapped A axis" }
+    if { !var.nxtAHomed }
+        abort { "nxt-wcs-apply: Homing A is required to touch off WCS A" }
+    set var.offsetA = { move.axes[3].machinePosition }
 
 ; Empty table is vector(..., 0). 0,0 is legal only if already near origin.
 var nxtBothXY = { var.offsetX != null && var.offsetY != null }

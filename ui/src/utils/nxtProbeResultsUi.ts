@@ -198,6 +198,9 @@ export function suggestPushAxesFromRow(
   row: { x: number; y: number; z: number; a: number; hasData: boolean },
   hasAAxis: boolean
 ): { x: boolean; y: boolean; z: boolean; a: boolean } {
+  // A1 is current-pose touch-off, not table slot 3 — never auto-check.
+  // XY cycles leave slot 3 at 0; enabling A would surprise-rotate WCS A.
+  void hasAAxis
   if (!row.hasData) {
     return { x: true, y: true, z: false, a: false }
   }
@@ -205,17 +208,16 @@ export function suggestPushAxesFromRow(
   const xOn = nz(row.x)
   const yOn = nz(row.y)
   const zOn = nz(row.z)
-  const aOn = hasAAxis && nz(row.a)
   const count = (xOn ? 1 : 0) + (yOn ? 1 : 0) + (zOn ? 1 : 0)
   // Top surface (Z only) or side surface (X or Y only)
   if (count === 1) {
-    return { x: xOn, y: yOn, z: zOn, a: aOn }
+    return { x: xOn, y: yOn, z: zOn, a: false }
   }
   if (xOn && yOn && !zOn) {
-    return { x: true, y: true, z: false, a: aOn }
+    return { x: true, y: true, z: false, a: false }
   }
   if (xOn || yOn || zOn) {
-    return { x: xOn, y: yOn, z: zOn, a: aOn }
+    return { x: xOn, y: yOn, z: zOn, a: false }
   }
   // All zeros but hasData (feature at machine 0) — XY only, never force Z
   return { x: true, y: true, z: false, a: false }

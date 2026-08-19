@@ -115,14 +115,14 @@
                   <v-checkbox
                     v-if="hasAAxis"
                     v-model="pushAxes.a"
-                    label="A Axis"
+                    label="A Axis (current pose)"
                     density="compact"
                     hide-details
                     class="my-1"
                     :disabled="!selectedResultData.hasData"
                   />
                   <div class="text-caption text-medium-emphasis mb-2">
-                    Travel follows flagged X/Y/A only: XY keeps current Z; Z flag sets WCS only (no travel to work Z0 — cycles return to start Z).
+                    Travel follows flagged X/Y only (Z stays at the current pose). Z sets WCS only (no work Z0). A touches off the current rotary pose so work A reads 0.
                   </div>
                   <v-btn
                     size="small"

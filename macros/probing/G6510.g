@@ -204,11 +204,17 @@ if { exists(param.U) && param.U != null }
             M6520 P{var.pSlot} W{param.U} Y1 Q{param.Q}
         else
             M6520 P{var.pSlot} W{param.U} Y1
-    else
+    elif { var.probeAxis == 2 }
         if { exists(param.Q) && param.Q != null }
             M6520 P{var.pSlot} W{param.U} Z1 Q{param.Q}
         else
             M6520 P{var.pSlot} W{param.U} Z1
+    ; Axis 3 = A surface; do not fall through to Z1
+    elif { var.probeAxis == 3 }
+        if { exists(param.Q) && param.Q != null }
+            M6520 P{var.pSlot} W{param.U} A1 Q{param.Q}
+        else
+            M6520 P{var.pSlot} W{param.U} A1
 
 var nxtParkFeed = { sensors.probes[global.nxtTouchProbeID].travelSpeed }
 var nxtPinX = { move.axes[0].machinePosition }
