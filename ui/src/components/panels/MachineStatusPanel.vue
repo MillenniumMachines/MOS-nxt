@@ -84,6 +84,58 @@
           </v-card>
         </v-col>
 
+        <!-- Motor / VFD relay (gpOut P5 on Scylla PD_5) -->
+        <v-col v-if="relayConfigured" cols="12" md="6">
+          <v-card variant="outlined">
+            <v-card-subtitle>{{ $t('plugins.nxt.panels.status.relayPower') }}</v-card-subtitle>
+            <v-card-text>
+              <v-list density="compact">
+                <v-list-item>
+                  <v-list-item-title>
+                    {{ relayArmed
+                      ? $t('plugins.nxt.panels.status.relayArmed')
+                      : $t('plugins.nxt.panels.status.relayDisarmed') }}
+                  </v-list-item-title>
+                  <v-list-item-action>
+                    <v-icon :color="relayArmed ? 'success' : 'error'">
+                      {{ relayArmed ? 'mdi-power-plug' : 'mdi-power-plug-off' }}
+                    </v-icon>
+                  </v-list-item-action>
+                </v-list-item>
+              </v-list>
+              <v-alert
+                v-if="estopPressed"
+                type="warning"
+                density="compact"
+                variant="tonal"
+                class="mb-3"
+              >
+                {{ $t('plugins.nxt.panels.status.relayEstopPressed') }}
+              </v-alert>
+              <div class="d-flex flex-wrap ga-2">
+                <v-btn
+                  color="success"
+                  variant="flat"
+                  size="small"
+                  :disabled="!isConnected || uiFrozen || relayArmed || estopPressed"
+                  @click="armRelay"
+                >
+                  {{ $t('plugins.nxt.panels.status.relayArm') }}
+                </v-btn>
+                <v-btn
+                  color="error"
+                  variant="outlined"
+                  size="small"
+                  :disabled="!isConnected || uiFrozen || !relayArmed"
+                  @click="disarmRelay"
+                >
+                  {{ $t('plugins.nxt.panels.status.relayDisarm') }}
+                </v-btn>
+              </div>
+            </v-card-text>
+          </v-card>
+        </v-col>
+
         <!-- Feature Status -->
         <v-col cols="12">
           <v-card variant="outlined">
@@ -123,6 +175,17 @@
                       mdi-water
                     </v-icon>
                     Coolant Control
+                  </div>
+                </v-col>
+                <v-col cols="6" sm="4">
+                  <div class="feature-status">
+                    <v-icon
+                      :color="globals.nxtFeatureMachinePower ? 'success' : 'grey'"
+                      class="mr-2"
+                    >
+                      mdi-power
+                    </v-icon>
+                    {{ $t('plugins.nxt.panels.status.featureMachinePower') }}
                   </div>
                 </v-col>
                 <v-col cols="6" sm="4" v-if="rgbHardwareConfigured">
@@ -234,6 +297,47 @@ export default defineNxtComponent({
 
     rgbFeatureEnabled(): boolean {
       return isRgbFeatureEnabled(store.state.machine.model.global)
+    },
+
+    relayConfigured(): boolean {
+      const feat = readFirmwareGlobal(this.$store.state.machine.model.global, 'nxtFeatureMachinePower')
+      if (feat !== true && feat !== 1) {
+        return false
+      }
+      const id = readFirmwareGlobal(this.$store.state.machine.model.global, 'nxtRelayID')
+      if (typeof id === 'number' && Number.isFinite(id) && id >= 0) {
+        return true
+      }
+      const atx = this.$store.state.machine.model.state?.atxPowerPort
+      return atx !== null && atx !== undefined
+    },
+
+    relayArmed(): boolean {
+      const id = readFirmwareGlobal(this.$store.state.machine.model.global, 'nxtRelayID')
+      if (typeof id === 'number' && Number.isFinite(id) && id >= 0) {
+        const model = this.$store.state.machine.model
+        const fromState = (model.state as { gpOut?: Array<{ pwm?: number } | null> } | undefined)?.gpOut
+        const fromSensors = (model.sensors as { gpOut?: Array<{ pwm?: number } | null> } | undefined)
+          ?.gpOut
+        const gpOut = Array.isArray(fromState) ? fromState : fromSensors
+        if (Array.isArray(gpOut) && id < gpOut.length && gpOut[id] != null) {
+          const pwm = gpOut[id]?.pwm
+          if (typeof pwm === 'number' && pwm > 0) {
+            return true
+          }
+        }
+      }
+      return this.$store.state.machine.model.state?.atxPower === true
+    },
+
+    estopPressed(): boolean {
+      const gpIn = this.$store.state.machine.model.sensors?.gpIn as
+        | Array<{ value?: number } | null>
+        | undefined
+      if (!Array.isArray(gpIn) || gpIn.length === 0) {
+        return false
+      }
+      return gpIn[0]?.value === 1
     }
   },
 
@@ -243,6 +347,22 @@ export default defineNxtComponent({
         return 'N/A'
       }
       return position.toFixed(3)
+    },
+
+    async armRelay(): Promise<void> {
+      try {
+        await this.sendCode('M80.9')
+      } catch (e: unknown) {
+        console.error('nxt: relay arm failed', e)
+      }
+    },
+
+    async disarmRelay(): Promise<void> {
+      try {
+        await this.sendCode('M81.9')
+      } catch (e: unknown) {
+        console.error('nxt: relay disarm failed', e)
+      }
     }
   }
 })

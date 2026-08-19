@@ -69,7 +69,7 @@ These features form the core of the new nxt system and must be implemented for t
 - [x] **Coolant Control:** Core macros for coolant control (`M7`, `M8`, `M9`, and `M7.1`).
 - [x] **Coolant pulse:** Optional per-type pulsing for mist (`M7`) and flood (`M8`); defaults 5 s ON / 25 s OFF; configured in DWC Configuration.
 - [x] **Parking (`G27`):** A critical macro for moving the machine to a safe, known position.
-- [x] **Safety Net (ATX Power Control):** The `M80.9`/`M81.9` system for safe, operator-confirmed ATX power control.
+- [x] **Safety Net (machine power):** Configuration flag `nxtFeatureMachinePower`, then `M80.9`/`M81.9` (or Status Activate/Deactivate) for operator-confirmed motor/VFD contactor control (Scylla gpOut P5 / `M42`; ATX `M80`/`M81` on other boards).
 
 ---
 

@@ -11,7 +11,7 @@ This document provides reference documentation for custom G-codes and M-codes im
 - [M-codes](#m-codes)
   - [M3.9 / M4.9 / M5.9](#m39-m49-m59-spindle-control)
   - [M7 / M7.1 / M8 / M9](#m7-m71-m8-m9-coolant-control)
-  - [M80.9 / M81.9](#m809-m819-atx-power-control)
+  - [M80.9 / M81.9](#m809-m819-machine-power-control)
   - [M7000 / M7001](#m7000-m7001-variable-spindle-speed-control)
   - [M4000](#m4000-define-tool) … [M6525](#m6525-prepare-for-plugin-update)
 - [Global Variables](#global-variables)
@@ -437,12 +437,12 @@ CAM-driven VSSC. The daemon slowly varies commanded spindle RPM around the progr
 
 ---
 
-### M80.9, M81.9: ATX Power Control
+### M80.9, M81.9: Machine Power Control
 
-Safe, operator-confirmed ATX power control.
+Safe, operator-confirmed motor/VFD contactor control. **Requires** `global.nxtFeatureMachinePower` (Configuration → Enable Machine Power). On Scylla this is gpOut **P5** on **PD_5** (`nxtRelayID`) created by [`gpio.g`](macros/nxt-config/board/scylla1_0_h723/gpio.g). Arm/disarm is `M42 P{id} S1` / `S0`. If `nxtRelayID` is unset and `state.atxPowerPort` is set (other boards), the macros fall back to `M80`/`M81`. OM: `state.gpOut[].pwm`. `M80.9` is a no-op when the feature is off; `M81.9` still drops power.
 
 **Usage:**
-- `M80.9` - Power on (with confirmation)
+- `M80.9` - Power on (with confirmation). Refuses if UEB E-stop gpIn 0 is pressed.
 - `M81.9` - Power off (with confirmation)
 
 ---

@@ -128,6 +128,17 @@ M453
 M117 "nxt board-pack"
 M98 P"nxt-board-pack-loader.g"
 
+; UEB safety dialog + M42 — board pack gpio.g already created gpOut P5 on PD_5.
+if { fileexists("0:/sys/estop.g") }
+    if { !fileexists("0:/sys/trigger2.g") }
+        echo "nxt: estop.g present but trigger2.g missing — copy trigger2.g.example to 0:/sys/"
+    else
+        if { exists(global.nxtFeatureMachinePower) && global.nxtFeatureMachinePower }
+            M117 "nxt nxt-relay.g"
+            M98 P"nxt-relay.g"
+elif { fileexists("0:/sys/estop.g.example") }
+    echo "nxt: UEB estop not enabled — copy estop.g.example and trigger2.g.example to 0:/sys/"
+
 ; Persisted tool library (M4000 + G10 L1) — optional; written by DWC Tool Library or by hand.
 ; When absent, tools are still defined from CAM / console M4000; DWC can save a library later.
 if { fileexists("0:/sys/nxt-user-tools.g") }

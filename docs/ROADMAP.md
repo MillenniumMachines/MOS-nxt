@@ -52,7 +52,7 @@ This phase focuses on implementing the most critical, non-UI backend functionali
     *   Re-implement the core loading scripts (`nxt.g`, `nxt-boot.g`) and the global variable system (`nxt-vars.g`).
 
 2.  **Essential Control Macros:** ✅
-    *   Implement core macros for Spindle Control (`M3.9`, `M4.9`, `M5.9`), Coolant Control (`M7`, `M7.1`, `M8`, `M9`), ATX Power Control (`M80.9`, `M81.9`), and Parking (`G27`).
+    *   Implement core macros for Spindle Control (`M3.9`, `M4.9`, `M5.9`), Coolant Control (`M7`, `M7.1`, `M8`, `M9`), machine power (`M80.9`, `M81.9`), and Parking (`G27`).
 
 3.  **Basic Utility Macros:** ✅
     *   Machine information queries (`M5000`) and limit checking (`M6515`).

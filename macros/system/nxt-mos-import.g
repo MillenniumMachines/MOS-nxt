@@ -199,6 +199,7 @@ echo >>{var.UV} {"set global.nxtFeatureTouchProbe = " ^ (global.nxtFeatureTouchP
 echo >>{var.UV} {"set global.nxtFeatureToolSetter = " ^ (global.nxtFeatureToolSetter ? "true" : "false")}
 echo >>{var.UV} {"set global.nxtFeatureCoolantControl = " ^ (global.nxtFeatureCoolantControl ? "true" : "false")}
 echo >>{var.UV} {"set global.nxtFeatureFourthAxis = " ^ (global.nxtFeatureFourthAxis ? "true" : "false")}
+echo >>{var.UV} {"set global.nxtFeatureMachinePower = " ^ (global.nxtFeatureMachinePower ? "true" : "false")}
 echo >>{var.UV} {""}
 echo >>{var.UV} {"; Probe tool index (touch probe tool table slot)"}
 echo >>{var.UV} {"set global.nxtProbeToolID = " ^ (global.nxtProbeToolID == null ? "null" : global.nxtProbeToolID)}

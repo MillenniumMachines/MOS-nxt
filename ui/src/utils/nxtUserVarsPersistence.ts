@@ -11,6 +11,7 @@ export type NxtUserConfigDraft = {
   nxtFeatureRgbLight: boolean
   nxtFeatureFourthAxis: boolean
   nxtFeatureAtc: boolean
+  nxtFeatureMachinePower: boolean
   /** NeoPixel LEDs on the strip (M950 U / M150 S). */
   nxtRGBCount: number | null
   /** M950 T: 1=RGB NeoPixel, 2=RGBW NeoPixel. */
@@ -102,6 +103,7 @@ export const NXT_USER_VARS_PERSISTED_KEYS = [
   'nxtFeatureRgbLight',
   'nxtFeatureFourthAxis',
   'nxtFeatureAtc',
+  'nxtFeatureMachinePower',
   'nxtRGBCount',
   'nxtRGBType',
   'nxtRGBOrder',
@@ -422,6 +424,7 @@ export function emptyConfigDraft(): NxtUserConfigDraft {
     nxtFeatureRgbLight: false,
     nxtFeatureFourthAxis: false,
     nxtFeatureAtc: false,
+    nxtFeatureMachinePower: false,
     nxtRGBCount: 1,
     nxtRGBType: 1,
     nxtRGBOrder: 5,
@@ -553,6 +556,7 @@ export function snapshotConfigFromOm(globalVal: unknown): NxtUserConfigDraft {
   draft.nxtFeatureRgbLight = readConfigBool(readFirmwareGlobal(globalVal, 'nxtFeatureRgbLight'))
   draft.nxtFeatureFourthAxis = readConfigBool(readFirmwareGlobal(globalVal, 'nxtFeatureFourthAxis'))
   draft.nxtFeatureAtc = readConfigBool(readFirmwareGlobal(globalVal, 'nxtFeatureAtc'))
+  draft.nxtFeatureMachinePower = readConfigBool(readFirmwareGlobal(globalVal, 'nxtFeatureMachinePower'))
   draft.nxtRGBCount = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtRGBCount')) ?? 1
   draft.nxtRGBType = normalizeNxtRgbType(readConfigNumber(readFirmwareGlobal(globalVal, 'nxtRGBType')))
   draft.nxtRGBOrder = normalizeNxtRgbOrder(readConfigNumber(readFirmwareGlobal(globalVal, 'nxtRGBOrder')))
@@ -859,6 +863,7 @@ export function buildNxtUserVarsGcode(config: NxtUserConfigDraft): string {
     `set global.nxtFeatureRgbLight = ${formatPersistedBool(config.nxtFeatureRgbLight)}`,
     `set global.nxtFeatureFourthAxis = ${formatPersistedBool(config.nxtFeatureFourthAxis)}`,
     `set global.nxtFeatureAtc = ${formatPersistedBool(config.nxtFeatureAtc)}`,
+    `set global.nxtFeatureMachinePower = ${formatPersistedBool(config.nxtFeatureMachinePower)}`,
     '',
     '; RGB work light (M950 T / K / U)',
     `set global.nxtRGBCount = ${formatPersistedNumber(config.nxtRGBCount ?? 1)}`,

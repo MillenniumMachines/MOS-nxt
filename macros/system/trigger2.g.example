@@ -1,0 +1,12 @@
+; Example: UEB emergency-stop reaction (copy to 0:/sys/trigger2.g).
+; Fired by M581 in estop.g when the E-stop is pressed.
+;
+; Order matters: drop relay FIRST so that releasing the E-stop cannot
+; re-energise the drives without a fresh safety check, set the light red
+; (the daemon stops running after M112, so we set it here directly), then
+; emergency-stop. No M400 - an E-stop must not wait for queued moves.
+; Literal P5 (Scylla PD_5) — do not depend on nxtRelayID here.
+
+M42 P5 S0                              ; gpOut OFF - contactor stays open until re-armed
+M150 E0 R255 U0 B0 P255 S32 F0         ; strip RED - emergency stopped
+M112                                   ; emergency stop - reset (M999) to recover

@@ -1,0 +1,23 @@
+; Example: UEB emergency-stop input (Universal Electronics Box / Scylla).
+; Copy to 0:/sys/estop.g and pair with trigger2.g (from trigger2.g.example).
+; Board pack loads estop.g before gpio.g; nxt.g runs nxt-relay.g when both exist.
+;
+; SAFETY-CRITICAL. The E-stop has two NC contacts:
+;   - Contact 1 is in series with the 24V to the contactor (with the relay,
+;     PD_5 / alias relay, also relayctr) and cuts motor/VFD power in HARDWARE,
+;     independent of firmware.
+;   - Contact 2 is wired to PC6 here, so the FIRMWARE can detect the E-stop
+;     and react: drop gpOut P5 (M42) and emergency-stop (see trigger2.g).
+; Board pack gpio.g creates the latch as gpOut P5 on PD_5 (not RRF ATX).
+;
+; >>> VERIFY INPUT LOGIC ON HARDWARE <<<
+; Built assuming the input reads ACTIVE (value 1) when the E-stop is PRESSED
+; (contact 2 open). After deploying, check in the console:
+;     echo sensors.gpIn[0].value
+;   E-stop released -> should read 0 ;  pressed -> should read 1.
+; If it's reversed, invert the pin: change C"^PC6" to C"^!PC6" below (that
+; flips both the reading AND the trigger edge together). The "^" enables the
+; internal pull-up - remove it only if the input has a hardware pull-up.
+
+M950 J0 C"^PC6"          ; E-stop input (2nd NC contact), pull-up enabled
+M581 P0 T2 S1 R0         ; on E-stop PRESSED (inactive->active), run trigger2.g, always

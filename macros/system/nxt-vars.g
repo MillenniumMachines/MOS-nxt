@@ -11,6 +11,7 @@ global nxtFeatureCoolantControl = false ; Coolant Control feature flag
 global nxtFeatureRgbLight = false       ; RGB work light (M150 addressable strip)
 global nxtFeatureFourthAxis = false     ; Fourth axis (requires MosFourthAxis DWC plugin on SD)
 global nxtFeatureAtc = false            ; Magazine / ATC (requires MosAtc DWC plugin + SD init macros)
+global nxtFeatureMachinePower = false   ; Motor/VFD contactor (M80.9 / M81.9 / Status)
 
 ; --- Operator / tutorial modes ---
 global nxtExpertMode = false            ; Skip confirmation dialogs when true

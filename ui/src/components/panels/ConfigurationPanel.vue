@@ -1097,12 +1097,30 @@
             <v-alert v-if="coolantRelayReserved" type="info" density="compact" variant="outlined" class="mb-4">
               <div class="text-caption">{{ $t('plugins.nxt.panels.configuration.coolantRelayReserved') }}</div>
             </v-alert>
+            <v-alert v-if="boardHasAtxMotorRelay" type="info" density="compact" variant="outlined" class="mb-4">
+              <div class="text-caption">{{ $t('plugins.nxt.panels.configuration.atxMotorRelayInfo') }}</div>
+            </v-alert>
+            <v-switch
+              :model-value="configDraft.nxtFeatureMachinePower"
+              :label="$t('plugins.nxt.panels.configuration.featureMachinePower')"
+              :disabled="uiFrozen || !machinePowerRequirementsMet"
+              @update:model-value="updateFeature('nxtFeatureMachinePower', $event)"
+              :hint="machinePowerRequirementsMessage"
+              persistent-hint
+              class="mt-0 mb-4"
+            >
+              <template v-slot:prepend>
+                <v-icon :color="machinePowerRequirementsMet ? 'success' : 'warning'">
+                  {{ machinePowerRequirementsMet ? 'mdi-check-circle' : 'mdi-alert-circle' }}
+                </v-icon>
+              </template>
+            </v-switch>
             <p class="text-caption text-grey mb-2">
               {{ $t('plugins.nxt.panels.configuration.outputGpHint') }}
             </p>
 
             <v-row>
-              <v-col cols="12" md="4">
+              <v-col v-if="!boardHasAtxMotorRelay" cols="12" md="4">
                 <v-select
                   :model-value="configDraft.nxtRelayID"
                   :items="gpOutItemsForRole('nxtRelayID')"
@@ -1670,6 +1688,8 @@ import {
   defaultBoardFanPinsForVoltage,
   fanIndexForPinAlias,
   namedOutputSelectItems,
+  boardHasAtxMotorRelay,
+  boardMotorRelayGpOutIndex,
   platformStructureSummary,
   NXT_SCYLLA_MOTOR_VOLTAGE_ITEMS,
   endstopPinItemsForBoard,
@@ -2145,12 +2165,35 @@ export default defineNxtComponent({
      * True when the motor/VFD relay output is configured (draft or OM).
      */
     coolantRelayReserved(): boolean {
+      const atx = this.$store.state.machine.model.state?.atxPowerPort
+      if (atx !== null && atx !== undefined) {
+        return true
+      }
       const draftId = this.configDraft.nxtRelayID
       if (typeof draftId === 'number' && draftId >= 0) {
         return true
       }
       const relayId = readFirmwareGlobal(this.$store.state.machine.model.global, 'nxtRelayID')
       return typeof relayId === 'number' && relayId >= 0
+    },
+
+    boardHasAtxMotorRelay(): boolean {
+      return boardHasAtxMotorRelay(this.resolvedBoardShortNameForPack)
+    },
+
+    machinePowerRequirementsMet(): boolean {
+      if (this.boardHasAtxMotorRelay) {
+        return true
+      }
+      const id = this.configDraft.nxtRelayID
+      return typeof id === 'number' && id >= 0
+    },
+
+    machinePowerRequirementsMessage(): string {
+      if (this.machinePowerRequirementsMet) {
+        return String(this.$t('plugins.nxt.panels.configuration.featureMachinePowerReady'))
+      }
+      return String(this.$t('plugins.nxt.panels.configuration.featureMachinePowerNeedHw'))
     },
 
     isCustomPlatform(): boolean {
@@ -2471,7 +2514,9 @@ export default defineNxtComponent({
         canTest: boolean
         fanAlias?: string
       }> = [
-        { key: 'nxtRelayID', label: 'Relay', id: d.nxtRelayID, mode: 'gpout', canTest: false },
+        ...(this.boardHasAtxMotorRelay
+          ? []
+          : [{ key: 'nxtRelayID', label: 'Relay', id: d.nxtRelayID, mode: 'gpout' as const, canTest: false }]),
         { key: 'nxtAux1ID', label: 'Aux 0', id: d.nxtAux1ID, mode: 'gpout', canTest: false },
         { key: 'nxtAux2ID', label: 'Aux 1', id: d.nxtAux2ID, mode: 'gpout', canTest: false },
         { key: 'nxtAux3ID', label: 'Aux 2', id: d.nxtAux3ID, mode: 'gpout', canTest: false },
@@ -2696,14 +2741,13 @@ export default defineNxtComponent({
       const maxPorts = typeof n === 'number' && n > 0 ? n : 8
       const fanIds = new Set<number>()
       const fans = this.effectiveBoardFanPins as string[]
-      // Preferred indices match pinmap / gpio.g: aux0–2, coolant, mist, relay
+      // Preferred indices match pinmap / gpio.g: aux0–2, coolant, mist
       const preferred: Record<string, number> = {
         aux0: 0,
         aux1: 1,
         aux2: 2,
         coolant: 3,
-        mist: 4,
-        relay: 5
+        mist: 4
       }
       for (const a of fans) {
         const id = preferred[String(a).toLowerCase()]
@@ -3104,6 +3148,18 @@ export default defineNxtComponent({
       const sn = this.resolvedBoardShortNameForPack
       const volt = this.resolvedMotorVoltageForPack
       this.configDraft.nxtBoardPackExpectedEntry = nxtBoardPackRelPath(plat, sn, volt)
+      if (boardHasAtxMotorRelay(sn)) {
+        const relayIdx = boardMotorRelayGpOutIndex(sn)
+        if (this.configDraft.nxtRelayID == null && relayIdx != null) {
+          this.configDraft.nxtRelayID = relayIdx
+        }
+        const fans = this.configDraft.nxtBoardFanPins
+        if (fans != null && fans.some((p: string) => String(p).toLowerCase() === 'relay')) {
+          this.configDraft.nxtBoardFanPins = fans.filter(
+            (p: string) => String(p).toLowerCase() !== 'relay'
+          )
+        }
+      }
     },
 
     applyArborRampToDraft(): void {
@@ -3362,16 +3418,46 @@ export default defineNxtComponent({
             this.showStatus('Cannot enable RGB light: no LED strip configured', 'error')
             return
           }
+          if (key === 'nxtFeatureMachinePower' && !this.machinePowerRequirementsMet) {
+            this.showStatus(
+              'Cannot enable Machine Power: ' + this.machinePowerRequirementsMessage,
+              'error'
+            )
+            return
+          }
         }
 
         await ensureSetFirmwareGlobal(String(key), formatOmRhs(value), (c) =>
           this.sendCode(c)
         )
         ;(this.configDraft as Record<string, unknown>)[key] = value
+        if (key === 'nxtFeatureMachinePower' && !value) {
+          await this.dropMachinePowerSilent()
+        }
         this.showStatus(`${key} ${value ? 'enabled' : 'disabled'}`, 'success')
       } catch (error) {
         console.error('nxt: Failed to update feature', key, error)
         this.showStatus(`Failed to update ${key}`, 'error')
+      }
+    },
+
+    async dropMachinePowerSilent(): Promise<void> {
+      const draftId = this.configDraft.nxtRelayID
+      const omId = readFirmwareGlobal(this.$store.state.machine.model.global, 'nxtRelayID')
+      const id =
+        typeof draftId === 'number' && draftId >= 0
+          ? draftId
+          : typeof omId === 'number' && omId >= 0
+            ? omId
+            : null
+      try {
+        if (id != null) {
+          await this.sendCode(`M42 P${id} S0`)
+        } else {
+          await this.sendCode('M81')
+        }
+      } catch (e: unknown) {
+        console.error('nxt: drop machine power failed', e)
       }
     },
 

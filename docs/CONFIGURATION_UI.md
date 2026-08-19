@@ -76,7 +76,7 @@ Select the machine platform and board pack that match your hardware. Platforms a
 | **Bootstrap mode** | **Auto** — Save creates `0:/sys/nxt-board-bootstrap.requested`. **Off** — Save removes it. |
 | **Apply platform sys files** | Uploads `homeall.g`, `homex.g`, `homey.g`, `homez.g` (and `homea.g` when present) from `nxt-config/machine/<profile>/` to `0:/sys/` (deploy-only, not boot). Home all order: Z → A if present → X+Y |
 | **Check SD board packs** | Compares bundled manifest to `0:/sys/nxt-config/` (stale plugin warning) |
-| **Save Configuration** | Writes `nxt-user-vars.g` including `nxtBoardPackExpectedEntry` and syncs bootstrap sentinels |
+| **Save Configuration** | Writes `nxt-user-vars.g` (expected pack path as a comment) and syncs bootstrap sentinels |
 
 When you change platform, the UI may prompt to deploy homing files for that platform immediately. Homing direction requirements differ between v1.5, v1.6, V2.0 Milo, and V2.0 Miley — see [NXT_BOARD_HOMING.md](NXT_BOARD_HOMING.md).
 
@@ -97,7 +97,7 @@ If you previously saved overlays only under `0:/sys/nxt-config/machine/custom/`,
 
 **A axis (optional):** Same field set as XYZ. Leave A blank, or complete min/max, home side, endstop pin(s), drives, steps, and current. Multi-pin endstops use ordered chips stored as `pin1+pin2` for `M574 P"…"`.
 
-**Reload** re-runs `M98 P"nxt-user-vars.g"` and shows warnings if bootstrap files or pack paths do not match saved intent (`nxtBoardPackExpectedEntry` vs `nxtBoardPackEntry`).
+**Reload** re-runs `M98 P"nxt-user-vars.g"` and shows warnings if bootstrap files or pack paths do not match saved intent (draft expected path vs `nxtBoardPackEntry`).
 
 The **Platform bundle on SD** list shows deployable sys files and board `entry.g` paths for the selected platform.
 
@@ -105,11 +105,11 @@ Pack loading vs homing deploy: [NXT_BOARD_CONFIG.md](NXT_BOARD_CONFIG.md).
 
 ### 6. Coolant / output roles
 
-Configure GPIO outputs from **named board pins** (Mist, Coolant, Relay, Aux, …). On Scylla, the board pack creates ports and fills null role IDs in order **aux0 → aux1 → aux2 → coolant → mist → relay**. Aux0–2 and relay are 24 V rails.
+Configure GPIO outputs from **named board pins** (Mist, Coolant, Aux, …). On Scylla, the board pack creates gpOut ports **aux0 → aux1 → aux2 → coolant → mist → relay** (P0–P5). The motor/VFD relay is **gpOut P5 on PD_5** — not a Configuration picker. Enable **Machine Power** (`nxtFeatureMachinePower`), then use Status or `M80.9`/`M81.9` (`M42`). Aux0–2 are 24 V rails.
 
 | Setting | Description | Example (Scylla preferred) |
 |---------|-------------|----------------------------|
-| Relay | Motor/VFD contactor (24 V) | Relay P5 (`D.5`) |
+| Motor power | Enable feature, then arm VFD contactor (gpOut P5 / PD_5) | Configuration toggle + Status / `M80.9` |
 | Aux 0 / 1 / 2 | Spare aux MOSFET outputs (24 V) | Aux0 P0 / Aux1 P1 / Aux2 P2 |
 | Air Blast | Any free named gpOut | — |
 | Mist Coolant | Prefer Mist pin | Mist P4 (`A.7`) |

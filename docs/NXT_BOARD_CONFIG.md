@@ -27,6 +27,12 @@ nxt-config/
 **Ownership:** Board packs own controller **pins**, sense resistors, `M584`/`M350`/`M906`. Stock machine packs own XYZ **driver direction** (`drives-dir.g`) and endstop **min/max** (`endstops.g`, re-issuing `M574` with board pins). Custom regenerates full overlays under `0:/sys/nxt-user-custom/`.
 Build-time manifest: `dist/generate-nxt-config-manifest.mjs` → `ui/src/generated/nxtConfigManifest.json`.
 
+## Motor idle (mill vs printer)
+
+Scylla [`motor-24v/drives.g`](../macros/nxt-config/board/scylla1_0_h723/motor-24v/drives.g) and [`motor-48v/drives.g`](../macros/nxt-config/board/scylla1_0_h723/motor-48v/drives.g) use **`M906 … I100`** (idle current stays at 100% of run current) and **`M917 X10 Y10 Z50`**. Do **not** use **`M84 S0`** / **`M906 T0`** — RRF 3.5.1+ rejects those as “value must be greater than zero”; they never meant “always hold”. Printer-style **`M84 S30`** plus default **`I30`** and **`M917 Z10`** drops holding torque after the idle timeout; gravity-loaded mill Z (8 mm lead, 2:1) can then settle a fraction of a millimetre. nxt idle actions only dim RGB / drop the E-bay fan (`nxtIdleAfter`); they do not jog Z. A already uses mill-sane hold in [`axis-a.g`](../macros/nxt-config/board/scylla1_0_h723/axis-a.g) (`M906 A3500 I100`, `M917 A90`).
+
+Repo-only current/idle changes do not move live motors until the board pack reloads. Operators already on SD must **re-deploy the board pack** (or paste **`M906 X3000 Y3000 Z3000 I100`** and **`M917 X10 Y10 Z50`** into `0:/sys/` and **M999**). If Z still creeps with motors holding, it is mechanical (leadscrew/coupler), not current.
+
 | Machine | Homing deploy | Boards (shared) |
 |---------|---------------|-----------------|
 | `v1.5` | Y → max, Z steps 1600 | `scylla1_0_h723` 24/48 V |
@@ -89,9 +95,7 @@ The Configuration UI does **not** deploy `network.g` (sys-deploy covers homing a
 | `nxtPlatformProfile` | Machine id → `nxt-config/machine/<id>/` |
 | `nxtBoardShortNameOverride` | Optional board shortName override |
 | `nxtBoardMotorVoltage` | `24` or `48` for motor variant dirs |
-| `nxtBoardPackShortName` | Set during pack resolve (`nxt-board-pack-resolve.g`) |
 | `nxtBoardPackEntry` | Last board entry path loaded |
-| `nxtBoardPackExpectedEntry` | Saved board entry path (Configuration Save) |
 
 ## Pack path convention
 
@@ -105,15 +109,15 @@ Machine must exist on SD: `0:/sys/nxt-config/machine/<id>/OVERVIEW.txt`.
 
 ## Pin maps and free pins
 
-Each board ships `pinmap.json` (`assigned` + `free`) with human-readable labels from RRF pin names (e.g. Scylla `mist`, `coolant`, `aux0`–`aux2`, `relay`, `probe`, `tool`).
+Each board ships `pinmap.json` (`assigned` + `free`) with human-readable labels from RRF pin names (e.g. Scylla `mist`, `coolant`, `aux0`–`aux2`, `probe`, `tool`; relay is **assigned gpOut P5**, not a free picker pin).
 
 **Scylla probes:** pack `entry.g` loads toolsetter K1 (`PE_7`) and touch probe K0 (`PE_15`, P5) from voltage-specific `toolsetter.g` / `touchprobe.g`, unless overridden by `0:/sys/toolsetter.g` or `0:/sys/touchprobe.g`. Touch polarity follows `nxtTouchProbeInvert`.
 
-Configuration dropdowns list **free** named pins (Mist, Coolant, Relay, Aux, Probe, Toolsetter). Pins already assigned to another role or selected as **fans** are shown **disabled**. Clear a select to unassign.
+Configuration dropdowns list **free** named pins (Mist, Coolant, Aux, Probe, Toolsetter). Pins already assigned to another role or selected as **fans** are shown **disabled**. Clear a select to unassign. The motor/VFD relay pin is **not** in the gpOut picker — it is board-assigned gpOut P5 (see below).
 
 ### Scylla named outputs (board-owned)
 
-Create order and preferred **gpOut** indices when the pin is **not** a fan ([`gpio.g`](../macros/nxt-config/board/scylla1_0_h723/gpio.g)). Aux0–2 and relay are **24 V** rails (independent of motor pack voltage):
+Create order and preferred **gpOut** indices when the pin is **not** a fan ([`gpio.g`](../macros/nxt-config/board/scylla1_0_h723/gpio.g)). Aux0–2 are **24 V** rails (independent of motor pack voltage):
 
 | Order | Pin | Preferred `M950 P` | Default role (null-only) |
 |------|-----|--------------------|---------------------------|
@@ -122,11 +126,37 @@ Create order and preferred **gpOut** indices when the pin is **not** a fan ([`gp
 | 3 | aux2 | P2 | `nxtAux3ID` (UI: Aux 2) |
 | 4 | coolant | P3 | `nxtCoolantFloodID` |
 | 5 | mist | P4 | `nxtCoolantMistID` |
-| 6 | relay | P5 | `nxtRelayID` |
+| 6 | relay (`PD_5`) | P5 | `nxtRelayID` |
 
-After create, [`gpio-role-defaults.g`](../macros/nxt-config/board/scylla1_0_h723/gpio-role-defaults.g) fills those globals **only when still null** (user-vars win). When `0:/sys/estop.g` exists (loaded before gpio in the board pack), the pack **skips** creating P5 / PD_5 and does **not** default `nxtRelayID` — estop owns that pin.
+After create, [`gpio-role-defaults.g`](../macros/nxt-config/board/scylla1_0_h723/gpio-role-defaults.g) fills those globals **only when still null** (user-vars win). Relay is never created as a fan.
 
-**Fans:** `global.nxtBoardFanPins` lists aliases created as `M950 F` instead of `M950 P`. Default when null: always **`aux0`** (any motor voltage). Persist as a CSV string (`"aux0"` / `"mist,aux1"`); explicit none is `""`. Legacy single-pin vectors still work at boot. Hold-to-test uses `M106` for fan-mode pins and `M42` for gpOut roles.
+### Scylla assigned motor / VFD relay (gpOut P5)
+
+Every Scylla motor pack creates the relay in [`gpio.g`](../macros/nxt-config/board/scylla1_0_h723/gpio.g):
+
+```gcode
+M950 P5 C"PD_5"
+```
+
+That is the onboard coil (`PD_5`, aliases `relay` / `relayctr`). It stays OFF until [`M80.9`](../macros/utilities/M80.9.g) or (with UEB) [`nxt-relay.g`](../macros/system/nxt-relay.g) issues `M42 P5 S1`. Do **not** also `M81 C"relay"` — RRF cannot share the pin with ATX.
+
+### UEB contact relay (optional)
+
+For machines with a **Universal Electronics Box** contact relay on the Scylla **relay** pin, nxt ships a three-file safety stack on top of board gpOut P5. UEB is an enclosure name; pin role is always Scylla P5 / PD_5.
+
+| Shipped template | Deploy to SD | Role |
+|------------------|--------------|------|
+| [`estop.g.example`](../macros/system/estop.g.example) | `0:/sys/estop.g` | E-stop contact 2 on `^PC6` → gpIn 0; `M581` fires trigger 2 |
+| [`trigger2.g.example`](../macros/system/trigger2.g.example) | `0:/sys/trigger2.g` | `M42 P5 S0`, red LED, `M112` |
+| [`nxt-relay.g`](../macros/system/nxt-relay.g) | *(plugin sys — no copy)* | Operator safety dialog, then `M42 P{nxtRelayID} S1` |
+
+**Deploy:** copy both `.example` files to `0:/sys/`, verify `echo sensors.gpIn[0].value` (released = 0, pressed = 1), test E-stop **before** first motion. If you already copied `trigger2.g`, **replace it** — a leftover `M81` will not drop the coil. Reboot loads `estop.g` in the board pack (before gpio), then gpio P5, then `nxt-relay.g` from `nxt.g` when `trigger2.g` is also present.
+
+**Runtime:** Enable **Machine Power** in Configuration (`nxtFeatureMachinePower`). Status panel **Activate** / **Deactivate** (or [`M80.9`](../macros/utilities/M80.9.g) / [`M81.9`](../macros/utilities/M81.9.g)) follow `state.gpOut[nxtRelayID].pwm`. `M80.9` refuses if the feature is off or gpIn 0 is pressed. DWC’s built-in ATX panel does **not** appear (no `state.atxPowerPort`).
+
+Configuration reserves coolant/aux when `nxtRelayID` is set. Save may persist `nxtRelayID=5`; gpio-role-defaults fills 5 when still null.
+
+**Fans:** `global.nxtBoardFanPins` lists aliases created as `M950 F` instead of `M950 P`. Default when null: always **`aux0`** (any motor voltage). Persist as a CSV string (`"aux0"` / `"mist,aux1"`); explicit none is `""`. Legacy single-pin vectors still work at boot. Hold-to-test uses `M106` for fan-mode pins and `M42` for gpOut roles — **not** the motor relay.
 
 ### Scylla RS485 (PA9 / PA10)
 
@@ -177,7 +207,7 @@ The loader delegates to **`nxt-board-pack-resolve.g`**, which builds paths under
 
 Platform must exist on SD: `0:/sys/nxt/config/<platform>/OVERVIEW.txt`.
 
-If `nxtBoardPackExpectedEntry` is set and differs from the resolved path, the resolver logs a warning before `M98`.
+If the resolved entry differs from the path reconstructed from shortName + motor voltage, the resolver logs a warning before `M98`. The expected path is a comment in `nxt-user-vars.g`, not an OM global.
 
 ## DWC UI
 
