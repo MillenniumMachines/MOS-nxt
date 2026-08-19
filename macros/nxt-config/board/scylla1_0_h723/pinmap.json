@@ -73,6 +73,15 @@
       "pin": "D.8+D.9",
       "aliases": ["tx3", "rx3"],
       "note": "serial.aux2: TX=PD_8 (tx3), RX=PD_9 (rx3). nxtUartDevice → M575 in uart.g."
+    },
+    {
+      "id": "motor_relay",
+      "label": "Motor / VFD relay",
+      "kind": "gpout",
+      "gpOutIndex": 5,
+      "pin": "D.5",
+      "aliases": ["relay", "relayctr"],
+      "note": "gpOut P5 on PD_5 (M950). Arm via M80.9 / M42. Not a fan; do not assign coolant/aux."
     }
   ],
   "free": [
@@ -167,15 +176,6 @@
       "note": "Preferred P4. May be created as fan instead via nxtBoardFanPins."
     },
     {
-      "id": "relay",
-      "label": "Relay",
-      "kind": "gpout",
-      "gpOutIndex": 5,
-      "pin": "D.5",
-      "aliases": ["relay", "relayctr"],
-      "note": "Preferred P5. 24V rail. Motor/VFD contactor."
-    },
-    {
       "id": "probe",
       "label": "Probe",
       "kind": "probe",
@@ -185,7 +185,7 @@
       "note": "K0 via pack touchprobe.g (PE_15); override with 0:/sys/touchprobe.g"
     }
   ],
-  "namedOutputs": ["aux0", "aux1", "aux2", "coolant", "mist", "relay"],
+  "namedOutputs": ["aux0", "aux1", "aux2", "coolant", "mist"],
   "fanDefaultsByVoltage": {
     "24": ["aux0"],
     "48": ["aux0"]

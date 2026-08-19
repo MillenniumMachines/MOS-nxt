@@ -22,11 +22,10 @@ M350 X32 Y32 Z32 I0
 
 ; Steps/mm: machine/<profile>/steps.g
 
-; Set motor currents (mA)
-M906 X3000 Y3000 Z3000
+; Set motor currents (mA). I100 = no idle-current drop (M84 S0 is invalid on
+; RRF 3.5.1+; default I30 after timeout lets mill Z droop).
+M906 X3000 Y3000 Z3000 I100
 
-; Set standstill current reduction to 5%
-M917 X10 Y10 Z10
-
-; Enable motor idle current reduction after 30 seconds
-M84 S30
+; Set standstill current (percent of M906). Z holds against gravity on a mill;
+; XY can sit lower. A is set in axis-a.g (M917 A90) when fourth axis is on.
+M917 X10 Y10 Z50

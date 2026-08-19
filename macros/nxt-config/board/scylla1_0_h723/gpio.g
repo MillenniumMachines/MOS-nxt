@@ -1,14 +1,14 @@
 ; gpio.g — Scylla named outputs (aux0, aux1, aux2, coolant, mist, relay)
 ;
 ; Preferred gpOut indices when pin is NOT a fan:
-;   aux0=P0 aux1=P1 aux2=P2 coolant=P3 mist=P4 relay=P5
-; Aux0–2 and relay are 24V rails (independent of motor pack voltage).
+;   aux0=P0 aux1=P1 aux2=P2 coolant=P3 mist=P4 relay=P5 (PD_5)
+; Motor/VFD relay is gpOut P5 — not a fan, not RRF ATX.
+; Aux0–2 are 24V rails (independent of motor pack voltage).
 ; Pins listed in global.nxtBoardFanPins are created as M950 F (not P).
 ; Default when null/missing: always "aux0".
 ; Explicit none: "" or "none". Persist form: CSV string ("aux0" / "mist,aux1").
 ; Legacy single-pin vectors { "aux0" } still recognized. No array indexing.
-; Local vars mist/coolant/aux*/relay mean "create this alias as M950 F".
-; When 0:/sys/estop.g exists, skip relay (P5 / PD_5) — estop owns that pin.
+; Local vars mist/coolant/aux* mean "create this alias as M950 F".
 
 ; --- Normalize missing/null → default aux0 (CSV string) ---
 if { !exists(global.nxtBoardFanPins) }
@@ -22,7 +22,6 @@ var coolant = false
 var aux0 = false
 var aux1 = false
 var aux2 = false
-var relay = false
 var none = false
 var hay = ""
 var fp = ""
@@ -47,8 +46,6 @@ if { !var.none }
             set var.fp = "aux1"
         elif { global.nxtBoardFanPins == "aux2" }
             set var.fp = "aux2"
-        elif { global.nxtBoardFanPins == "relay" }
-            set var.fp = "relay"
         elif { global.nxtBoardFanPins == { "mist" } }
             set var.fp = "mist"
         elif { global.nxtBoardFanPins == { "coolant" } }
@@ -59,8 +56,6 @@ if { !var.none }
             set var.fp = "aux1"
         elif { global.nxtBoardFanPins == { "aux2" } }
             set var.fp = "aux2"
-        elif { global.nxtBoardFanPins == { "relay" } }
-            set var.fp = "relay"
         else
             ; Multi-pin CSV or odd OM types — force string (RRF: "" ^ x)
             set var.fp = { "" ^ global.nxtBoardFanPins }
@@ -81,8 +76,6 @@ if { !var.none && var.hay != "" }
         set var.aux1 = true
     if { find(var.hay, ",aux2,") >= 0 }
         set var.aux2 = true
-    if { find(var.hay, ",relay,") >= 0 }
-        set var.relay = true
 
 ; Sequential fan indices as fans are created
 var nextFan = 0
@@ -127,12 +120,5 @@ if { var.mist }
 else
     M950 P4 C"mist"
 
-; relay — PD_5 / relay (24V); skipped when estop.g already claimed the pin
-var skipRelay = { fileexists("0:/sys/estop.g") }
-if { !var.skipRelay }
-    if { var.relay }
-        M950 F{var.nextFan} C"PD_5" Q500
-        M106 P{var.nextFan} S1 H-1
-        set var.nextFan = { var.nextFan + 1 }
-    else
-        M950 P5 C"relay"
+; Motor / VFD relay — PD_5 (aliases relay, relayctr). Not a fan.
+M950 P5 C"PD_5"

@@ -224,23 +224,46 @@ const GPOUT_ROLE_LABELS: Array<{ key: keyof GpOutRoleOccupancy; label: string }>
   { key: 'nxtCoolantFloodID', label: 'Flood' }
 ]
 
-/** Canonical Scylla named-output create order (matches gpio.g). */
+/** Canonical Scylla named-output create order (matches gpio.g; relay is P5, not a fan). */
 export const NXT_NAMED_OUTPUT_ALIASES = [
   'aux0',
   'aux1',
   'aux2',
   'coolant',
-  'mist',
-  'relay'
+  'mist'
 ] as const
 
 export type NxtNamedOutputAlias = (typeof NXT_NAMED_OUTPUT_ALIASES)[number]
 
-/** Default tool fan pin; aux/relay are 24V regardless of motor pack voltage. */
+/** Default tool fan pin; aux outputs are 24V regardless of motor pack voltage. */
 export function defaultBoardFanPinsForVoltage(
   _voltage: number | null | undefined
 ): string[] {
   return ['aux0']
+}
+
+/** True when the board pinmap assigns a fixed motor/VFD relay (hide picker, no hold-to-test). */
+export function boardHasAtxMotorRelay(boardShortName: string | null | undefined): boolean {
+  const pack = nxtBoardPackFromManifest(boardShortName)
+  const assigned = pack?.pinmap?.assigned ?? []
+  return assigned.some(
+    (p) => p.id === 'motor_relay' || (p.aliases != null && p.aliases.includes('relay'))
+  )
+}
+
+/** gpOut index for the board-assigned motor relay, or null. */
+export function boardMotorRelayGpOutIndex(
+  boardShortName: string | null | undefined
+): number | null {
+  const pack = nxtBoardPackFromManifest(boardShortName)
+  const assigned = pack?.pinmap?.assigned ?? []
+  const pin = assigned.find(
+    (p) => p.id === 'motor_relay' || (p.aliases != null && p.aliases.includes('relay'))
+  )
+  if (pin != null && typeof pin.gpOutIndex === 'number' && pin.gpOutIndex >= 0) {
+    return pin.gpOutIndex
+  }
+  return null
 }
 
 /**

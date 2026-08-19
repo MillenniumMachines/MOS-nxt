@@ -13,6 +13,7 @@ export type NxtConfigBoardEntry = {
 export type NxtConfigPinmapEntry = {
   id?: string
   label?: string
+  /** Pin role: endstop, gpout, probe, serial, led, drive, spindle, atx, … */
   kind?: string
   pin?: string
   aliases?: string[]

@@ -157,7 +157,7 @@ global nxtIdleAfter = 1800            ; seconds of inactivity before idle mode (
 global nxtIdleFanLow = 0.3            ; E-bay fan (F0) PWM while idle (0-1)
 global nxtIdleSince = 0               ; runtime: uptime(s) activity was last seen
 
-; Motor / VFD contactor relay output — reserved from coolant Configuration UI
+; Motor / VFD contactor relay gpOut (Scylla P5 / PD_5; gpio-role-defaults fills 5)
 global nxtRelayID = null
 
 ; Aux gpOut roles (Configuration UI). Scylla labels: Aux0→nxtAux1ID, Aux1→nxtAux2ID, Aux2→nxtAux3ID

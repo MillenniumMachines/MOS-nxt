@@ -6,8 +6,7 @@ if { fileexists("0:/sys/estop.g") }
     M98 P"estop.g"
 M98 P"nxt-config/board/scylla1_0_h723/motor-24v/drives.g"
 M98 P"nxt-config/board/scylla1_0_h723/motor-24v/speed.g"
-; Named outputs + optional fans (aux0/aux1/aux2/coolant/mist/relay)
-; Relay skipped in gpio.g when 0:/sys/estop.g exists (loaded above)
+; Named outputs + optional fans (aux0/aux1/aux2/coolant/mist); relay gpOut P5
 M98 P"nxt-config/board/scylla1_0_h723/gpio.g"
 M98 P"nxt-config/board/scylla1_0_h723/gpio-role-defaults.g"
 ; UART header PD8/PD9 when nxtUartDevice != 0

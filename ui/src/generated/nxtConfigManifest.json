@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-16T22:26:53.998Z",
+  "generatedAt": "2026-08-19T02:26:51.850Z",
   "boards": [
     {
       "shortName": "scylla1_0_h723",
@@ -117,6 +117,18 @@
               "rx3"
             ],
             "note": "serial.aux2: TX=PD_8 (tx3), RX=PD_9 (rx3). nxtUartDevice → M575 in uart.g."
+          },
+          {
+            "id": "motor_relay",
+            "label": "Motor / VFD relay",
+            "kind": "gpout",
+            "gpOutIndex": 5,
+            "pin": "D.5",
+            "aliases": [
+              "relay",
+              "relayctr"
+            ],
+            "note": "gpOut P5 on PD_5 (M950). Arm via M80.9 / M42. Not a fan; do not assign coolant/aux."
           }
         ],
         "free": [
@@ -237,18 +249,6 @@
             "note": "Preferred P4. May be created as fan instead via nxtBoardFanPins."
           },
           {
-            "id": "relay",
-            "label": "Relay",
-            "kind": "gpout",
-            "gpOutIndex": 5,
-            "pin": "D.5",
-            "aliases": [
-              "relay",
-              "relayctr"
-            ],
-            "note": "Preferred P5. 24V rail. Motor/VFD contactor."
-          },
-          {
             "id": "probe",
             "label": "Probe",
             "kind": "probe",
@@ -265,8 +265,7 @@
           "aux1",
           "aux2",
           "coolant",
-          "mist",
-          "relay"
+          "mist"
         ],
         "fanDefaultsByVoltage": {
           "24": [
