@@ -228,9 +228,9 @@ var mFmt = createFormat({ prefix: "M", decimals: 1, type: FORMAT_INTEGER }); // 
 var tFmt = createFormat({ prefix: "T", decimals: 0 }); // Create formatting command for T (tool) codes
 
 
-// Create formatting output for X, Y and Z axes. Use 3 d.p. for milimeters and 4 for anything else.
+// Create formatting output for X, Y and Z axes. Use 4 d.p. for millimeters (RRF G2/G3 arc tolerance).
 // Format radiuses in the same way
-var axesFmt   = createFormat({ decimals: (unit == MM ? 3 : 4), type: FORMAT_REAL, minDigitsRight: 1});
+var axesFmt   = createFormat({ decimals: 4, type: FORMAT_REAL, minDigitsRight: 1});
 var radiusFmt = axesFmt;
 
 // Create formatting output for feed variable.

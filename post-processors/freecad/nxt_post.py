@@ -84,10 +84,13 @@ class MCODES:
     VSSC_DISABLE                 = 7001
     SHOW_DIALOG                  = 3000
 
+# Coordinate / arc IJKR decimal places (RRF G2/G3 arc tolerance)
+AXIS_DECIMALS = 4
+
 # Define format strings for variable and command types
 class FORMATS:
     CMD   = '{:0.3f}'
-    AXES  = '{:0.3f}'
+    AXES  = '{:0.' + str(AXIS_DECIMALS) + 'f}'
     TOOLS = '{:0.0f}'
     RPM   = '{:0.0f}'
     STR   = '"{!s}"'
@@ -473,7 +476,7 @@ class PostProcessor:
     # and will only accept numeric arguments.
     def _parseparam(self, key, value):
         # TODO: Check if number.
-        return '{}{:0.3f}'.format(key, value)
+        return '{}{}'.format(key, FORMATS.AXES.format(value))
 
     # Default operation parsing just outputs operation name
     # and arguments without any processing.
