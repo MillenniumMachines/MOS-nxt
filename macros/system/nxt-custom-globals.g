@@ -1,6 +1,7 @@
 ; nxt-custom-globals.g — Declare Custom-platform globals (if !exists → null).
 ; Loaded from nxt.g after nxt-vars.g and before nxt-user-vars.g.
-; User-vars / Configuration UI only `set` these keys; this file owns declares.
+; User-vars / Configuration UI `set` overlay; this file owns core Custom declares.
+; nxtCustom*Backlash is declare-on-use (Save ensure-set) — not listed here (OM ~8KB).
 ; Idempotent. See docs/OM_GLOBAL_SIZE.md.
 ;
 ; A-axis Custom keys are optional (OM ~8KB): only when 0:/sys/nxt-custom-a.requested
@@ -50,12 +51,7 @@ if { !exists(global.nxtCustomZCurrent) }
     global nxtCustomZCurrent = null
 if { !exists(global.nxtCustomDriveDirs) }
     global nxtCustomDriveDirs = null
-if { !exists(global.nxtCustomXBacklash) }
-    global nxtCustomXBacklash = null
-if { !exists(global.nxtCustomYBacklash) }
-    global nxtCustomYBacklash = null
-if { !exists(global.nxtCustomZBacklash) }
-    global nxtCustomZBacklash = null
+; nxtCustom*Backlash: declare-on-use when Save sets a finite value (OM ~8KB)
 
 ; --- Optional A / rotary Custom keys (gated) ---
 if { !fileexists("0:/sys/nxt-custom-a.requested") }
@@ -75,5 +71,4 @@ if { !exists(global.nxtCustomADrives) }
     global nxtCustomADrives = null
 if { !exists(global.nxtCustomACurrent) }
     global nxtCustomACurrent = null
-if { !exists(global.nxtCustomABacklash) }
-    global nxtCustomABacklash = null
+; nxtCustomABacklash: declare-on-use when Save sets a finite value (OM ~8KB)

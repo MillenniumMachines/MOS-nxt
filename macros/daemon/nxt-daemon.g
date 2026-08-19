@@ -1,8 +1,17 @@
 ; nxt-daemon.g
 ; nxt plugin host hook called by system/daemon.g
 
+; nxtDaemonHooks bits: 1=plugin-init, 2=plugin-daemon, 4=tools-reload
+var nxtHookInit = false
+var nxtHookDaemon = false
+var nxtHookTools = false
+if { exists(global.nxtDaemonHooks) }
+    set var.nxtHookInit = { mod(global.nxtDaemonHooks, 2) == 1 }
+    set var.nxtHookDaemon = { mod(floor(global.nxtDaemonHooks / 2), 2) == 1 }
+    set var.nxtHookTools = { mod(floor(global.nxtDaemonHooks / 4), 2) == 1 }
+
 ; Discover and initialize plugins once (boot usually already set nxtPluginsInited).
-if { exists(global.nxtDaemonHookPluginInit) && global.nxtDaemonHookPluginInit }
+if { var.nxtHookInit }
     if { !exists(global.nxtPluginsInited) || !global.nxtPluginsInited }
         M98 P"nxt/plugins/nxt-plugin-init-dispatch.g"
         if { !exists(global.nxtPluginsInited) }
@@ -11,11 +20,11 @@ if { exists(global.nxtDaemonHookPluginInit) && global.nxtDaemonHookPluginInit }
             set global.nxtPluginsInited = true
 
 ; Run periodic daemon entrypoints for loaded plugins.
-if { exists(global.nxtDaemonHookPluginDaemon) && global.nxtDaemonHookPluginDaemon }
+if { var.nxtHookDaemon }
     M98 P"nxt/plugins/nxt-plugin-daemon-dispatch.g"
 
 ; Optional: reload persisted tool definitions when 0:/sys/nxt-user-tools.reload.requested exists
-if { exists(global.nxtDaemonHookToolsReload) && global.nxtDaemonHookToolsReload }
+if { var.nxtHookTools }
     M98 P"nxt/nxt-user-tools-reload-daemon.g"
 
 ; Coolant pulse phase advance (mist / flood)

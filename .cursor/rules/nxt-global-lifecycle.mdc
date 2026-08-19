@@ -55,6 +55,6 @@ set global.nxtExample = var.x
 
 ## Do not
 
-- Invent mid-macro globals without a boot declare (e.g. board-pack telemetry like `nxtBoardPackShortName` belongs in `nxt-vars.g`).
+- Invent mid-macro globals without a boot declare (e.g. board-pack telemetry like `nxtBoardPackEntry` belongs in the pack loader, not a surprise first `set`).
 - Put Custom `nxtCustom*` defaults in `nxt-vars.g`.
 - Treat `exists(global.x)` as optional documentation — use it (or boot declare) before every first `set`.

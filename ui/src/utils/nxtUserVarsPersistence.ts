@@ -1,7 +1,7 @@
 /**
  * nxt Configuration panel — nxt-user-vars.g persistence helpers.
  */
-import { migratePlatformProfileId } from './nxtBoardManifest'
+import { migrateLegacyBoardKitKey, migratePlatformProfileId, nxtBoardPackRelPath } from './nxtBoardManifest'
 import { readFirmwareGlobal } from './nxtToolChangerOm'
 
 export type NxtUserConfigDraft = {
@@ -614,9 +614,13 @@ export function snapshotConfigFromOm(globalVal: unknown): NxtUserConfigDraft {
   draft.nxtBoardMotorVoltage = readBoardMotorVoltageFromOm(globalVal)
   const bootMode = readConfigString(readFirmwareGlobal(globalVal, 'nxtBoardBootstrapMode'))
   draft.nxtBoardBootstrapMode = bootMode === 'auto' ? 'auto' : 'off'
-  draft.nxtBoardPackExpectedEntry = readConfigString(
-    readFirmwareGlobal(globalVal, 'nxtBoardPackExpectedEntry')
-  )
+  draft.nxtBoardPackExpectedEntry =
+    readConfigString(readFirmwareGlobal(globalVal, 'nxtBoardPackExpectedEntry')) ??
+    nxtBoardPackRelPath(
+      draft.nxtPlatformProfile,
+      draft.nxtBoardShortNameOverride,
+      draft.nxtBoardMotorVoltage
+    )
   draft.nxtBoardSysDeployPlatform = migratePlatformProfileId(
     readConfigString(readFirmwareGlobal(globalVal, 'nxtBoardSysDeployPlatform'))
   )
@@ -825,8 +829,24 @@ export function normalizeNxtToolSetterRefDir(value: number | null | undefined): 
   return 0
 }
 
+function resolveBoardShortNameFromConfig(config: NxtUserConfigDraft): string | null {
+  const o = config.nxtBoardShortNameOverride
+  if (o != null && String(o).trim().length > 0) {
+    return String(o).trim()
+  }
+  const legacy = migrateLegacyBoardKitKey(config.nxtBoardKitKey as any)
+  if (legacy) {
+    return legacy.shortName
+  }
+  return null
+}
+
 export function buildNxtUserVarsGcode(config: NxtUserConfigDraft): string {
   const virtTsZ = resolvedProbeVirtualTsZ(config)
+  const relayIdLine =
+    typeof config.nxtRelayID === 'number' && config.nxtRelayID >= 0
+      ? `set global.nxtRelayID = ${formatPersistedNumber(config.nxtRelayID)}`
+      : null
   const lines = [
     '; nxt User Configuration',
     '; Auto-generated - Do not edit manually',
@@ -893,10 +913,14 @@ export function buildNxtUserVarsGcode(config: NxtUserConfigDraft): string {
     `set global.nxtCoolantFloodPulseEnabled = ${formatPersistedBool(config.nxtCoolantFloodPulseEnabled)}`,
     `set global.nxtCoolantPulseOnSec = ${Math.max(1, config.nxtCoolantPulseOnSec ?? 5)}`,
     `set global.nxtCoolantPulseOffSec = ${Math.max(1, config.nxtCoolantPulseOffSec ?? 25)}`,
-    `set global.nxtRelayID = ${formatPersistedNumber(config.nxtRelayID)}`,
+    ...(relayIdLine != null ? [relayIdLine] : []),
     `set global.nxtAux1ID = ${formatPersistedNumber(config.nxtAux1ID)}`,
-    `set global.nxtAux2ID = ${formatPersistedNumber(config.nxtAux2ID)}`,
-    `set global.nxtAux3ID = ${formatPersistedNumber(config.nxtAux3ID)}`,
+    ...(config.nxtAux2ID != null
+      ? [`set global.nxtAux2ID = ${formatPersistedNumber(config.nxtAux2ID)}`]
+      : []),
+    ...(config.nxtAux3ID != null
+      ? [`set global.nxtAux3ID = ${formatPersistedNumber(config.nxtAux3ID)}`]
+      : []),
     gcodeEnsureSetGlobal('nxtBoardFanPins', formatPersistedStringVector(config.nxtBoardFanPins)),
     gcodeEnsureSetGlobal('nxtUartDevice', formatPersistedNumber(config.nxtUartDevice)),
     gcodeEnsureSetGlobal('nxtUartBaud', formatPersistedNumber(config.nxtUartBaud)),
@@ -926,10 +950,6 @@ export function buildNxtUserVarsGcode(config: NxtUserConfigDraft): string {
     gcodeEnsureSetGlobal(
       'nxtBoardMotorVoltage',
       formatPersistedNumber(config.nxtBoardMotorVoltage)
-    ),
-    gcodeEnsureSetGlobal(
-      'nxtBoardPackExpectedEntry',
-      formatPersistedString(config.nxtBoardPackExpectedEntry)
     ),
     gcodeEnsureSetGlobal(
       'nxtBoardSysDeployPlatform',
@@ -1038,6 +1058,12 @@ export function runNxtUserVarsPersistenceSelfTest(): void {
   }
   if (gcode.includes('set global.nxtSpindleDecelSec = null')) {
     throw new Error('nxt-user-vars.g must not persist null nxtSpindleDecelSec')
+  }
+  if (gcode.includes('set global.nxtAux2ID = null') || gcode.includes('set global.nxtAux3ID = null')) {
+    throw new Error('nxt-user-vars.g must not persist null Aux2/Aux3 (OM size)')
+  }
+  if (gcode.includes('set global.nxtBoardPackExpectedEntry')) {
+    throw new Error('nxt-user-vars.g must not persist nxtBoardPackExpectedEntry as a global (OM size)')
   }
 
   const keepZero = buildInitialConfigDraft(

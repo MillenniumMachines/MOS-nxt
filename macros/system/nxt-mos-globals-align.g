@@ -25,18 +25,28 @@ if { exists(global.mosMPSI) && exists(global.nxtManualProbeSlowIdx) }
 if { exists(global.mosAngleTol) && exists(global.nxtProbeAngleTol) }
     set global.nxtProbeAngleTol = { global.mosAngleTol }
 
-; --- WCS probed metadata (lazy WP* via nxt-wp-ensure; Deg is always-on) ---
+; --- WCS probed metadata (lazy WP* via split ensure; Deg is always-on) ---
 var nxtMosWP = false
 if { exists(global.mosWPCtrPos) || exists(global.mosWPRad) }
     set var.nxtMosWP = true
-if { exists(global.mosWPDims) || exists(global.mosWPCnrPos) }
-    set var.nxtMosWP = true
-if { exists(global.mosWPCnrNum) || exists(global.mosWPCnrDeg) }
-    set var.nxtMosWP = true
-if { exists(global.mosWPSfcPos) || exists(global.mosWPSfcAxis) || exists(global.mosWPDimsErr) }
+if { exists(global.mosWPDims) || exists(global.mosWPDimsErr) }
     set var.nxtMosWP = true
 if { var.nxtMosWP }
     M98 P"nxt-wp-ensure.g"
+
+var nxtMosCnr = false
+if { exists(global.mosWPCnrPos) || exists(global.mosWPCnrNum) }
+    set var.nxtMosCnr = true
+if { exists(global.mosWPCnrDeg) }
+    set var.nxtMosCnr = true
+if { var.nxtMosCnr }
+    M98 P"nxt-wp-ensure-cnr.g"
+
+var nxtMosSfc = false
+if { exists(global.mosWPSfcPos) || exists(global.mosWPSfcAxis) }
+    set var.nxtMosSfc = true
+if { var.nxtMosSfc }
+    M98 P"nxt-wp-ensure-sfc.g"
 
 if { exists(global.mosWPCtrPos) && exists(global.nxtWPCtrPos) }
     set global.nxtWPCtrPos = { global.mosWPCtrPos }

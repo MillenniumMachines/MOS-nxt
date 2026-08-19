@@ -17,7 +17,7 @@ DWC always polls the whole `global` key; plugins cannot split that request.
 2. **`nxt-custom-globals.g`** — only if `0:/sys/nxt-custom.requested` **or** Custom overlays exist (`if !exists` → null)
 3. Optional **MOS import** (nested from `nxt.g`: skips re-loading custom-globals / mid-import user-vars; standalone `M98` still does both)
 4. **`nxt-tooltable.g`** — sole `mosTT`/`mosET` → `nxtTT`/`nxtET` owner
-5. **`nxt-probe-wcs.g`** when `!exists(global.nxtWPDeg)` (not gated on overtravel) → then **`nxt-mos-globals-align.g`** for mos WCS/OT copies. Other `nxtWP*` (centers, dims, corners) allocate on first probe write via **`nxt-wp-ensure.g`**. String catalogs are local-var (`nxt-m291-corners.g`), not `global`.
+5. **`nxt-probe-wcs.g`** when `!exists(global.nxtWPDeg)` (not gated on overtravel) → then **`nxt-mos-globals-align.g`** for mos WCS/OT copies. Other `nxtWP*` allocate on first write: **`nxt-wp-ensure.g`** (Ctr/Dims/Rad), **`nxt-wp-ensure-cnr.g`**, **`nxt-wp-ensure-sfc.g`**. String catalogs are local-var (`nxt-m291-corners.g`), not `global`.
 6. **`nxt-user-vars.g`** — operator Save (`set` only; omit unset keys)
 7. **`nxt-probe-virtual.g`** — mill length datum sidecar (`set global.nxtProbeVirtualTsZ`); also persist finite virtual in `nxt-user-vars.g`
 8. Board pack, tools, boot checks, plugin-init **once**, single post-colour RGB `M950`, …
@@ -29,7 +29,7 @@ Configuration / Calibration **Save** and Custom **Apply** share [`ui/src/utils/n
 
 1. Prefer `null` slots over filled templates (`nxtTT`).
 2. Do not expand `nxtProbeResults` / `nxtProbeHitXY` / cal travel vectors at boot.
-3. Do not pre-fill `nxtToolLife` with `vector(limits.tools, 0.0)` — leave `null` and allocate on first use (`nxt-tool-life-ensure.g` / maintenance).
+3. Do not pre-fill `nxtToolLife` with `vector(limits.tools, 0.0)` — leave `null` and allocate on first use (`nxt-tool-life-ensure.g`). Do not expand it in `nxt.g` just because `nxt-maintenance.g` exists.
 4. Do not put `nxtCustom*` or deprecated `nxtBoardKitKey` / `nxtScyllaMotorVoltage` in `nxt-vars.g`.
 5. Do not declare touch/toolsetter-specific sample-count triples in `nxt-vars.g` (optional via overrides).
 6. Never persist `set global.foo = null` for optional keys in `nxt-user-vars.g`.
@@ -39,7 +39,7 @@ Configuration / Calibration **Save** and Custom **Apply** share [`ui/src/utils/n
 10. `nxtPinStates` stays `null` until `pause.g`; do not persist it in user-vars.
 11. Custom A-axis keys only when `0:/sys/nxt-custom-a.requested` exists (Save syncs when any `nxtCustomA*` is set).
 12. **MosAtc:** still skipInitDispatch — `nxt.g` loads MosAtc only when `nxtFeatureAtc` is true (saves ~800B+ `atc*` globals when ATC is off). **MosFourthAxis:** catalog init dispatch gated on `nxtFeatureFourthAxis` (rotary scalars are small; mapping is skipped if A already exists).
-13. Board pack path telemetry (`nxtBoardPackEntry` / Expected / ShortName / SysDeploy) is declare-on-use — not always-on nulls in `nxt-vars.g`.
+13. Board pack path telemetry: persist `nxtBoardPackEntry` at resolve time; keep expected path as a **comment** in `nxt-user-vars.g` (do not store `nxtBoardPackExpectedEntry` / `nxtBoardPackShortName` in OM). `nxtBoardSysDeployPlatform` is declare-on-use.
 
 ## Checking size
 

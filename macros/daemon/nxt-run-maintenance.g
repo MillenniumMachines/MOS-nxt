@@ -66,16 +66,12 @@ if { var.nxtSpindleIdx >= 0 && var.nxtSpindleIdx < #spindles }
 var dt = { state.upTime - global.nxtMaintLastTime }
 set global.nxtMaintLastTime = { state.upTime }
 var ct = { state.currentTool }
-; Lazy-allocate tool-life vector (null at boot — OM ~8KB)
-if { !exists(global.nxtToolLife) }
-    global nxtToolLife = { vector(min(limits.tools, 50), null) }
-elif { global.nxtToolLife == null }
-    set global.nxtToolLife = { vector(min(limits.tools, 50), null) }
-var nxtLifeOk = { var.ct >= 0 && var.ct < #global.nxtToolLife }
+var nxtLifeOk = { var.ct >= 0 }
 if { exists(global.nxtProbeToolID) && global.nxtProbeToolID != null }
     set var.nxtLifeOk = { var.nxtLifeOk && var.ct != global.nxtProbeToolID }
-if { var.nxtLifeOk }
-    if { var.spindleOn && var.dt > 0 && var.dt < 10 }
+if { var.nxtLifeOk && var.spindleOn && var.dt > 0 && var.dt < 10 }
+    M98 P"nxt-tool-life-ensure.g"
+    if { var.ct < #global.nxtToolLife }
         if { global.nxtToolLife[var.ct] == null }
             set global.nxtToolLife[var.ct] = 0
         set global.nxtToolLife[var.ct] = { global.nxtToolLife[var.ct] + var.dt }

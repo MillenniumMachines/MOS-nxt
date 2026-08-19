@@ -1,4 +1,4 @@
-; nxt-probe-wcs.g — Probe scalars + nxtWPDeg (M5011). Other WP* via nxt-wp-ensure.g.
+; nxt-probe-wcs.g — Probe scalars + nxtWPDeg (M5011). Other WP* via split ensure.
 ; Loaded from nxt.g when Deg pack is missing (gate on nxtWPDeg — not overtravel).
 ; Align may set overtravel/clearance from MOS before this runs — use !exists on scalars.
 ; String catalogs (corners / surfaces / jog names) are local-var, not global (OM ~8KB).

@@ -143,7 +143,7 @@ var nxtJogFar = { abs(var.startX) > 5 || abs(var.startY) > 5 }
 if { var.nxtCnr00 && var.nxtJogFar }
     abort { "G6509: Corner fit is 0,0 but jog was not at origin" }
 
-M98 P"nxt-wp-ensure.g"
+M98 P"nxt-wp-ensure-cnr.g"
 set global.nxtWPCnrNum[var.pSlot] = { param.N }
 
 echo "G6509: Corner X=" ^ var.cornerX ^ " Y=" ^ var.cornerY

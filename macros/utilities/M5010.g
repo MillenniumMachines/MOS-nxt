@@ -36,8 +36,11 @@ if { mod(floor(var.reset/pow(2,0)),2) == 1 }
         echo { "Resetting WCS " ^ var.wcsNumber ^ " probed center"}
     set global.nxtWPCtrPos[var.workOffset] = global.nxtDfltWPCtrPos
 
-if { mod(floor(var.reset/pow(2,1)),2) == 1 }
-    ; Reset Corner
+var nxtDoCnr = { mod(floor(var.reset/pow(2,1)),2) == 1 }
+if { var.nxtDoCnr }
+    set var.nxtDoCnr = { exists(global.nxtWPCnrPos) }
+if { var.nxtDoCnr }
+    ; Reset Corner (no-op if corner pack was never allocated)
     if { global.nxtTutorialMode }
         echo { "Resetting WCS " ^ var.wcsNumber ^ " probed corner"}
     set global.nxtWPCnrPos[var.workOffset] = global.nxtDfltWPCnrPos
@@ -50,8 +53,11 @@ if { mod(floor(var.reset/pow(2,2)),2) == 1}
         echo { "Resetting WCS " ^ var.wcsNumber ^ " probed radius"}
     set global.nxtWPRad[var.workOffset] = global.nxtDfltWPRad
 
-if { mod(floor(var.reset/pow(2,3)),2) == 1 }
-    ; Reset Surface
+var nxtDoSfc = { mod(floor(var.reset/pow(2,3)),2) == 1 }
+if { var.nxtDoSfc }
+    set var.nxtDoSfc = { exists(global.nxtWPSfcPos) }
+if { var.nxtDoSfc }
+    ; Reset Surface (no-op if surface pack was never allocated)
     if { global.nxtTutorialMode }
         echo { "Resetting WCS " ^ var.wcsNumber ^ " probed surface"}
     set global.nxtWPSfcAxis[var.workOffset] = global.nxtDfltWPSfcAxis

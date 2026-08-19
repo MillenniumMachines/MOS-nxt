@@ -260,8 +260,10 @@ echo >>{var.UV} {"set global.nxtCoolantMistID = " ^ (global.nxtCoolantMistID == 
 echo >>{var.UV} {"set global.nxtCoolantFloodID = " ^ (global.nxtCoolantFloodID == null ? "null" : global.nxtCoolantFloodID)}
 echo >>{var.UV} {"set global.nxtRelayID = " ^ (global.nxtRelayID == null ? "null" : global.nxtRelayID)}
 echo >>{var.UV} {"set global.nxtAux1ID = " ^ (global.nxtAux1ID == null ? "null" : global.nxtAux1ID)}
-echo >>{var.UV} {"set global.nxtAux2ID = " ^ (global.nxtAux2ID == null ? "null" : global.nxtAux2ID)}
-echo >>{var.UV} {"set global.nxtAux3ID = " ^ (global.nxtAux3ID == null ? "null" : global.nxtAux3ID)}
+if { exists(global.nxtAux2ID) && global.nxtAux2ID != null }
+    echo >>{var.UV} {"set global.nxtAux2ID = " ^ global.nxtAux2ID}
+if { exists(global.nxtAux3ID) && global.nxtAux3ID != null }
+    echo >>{var.UV} {"set global.nxtAux3ID = " ^ global.nxtAux3ID}
 echo >>{var.UV} {""}
 echo >>{var.UV} {"; Board / platform (Configuration panel)"}
 if { global.nxtPlatformProfile == null }
@@ -287,10 +289,8 @@ if { global.nxtBoardBootstrapMode == "auto" }
     echo >>{var.UV} {"set global.nxtBoardBootstrapMode = ""auto"""}
 else
     echo >>{var.UV} {"set global.nxtBoardBootstrapMode = ""off"""}
-if { global.nxtBoardPackExpectedEntry == null }
-    echo >>{var.UV} {"set global.nxtBoardPackExpectedEntry = null"}
-else
-    echo >>{var.UV} {"set global.nxtBoardPackExpectedEntry = "" ^ global.nxtBoardPackExpectedEntry ^ """}
+if { exists(global.nxtBoardPackExpectedEntry) && global.nxtBoardPackExpectedEntry != null }
+    echo >>{var.UV} {"; Expected pack entry: " ^ global.nxtBoardPackExpectedEntry}
 if { global.nxtBoardSysDeployPlatform == null }
     echo >>{var.UV} {"set global.nxtBoardSysDeployPlatform = null"}
 else

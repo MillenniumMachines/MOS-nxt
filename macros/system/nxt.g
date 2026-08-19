@@ -68,7 +68,8 @@ if { !exists(global.nxtTT) }
 if { exists(global.mosTT) && exists(global.nxtTT) }
     echo "nxt: WARNING mosTT and nxtTT both exist — remove MOS from config.g after migration (OM global >8KB)"
 
-; Probe scalars + nxtWPDeg — gate on Deg (not overtravel / CtrPos; WP* is nxt-wp-ensure.g).
+; Probe scalars + nxtWPDeg — gate on Deg (not overtravel / CtrPos).
+; Ctr/Dims/Rad: nxt-wp-ensure.g. Corners: nxt-wp-ensure-cnr.g. Surfaces: nxt-wp-ensure-sfc.g.
 if { !exists(global.nxtWPDeg) }
     M98 P"nxt-probe-wcs.g"
 
@@ -160,34 +161,30 @@ M453
 M117 "nxt nxt-boot.g"
 M98 P"nxt-boot.g"
 
-; Restore persisted maintenance counters (axis travel + tool life) when present.
+; Restore persisted maintenance counters. Do not pre-expand nxtToolLife
+; (OM ~8KB) — nxt-maintenance.g M98s nxt-tool-life-ensure.g only when rows exist.
 if { global.nxtBootOk && fileexists("0:/sys/nxt-maintenance.g") }
-    if { !exists(global.nxtToolLife) }
-        global nxtToolLife = { vector(min(limits.tools, 50), null) }
-    elif { global.nxtToolLife == null }
-        set global.nxtToolLife = { vector(min(limits.tools, 50), null) }
     M117 "nxt nxt-maintenance.g"
     M98 P"nxt-maintenance.g"
 
 ; Initialize metadata-driven plugins once boot checks pass.
 if { !exists(global.nxtPluginsInited) }
     global nxtPluginsInited = false
-; Cache daemon hook paths (refresh each nxt.g load so soft re-M98 stays accurate).
-if { !exists(global.nxtDaemonHookPluginInit) }
-    global nxtDaemonHookPluginInit = false
-if { !exists(global.nxtDaemonHookPluginDaemon) }
-    global nxtDaemonHookPluginDaemon = false
-if { !exists(global.nxtDaemonHookToolsReload) }
-    global nxtDaemonHookToolsReload = false
-set global.nxtDaemonHookPluginInit = { fileexists("0:/sys/nxt/plugins/nxt-plugin-init-dispatch.g") }
-set global.nxtDaemonHookPluginDaemon = { fileexists("0:/sys/nxt/plugins/nxt-plugin-daemon-dispatch.g") }
-set global.nxtDaemonHookToolsReload = { fileexists("0:/sys/nxt/nxt-user-tools-reload-daemon.g") }
+; nxtDaemonHooks bits: 1=plugin-init, 2=plugin-daemon, 4=tools-reload
+set global.nxtDaemonHooks = 0
+if { fileexists("0:/sys/nxt/plugins/nxt-plugin-init-dispatch.g") }
+    set global.nxtDaemonHooks = { global.nxtDaemonHooks + 1 }
+if { fileexists("0:/sys/nxt/plugins/nxt-plugin-daemon-dispatch.g") }
+    set global.nxtDaemonHooks = { global.nxtDaemonHooks + 2 }
+if { fileexists("0:/sys/nxt/nxt-user-tools-reload-daemon.g") }
+    set global.nxtDaemonHooks = { global.nxtDaemonHooks + 4 }
 
-if { global.nxtBootOk && global.nxtDaemonHookPluginInit && !global.nxtPluginsInited }
+var nxtHookInit = { mod(global.nxtDaemonHooks, 2) == 1 }
+if { global.nxtBootOk && var.nxtHookInit && !global.nxtPluginsInited }
     M117 "nxt plugin-init"
     M98 P"nxt/plugins/nxt-plugin-init-dispatch.g"
     set global.nxtPluginsInited = true
-elif { global.nxtBootOk && global.nxtDaemonHookPluginInit }
+elif { global.nxtBootOk && var.nxtHookInit }
     set global.nxtPluginsInited = true
 
 ; MosFourthAxis loads via nxt-plugin-init-dispatch.g when nxtFeatureFourthAxis is

@@ -9,6 +9,7 @@ if { !inputs[state.thisInput].active }
     M99
 
 M98 P"nxt-wp-ensure.g"
+M98 P"nxt-wp-ensure-sfc.g"
 
 if { exists(param.W) && param.W != null && (param.W < 0 || param.W >= limits.workplaces) }
     abort { "Work Offset (W..) must be between 0 and " ^ limits.workplaces-1 ^ "!" }

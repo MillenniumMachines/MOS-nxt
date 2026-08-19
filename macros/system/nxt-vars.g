@@ -195,6 +195,8 @@ global nxtCoolantPulseLastMs = 0 ; Runtime: state.upTime*1000+state.msUpTime at 
 ; --- Daemon loop (coolant pulse, plugins, user hooks) ---
 global nxtDaemonEnabled = true ; Enable macros/system/daemon.g background loop
 global nxtDaemonInterval = 250 ; Minimum milliseconds between daemon iterations
+; Packed fileexists cache: bit0=plugin-init, bit1=plugin-daemon, bit2=tools-reload
+global nxtDaemonHooks = 0
 
 ; --- Spindle Control ---
 ; Idempotent: must exist before nxt-user-vars.g set (do not bare-declare after a mid-file abort).

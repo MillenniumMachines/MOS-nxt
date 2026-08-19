@@ -371,6 +371,12 @@ function estimateObjectBytes(entries) {
 			"macros/system/nxt-vars.g must declare global nxtToolLife = null (allocate on first use)"
 		);
 	}
+	const nxtBoot = stripComments(read("macros/system/nxt.g"));
+	if (/global\s+nxtToolLife\s*=\s*\{\s*vector/i.test(nxtBoot) || /set\s+global\.nxtToolLife\s*=\s*\{\s*vector/i.test(nxtBoot)) {
+		failures.push(
+			"macros/system/nxt.g must not pre-expand nxtToolLife — nxt-tool-life-ensure.g on first use (OM ~8KB)"
+		);
+	}
 	if (/vector\s*\(\s*(?:min\s*\(\s*)?limits\.tools[^)]*,\s*0(?:\.0)?\s*\)/i.test(body)) {
 		failures.push(
 			"macros/system/nxt-vars.g must not use vector(limits.tools, 0/0.0) — null-fill or leave scalar null (OM budget)"
