@@ -54,7 +54,7 @@ Every probe install (`T{nxtProbeToolID}`) **`G6511 R1`** on the **saved referenc
 
 1.  A tool change from the probe to a cutting tool is commanded (`T{mill}`).
 2.  **Probe `tpost`:** Incoming **`G10 L1 Z0`**, then **`G6511 R1 S0`** at **`nxtTouchProbeRefPos`** every load (does not skip if mill virtual already exists; does not use the setter pad `Z_act−8`). Fast find seeks past mill-touch Z (`nxtToolSetterProbeTravelMm`) so probe vs mill stickout still triggers. Cache virtual. Probe L1 stays 0.
-3.  **Swap:** `tfree` then `tpre` run a **full `G27`** before Remove/Install `M291` so the table parks. First `T` skips tfree — tpre still full-parks.
+3.  **Swap:** `tfree` then `tpre` run a **full `G27`** before Remove/Install `M291` **S4** OK/Cancel (soft Cancel → `nxtToolChangeCancelled`; **never** `abort` in the T-stack). Soft Cancel sets `nxtToolChangeCancelled` when the macro continues. First `T` skips tfree — tpre still full-parks.
 4.  **Measure cutter:** Mill `tpost` **`G10 L1 Z0`** on the incoming mill, then **`G27 Z1`**, probes the **toolsetter**. Trailing full **`G27`** parks after `G10`. Same-T does not run tpost.
 5.  **Calculate Offset:** `New_Offset = -(Z_act_cutter − nxtProbeVirtualTsZ)` where virtual is pad `meanZ − nxtDeltaMachine` after the last T49. Probe L1 stays 0. Do not add the previous mill’s L1.
 6.  **Apply & Cache:** `G10 L1 P{mill} Z{New_Offset}` and cache `Z_act_cutter` for this mill for the session.

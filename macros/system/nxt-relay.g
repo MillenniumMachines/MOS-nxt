@@ -1,8 +1,10 @@
 ; nxt-relay.g - Motor / VFD contactor safety interlock (UEB)
 ;
-; SAFETY-CRITICAL. Loaded by nxt.g when 0:/sys/estop.g and trigger2.g exist.
+; Optional manual helper: M98 P"nxt-relay.g" (not called from nxt.g boot).
+; Boot must not block on M291 — that keeps config.g → nxt.g open and locks SD updates.
+; Prefer Status Activate or M80.9 for normal arming.
 ; Requires board pack gpio.g (M950 P5 C"PD_5") and nxtRelayID.
-; Adds operator safety dialog then M42 S1. Early RGB on PD_6; nxt.g re-applies strip later.
+; S4 + K (not S3): S3 Cancel aborts the calling file.
 
 ; --- Status LED strip: create and show RED (not armed) ---------------------
 M950 E0 C"PD_6" T1 U32                  ; RGB NeoPixel, 32 LEDs, on PD_6
@@ -25,15 +27,16 @@ if { !exists(global.nxtRelayID) || global.nxtRelayID == null }
     echo "nxt: nxtRelayID unset — cannot arm motor/VFD relay."
     M99
 
-; --- Operator safety gate (blocks here until answered) ---------------------
+; --- Operator safety gate (S4 + K — Cancel must not abort the caller) ------
 var nxtRelayPrompt = {"<b>SAFETY CHECK</b><br/>Confirm the machine is clear and in a safe state."}
-var nxtRelayPrompt2 = {"Press <b>OK</b> to arm the relay and power the drives and VFD, or <b>Cancel</b> to leave them off."}
+var nxtRelayPrompt2 = {"Press <b>Arm</b> to power the drives and VFD, or <b>Leave off</b> to keep them off."}
 var nxtRelayPromptFull = { var.nxtRelayPrompt ^ var.nxtRelayPrompt2 }
-M291 P{var.nxtRelayPromptFull} R"Safety Check" S3 T0
+M291 P{var.nxtRelayPromptFull} R"Safety Check" S4 K{"Arm", "Leave off"} F0
 
-if { result == 0 }
+var nxtRelayChoice = input
+if { var.nxtRelayChoice == 0 }
     M42 P{global.nxtRelayID} S1          ; gpOut ON - drives / VFD live
     M150 E0 R255 U255 B255 P255 S32 F0   ; solid white - armed and ready
 else
     M150 E0 R255 U0 B0 P255 S32 F0       ; stay red
-    echo "Relay NOT armed - drives remain unpowered. Reboot (M999) to re-arm."
+    echo "Relay NOT armed - drives remain unpowered. Use M80.9 or Status to arm."

@@ -8,9 +8,9 @@
 ; Operator must jog-confirm near the pad (V1) or V2 pad location.
 ; After success: park (G27) and load the probe from Calibration if needed.
 ; Mill length datum is platen Z_act (nxtProbeVirtualTsZ); no G6511 pad hit.
-
-if { !inputs[state.thisInput].active }
-    M99
+; No thisInput.active guard — must run from DWC Calibration (same as M80.9).
+; Use S2/S3 (not S4): jog axes only work on S2/S3; S4 needs M292 R{n} which is
+; unreliable across DWC channels (same class as Safety Net M80.9). Cancel → abort.
 
 if { !global.nxtFeatureTouchProbe || !global.nxtFeatureToolSetter }
     abort { "M5016: Touch probe and toolsetter features must be enabled" }
@@ -21,6 +21,7 @@ if { global.nxtTouchProbeID == null }
 if { global.nxtToolSetterID == null }
     abort { "M5016: nxtToolSetterID is not configured — set it in Configuration first" }
 
+echo "M5016: starting datum setup"
 G90
 G21
 G94
@@ -30,6 +31,7 @@ var msgDatum = "Install a rigid datum tool (gauge pin) in the spindle, then pres
 M291 P{var.msgDatum} R"nxt: Datum setup" S3
 if { result != 0 }
     abort { "M5016: Cancelled — install datum tool" }
+echo "M5016: datum tool confirmed"
 
 ; --- 2. Verify configured toolsetter input is pressed ---
 var tsId = { global.nxtToolSetterID }
@@ -44,8 +46,8 @@ var tsReady = false
 while { !var.tsReady }
     var msgTsInA = { "Press and <b>hold</b> toolsetter (probe K" ^ var.tsId ^ ")," }
     var msgTsInB = { var.msgTsInA ^ " keep holding, then OK. Cancel aborts." }
-    M291 P{var.msgTsInB} R"nxt: Toolsetter input" S4 K{"OK","Cancel"} F0
-    if { input != 0 }
+    M291 P{var.msgTsInB} R"nxt: Toolsetter input" S3
+    if { result != 0 }
         abort { "M5016: Cancelled — toolsetter input check" }
 
     set var.tsVal = { sensors.probes[var.tsId].value[0] }
@@ -71,12 +73,14 @@ while { !var.tsReady }
         M291 P{var.msgRetry} R"nxt: Toolsetter input" S2
 
 ; --- 3. Jog over toolsetter; leave ~20mm Z clear above platen ---
+; Jog axes (X1 Y1 Z1) are only valid with M291 S2/S3 per RRF docs.
 var msgTsA = "Jog XY over the center of the toolsetter platen."
 var msgTsB = { var.msgTsA ^ "<br/>Leave Z about <b>20 mm</b> clear above the platen, then OK." }
 var msgTsC = { var.msgTsB ^ "<br/><b>CAUTION</b>: Jogging does not watch probes." }
 M291 P{var.msgTsC} R"nxt: Datum setup" X1 Y1 Z1 J1 T0 S3
 if { result != 0 }
     abort { "M5016: Cancelled before toolsetter probe" }
+echo "M5016: jog position confirmed — probing toolsetter"
 
 M5000 P0
 var tsX = { global.nxtAbsPos[0] }

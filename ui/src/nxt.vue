@@ -4,12 +4,7 @@
     <!-- Every-page CNC status (tool/WCS/offset) comes from registerLayout(NxtShell), not this view -->
 
     <v-row>
-      <!-- Action Confirmation Widget - Full width above main content -->
-      <v-col v-if="hasActiveDialog" cols="12">
-        <nxt-action-confirmation-widget />
-      </v-col>
-
-      <!-- Main Content Area -->
+      <!-- Main Content Area — M291 ack is stock DWC MessageBoxDialog only (no dual Action widget) -->
       <v-col cols="12">
         <v-card>
           <v-card-title>
@@ -192,7 +187,6 @@ import {
   isArborCtlFirmwareLive,
   isArborCtlPluginInstalled
 } from './utils/nxtInstalledPlugins'
-import ActionConfirmationWidget from './components/panels/ActionConfirmationWidget.vue'
 import MachineStatusPanel from './components/panels/MachineStatusPanel.vue'
 import ConfigurationPanel from './components/panels/ConfigurationPanel.vue'
 import ProbingCyclesPanel from './components/panels/ProbingCyclesPanel.vue'
@@ -204,15 +198,13 @@ import VfdPanel from './components/panels/VfdPanel.vue'
 
 /**
  * nxt Main Dashboard Component
- * 
- * Provides the primary interface for nxt functionality within DWC.
- * Includes the persistent status widget and action confirmation widget
- * as specified in the Phase 2.1 requirements.
+ *
+ * Primary nxt UI in DWC. M291/M292 ack is stock DWC MessageBoxDialog only —
+ * do not mount a second Action Required widget (double M292 / hung macros).
  */
 export default defineNxtComponent({
   name: 'nxt',
   components: {
-    NxtActionConfirmationWidget: ActionConfirmationWidget,
     NxtMachineStatusPanel: MachineStatusPanel,
     NxtConfigurationPanel: ConfigurationPanel,
     NxtCalibrationPanel: CalibrationPanel,
@@ -283,14 +275,6 @@ export default defineNxtComponent({
       }
       const g = this.$store.state.machine.model.global
       return readFirmwareGlobal(g, 'nxtLoaded') === undefined
-    },
-
-    /**
-     * Check if there's an active dialog requiring user action
-     */
-    hasActiveDialog(): boolean {
-      const messageBox = this.$store.state.machine.model.state.messageBox
-      return messageBox && messageBox.message ? true : false
     },
 
     statusCaption(): string {

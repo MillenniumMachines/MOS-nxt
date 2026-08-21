@@ -12,9 +12,8 @@
 ; NO PARAMETERS - called automatically by RRF
 ;
 ; Operator Cancel in tpre/tfree: skip measure. Do not abort (abort in
-; tool-change macros leaves Tn in an unknown state). Do not issue T —
-; nested T re-runs tpre (Install prompt) and can crash RRF. Leave the
-; tool RRF already selected. Console T-1 P0 if the operator wants none.
+; tool-change macros leaves Tn / Changing Tool stuck). Soft-fail → echo,
+; clear nxtToolChangeState, M99. Do not issue T — nested T re-runs tpre.
 
 if { exists(global.nxtToolChangeCancelled) && global.nxtToolChangeCancelled }
     set global.nxtToolChangeCancelled = false
@@ -22,18 +21,27 @@ if { exists(global.nxtToolChangeCancelled) && global.nxtToolChangeCancelled }
     echo "tpost.g: tool change cancelled — skip measure"
     M99
 
-; Validate that tpre.g completed properly
+; Validate that tpre.g completed properly (soft skip — never abort)
 if { global.nxtToolChangeState != 3 }
-    abort { "tpost.g: Tool change state invalid. tpre.g must complete before tpost.g" }
+    set global.nxtToolChangeState = null
+    echo "tpost.g: invalid state (expected tpre done) — soft skip measure"
+    M99
 
 ; Validate that a tool is actually selected
 if { state.currentTool < 0 }
-    abort { "tpost.g: No tool selected after tool change" }
+    set global.nxtToolChangeState = null
+    echo "tpost.g: no tool selected — soft skip measure"
+    M99
 
 ; Validate all axes are homed
+var nxtToHomed = true
 while { iterations < #move.axes }
     if { !move.axes[iterations].homed }
-        abort { "tpost.g: Axis " ^ move.axes[iterations].letter ^ " must be homed after tool change" }
+        set var.nxtToHomed = false
+if { !var.nxtToHomed }
+    set global.nxtToolChangeState = null
+    echo "tpost.g: axes not homed — soft skip measure"
+    M99
 
 ; Previous tool (-1 = first select). Same T: RRF usually skips tpost; do not zero L1.
 var nxtPrevTool = -1
@@ -63,19 +71,34 @@ G27 Z1
 if { state.currentTool == global.nxtProbeToolID && global.nxtFeatureTouchProbe }
     ; Every T49: G6511 on saved nxtTouchProbeRefPos (not the setter pad).
     if { global.nxtFeatureToolSetter && global.nxtToolSetterPos != null }
-        echo "tpost.g: Probe install — G6511 R1 S0 (reference surface)"
-        G6511 R1 S0
-        var nxtHaveVirt = false
-        if { exists(global.nxtProbeVirtualTsZ) }
-            if { global.nxtProbeVirtualTsZ != null }
-                set var.nxtHaveVirt = true
-        set global.nxtToolCacheIdx = { state.currentTool }
-        if { var.nxtHaveVirt }
-            set global.nxtToolCacheZ = { global.nxtProbeVirtualTsZ }
+        ; Preflight — G6511 abort would stick Changing Tool; soft-skip instead
+        var nxtG6511Ok = true
+        if { !exists(global.nxtDeltaMachine) || global.nxtDeltaMachine == null }
+            set var.nxtG6511Ok = false
+            echo "tpost.g: nxtDeltaMachine unset — skip G6511 (run M5016)"
+        if { var.nxtG6511Ok }
+            if { !exists(global.nxtTouchProbeRefPos) || global.nxtTouchProbeRefPos == null }
+                set var.nxtG6511Ok = false
+                echo "tpost.g: nxtTouchProbeRefPos unset — skip G6511 (run M5016)"
+        if { var.nxtG6511Ok }
+            echo "tpost.g: Probe install — G6511 R1 S0 (reference surface)"
+            G6511 R1 S0
+            var nxtHaveVirt = false
+            if { exists(global.nxtProbeVirtualTsZ) }
+                if { global.nxtProbeVirtualTsZ != null }
+                    set var.nxtHaveVirt = true
+            set global.nxtToolCacheIdx = { state.currentTool }
+            if { var.nxtHaveVirt }
+                set global.nxtToolCacheZ = { global.nxtProbeVirtualTsZ }
+            else
+                set global.nxtToolCacheZ = null
+            G10 L1 P{state.currentTool} Z0
+            echo "tpost.g: Touch probe loaded (L1 Z0); mill datum=" ^ global.nxtProbeVirtualTsZ
         else
+            set global.nxtToolCacheIdx = { state.currentTool }
             set global.nxtToolCacheZ = null
-        G10 L1 P{state.currentTool} Z0
-        echo "tpost.g: Touch probe loaded (L1 Z0); mill datum=" ^ global.nxtProbeVirtualTsZ
+            G10 L1 P{state.currentTool} Z0
+            echo "tpost.g: Touch probe loaded without G6511 (datum incomplete)"
     else
         ; No toolsetter: keep probe active without a mill length datum.
         set global.nxtToolCacheIdx = -1
@@ -87,10 +110,20 @@ elif { global.nxtFeatureToolSetter && global.nxtToolSetterPos != null }
     ; Standard tool with toolsetter available
     echo "tpost.g: Measuring new tool " ^ state.currentTool
 
+    var nxtTsMeasureOk = true
     if { global.nxtToolSetterID == null }
-        abort { "tpost.g: Toolsetter probe ID (nxtToolSetterID) is not configured" }
-    if { !exists(global.nxtToolSetterPos) || global.nxtToolSetterPos == null || #global.nxtToolSetterPos < 3 }
-        abort { "tpost.g: Toolsetter position (nxtToolSetterPos) must be a 3-value vector" }
+        set var.nxtTsMeasureOk = false
+        echo "tpost.g: nxtToolSetterID unset — skip measure"
+    if { var.nxtTsMeasureOk }
+        if { !exists(global.nxtToolSetterPos) || global.nxtToolSetterPos == null || #global.nxtToolSetterPos < 3 }
+            set var.nxtTsMeasureOk = false
+            echo "tpost.g: nxtToolSetterPos invalid — skip measure"
+
+    if { !var.nxtTsMeasureOk }
+        G27
+        set global.nxtToolChangeState = null
+        echo "tpost.g: measure skipped — tool change complete (no abort)"
+        M99
 
     var tsX = global.nxtToolSetterPos[0]
     var tsY = global.nxtToolSetterPos[1]
@@ -101,8 +134,10 @@ elif { global.nxtFeatureToolSetter && global.nxtToolSetterPos != null }
         set var.tsProbeTargetZ = { move.axes[2].min }
     var tsProbeTravelAvail = { var.tsZ - var.tsProbeTargetZ }
     if { var.tsProbeTravelAvail < 5.0 }
-        var msgTsShort = "tpost.g: Not enough Z travel below nxtToolSetterPos"
-        abort { var.msgTsShort ^ " (need >= 5mm toward Zmin — check platen Z)" }
+        echo "tpost.g: not enough Z travel below platen — skip measure"
+        G27
+        set global.nxtToolChangeState = null
+        M99
     var tsSamplesRaw = { exists(global.nxtToolSetterInnerSampleCount) && global.nxtToolSetterInnerSampleCount > 0 ? global.nxtToolSetterInnerSampleCount : global.nxtProbeInnerSampleCount }
     var tsSamples = { var.tsSamplesRaw < 2 ? 2 : var.tsSamplesRaw }
     ; Platen default 0.02 mm — do not inherit touch-probe 0.0075 unless override is set
@@ -126,7 +161,7 @@ elif { global.nxtFeatureToolSetter && global.nxtToolSetterPos != null }
     G6512 Z{var.tsProbeTargetZ} I{global.nxtToolSetterID} F{var.tsFineSpeed} R{var.tsSamples} L{var.tsTol} O{var.tsOuterRetries}
     var newToolMeasurement = { global.nxtLastProbeResult }
     M98 P"nxt-g38-cancel.g"
-    ; Raise to machine Z0 off the platen before G10 / dialogs / abort
+    ; Raise to machine Z0 off the platen before G10 / dialogs
     G90
     var tsHasA = { #move.axes > 3 }
     if { var.tsHasA }
@@ -200,7 +235,7 @@ elif { global.nxtFeatureToolSetter && global.nxtToolSetterPos != null }
         echo "tpost.g: no mill datum — nxtToolSetterPos Z missing"
         var nxtNeedTs = "Run M5016 (datum on platen) to set mill length datum."
         M291 P{var.nxtNeedTs} R"tpost" S2
-        abort { "tpost.g: nxtToolSetterPos Z required (M5016)" }
+        echo "tpost.g: measure incomplete — soft complete (no abort)"
 else
     ; No toolsetter — re-zero Z origin in current WCS with the installed tool.
     echo "tpost.g: Toolsetter unavailable — running G37.1 to set Z origin"

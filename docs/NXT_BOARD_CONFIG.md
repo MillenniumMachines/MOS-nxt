@@ -61,7 +61,7 @@ Homing macros are **not** `M98`'d at boot. Root `board.txt` pin changes need a *
 ## Boot order (firmware)
 
 1. `config.g` → `M98 P"nxt.g"`.
-2. `nxt.g` → `nxt-vars.g` → gated **`nxt-custom-globals.g`** → optional MOS import (nested skips double custom/user-vars load) → **`nxt-tooltable.g`** → **`nxt-probe-wcs.g`** (if `!nxtWPDeg`) → align WCS/OT → **`nxt-user-vars.g`** → **`nxt-board-pack-loader.g`** → tools → **`nxt-boot.g`** (probe sync only; sets `nxtBootOk`) → plugin-init once → RGB colours + single `M950` → **`nxt-user-overrides.g` (last)** → **`nxtLoaded`**.
+2. `nxt.g` → `nxt-vars.g` → gated **`nxt-custom-globals.g`** → optional MOS import (nested skips double custom/user-vars load) → **`nxt-tooltable.g`** → **`nxt-probe-wcs.g`** (if `!nxtWPDeg`) → align WCS/OT → **`nxt-user-vars.g`** → **`nxt-board-pack-loader.g`** → tools → **`nxt-boot.g`** (probe sync only; sets `nxtBootOk`) → plugin-init once → RGB colours + single `M950` → **`nxt-user-overrides.g` (last)** → **`nxtLoaded`** (boot returns; no blocking Safety Check).
 3. Loader: `nxt-board-pack-resolve.g` → board entry → `machine/<nxtPlatformProfile>/entry.g` → optional `nxt-user-pinmap.g`.
 
 Board `rgb.g` sets pin/strip only; strip type (`nxtRGBType`), colour order (`nxtRGBOrder`), and LED count (`nxtRGBCount`) come from Configuration → `nxt-user-vars.g`. `nxt.g` owns the post-colour `M950` (`T`/`K`/`U`). Daemon caches plugin hook paths and runs plugin-init at most once (`nxtPluginsInited`).
@@ -138,7 +138,7 @@ Every Scylla motor pack creates the relay in [`gpio.g`](../macros/nxt-config/boa
 M950 P5 C"PD_5"
 ```
 
-That is the onboard coil (`PD_5`, aliases `relay` / `relayctr`). It stays OFF until [`M80.9`](../macros/utilities/M80.9.g) or (with UEB) [`nxt-relay.g`](../macros/system/nxt-relay.g) issues `M42 P5 S1`. Do **not** also `M81 C"relay"` — RRF cannot share the pin with ATX.
+That is the onboard coil (`PD_5`, aliases `relay` / `relayctr`). It stays OFF until Status Activate (UI confirm → `M42 P5 S1`) or console [`M80.9`](../macros/utilities/M80.9.g). Do **not** also `M81 C"relay"` — RRF cannot share the pin with ATX.
 
 ### UEB contact relay (optional)
 
@@ -148,11 +148,15 @@ For machines with a **Universal Electronics Box** contact relay on the Scylla **
 |------------------|--------------|------|
 | [`estop.g.example`](../macros/system/estop.g.example) | `0:/sys/estop.g` | E-stop contact 2 on `^PC6` → gpIn 0; `M581` fires trigger 2 |
 | [`trigger2.g.example`](../macros/system/trigger2.g.example) | `0:/sys/trigger2.g` | `M42 P5 S0`, red LED, `M112` |
-| [`nxt-relay.g`](../macros/system/nxt-relay.g) | *(plugin sys — no copy)* | Operator safety dialog, then `M42 P{nxtRelayID} S1` |
+| [`nxt-relay.g`](../macros/system/nxt-relay.g) | *(plugin sys — no copy)* | Optional manual `M98`; **not** run from boot |
 
-**Deploy:** copy both `.example` files to `0:/sys/`, verify `echo sensors.gpIn[0].value` (released = 0, pressed = 1), test E-stop **before** first motion. If you already copied `trigger2.g`, **replace it** — a leftover `M81` will not drop the coil. Reboot loads `estop.g` in the board pack (before gpio), then gpio P5, then `nxt-relay.g` from `nxt.g` when `trigger2.g` is also present.
+**Deploy:** copy both `.example` files to `0:/sys/`, verify `echo {sensors.gpIn[0].value}` (released = 0, pressed = 1), test E-stop **before** first motion. If you already copied `trigger2.g`, **replace it** — a leftover `M81` will not drop the coil. Reboot loads `estop.g` in the board pack (before gpio), then gpio P5. Boot echoes a UEB hint when Machine Power is on; it does **not** open a Safety Check dialog.
 
-**Runtime:** Enable **Machine Power** in Configuration (`nxtFeatureMachinePower`). Status panel **Activate** / **Deactivate** (or [`M80.9`](../macros/utilities/M80.9.g) / [`M81.9`](../macros/utilities/M81.9.g)) follow `state.gpOut[nxtRelayID].pwm`. `M80.9` refuses if the feature is off or gpIn 0 is pressed. DWC’s built-in ATX panel does **not** appear (no `state.atxPowerPort`).
+**Do not block boot with M291 under `nxt.g`:** a blocking dialog keeps `config.g` → `nxt.g` open on the SD so DSF cannot overwrite `nxt.g` (same class of issue as an open forever-loop `daemon.g`). Arm only after boot returns.
+
+**Runtime:** Enable **Machine Power** in Configuration (`nxtFeatureMachinePower`). After boot returns, the Status tab opens a **Vue** confirm once when the contactor is off; **Activate** sends `M42 P{nxtRelayID} S1` (or `M80` on ATX boards) — not `M80.9`, so M291/M292 races cannot block arming and `nxt.g` stays free to update. Status **Deactivate** uses the same pattern with `M42 … S0` / `M81`. Console / CAM can still use [`M80.9`](../macros/utilities/M80.9.g) / [`M81.9`](../macros/utilities/M81.9.g).
+
+`M80.9` refuses if the feature is off or gpIn 0 is pressed. DWC’s built-in ATX panel does **not** appear (no `state.atxPowerPort`).
 
 Configuration reserves coolant/aux when `nxtRelayID` is set. Save may persist `nxtRelayID=5`; gpio-role-defaults fills 5 when still null.
 

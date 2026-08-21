@@ -1731,7 +1731,24 @@ export default defineNxtComponent({
       this.datumBusy = true
       try {
         await this.sendCode('M5016')
-        this.show('Datum setup (M5016) finished — park and load probe, then Save', 'success')
+        // OM may lag one tick after macro return — re-read globals
+        const g = this.$store.state.machine.model.global
+        const pos = readConfigVector(readFirmwareGlobal(g, 'nxtToolSetterPos'))
+        const virt = readConfigNumber(readFirmwareGlobal(g, 'nxtProbeVirtualTsZ'))
+        const zOk =
+          (pos != null && pos.length >= 3 && typeof pos[2] === 'number' && Number.isFinite(pos[2])) ||
+          (virt != null && Number.isFinite(virt))
+        if (zOk) {
+          this.show(
+            this.$t('plugins.nxt.panels.calibration.datumSetupDone').toString(),
+            'success'
+          )
+        } else {
+          this.show(
+            this.$t('plugins.nxt.panels.calibration.datumSetupIncomplete').toString(),
+            'warning'
+          )
+        }
       } catch (e: any) {
         this.show(e?.message ?? 'M5016 failed', 'error')
       } finally {
