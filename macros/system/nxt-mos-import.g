@@ -72,8 +72,8 @@ if { exists(global.mosPTID) }
 if { exists(global.mosProbeToolID) }
     set global.nxtProbeToolID = { global.mosProbeToolID }
 
-; Normalize legacy MOS probe indices → single probe slot at limits.tools - 1 (no datum pocket).
-set global.nxtProbeToolID = { limits.tools - 1 }
+; Normalize legacy MOS probe indices → fixed probe slot T49.
+set global.nxtProbeToolID = 49
 if { exists(global.nxtReservedFrom) }
     set global.nxtReservedFrom = null
 if { exists(global.mosTPID) }

@@ -19,7 +19,7 @@ global nxtTutorialMode = true           ; Echo tutorial messages during probing
 global nxtWS = ""                       ; Work-state hint for RGB daemon ("probing", "homing", …)
 
 ; --- Core Settings ---
-global nxtProbeToolID = { limits.tools - 1 } ; Touch probe RRF slot (T49 on 50-tool table)
+global nxtProbeToolID = 49 ; Touch probe RRF slot (T49)
 ; nxtReservedFrom removed from always-on declares (was a dual-slot/range alias; OM budget).
 ; Legacy SD may still `set` it — boot clears/syncs only if it already exists.
 global nxtTouchProbeID = 0             ; The ID of the touch probe sensor

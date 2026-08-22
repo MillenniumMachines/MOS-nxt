@@ -1,6 +1,7 @@
 /**
  * nxt Configuration panel — nxt-user-vars.g persistence helpers.
  */
+import { NXT_PROBE_TOOL_ID } from './nxtProbeToolId'
 import { migrateLegacyBoardKitKey, migratePlatformProfileId, nxtBoardPackRelPath } from './nxtBoardManifest'
 import { readFirmwareGlobal } from './nxtToolChangerOm'
 
@@ -428,7 +429,7 @@ export function emptyConfigDraft(): NxtUserConfigDraft {
     nxtRGBCount: 1,
     nxtRGBType: 1,
     nxtRGBOrder: 5,
-    nxtProbeToolID: null,
+    nxtProbeToolID: NXT_PROBE_TOOL_ID,
     nxtDeltaMachine: null,
     nxtProbeVirtualTsZ: null,
     nxtSpindleID: null,
@@ -560,7 +561,7 @@ export function snapshotConfigFromOm(globalVal: unknown): NxtUserConfigDraft {
   draft.nxtRGBCount = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtRGBCount')) ?? 1
   draft.nxtRGBType = normalizeNxtRgbType(readConfigNumber(readFirmwareGlobal(globalVal, 'nxtRGBType')))
   draft.nxtRGBOrder = normalizeNxtRgbOrder(readConfigNumber(readFirmwareGlobal(globalVal, 'nxtRGBOrder')))
-  draft.nxtProbeToolID = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtProbeToolID'))
+  draft.nxtProbeToolID = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtProbeToolID')) ?? NXT_PROBE_TOOL_ID
   draft.nxtDeltaMachine = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtDeltaMachine'))
   draft.nxtProbeVirtualTsZ = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtProbeVirtualTsZ'))
   draft.nxtSpindleID = readConfigNumber(readFirmwareGlobal(globalVal, 'nxtSpindleID'))
@@ -714,6 +715,7 @@ export function mapMosGlobalsToConfig(globalVal: unknown, draft: NxtUserConfigDr
 }
 
 export function applySingletonDefaults(draft: NxtUserConfigDraft, ctx: MachineListContext): void {
+  draft.nxtProbeToolID = NXT_PROBE_TOOL_ID
   if (draft.nxtSpindleID === null && ctx.spindles.length === 1) {
     draft.nxtSpindleID = ctx.spindles[0].id
   }
@@ -794,9 +796,9 @@ function formatPersistedNumber(value: number | null | undefined): string {
   return value !== null && value !== undefined ? String(value) : 'null'
 }
 
-/** Last tool index when the Configuration UI has no probe-tool field (matches nxt-vars.g / nxt-boot.g). */
+/** Fixed T49 when the Configuration UI has no probe-tool field. */
 export function formatPersistedProbeToolID(value: number | null | undefined): string {
-  return value !== null && value !== undefined ? String(value) : '{ limits.tools - 1 }'
+  return value !== null && value !== undefined ? String(value) : String(NXT_PROBE_TOOL_ID)
 }
 
 function formatPersistedString(value: string | null | undefined): string {

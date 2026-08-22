@@ -22,8 +22,8 @@ export function runAllNxtUserVarsPersistenceTests(): void {
   if (emptyGcode.includes('nxtProbeInnerSampleCount')) {
     throw new Error('nxt-user-vars.g must not include probe repeatability keys')
   }
-  if (!emptyGcode.includes('set global.nxtProbeToolID = { limits.tools - 1 }')) {
-    throw new Error('nxt-user-vars.g should default nxtProbeToolID when unset')
+  if (!emptyGcode.includes('set global.nxtProbeToolID = 49')) {
+    throw new Error('nxt-user-vars.g should persist nxtProbeToolID = 49')
   }
   if (!emptyGcode.includes('set global.nxtProbeDeflection = null')) {
     throw new Error('empty draft should persist nxtProbeDeflection as null')
