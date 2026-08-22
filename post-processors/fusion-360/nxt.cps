@@ -400,6 +400,33 @@ function resetAll() {
   gCodes.reset();
 }
 
+// After G17/G18/G19, RRF arc start is machine pose — not the arc end XYZ.
+// Force an explicit G1 to the CAM start so modal out-of-plane axes cannot drift.
+var planeJustChanged = false;
+
+function forceArcStartPose(plane) {
+  if (!planeJustChanged) {
+    return;
+  }
+  planeJustChanged = false;
+  var start = getCurrentPosition();
+  resetXYZ();
+  switch (plane) {
+    case PLANE_XY:
+      writeComment("Confirm XY start before arc after plane change");
+      writeBlock(gCodesF.format(1), xVar.format(start.x), yVar.format(start.y));
+      break;
+    case PLANE_ZX:
+      writeComment("Confirm XZ start before arc after plane change");
+      writeBlock(gCodesF.format(1), xVar.format(start.x), zVar.format(start.z));
+      break;
+    case PLANE_YZ:
+      writeComment("Confirm YZ start before arc after plane change");
+      writeBlock(gCodesF.format(1), yVar.format(start.y), zVar.format(start.z));
+      break;
+  }
+}
+
 // Regular expression for safe comment characters
 var safeText = /[^0-9a-z\.:,=_\-\s]/gi;
 
@@ -987,6 +1014,9 @@ function outputPlaneCommand(plane) {
     writeln("");
     writeComment("Switch to {plane} plane for arc moves".supplant({plane: planeStr}));
     writeBlock(pc);
+    // Next circular must restate in-plane start; out-of-plane axes were suppressed.
+    resetXYZ();
+    planeJustChanged = true;
   }
 }
 
@@ -998,6 +1028,7 @@ function outputPlaneCommand(plane) {
 // The assumption here is that our current location in the
 // third axis will not change.
 function outputFullCircleCommand(plane, clockwise, cx, cy, cz, f) {
+  forceArcStartPose(plane);
   var a1,a2;
   var start  = getCurrentPosition();
   var b1, b2 = getArcVars(plane, start, cx, cy, cz);
@@ -1025,6 +1056,7 @@ function outputFullCircleCommand(plane, clockwise, cx, cy, cz, f) {
 // Output a non-full-circle, non-radiused arc. Can contain movement in all 3 axes
 // (i.e. helical), so we must supply a third axis (a3).
 function outputArcCommand(plane, clockwise, cx, cy, cz, x, y, z, f) {
+  forceArcStartPose(plane);
   var a1 = xVar.format(x);
   var a2 = yVar.format(y);
   var a3 = zVar.format(z);
@@ -1036,6 +1068,7 @@ function outputArcCommand(plane, clockwise, cx, cy, cz, x, y, z, f) {
 }
 
 function outputArcRadiusCommand(clockwise, x, y, z, f) {
+  forceArcStartPose(getCircularPlane());
   var a1 = xVar.format(x);
   var a2 = yVar.format(y);
   var a3 = zVar.format(z);
