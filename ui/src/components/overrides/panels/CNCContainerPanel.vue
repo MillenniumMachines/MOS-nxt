@@ -38,7 +38,7 @@
 											<v-tooltip location="top">
 												<template v-slot:activator="{ props }">
 													<v-chip v-bind="props" label variant="outlined" size="small" class="status-chip">
-														<span class="pill-text">{{ toolNameShort || $t('plugins.nxt.panels.status.none') }}</span>
+														<span class="pill-text">{{ toolLabelShort || $t('plugins.nxt.panels.status.none') }}</span>
 														<template #append>
 															<v-avatar
 																:color="toolNumber !== null ? 'green' : 'grey'"
@@ -50,7 +50,7 @@
 														</template>
 													</v-chip>
 												</template>
-												<span>{{ toolName || $t('plugins.nxt.panels.status.none') }}</span>
+												<span>{{ toolLabel || $t('plugins.nxt.panels.status.none') }}</span>
 											</v-tooltip>
 										</td>
 									</tr>
@@ -350,6 +350,14 @@ export default defineNxtComponent({
 
 		toolNameShort(): string {
 			return this.loadedTool.nameShort;
+		},
+
+		toolLabel(): string {
+			return this.loadedTool.label;
+		},
+
+		toolLabelShort(): string {
+			return this.loadedTool.labelShort;
 		},
 
 		toolRadius(): number | null {

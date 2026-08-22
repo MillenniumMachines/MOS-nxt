@@ -124,8 +124,16 @@ const store: DwcCompatStore = {
 
 	async dispatch(action: string, payload?: any): Promise<any> {
 		switch (action) {
-			case "machine/sendCode":
+			case "machine/sendCode": {
+				// String (legacy) or { code, noWait?, fromInput?, logReply? } for M292 / fire-and-forget
+				if (payload != null && typeof payload === "object" && typeof payload.code === "string") {
+					const fromInput = payload.fromInput === true;
+					const logReply = payload.logReply !== false;
+					const noWait = payload.noWait === true;
+					return await machineStore().sendCode(payload.code, fromInput, logReply, noWait);
+				}
 				return await machineStore().sendCode(payload as string);
+			}
 
 			case "machine/showMessage": {
 				const { type, message, title } = payload ?? {};

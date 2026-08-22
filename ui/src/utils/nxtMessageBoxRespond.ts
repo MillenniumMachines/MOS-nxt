@@ -4,6 +4,10 @@
  * S4 (mode 4) multiple-choice requires `M292 R{index} S{seq}` so meta `input` is set.
  * Legacy `M292 P{n}` alone does not populate `input` for S4 — Activate then appears to do nothing.
  *
+ * Always send the resulting code with **noWait** on standalone (see
+ * {@link installNxtM292NoWaitPatch} / DWC 3.6 MessageBoxDialog). Awaiting M292 on
+ * PollConnector hangs multi-prompt macros after the first ack.
+ *
  * Modes (MessageBoxMode): 0 none, 1 close, 2 okOnly, 3 okCancel, 4 multipleChoice, 5–7 inputs.
  */
 

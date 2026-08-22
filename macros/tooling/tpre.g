@@ -97,7 +97,13 @@ if { var.newTool == global.nxtProbeToolID }
             M99
 else
     ; ATC: replace with pick from pocket / spindle load sequence
-    M291 P{"Please install Tool " ^ var.newTool ^ " and confirm when ready."} R"Install Tool" S4 K{"OK","Cancel"} F0
+    ; Human name = tools[].name (M4000 S); legacy label T{n} — {name}
+    var toolLabel = { "T" ^ var.newTool }
+    if { var.newTool < #tools && tools[var.newTool] != null }
+        if { #tools[var.newTool].name > 0 }
+            set var.toolLabel = { "T" ^ var.newTool ^ " — " ^ tools[var.newTool].name }
+    var msgInst = { "Please install " ^ var.toolLabel ^ " and confirm when ready." }
+    M291 P{var.msgInst} R"Install Tool" S4 K{"OK","Cancel"} F0
     if { input != 0 }
         set global.nxtToolChangeCancelled = true
         set global.nxtToolChangeState = 3

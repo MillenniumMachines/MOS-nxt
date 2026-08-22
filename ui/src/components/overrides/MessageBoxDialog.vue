@@ -120,7 +120,8 @@ export default defineComponent({
     async respondToDialog(buttonIndex: number): Promise<void> {
       try {
         const code = nxtBuildM292Ack(this.messageBox, buttonIndex)
-        await store.dispatch('machine/sendCode', code)
+        // noWait: standalone PollConnector must not await M292 reply-seq
+        await store.dispatch('machine/sendCode', { code, noWait: true, logReply: false })
         console.log(`nxt UI: MessageBoxDialog response sent: ${code}`)
       } catch (error) {
         console.error('nxt UI: Failed to send dialog response:', error)

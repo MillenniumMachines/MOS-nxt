@@ -23,6 +23,7 @@
 import { registerRoute, registerPluginMessages, registerLayout } from '@/plugins'
 import { registerPluginData, PluginDataType } from './compat/dwcStore'
 import { defaultNxtCalSessionPluginData } from './utils/nxtCalSession'
+import { installNxtM292NoWaitPatch } from './utils/nxtPatchM292NoWait'
 import i18n from '@/i18n'
 
 // Import main components
@@ -46,6 +47,10 @@ const NXT_ROUTE_PATH = '/nxt'
 
 function registerNxtSideEffects(): void {
   try {
+    // Before routes/UI: stock MessageBoxDialog awaits M292; standalone PollConnector
+    // never gets matching replies — force noWait (DWC 3.6 workaround, not in 3.7).
+    installNxtM292NoWaitPatch()
+
     registerPluginMessages('nxt', { en })
 
     registerLayout(NxtShell, {

@@ -31,7 +31,7 @@
         <div class="d-flex flex-column flex-sm-row align-sm-center justify-space-between ga-3">
           <div>
             <v-icon class="mr-2" size="small">mdi-information</v-icon>
-            {{ $t('plugins.nxt.panels.probingCycles.selectProbeTool', [probeToolId]) }}
+            {{ $t('plugins.nxt.panels.probingCycles.selectProbeTool', [probeToolLabel]) }}
           </div>
           <v-btn
             color="primary"
@@ -453,6 +453,7 @@ import {
   isNxtProbeToolLoaded,
   resolveNxtProbeToolId
 } from '../../utils/nxtEnableProbe'
+import { formatToolLabelFromTools } from '../../utils/nxtLoadedToolStatus'
 import {
   readNxtUiState,
   writeNxtUiSelectedWcs
@@ -661,8 +662,14 @@ export default defineNxtComponent({
     touchProbeEnabled(): boolean {
       return isNxtFeatureTouchProbe(this.$store.state.machine.model.global)
     },
-    probeToolId(): number | null {
+    probeToolId(): number {
       return resolveNxtProbeToolId(this.$store.state.machine.model.global)
+    },
+    /** M4000 S human name with T# for Enable Probe copy (`T{n} — {name}`). */
+    probeToolLabel(): string {
+      const id = this.probeToolId
+      const label = formatToolLabelFromTools(this.$store.state.machine.model.tools, id)
+      return label.length > 0 ? label : `T${id}`
     },
     touchProbeSelected(): boolean {
       const cur = this.$store.state.machine.model?.state?.currentTool
@@ -742,7 +749,9 @@ export default defineNxtComponent({
         )
         this.$store.dispatch('machine/showMessage', {
           type: 'success',
-          message: this.$t('plugins.nxt.panels.probingCycles.enableProbeDone', [id]).toString()
+          message: this.$t('plugins.nxt.panels.probingCycles.enableProbeDone', [
+            this.probeToolLabel
+          ]).toString()
         })
       } catch (error) {
         this.$store.dispatch('machine/showMessage', {

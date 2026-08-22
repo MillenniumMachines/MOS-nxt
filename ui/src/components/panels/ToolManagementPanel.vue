@@ -426,6 +426,7 @@ import {
   maxUserToolIndex,
   parseFusionToolsFile
 } from '../../utils/fusionToolsImport'
+import { formatToolLabelFromTools } from '../../utils/nxtLoadedToolStatus'
 
 function machineModel(): Record<string, any> {
   const m = store.state.machine?.model
@@ -543,12 +544,8 @@ export default defineNxtComponent({
       if (ct < 0) {
         return this.$t('plugins.nxt.panels.toolManagement.activeNone').toString()
       }
-      const tools = machineModel().tools
-      let name = ''
-      if (Array.isArray(tools) && tools[ct] && typeof tools[ct].name === 'string') {
-        name = tools[ct].name
-      }
-      return name.length > 0 ? `T${ct} — ${name}` : `T${ct}`
+      const label = formatToolLabelFromTools(machineModel().tools, ct)
+      return label.length > 0 ? label : `T${ct}`
     },
 
     indexError() {

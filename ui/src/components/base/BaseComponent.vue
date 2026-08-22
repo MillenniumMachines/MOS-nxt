@@ -8,6 +8,7 @@ import { defineComponent } from 'vue'
 import { Axis } from "@duet3d/objectmodel";
 import store from "../../compat/dwcStore";
 import { extendComponent } from "../../compat/vueCompat";
+import { NXT_PROBE_TOOL_ID } from '../../utils/nxtProbeToolId'
 import { readFirmwareGlobal } from "../../utils/nxtToolChangerOm";
 
 /**
@@ -77,17 +78,18 @@ const BaseComponent = defineComponent({
     },
 
     /**
-     * Get the configured probe tool (last tool by default)
+     * Get the configured probe tool (T49 / index 49).
      */
     probeTool(): any {
       const tools = store.state.machine.model.tools
       const globals = this.globals
-      const probeToolId = globals.nxtProbeToolID
-      if (probeToolId !== undefined && tools[probeToolId]) {
+      const raw = globals.nxtProbeToolID
+      const probeToolId =
+        typeof raw === 'number' && Number.isFinite(raw) && raw >= 0 ? raw : NXT_PROBE_TOOL_ID
+      if (tools[probeToolId]) {
         return tools[probeToolId]
       }
-      // Default to last tool if nxtProbeToolID not set
-      return tools[tools.length - 1] || null
+      return tools[NXT_PROBE_TOOL_ID] || null
     },
 
     /**
@@ -210,11 +212,16 @@ const BaseComponent = defineComponent({
 
   methods: {
     /**
-     * Send G-code command to the machine
+     * Send G-code command to the machine.
+     * @param noWait When true, return as soon as the code is enqueued (needed for M292
+     *   on standalone PollConnector; the Pinia M292 patch also forces this).
      */
-    async sendCode(code: string): Promise<any> {
+    async sendCode(code: string, noWait: boolean = false): Promise<any> {
       try {
-        return await store.dispatch('machine/sendCode', code)
+        return await store.dispatch(
+          'machine/sendCode',
+          noWait ? { code, noWait: true } : code
+        )
       } catch (error) {
         console.error('nxt UI: Failed to send code:', code, error)
         throw error

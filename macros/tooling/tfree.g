@@ -49,7 +49,14 @@ if { state.currentTool == global.nxtProbeToolID }
     ; Keep nxtToolCacheIdx/Z for probe this session — tpost relative offset needs it
 else
     ; Standard cutting tool: removal only. New tool measurement runs in tpost.g.
-    M291 P{"Please remove Tool " ^ state.currentTool ^ " and confirm when complete."} R"Remove Tool" S4 K{"OK","Cancel"} F0
+    ; Human name = tools[].name (M4000 S); legacy label T{n} — {name}
+    var remTool = { state.currentTool }
+    var toolLabel = { "T" ^ var.remTool }
+    if { var.remTool < #tools && tools[var.remTool] != null }
+        if { #tools[var.remTool].name > 0 }
+            set var.toolLabel = { "T" ^ var.remTool ^ " — " ^ tools[var.remTool].name }
+    var msgRem = { "Please remove " ^ var.toolLabel ^ " and confirm when complete." }
+    M291 P{var.msgRem} R"Remove Tool" S4 K{"OK","Cancel"} F0
 
 ; Cancel (input != 0): soft skip — do not abort. tpre skips install; tpost skips measure.
 if { input != 0 }

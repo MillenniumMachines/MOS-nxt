@@ -107,7 +107,8 @@ export default defineNxtComponent({
 
       try {
         const code = nxtBuildM292Ack(messageBox, buttonIndex)
-        await this.sendCode(code)
+        // noWait: standalone PollConnector must not await M292 reply-seq
+        await this.sendCode(code, true)
         console.log(`nxt UI: M291 dialog response sent: ${code}`)
       } catch (error) {
         console.error('nxt UI: Failed to send M291 dialog response:', error)
