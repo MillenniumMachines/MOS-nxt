@@ -1003,18 +1003,62 @@
                   @update:model-value="onToolSetterV2Change($event)"
                 />
               </v-col>
-              <v-col v-if="configDraft.nxtToolSetterV2" cols="12" md="6">
-                <v-select
-                  :model-value="configDraft.nxtToolSetterRefDir"
-                  :items="toolSetterRefDirItems"
-                  item-title="title"
-                  item-value="value"
-                  :label="$t('plugins.nxt.panels.configuration.toolSetterRefDir')"
-                  :hint="$t('plugins.nxt.panels.configuration.toolSetterRefDirHint')"
-                  persistent-hint
-                  :disabled="uiFrozen"
-                  @update:model-value="onToolSetterRefDirChange($event)"
-                />
+              <v-col v-if="configDraft.nxtToolSetterV2" cols="12">
+                <div class="text-subtitle-2 mb-1">
+                  {{ $t('plugins.nxt.panels.configuration.toolSetterRefDir') }}
+                </div>
+                <div class="text-caption text-medium-emphasis mb-2">
+                  {{ $t('plugins.nxt.panels.operatorFaces.hint') }}
+                </div>
+                <div class="nxt-face-pad nxt-face-pad--toolsetter mb-2">
+                  <v-btn
+                    class="nxt-face-pad__back"
+                    size="small"
+                    :variant="configDraft.nxtToolSetterRefDir === 2 ? 'flat' : 'outlined'"
+                    :color="configDraft.nxtToolSetterRefDir === 2 ? 'primary' : undefined"
+                    :disabled="uiFrozen"
+                    @click="onToolSetterRefDirChange(2)"
+                  >
+                    {{ $t('plugins.nxt.panels.operatorFaces.back') }}
+                  </v-btn>
+                  <v-btn
+                    class="nxt-face-pad__left"
+                    size="small"
+                    :variant="configDraft.nxtToolSetterRefDir === 0 ? 'flat' : 'outlined'"
+                    :color="configDraft.nxtToolSetterRefDir === 0 ? 'primary' : undefined"
+                    :disabled="uiFrozen"
+                    @click="onToolSetterRefDirChange(0)"
+                  >
+                    {{ $t('plugins.nxt.panels.operatorFaces.left') }}
+                  </v-btn>
+                  <div class="nxt-face-pad__center" aria-hidden="true">●</div>
+                  <v-btn
+                    class="nxt-face-pad__right"
+                    size="small"
+                    :variant="configDraft.nxtToolSetterRefDir === 1 ? 'flat' : 'outlined'"
+                    :color="configDraft.nxtToolSetterRefDir === 1 ? 'primary' : undefined"
+                    :disabled="uiFrozen"
+                    @click="onToolSetterRefDirChange(1)"
+                  >
+                    {{ $t('plugins.nxt.panels.operatorFaces.right') }}
+                  </v-btn>
+                  <v-btn
+                    class="nxt-face-pad__front"
+                    size="small"
+                    :variant="configDraft.nxtToolSetterRefDir === 3 ? 'flat' : 'outlined'"
+                    :color="configDraft.nxtToolSetterRefDir === 3 ? 'primary' : undefined"
+                    :disabled="uiFrozen"
+                    @click="onToolSetterRefDirChange(3)"
+                  >
+                    {{ $t('plugins.nxt.panels.operatorFaces.front') }}
+                  </v-btn>
+                </div>
+                <div
+                  v-if="toolSetterRefPadPreview"
+                  class="text-caption text-medium-emphasis"
+                >
+                  {{ toolSetterRefPadPreview }}
+                </div>
               </v-col>
             </v-row>
             <v-row>
@@ -1727,6 +1771,12 @@ import {
   type NxtUserConfigDraft
 } from '../../utils/nxtUserVarsPersistence'
 import {
+  computeV2RefPadXY,
+  computeV2RefPadZ,
+  formatRefDirLabel,
+  type NxtOperatorFaceLabels
+} from '../../utils/nxtOperatorFaces'
+import {
   ensureCustomGlobals,
   persistNxtUserConfig,
   syncCustomARequestedSentinel
@@ -1854,6 +1904,44 @@ export default defineNxtComponent({
         return 'Not configured'
       }
       return `[${pos.map((v: number) => Number(v).toFixed(3)).join(', ')}]`
+    },
+
+    operatorFaceLabels(): NxtOperatorFaceLabels {
+      return {
+        left: this.$t('plugins.nxt.panels.operatorFaces.left').toString(),
+        right: this.$t('plugins.nxt.panels.operatorFaces.right').toString(),
+        front: this.$t('plugins.nxt.panels.operatorFaces.front').toString(),
+        back: this.$t('plugins.nxt.panels.operatorFaces.back').toString()
+      }
+    },
+
+    toolSetterRefPadPreview(): string {
+      if (!this.configDraft.nxtToolSetterV2) {
+        return ''
+      }
+      const pos = this.configDraft.nxtToolSetterPos
+      if (
+        !pos ||
+        !Array.isArray(pos) ||
+        pos.length < 2 ||
+        !Number.isFinite(Number(pos[0])) ||
+        !Number.isFinite(Number(pos[1]))
+      ) {
+        return ''
+      }
+      const refDir = this.configDraft.nxtToolSetterRefDir
+      const label = formatRefDirLabel(refDir, this.operatorFaceLabels)
+      const xy = computeV2RefPadXY(Number(pos[0]), Number(pos[1]), refDir)
+      const zStr =
+        pos.length >= 3 && Number.isFinite(Number(pos[2]))
+          ? computeV2RefPadZ(Number(pos[2])).toFixed(3)
+          : '—'
+      return this.$t('plugins.nxt.panels.configuration.toolSetterRefPadPreview', [
+        label,
+        xy.x.toFixed(3),
+        xy.y.toFixed(3),
+        zStr
+      ]).toString()
     },
 
     /**
@@ -2269,15 +2357,6 @@ export default defineNxtComponent({
         { value: 3, title: 'RBG (K3)' },
         { value: 4, title: 'GBR (K4)' },
         { value: 5, title: 'GRB (K5, NeoPixel default)' }
-      ]
-    },
-
-    toolSetterRefDirItems(): Array<{ value: number; title: string }> {
-      return [
-        { value: 0, title: '+X' },
-        { value: 1, title: '−X' },
-        { value: 2, title: '+Y' },
-        { value: 3, title: '−Y' }
       ]
     },
 
@@ -3989,5 +4068,36 @@ export default defineNxtComponent({
 }
 .font-mono {
   font-family: monospace;
+}
+.nxt-face-pad {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(4.5rem, 1fr));
+  gap: 0.5rem;
+  max-width: 20rem;
+}
+.nxt-face-pad__back {
+  grid-column: 2;
+  grid-row: 1;
+}
+.nxt-face-pad__left {
+  grid-column: 1;
+  grid-row: 2;
+}
+.nxt-face-pad__center {
+  grid-column: 2;
+  grid-row: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  color: rgba(var(--v-theme-on-surface), 0.45);
+}
+.nxt-face-pad__right {
+  grid-column: 3;
+  grid-row: 2;
+}
+.nxt-face-pad__front {
+  grid-column: 2;
+  grid-row: 3;
 }
 </style>

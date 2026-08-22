@@ -27,13 +27,66 @@
         {{ $t('plugins.nxt.panels.calibration.needConnection') }}
       </v-alert>
 
-      <!-- Phase 0: static datum -->
-      <v-card v-if="needsProbeDatumSetup" variant="outlined" class="mb-4 pa-3">
-        <div class="text-subtitle-2 mb-2">{{ $t('plugins.nxt.panels.calibration.phase0Title') }}</div>
-        <p class="text-caption text-grey mb-3">{{ phase0HintText }}</p>
-        <div class="d-flex flex-wrap ga-2 mb-3">
+      <!-- Phase 0 / probe setup readiness -->
+      <v-card v-if="showProbeSetupReadiness" variant="outlined" class="mb-4 pa-3">
+        <div class="text-subtitle-2 mb-2">
+          {{
+            needsProbeDatumSetup
+              ? $t('plugins.nxt.panels.calibration.phase0Title')
+              : $t('plugins.nxt.panels.calibration.readyTitle')
+          }}
+        </div>
+        <p v-if="needsProbeDatumSetup" class="text-caption text-grey mb-3">{{ phase0HintText }}</p>
+        <p v-else class="text-caption text-grey mb-3">
+          {{ $t('plugins.nxt.panels.calibration.readyHint') }}
+        </p>
+
+        <div class="mb-3">
+          <div class="text-caption font-weight-medium mb-1">
+            {{ $t('plugins.nxt.panels.calibration.readyListTitle') }}
+          </div>
+          <v-list density="compact" class="py-0 bg-transparent">
+            <v-list-item
+              v-for="row in probeSetupReadinessRows"
+              :key="row.id"
+              class="px-0 min-height-0"
+              density="compact"
+            >
+              <template #prepend>
+                <v-icon
+                  size="small"
+                  :color="row.ok ? 'success' : row.severity === 'error' ? 'error' : 'warning'"
+                  class="mr-2"
+                >
+                  {{ row.ok ? 'mdi-check-circle' : row.severity === 'error' ? 'mdi-close-circle' : 'mdi-alert' }}
+                </v-icon>
+              </template>
+              <v-list-item-title class="text-caption text-wrap">
+                {{ row.label }}
+              </v-list-item-title>
+            </v-list-item>
+          </v-list>
+        </div>
+
+        <div v-if="needsProbeDatumSetup" class="d-flex flex-wrap ga-2 mb-3">
           <v-chip size="small" :color="toolSetterPosSet ? 'success' : 'warning'" variant="outlined">
             {{ $t('plugins.nxt.panels.calibration.chipToolSetter') }}: {{ toolSetterPosDisplay }}
+          </v-chip>
+          <v-chip
+            v-if="toolSetterV2"
+            size="small"
+            color="info"
+            variant="outlined"
+          >
+            {{ $t('plugins.nxt.panels.calibration.chipRefSide') }}: {{ toolSetterRefSideDisplay }}
+          </v-chip>
+          <v-chip
+            v-if="toolSetterV2 && toolSetterRefPadPreview"
+            size="small"
+            color="info"
+            variant="tonal"
+          >
+            {{ toolSetterRefPadPreview }}
           </v-chip>
           <v-chip size="small" :color="touchProbeRefPosSet ? 'success' : 'warning'" variant="outlined">
             {{ $t('plugins.nxt.panels.calibration.chipRefPos') }}: {{ touchProbeRefPosDisplay }}
@@ -47,7 +100,7 @@
             <v-btn
               block
               color="primary"
-              :disabled="uiFrozen || !isConnected"
+              :disabled="uiFrozen || !isConnected || !canRunM5016"
               :loading="datumBusy"
               @click="runDatumSetup"
             >
@@ -59,7 +112,7 @@
               block
               color="secondary"
               variant="outlined"
-              :disabled="uiFrozen || !isConnected"
+              :disabled="uiFrozen || !isConnected || !canEnableProbeFromPhase0"
               :loading="probeLoadBusy"
               @click="parkAndLoadProbe"
             >
@@ -78,10 +131,31 @@
             </v-btn>
           </v-col>
         </v-row>
+        <v-alert
+          v-if="!canRunM5016 && isConnected"
+          type="error"
+          density="compact"
+          variant="tonal"
+          class="mt-3 mb-0"
+        >
+          {{ $t('plugins.nxt.panels.calibration.readyBlockM5016') }}
+        </v-alert>
+        <v-alert
+          v-else-if="!canEnableProbeFromPhase0 && isConnected"
+          type="warning"
+          density="compact"
+          variant="tonal"
+          class="mt-3 mb-0"
+        >
+          <div>{{ $t('plugins.nxt.panels.calibration.readyBlockEnableProbe') }}</div>
+          <ul v-if="enableProbeBlockerLabels.length" class="text-caption mt-2 mb-0 pl-4">
+            <li v-for="(line, i) in enableProbeBlockerLabels" :key="i">{{ line }}</li>
+          </ul>
+        </v-alert>
       </v-card>
 
       <v-alert
-        v-if="touchProbeReady && probeToolIdResolved != null && !probeToolLoaded"
+        v-if="touchProbeReady && !probeToolLoaded"
         type="info"
         density="compact"
         variant="outlined"
@@ -89,13 +163,13 @@
       >
         <div class="d-flex flex-wrap align-center justify-space-between ga-2">
           <span>
-            {{ $t('plugins.nxt.panels.calibration.probeNotInstalled', [probeToolIdResolved]) }}
+            {{ $t('plugins.nxt.panels.calibration.probeNotInstalled', [probeToolLabel]) }}
           </span>
           <v-btn
             size="small"
             color="primary"
             :loading="probeLoadBusy"
-            :disabled="uiFrozen || !isConnected || probeLoadBusy"
+            :disabled="uiFrozen || !isConnected || probeLoadBusy || !canEnableProbeFromPhase0"
             @click="parkAndLoadProbe"
           >
             {{ $t('plugins.nxt.panels.calibration.enableProbe') }}
@@ -944,6 +1018,12 @@ import {
   isFactoryZeroDeflection,
   type NxtUserConfigDraft
 } from '../../utils/nxtUserVarsPersistence'
+import {
+  computeV2RefPadXY,
+  computeV2RefPadZ,
+  formatRefDirLabel,
+  type NxtOperatorFaceLabels
+} from '../../utils/nxtOperatorFaces'
 import { persistNxtUserConfig } from '../../utils/nxtUserConfigPersist'
 import { ensureSetFirmwareGlobal, formatOmRhs } from '../../utils/nxtOmEnsureSet'
 import {
@@ -960,6 +1040,11 @@ import {
   isNxtProbeToolLoaded,
   resolveNxtProbeToolId
 } from '../../utils/nxtEnableProbe'
+import { formatToolLabelFromTools } from '../../utils/nxtLoadedToolStatus'
+import {
+  assessNxtProbeSetupReadiness,
+  type NxtProbeReadinessItem
+} from '../../utils/nxtProbeSetupReadiness'
 
 type AxisLetter = 'X' | 'Y' | 'Z' | 'A'
 
@@ -1099,8 +1184,14 @@ export default defineNxtComponent({
         typeof readFirmwareGlobal(g, 'nxtTouchProbeID') === 'number'
       )
     },
-    probeToolIdResolved(): number | null {
+    probeToolIdResolved(): number {
       return resolveNxtProbeToolId(this.$store.state.machine.model.global)
+    },
+    /** M4000 S human name with T# for Enable Probe copy (`T{n} — {name}`). */
+    probeToolLabel(): string {
+      const id = this.probeToolIdResolved
+      const label = formatToolLabelFromTools(this.$store.state.machine.model.tools, id)
+      return label.length > 0 ? label : `T${id}`
     },
     probeToolLoaded(): boolean {
       const cur = this.$store.state.machine.model?.state?.currentTool
@@ -1366,6 +1457,35 @@ export default defineNxtComponent({
       const v = this.toolSetterPosVec
       return v ? v.map((n: number) => n.toFixed(3)).join(', ') : '—'
     },
+    operatorFaceLabels(): NxtOperatorFaceLabels {
+      return {
+        left: this.$t('plugins.nxt.panels.operatorFaces.left').toString(),
+        right: this.$t('plugins.nxt.panels.operatorFaces.right').toString(),
+        front: this.$t('plugins.nxt.panels.operatorFaces.front').toString(),
+        back: this.$t('plugins.nxt.panels.operatorFaces.back').toString()
+      }
+    },
+    toolSetterRefSideDisplay(): string {
+      const refDir = readConfigNumber(readFirmwareGlobal(this.globalOm, 'nxtToolSetterRefDir'))
+      return formatRefDirLabel(refDir, this.operatorFaceLabels)
+    },
+    toolSetterRefPadPreview(): string {
+      if (!this.toolSetterV2) {
+        return ''
+      }
+      const pos = this.toolSetterPosVec
+      if (!pos || !Number.isFinite(pos[0]) || !Number.isFinite(pos[1])) {
+        return ''
+      }
+      const refDir = readConfigNumber(readFirmwareGlobal(this.globalOm, 'nxtToolSetterRefDir'))
+      const xy = computeV2RefPadXY(pos[0], pos[1], refDir)
+      const zStr = Number.isFinite(pos[2]) ? computeV2RefPadZ(pos[2]).toFixed(3) : '—'
+      return this.$t('plugins.nxt.panels.calibration.chipRefPadPreview', [
+        xy.x.toFixed(3),
+        xy.y.toFixed(3),
+        zStr
+      ]).toString()
+    },
     touchProbeRefPosDisplay(): string {
       const v = this.touchProbeRefPosVec
       return v ? v.map((n: number) => n.toFixed(3)).join(', ') : '—'
@@ -1381,6 +1501,50 @@ export default defineNxtComponent({
         readConfigBool(readFirmwareGlobal(g, 'nxtFeatureToolSetter')) &&
         readConfigNumber(readFirmwareGlobal(g, 'nxtTouchProbeID')) != null &&
         readConfigNumber(readFirmwareGlobal(g, 'nxtToolSetterID')) != null
+      )
+    },
+    showProbeSetupReadiness(): boolean {
+      const g = this.globalOm
+      return (
+        readConfigBool(readFirmwareGlobal(g, 'nxtFeatureTouchProbe')) ||
+        readConfigBool(readFirmwareGlobal(g, 'nxtFeatureToolSetter'))
+      )
+    },
+    probeSetupReadiness(): ReturnType<typeof assessNxtProbeSetupReadiness> {
+      const model = this.$store.state.machine.model as {
+        sensors?: { probes?: unknown }
+        tools?: unknown
+        move?: { axes?: unknown }
+      }
+      return assessNxtProbeSetupReadiness({
+        globalOm: this.globalOm,
+        probes: model.sensors?.probes,
+        tools: model.tools,
+        axes: model.move?.axes
+      })
+    },
+    probeSetupReadinessRows(): Array<{
+      id: string
+      ok: boolean
+      severity: string
+      label: string
+    }> {
+      return this.probeSetupReadiness.items.map((it: NxtProbeReadinessItem) => ({
+        id: it.id,
+        ok: it.ok,
+        severity: it.severity,
+        label: this.$t(`plugins.nxt.panels.calibration.${it.messageKey}`).toString()
+      }))
+    },
+    canRunM5016(): boolean {
+      return this.isConnected && !this.probeSetupReadiness.blockM5016
+    },
+    canEnableProbeFromPhase0(): boolean {
+      return this.isConnected && !this.probeSetupReadiness.blockEnableProbe
+    },
+    enableProbeBlockerLabels(): string[] {
+      return this.probeSetupReadiness.blockEnableProbeReasons.map((key: string) =>
+        this.$t(`plugins.nxt.panels.calibration.${key}`).toString()
       )
     },
     needsProbeDatumSetup(): boolean {
@@ -1728,6 +1892,10 @@ export default defineNxtComponent({
       }
     },
     async runDatumSetup() {
+      if (!this.canRunM5016) {
+        this.show(this.$t('plugins.nxt.panels.calibration.readyBlockM5016').toString(), 'error')
+        return
+      }
       this.datumBusy = true
       try {
         await this.sendCode('M5016')
@@ -1756,11 +1924,18 @@ export default defineNxtComponent({
       }
     },
     async parkAndLoadProbe() {
-      const toolId = this.probeToolIdResolved
-      if (toolId == null) {
-        this.show(this.$t('plugins.nxt.panels.calibration.probeToolIdUnset').toString(), 'error')
+      if (!this.canEnableProbeFromPhase0) {
+        const detail =
+          this.enableProbeBlockerLabels.length > 0
+            ? `: ${this.enableProbeBlockerLabels.join('; ')}`
+            : ''
+        this.show(
+          this.$t('plugins.nxt.panels.calibration.readyBlockEnableProbe').toString() + detail,
+          'warning'
+        )
         return
       }
+      const toolId = this.probeToolIdResolved
       this.probeLoadBusy = true
       try {
         await enableNxtProbeTool(
@@ -1768,7 +1943,7 @@ export default defineNxtComponent({
           toolId
         )
         this.show(
-          this.$t('plugins.nxt.panels.calibration.enableProbeDone', [toolId]).toString(),
+          this.$t('plugins.nxt.panels.calibration.enableProbeDone', [this.probeToolLabel]).toString(),
           'success'
         )
       } catch (e: any) {

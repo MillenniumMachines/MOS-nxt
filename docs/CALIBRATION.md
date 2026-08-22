@@ -379,11 +379,34 @@ The **Calibration** tab on the main nxt dashboard (`ui/src/nxt.vue` → `Calibra
 
 **Phase 0 — Probe / datum setup** (when touch probe + toolsetter are enabled but `nxtTouchProbeRefPos` or `nxtDeltaMachine` is unset):
 
-1. `M5016` — launched from Calibration (must run from DWC; **not** gated on motion-system `thisInput.active`). Uses M291 **S2/S3** (jog axes require S2/S3; avoids S4/`M292 R{n}` channel races). Ack is **stock DWC modal only** (nxt does not mount a second Action Required widget). Verify configured toolsetter input (press platen) → jog ~20 mm above platen → probe for `nxtToolSetterPos`, then:
+1. `M5016` — launched from Calibration (must run from DWC; **not** gated on motion-system `thisInput.active`). Uses M291 **S2/S3** (jog axes require S2/S3; avoids S4/`M292 R{n}` channel races). Ack is **stock DWC modal only** (nxt does not mount a second Action Required widget). On **standalone** (no SBC), nxt forces `M292` with `noWait` at plugin load so sequential prompts do not hang after the first OK (DWC 3.6 workaround; see [UI_IMPLEMENTATION.md](UI_IMPLEMENTATION.md#standalone-no-sbc-m292-must-not-await-replies)). Verify configured toolsetter input (press platen) → jog ~20 mm above platen → probe for `nxtToolSetterPos`, then:
    - **V1:** mill paper-touch on the reference surface (not a probe trigger) → set `nxtTouchProbeRefPos` → `nxtDeltaMachine = Z_ref - Z_act`. Later **G6511** seeks **`nxtToolSetterProbeTravelMm`** (default 80 mm) past that Z.
    - **V2.0** (`nxtToolSetterV2` + `nxtToolSetterRefDir`): compute ref pad at ±13 mm XY from platen and `Z_ref = Z_act − 6`, then **jog-confirm** near that pad (never info-only). Mill datum is platen `Z_act`, not a later G6511.
 2. **Enable Probe** (`G53 G0 Z{move.axes[2].max}` → `T{nxtProbeToolID}`) — raises to machine Z **maximum** (safe up), then installs the probe tool. Install/remove/`nxt-probe-sensor-wait` prompts use **S4** OK/Cancel (soft Cancel; **no** `abort` in the T-stack). Ack is stock DWC modal only. **Never** rapids to WCS Z0 (workpiece). Same control on the Probing tab. Does **not** send G6511 itself; probe **`tpost`** runs **`G6511 R1 S0`** at **`nxtTouchProbeRefPos`** when datum is complete (else soft-skips).
 3. **Save** persists positions + delta to `nxt-user-vars.g`
+
+**Readiness (Calibration UI):** When touch probe or toolsetter is enabled, Phase 0 shows a live checklist (features, sensor IDs/slots, probe tool, datum quartet, tool-change idle, axes homed). **Run M5016** is blocked only by hard preflight that the macro itself needs (features, configured `nxtTouchProbeID`, live toolsetter slot, axes/TC idle) — not by a live tip slot or probe tool (those are for **Enable Probe** after datum). **Enable Probe** also requires tip slot/type, probe tool, and ref/delta.
+
+#### Remote machine stuck on prompts
+
+If your machine completes M5016 / Enable Probe but another does not, treat it as **config / sensors / DWC skew**, not a missing macro path:
+
+1. **Calibration checklist** — clear all red items; press tip and platen so `sensors.probes[K].value` crosses threshold (IDs alone are not enough).
+2. **Console dump** (RRF uses `^` for string concat, not `+`):
+
+```text
+echo {"TP=" ^ global.nxtFeatureTouchProbe ^ " TS=" ^ global.nxtFeatureToolSetter}
+echo {"probeTool=" ^ global.nxtProbeToolID ^ " touchK=" ^ global.nxtTouchProbeID ^ " setK=" ^ global.nxtToolSetterID}
+echo {"setterPos=" ^ global.nxtToolSetterPos}
+echo {"refPos=" ^ global.nxtTouchProbeRefPos}
+echo {"delta=" ^ global.nxtDeltaMachine ^ " virtual=" ^ global.nxtProbeVirtualTsZ}
+echo {"tcState=" ^ global.nxtToolChangeState ^ " tcCancel=" ^ global.nxtToolChangeCancelled}
+echo {sensors.probes[global.nxtTouchProbeID].value[0]}
+echo {sensors.probes[global.nxtToolSetterID].value[0]}
+```
+
+3. **Sync** hardened `tpre`/`tfree`/`tpost`/`nxt-probe-sensor-wait` + a plugin ZIP built for the host DWC version exactly.
+4. Status stuck **Changing Tool** with `nxtToolChangeState` null → **`M999`** (no RRF clear API).
 
 **Mode:** When the touch probe feature is ready, choose **Manual (1-2-3)** or **Probe**. Probe-assisted moves require the probe tool installed (Enable Probe). Phase 0 datum remains recommended for mill length (M5016 platen Z) / deflection height, but does not hard-block probe mode.
 

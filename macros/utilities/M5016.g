@@ -144,18 +144,34 @@ if { var.nxtTsV2 }
 
     var refZ = { var.zAct + var.v2DzMm }
 
+    var refFace = "Left"
+    var refAxis = "(+X)"
+    if { var.refDir == 0 }
+        set var.refFace = "Left"
+        set var.refAxis = "(+X)"
+    elif { var.refDir == 1 }
+        set var.refFace = "Right"
+        set var.refAxis = "(-X)"
+    elif { var.refDir == 2 }
+        set var.refFace = "Back"
+        set var.refAxis = "(+Y)"
+    elif { var.refDir == 3 }
+        set var.refFace = "Front"
+        set var.refAxis = "(-Y)"
+
     set global.nxtTouchProbeRefPos = { var.refX, var.refY, var.refZ }
     set global.nxtDeltaMachine = { var.refZ - var.zAct }
 
-    var msgV2a = "V2.0 ref pad at XY ≈ {" ^ var.refX ^ ", " ^ var.refY ^ "}."
-    var msgV2b = { var.msgV2a ^ "<br/>Jog near the pad with clearance; Z target ≈ " ^ var.refZ ^ " mm." }
-    var msgV2c = { var.msgV2b ^ "<br/>Confirm tip is clear of clamps, then OK." }
+    var msgV2a = "V2.0 ref pad on the " ^ var.refFace ^ " side " ^ var.refAxis ^ "."
+    var msgV2b = { var.msgV2a ^ "<br/>XY ≈ {" ^ var.refX ^ ", " ^ var.refY ^ "}; Z target ≈ " ^ var.refZ ^ " mm." }
+    var msgV2c = { var.msgV2b ^ "<br/>Jog near the pad with clearance, then OK." }
     var msgV2d = { var.msgV2c ^ "<br/><b>CAUTION</b>: Jogging does not watch probes." }
     M291 P{var.msgV2d} R"nxt: Datum setup" X1 Y1 Z1 J1 T0 S3
     if { result != 0 }
         abort { "M5016: Cancelled — verify V2 ref pad location before continuing" }
 
     echo "M5016: nxtTouchProbeRefPos = {" ^ var.refX ^ ", " ^ var.refY ^ ", " ^ var.refZ ^ "}"
+    echo "M5016: ref pad side = " ^ var.refFace ^ " " ^ var.refAxis
     echo "M5016: nxtDeltaMachine = " ^ global.nxtDeltaMachine ^ " mm (Z_ref - Z_act)"
 else
     ; V1: jog datum onto probe reference surface
