@@ -34,7 +34,7 @@ Configure your CNC spindle parameters:
 
 **Usage Notes:**
 - Spindle ID should match your RRF configuration
-- Acceleration/deceleration times are used by M3.9/M4.9/M5.9 macros to wait for spindle speed changes. Boot default accel/decel wait is **10 s**. When ArborCTL firmware is live, Configuration disables hold-to-measure and shows the VFD ramp; **VFD Apply** persists `nxtSpindleAccelSec` / `nxtSpindleDecelSec`.
+- Acceleration/deceleration times are the full wait ceiling for M3.9/M4.9/M5.9 (and the VFD ramp when Apply pushes `J`/`K`). Boot default is **10 s**. With ArborCTL status live, those macros early-exit when the VFD reports ready/stopped, otherwise continue after the timeout. When ArborCTL firmware is live, Configuration disables hold-to-measure and shows the VFD ramp; **VFD Apply** persists `nxtSpindleAccelSec` / `nxtSpindleDecelSec`.
 
 ### 3. Touch Probe Configuration
 

@@ -41,7 +41,8 @@ if { exists(param.D) && param.D < 0 }
 ; Wait for all movement to stop before continuing.
 M400
 
-; Dwell: nxtSpindleAccelSec (10 s if unset/<=0). D overrides. Decel uses nxtSpindleDecelSec.
+; Full nxtSpindleAccelSec (10 s if unset/<=0). D overrides. Decel uses nxtSpindleDecelSec.
+; No RPM scaling — timeout matches VFD J/K ramp seconds from Apply.
 var dwellTime = 10
 if { exists(global.nxtSpindleAccelSec) }
     if { global.nxtSpindleAccelSec != null }
@@ -51,19 +52,14 @@ if { exists(global.nxtSpindleAccelSec) }
 ; D parameter always overrides the dwell time
 if { exists(param.D) }
     set var.dwellTime = { param.D }
-else
-    ; If we're changing spindle speed
-    if { exists(param.S) }
-        ; If this is a deceleration, adjust dT to use the deceleration timer
-        if { spindles[var.spindleID].current > param.S }
-            set var.dwellTime = 10
-            if { exists(global.nxtSpindleDecelSec) }
-                if { global.nxtSpindleDecelSec != null }
-                    if { global.nxtSpindleDecelSec > 0 }
-                        set var.dwellTime = { global.nxtSpindleDecelSec }
-
-        ; Now calculate the change in velocity as a percentage
-        set var.dwellTime = { ceil(var.dwellTime * (abs(spindles[var.spindleID].current - param.S) / spindles[var.spindleID].max) * 1.05) }
+elif { exists(param.S) }
+    ; Slowing down: use full deceleration seconds as the wait ceiling
+    if { spindles[var.spindleID].current > param.S }
+        set var.dwellTime = 10
+        if { exists(global.nxtSpindleDecelSec) }
+            if { global.nxtSpindleDecelSec != null }
+                if { global.nxtSpindleDecelSec > 0 }
+                    set var.dwellTime = { global.nxtSpindleDecelSec }
 
 ; All safety checks have now been passed, so we can start the spindle using M3 here.
 
@@ -82,7 +78,39 @@ else
 if { result != 0 }
     abort { "Failed to control Spindle ID " ^ var.spindleID ^ "!" }
 
-if { var.dwellTime > 0 }
-    if { !global.nxtExpertMode }
-        echo { "nxt: Waiting " ^ var.dwellTime ^ " seconds for spindle #" ^ var.spindleID ^ " to reach the target speed" }
+if { var.dwellTime <= 0 }
+    M99
+
+if { !global.nxtExpertMode }
+    echo { "nxt: Waiting up to " ^ var.dwellTime ^ "s for spindle #" ^ var.spindleID ^ " ready" }
+
+; Prefer ArborCTL stable flag; else timed G4. Timeout continues (never abort).
+var useVfdStatus = false
+if { exists(global.arborVFDStatus) }
+    if { global.arborVFDStatus[var.spindleID] != null }
+        set var.useVfdStatus = true
+if { var.useVfdStatus }
+    if { exists(global.arborVFDCommReady) }
+        if { !global.arborVFDCommReady[var.spindleID] }
+            set var.useVfdStatus = false
+
+if { !var.useVfdStatus }
     G4 S{var.dwellTime}
+    M99
+
+if { fileexists("0:/sys/arborctl/control-spindle.g") }
+    M98 P"arborctl/control-spindle.g" S{var.spindleID}
+
+var endMs = { state.upTime * 1000 + state.msUpTime + (var.dwellTime * 1000) }
+var gotReady = false
+while { !var.gotReady && var.endMs > state.upTime * 1000 + state.msUpTime }
+    if { global.arborVFDStatus[var.spindleID][4] }
+        set var.gotReady = true
+    else
+        G4 P250
+
+if { var.gotReady }
+    if { !global.nxtExpertMode }
+        echo { "nxt: Spindle #" ^ var.spindleID ^ " stable" }
+else
+    echo { "nxt: Spindle #" ^ var.spindleID ^ " status timeout — continuing after " ^ var.dwellTime ^ "s" }

@@ -407,7 +407,7 @@ Safe spindle start/stop with acceleration waits.
 - `M4.9 S<rpm>` - Start spindle counter-clockwise
 - `M5.9` - Stop spindle
 
-**Dwell:** `M3.9` / `M4.9` wait `nxtSpindleAccelSec` (or `nxtSpindleDecelSec` when slowing), scaled by `|current−S|/max`. `M5.9` waits `nxtSpindleDecelSec`, scaled by `|current|/max`. If that global is **unset or ≤0**, wait **10 s** then scale. Boot default in `nxt-vars.g` is **10** for both accel and decel. ArborCTL **VFD Apply** writes `nxtSpindleAccelSec` / `nxtSpindleDecelSec` from the VFD ramp into `arborctl-user-vars.g` and `nxt-user-vars.g` (do not persist `= null`). `D` overrides the wait. Hold-to-measure on Configuration is the non-VFD path; when ArborCTL is live those fields are owned by the VFD tab.
+**Dwell:** `M3.9` / `M4.9` wait the **full** `nxtSpindleAccelSec` (or `nxtSpindleDecelSec` when slowing). `M5.9` waits the **full** `nxtSpindleDecelSec`. If that global is **unset or ≤0**, wait **10 s**. Boot default in `nxt-vars.g` is **10** for both accel and decel. Timeout matches the static ramp seconds ArborCTL **VFD Apply** pushes to the drive (`J`/`K`) and mirrors into `nxtSpindleAccelSec` / `nxtSpindleDecelSec` (`arborctl-user-vars.g` and `nxt-user-vars.g`; do not persist `= null`). When ArborCTL status is live (`arborVFDStatus` and comm ready), `M3.9`/`M4.9` early-exit on `stable` (`[4]`) and `M5.9` on not-running (`[0]`); if status never arrives, continue after the timeout (do not abort). Without ArborCTL status, use a timed `G4`. `D` overrides the wait. Hold-to-measure on Configuration is the non-VFD path; when ArborCTL is live those fields are owned by the VFD tab.
 
 ---
 

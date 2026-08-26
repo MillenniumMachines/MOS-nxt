@@ -32,7 +32,7 @@ while { iterations < #spindles && !var.doWait }
 
 ; Must calculate dwell time before spindle speed is changed.
 
-; Dwell: nxtSpindleDecelSec (10 s if unset/<=0). D overrides.
+; Full nxtSpindleDecelSec (10 s if unset/<=0). D overrides. No RPM scaling.
 var dwellTime = 10
 if { exists(global.nxtSpindleDecelSec) }
     if { global.nxtSpindleDecelSec != null }
@@ -42,11 +42,6 @@ if { exists(global.nxtSpindleDecelSec) }
 ; D parameter always overrides the dwell time
 if { exists(param.D) }
     set var.dwellTime = { param.D }
-elif { var.doWait }
-    ; Scale wait by |current|/max. If the indexed spindle is invalid,
-    ; M5 still runs below but we do not wait.
-    if { spindles[var.spindleID].current != null && spindles[var.spindleID].max != null }
-        set var.dwellTime = { ceil(var.dwellTime * (abs(spindles[var.spindleID].current) / spindles[var.spindleID].max) * 1.05) }
 
 ; We run M5 unconditionally for safety purposes. If
 ; the object model is not up to date for whatever
@@ -59,7 +54,39 @@ M5
 if { !var.doWait }
     M99
 
-if { var.dwellTime > 0 }
-    if { !global.nxtExpertMode }
-        echo { "nxt: Waiting " ^ var.dwellTime ^ " seconds for spindle #" ^ var.spindleID ^ " to stop" }
+if { var.dwellTime <= 0 }
+    M99
+
+if { !global.nxtExpertMode }
+    echo { "nxt: Waiting up to " ^ var.dwellTime ^ "s for spindle #" ^ var.spindleID ^ " stop" }
+
+; Prefer ArborCTL not-running; else timed G4. Timeout continues (never abort).
+var useVfdStatus = false
+if { exists(global.arborVFDStatus) }
+    if { global.arborVFDStatus[var.spindleID] != null }
+        set var.useVfdStatus = true
+if { var.useVfdStatus }
+    if { exists(global.arborVFDCommReady) }
+        if { !global.arborVFDCommReady[var.spindleID] }
+            set var.useVfdStatus = false
+
+if { !var.useVfdStatus }
     G4 S{var.dwellTime}
+    M99
+
+if { fileexists("0:/sys/arborctl/control-spindle.g") }
+    M98 P"arborctl/control-spindle.g" S{var.spindleID}
+
+var endMs = { state.upTime * 1000 + state.msUpTime + (var.dwellTime * 1000) }
+var gotReady = false
+while { !var.gotReady && var.endMs > state.upTime * 1000 + state.msUpTime }
+    if { !global.arborVFDStatus[var.spindleID][0] }
+        set var.gotReady = true
+    else
+        G4 P250
+
+if { var.gotReady }
+    if { !global.nxtExpertMode }
+        echo { "nxt: Spindle #" ^ var.spindleID ^ " stopped" }
+else
+    echo { "nxt: Spindle #" ^ var.spindleID ^ " status timeout — continuing after " ^ var.dwellTime ^ "s" }

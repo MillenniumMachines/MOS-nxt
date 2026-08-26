@@ -78,6 +78,8 @@ On boards **without an SBC**, DWC uses **PollConnector** (`rr_gcode` + wait on r
 RRF does not yet return matching per-request G-code replies ([RRF #925](https://github.com/Duet3D/RepRapFirmware/issues/925)). Stock DWC 3.7 `MessageBoxDialog` still `await`s `sendCode(M292)` without `noWait`, so after the **first** prompt OK the UI can hang and never show the next M291. **SBC / DSF** is fine (HTTP response carries the reply).
 
 Duet fixed this on **DWC 3.6 only** (`M292` with `noWait: true`) and did not port it to 3.7+. nxt restores that workaround at plugin load via [`ui/src/utils/nxtPatchM292NoWait.ts`](../ui/src/utils/nxtPatchM292NoWait.ts) (wraps Pinia `machineStore.sendCode` so every `M292` is fire-and-forget). Kits do not need a custom DWC `www` build or an SBC for multi-prompt macros (M5016, tool-change S4, etc.).
+
+Full code map (3.6 commit `d02661dd` vs 3.7 gap, PollConnector hang path, upstream one-liner): [DWC_M292_NOWAIT.md](DWC_M292_NOWAIT.md).
 ## Configuration UI Details
 
 The Configuration Panel provides a complete replacement for the G8000 wizard with the following features:
