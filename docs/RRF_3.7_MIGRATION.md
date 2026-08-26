@@ -16,7 +16,7 @@ Guide for operators and maintainers moving from **RRF 3.6.x + nxt v0.6.x** to **
 2. Upload new **IAP** files to SD (`Duet3_SDiap32_*.bin` for your board). New IAP works with 3.6.x too; required for future 3.7 upgrades.
 3. **Verify HTTP** is enabled (see [Network configuration](#network-configuration-m586) below). RRF 3.7 disables HTTP by default.
 4. If you use **PanelDue** on the first serial port, update **M575** (see [Serial / PanelDue](#serial--paneldue-m575)).
-5. Install **nxt v0.7.x** macros on SD and the **plugin ZIP** built against **matching DWC 3.7.x** (exact `dwcVersion` in `plugin.json`).
+5. Install **nxt v0.7.x** macros on SD and the **plugin ZIP** built against **matching DWC 3.7.0*** (`auto-minor` `dwcVersion` in `plugin.json`).
 6. Smoke-test: `nxt.g` boot (`global.nxtLoaded`), Configuration save, probing cycle.
 
 ```mermaid
@@ -163,7 +163,7 @@ RRF 3.7 prefers `[a, b, c]`; `{ }` still works.
 
 ## DWC plugin (critical)
 
-Shipped ZIPs set **exact** `dwcVersion` at build (`ui/plugin.json` `dwcVersion: "auto"`).
+Shipped ZIPs set **`dwcVersion` via `auto-minor`** at build (`ui/plugin.json` → e.g. `3.7.0`). Catalog siblings use the same policy.
 
 - A **3.6.x-built ZIP will not load** on a **3.7.x** DWC host. See [PLUGIN_LOAD_TROUBLESHOOTING.md](PLUGIN_LOAD_TROUBLESHOOTING.md).
 - DWC **3.7** builds plugins with **Vite** (IIFE + flat `dwc/js|css`, filenames `nxt-<hash>.*`). nxt `dist/build-plugin.sh` / `release.sh` detect Vite vs webpack and no longer require the old webpack chunk-filter patch for 3.7.
@@ -178,7 +178,7 @@ Shipped ZIPs set **exact** `dwcVersion` at build (`ui/plugin.json` `dwcVersion: 
 
 **UI port status:** nxt UI on `v0.7.0` uses Vue 3 / Pinia via `ui/src/compat/dwcStore.ts` and `@/plugins` registration (`registerRoute`, `registerPluginMessages`). Treat remaining Options-API / Vuetify polish as follow-ups, not a blocker for ZIP packaging.
 
-Host DWC patch must match the ZIP’s `plugin.json` `dwcVersion` **exactly** (e.g. `3.7.0-beta.1`).
+Host DWC must share the ZIP’s `plugin.json` `dwcVersion` **major.minor.patch** prefix (e.g. ZIP `3.7.0` ↔ host `3.7.0-beta.1`). Rebuild when moving to a new patch (`3.7.1`).
 
 `rrfVersion: "auto-major"` accepts **3.7.*** RRF once the plugin matches DWC.
 
@@ -200,7 +200,7 @@ ArborCTL is listed in [`dist/plugins.catalog.json`](../dist/plugins.catalog.json
 | **Build Node ≥20.19 / ≥22.12** | ✅ gate: `dist/check-node-for-dwc-build.sh` (Node 18 → `styleText` failure) |
 | **DWC Vite plugin builder** | ✅ `detect-dwc-plugin-builder.mjs` + staging-dir ZIP path |
 | **Vue 3 / Pinia UI registration** | ✅ `@/plugins` + `compat/dwcStore` (not Vue 2 `@/store` / `@/routes`) |
-| **Exact `dwcVersion` ZIP** | Rebuild against pin; host must match exactly |
+| **`auto-minor` `dwcVersion` ZIP** | Stamps patch prefix (e.g. `3.7.0`); rebuild for new patch/major |
 | **RRF HTTP (`M586 P0 S1`)** | Required on 3.7 for DWC / config upload |
 | Hardware sign-off before release tag | Required per release gates |
 
@@ -212,7 +212,7 @@ Use this when a local build fails or before tagging:
 - [ ] Sibling DWC (or `./dwc-build`) matches `ci/dwc-build-ref` (`verify-dwc-build-alignment.sh`)
 - [ ] `node dist/check-gcode-line-length.mjs` exits 0
 - [ ] `./dist/build-plugin.sh ../DuetWebControl` exits 0 **without** `NXT_SKIP_DWC_TYPECHECK` (unless debugging packaging only)
-- [ ] ZIP `plugin.json` `dwcVersion` equals host DWC (e.g. `3.7.0-beta.1`)
+- [ ] ZIP `plugin.json` `dwcVersion` is patch prefix matching host (e.g. `3.7.0` for host `3.7.0-beta.1`)
 - [ ] Install ZIP → Start plugin → **Control → nxt** routes appear (Vue 3 registration)
 - [ ] Smoke: Tool Library / guided probing / RGB Save / Maintenance as applicable
 - [ ] Printer RRF is **3.7.x** with HTTP enabled

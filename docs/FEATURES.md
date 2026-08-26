@@ -65,7 +65,7 @@ These features form the core of the new nxt system and must be implemented for t
 - [x] **UI-Driven Probing:** All probing cycles will be initiated and configured through the DWC UI. Probing tab **Work offsets** lists live G54–G59.3 (`workplaceOffsets`), with edit / activate / probe / clear.
 
 #### **Machine Control**
-- [x] **Spindle Control:** Core macros for safe spindle start/stop with acceleration waits (`M3.9`, `M4.9`, `M5.9`). Unset accel/decel wait floors to **10 s**; ArborCTL VFD Apply persists the real ramp into `nxtSpindleAccelSec` / `nxtSpindleDecelSec`.
+- [x] **Spindle Control:** Core macros for safe spindle start/stop with acceleration waits (`M3.9`, `M4.9`, `M5.9`). Full accel/decel seconds (floor **10 s** if unset); with ArborCTL, early-exit on VFD stable/stopped else continue after timeout. VFD Apply persists the ramp into `nxtSpindleAccelSec` / `nxtSpindleDecelSec` and the drive (`J`/`K`).
 - [x] **Coolant Control:** Core macros for coolant control (`M7`, `M8`, `M9`, and `M7.1`).
 - [x] **Coolant pulse:** Optional per-type pulsing for mist (`M7`) and flood (`M8`); defaults 5 s ON / 25 s OFF; configured in DWC Configuration.
 - [x] **Parking (`G27`):** A critical macro for moving the machine to a safe, known position.
@@ -99,4 +99,4 @@ These features and concepts from the old implementation will be explicitly remov
 - [x] **Manual Probing (Jogging Dialogs):** Removed; operators use standard DWC jogging plus probe results / WCS push workflow.
 - [x] **Multi-Axis Probing Moves:** Removed; `G6512` is strictly single-axis per command.
 - [x] **G8000 Configuration Wizard:** Replaced by the Configuration panel in the nxt DWC plugin.
-- [x] **Backwards Compatibility (legacy MOS runtime):** nxt does not run legacy MOS macros; optional one-shot import via `nxt-mos-import.g` maps settings into `nxt-user-vars.g`. On branch **`v0.7.0`**, RRF floor is **`3.7.*`** (`auto-major` in built `plugin.json`); DWC requires **exact** version (`auto` at build time, pin `3.7.0-beta.1`). See [VERSIONING.md](VERSIONING.md).
+- [x] **Backwards Compatibility (legacy MOS runtime):** nxt does not run legacy MOS macros; optional one-shot import via `nxt-mos-import.g` maps settings into `nxt-user-vars.g`. On branch **`v0.7.0`**, RRF floor is **`3.7.*`** (`auto-major` in built `plugin.json`); DWC uses patch-level **`auto-minor`** (stamps e.g. `3.7.0`, accepts `3.7.0*` hosts; pin `3.7.0-beta.1`). See [VERSIONING.md](VERSIONING.md).

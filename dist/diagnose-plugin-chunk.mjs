@@ -117,9 +117,12 @@ function main() {
       ).dwcVersion
       console.log(`plugin.json dwcVersion: ${pluginDwcVersion}`)
       if (pluginDwcVersion && /^\d+\.\d+$/.test(pluginDwcVersion)) {
-        console.log('WARN: major.minor only (old auto-major ZIP) — rebuild with dwcVersion "auto"')
+        console.log('WARN: major.minor only (old auto-major ZIP) — rebuild with dwcVersion "auto-minor"')
       } else if (pluginDwcVersion && /^\d+\.\d+\.\d+/.test(pluginDwcVersion)) {
-        console.log('Host DWC must match this exact version (DWC rejects load before chunk runs).')
+        console.log('Host DWC must share this major.minor.patch prefix (auto-minor; same-patch prereleases OK).')
+        if (pluginDwcVersion.includes('-') || pluginDwcVersion.includes('+')) {
+          console.log('WARN: stamped dwcVersion has prerelease/build metadata — prefer auto-minor (e.g. 3.7.0)')
+        }
       }
     } catch {
       /* plugin.json optional for raw .js input */
@@ -194,9 +197,9 @@ function main() {
 
   console.log('\n=== 5) Common causes of .call undefined ===\n')
   if (pluginDwcVersion) {
-    console.log(`ZIP dwcVersion: ${pluginDwcVersion} — host must match exactly (not just same major.minor)`)
+    console.log(`ZIP dwcVersion: ${pluginDwcVersion} — host must share major.minor.patch prefix (auto-minor)`)
   }
-  console.log('A) Host app.js mismatch — ZIP built on one DWC patch, printer serves another (e.g. 3.6.2 vs 3.7.x)')
+  console.log('A) Host app.js mismatch — ZIP built on one DWC patch line, printer serves another (e.g. 3.7.0 vs 3.7.1, or 3.6 vs 3.7)')
   console.log('B) dwcFiles empty / wrong — plugin object missing js/nxt.*.js → js/nxt.undefined.js')
   console.log('C) nxt.*.js 404 — hash in dwcFiles does not exist under www (reinstall ZIP)')
   console.log('D) Stale browser cache — old app.*.js + new nxt.*.js')

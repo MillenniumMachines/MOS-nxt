@@ -108,7 +108,7 @@ function main() {
   console.log('\nObject model persistence:')
   console.log('  0:/sys/dwc-plugins.json  →  plugins.nxt.dwcFiles[]')
 
-  console.log('\n=== Version skew (exact DWC match) ===\n')
+  console.log('\n=== Version skew (auto-minor DWC prefix) ===\n')
   const pinPath = path.join(__dirname, '..', 'ci', 'dwc-build-ref')
   let pin = 'v3.7.0-beta.1'
   try {
@@ -118,13 +118,21 @@ function main() {
   }
   console.log(`Build pin (ci/dwc-build-ref): ${pin}`)
   console.log(`plugin.json dwcVersion after build: ${pluginJson.dwcVersion}`)
-  console.log('Host DWC must match dwcVersion EXACTLY (DWC rejects load before the chunk runs).')
+  console.log('Host DWC must share this major.minor.patch prefix (auto-minor; prereleases of the same patch OK).')
+  console.log('Module skew can still fail after a green version gate — use diagnose-plugin-chunk.mjs.')
   const pinVer = pin.replace(/^v/, '')
-  if (pluginJson.dwcVersion && pluginJson.dwcVersion !== pinVer && /^\d+\.\d+\.\d+/.test(pluginJson.dwcVersion)) {
-    console.warn(`WARN: ZIP dwcVersion ${pluginJson.dwcVersion} differs from pin ${pinVer} (rebuild with aligned DWC tree)`)
-  }
+  // auto-minor stamps major.minor.patch without prerelease (e.g. 3.7.0-beta.1 → 3.7.0)
+  const pinPatch = pinVer.split('-')[0].split('.').slice(0, 3).join('.')
   if (pluginJson.dwcVersion && /^\d+\.\d+$/.test(pluginJson.dwcVersion)) {
-    console.warn('WARN: dwcVersion is major.minor only (old auto-major build) — rebuild with dwcVersion "auto" in ui/plugin.json')
+    console.warn('WARN: dwcVersion is major.minor only (old auto-major) — rebuild with dwcVersion "auto-minor" in ui/plugin.json')
+  } else if (pluginJson.dwcVersion && /^\d+\.\d+\.\d+/.test(pluginJson.dwcVersion)) {
+    const stampedPatch = pluginJson.dwcVersion.split('-')[0]
+    if (stampedPatch !== pinPatch) {
+      console.warn(`WARN: ZIP dwcVersion ${pluginJson.dwcVersion} patch ${stampedPatch} differs from pin patch ${pinPatch} (rebuild with aligned DWC tree)`)
+    }
+    if (pluginJson.dwcVersion.includes('-') || pluginJson.dwcVersion.includes('+')) {
+      console.warn('WARN: dwcVersion includes prerelease/build metadata — prefer auto-minor stamp (e.g. 3.7.0)')
+    }
   }
 
   if (!ok) {

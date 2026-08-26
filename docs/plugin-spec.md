@@ -11,6 +11,15 @@ Each plugin uses DWC `plugin.json` and may include nxt runtime metadata in `data
 - `id`
 - `version`
 
+### Version compatibility (catalog policy)
+
+Catalog plugins in [`dist/plugins.catalog.json`](../dist/plugins.catalog.json) (nxt, MosAtc, ArborCTL, MosFourthAxis) should set:
+
+- `dwcVersion`: **`"auto-minor"`** — build stamps major.minor.patch without prerelease (e.g. pin `3.7.0-beta.1` → `3.7.0`). Host must share that prefix.
+- `rrfVersion`: **`"auto-major"`** — stamps major.minor (e.g. `3.7`).
+
+Do not hardcode a full prerelease string or major.minor-only `dwcVersion` for release ZIPs.
+
 ### nxt Metadata (`data.nxt`)
 
 - `tag` (string): must equal `nxt-plugin` to opt in.

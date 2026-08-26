@@ -110,7 +110,7 @@ Add a new entry when integrating an external plugin into the main nxt build: `id
 ### Reference DWC version
 
 - Pin: [ci/dwc-build-ref](../ci/dwc-build-ref) (currently `v3.7.0-beta.1` on branch `v0.7.0`).
-- Shipped plugin ZIPs set **exact** `dwcVersion` at build time; the host DWC must match (e.g. `3.7.0-beta.1`, not merely “3.7.x”).
+- Catalog / nxt-compatible plugins ship `dwcVersion: "auto-minor"` (patch prefix at build, e.g. `3.7.0`) and typically `rrfVersion: "auto-major"`. Host DWC must share the stamped major.minor.patch; rebuild when moving to a new patch or major line.
 
 ### Tools
 
@@ -263,12 +263,12 @@ Plugin ZIPs stage the forever-loop daemon as `sd/sys/daemon.install` (applied by
 | **Dispatchers** | Generated dispatchers list your plugin | Inspect `sd/sys/nxt/plugins/nxt-plugin-*-dispatch.g` in build staging or on SD after install |
 | **UI (dev)** | Compiles, plugin starts | `npm run dev`, browser console, **Settings → Plugins** |
 | **UI (ZIP)** | Flat `dwc/js/`, `dwcFiles` | `node dist/verify-plugin-zip.mjs dist/nxt-*.zip`; [PLUGIN_LOAD_TROUBLESHOOTING.md](PLUGIN_LOAD_TROUBLESHOOTING.md) |
-| **Printer** | ZIP installs, exact `dwcVersion` | Reinstall ZIP; hard-refresh browser; smoke-test panels |
+| **Printer** | ZIP installs, `auto-minor` `dwcVersion` prefix | Reinstall ZIP; hard-refresh browser; smoke-test panels |
 | **Firmware** | Init once per boot | `global.nxtPluginLoaded_*` per [plugin-spec.md](plugin-spec.md) |
 
 ### Manual sign-off
 
-Before tagging or publishing a plugin ZIP, confirm it **loads and runs** on a printer whose DWC version **exactly matches** the built `plugin.json` `dwcVersion`. CI success alone is not sufficient (see release rules in the repo).
+Before tagging or publishing a plugin ZIP, confirm it **loads and runs** on a printer whose DWC version **shares the patch prefix** stamped in `plugin.json` `dwcVersion` (e.g. ZIP `3.7.0` on host `3.7.0-beta.1`). CI success alone is not sufficient (see release rules in the repo).
 
 ### Live hardware
 

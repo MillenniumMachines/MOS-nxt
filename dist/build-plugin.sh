@@ -430,7 +430,7 @@ DWC_REPO_PATH="${DWC_REPO_PATH}" node "${ROOT}/dist/inject-plugin-dwcfiles.cjs" 
 node "${ROOT}/dist/verify-plugin-zip.mjs" "${WORK_ZIP}"
 
 PLUGIN_DWC_NEED="$(unzip -p "${WORK_ZIP}" plugin.json | jq -r '.dwcVersion')"
-echo "Plugin ZIP requires host DWC version: ${PLUGIN_DWC_NEED} (exact match — see DWC Settings if load fails)"
+echo "Plugin ZIP requires host DWC version prefix: ${PLUGIN_DWC_NEED} (auto-minor — any ${PLUGIN_DWC_NEED}* host; see DWC Settings if load fails)"
 
 if [[ "${DWC_BUILDER}" == "webpack" ]]; then
   echo "Diagnosing plugin chunk host dependencies (webpack)..."

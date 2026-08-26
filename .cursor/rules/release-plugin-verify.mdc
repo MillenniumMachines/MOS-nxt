@@ -7,7 +7,7 @@ alwaysApply: true
 
 ## Manifest alignment
 
-- **`ui/plugin.json`:** `dwcVersion` is **`auto`** (resolved to the **exact** DWC `package.json` version at build, e.g. `3.7.0-beta.1`). `rrfVersion` stays **`auto-major`**. Pin in [`ci/dwc-build-ref`](ci/dwc-build-ref); run `./dist/verify-dwc-build-alignment.sh <DWC>` before every `build-plugin.sh`.
+- **`ui/plugin.json`:** `dwcVersion` is **`auto-minor`** (resolved to major.minor.patch without prerelease at build, e.g. `3.7.0` from pin `3.7.0-beta.1`). `rrfVersion` stays **`auto-major`**. Catalog siblings (MosAtc, ArborCTL, MosFourthAxis) use the same `dwcVersion` policy. Pin in [`ci/dwc-build-ref`](ci/dwc-build-ref); run `./dist/verify-dwc-build-alignment.sh <DWC>` before every `build-plugin.sh`.
 - **Branch ↔ RRF/DWC:** nxt **`v0.M.0`** release branches target RRF/DWC **`3.M.x`** (e.g. branch `v0.7.0` → **3.7.x**). See [`docs/VERSIONING.md`](docs/VERSIONING.md).
 - **When changing the dev/reference stack:** Update [`docs/RRF_REFERENCE.md`](docs/RRF_REFERENCE.md), [`README.md`](README.md), [`ui/src/index.ts`](ui/src/index.ts), and [`docs/UI_DEVELOPMENT.md`](docs/UI_DEVELOPMENT.md) as needed. [`docs/FEATURES.md`](docs/FEATURES.md) back-compat line tracks resolved `plugin.json` versions in shipped ZIPs.
 
@@ -19,7 +19,7 @@ alwaysApply: true
 4. Run `node dist/check-om-global-budget.mjs` from the **MOS-nxt repo root** (SBC `global` OM ~8KB hygiene — see [om-global-size.mdc](om-global-size.mdc)).
 5. Run `./dist/check-line-endings.sh` from the **MOS-nxt repo root** (no CRLF in tracked text files).
 6. If **`macros/nxt-config/`**, **manifest generator**, or **UI path helpers** changed: run `node dist/generate-nxt-config-manifest.mjs` and follow [plugin-ui-paths.mdc](plugin-ui-paths.mdc) (grep `nxt/config`, confirm `platforms[].machineEntryPath`, ZIP contains `dwc/js/nxt.*.js`).
-7. Run `./dist/verify-dwc-build-alignment.sh <path-to-DuetWebControl>` then `./dist/build-plugin.sh <same-DWC>` from the **MOS-nxt repo root**; confirm **exit code 0**. The shipped ZIP’s `plugin.json` `dwcVersion` must match the printer’s DWC version (e.g. `3.7.0-beta.1`, not merely “3.7.x”). If the host is a different patch, rebuild the plugin against that DWC tree. **UI changes must pass the DWC vue-tsc gate** — do not ship with `NXT_SKIP_DWC_TYPECHECK=1`.
+7. Run `./dist/verify-dwc-build-alignment.sh <path-to-DuetWebControl>` then `./dist/build-plugin.sh <same-DWC>` from the **MOS-nxt repo root**; confirm **exit code 0**. The shipped ZIP’s `plugin.json` `dwcVersion` is a **patch prefix** (e.g. `3.7.0` via `auto-minor`); host DWC must share that major.minor.patch (same-patch prereleases OK). Rebuild when moving to a new patch (`3.7.1`) or major line. **UI changes must pass the DWC vue-tsc gate** — do not ship with `NXT_SKIP_DWC_TYPECHECK=1`.
 8. **Manual verification:** Do not commit or tag a release until the user has **explicitly confirmed** the plugin **loads and works** in DWC on the target line (install ZIP, start plugin, smoke-test). Treat CI success as necessary but **not sufficient**.
 
 ## Tagging conventions (this repo)
