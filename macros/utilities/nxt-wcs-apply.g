@@ -1,7 +1,7 @@
 ; nxt-wcs-apply.g: APPLY WCS FROM PROBE RESULT (NO TRAVEL)
 ;
-; Same G10 L2 as M6520 (never L20). No travel — caller already G53-parked
-; at the fit (G6500/G6501/G6508/G6509/G6520). M6520 G53 G1s stored L2 XY.
+; Same G10 L2 as M6520 (never L20). X/Y tip M5000; Z tool-normalized at G6512 capture.
+; No travel — caller already G53-parked at the fit (G6500/G6501/G6508/G6509/G6520).
 ; A1 touches off live rotary pose (not result slot 3). Does not apply G68 —
 ; that is M5011 at job start. Q only arms policy.
 ; M98 steals P for the filename — result slot is I (not P).
@@ -49,7 +49,7 @@ if { abs(var.thetaDeg) > var.skewLimit }
 
 var wcsNumber = { param.W }
 
-; Legacy G10 L2: feature M5000 coords as stored (no tools[].offsets subtract)
+; G10 L2: X/Y = tip M5000 from table; Z = tool-normalized (G6512 capture).
 ; A1 = touch off current rotary pose (not result slot 3, which XY cycles leave 0).
 var offsetX = { exists(param.X) ? var.resultVector[0] : null }
 var offsetY = { exists(param.Y) ? var.resultVector[1] : null }
@@ -78,38 +78,19 @@ if { var.nxtReject00 }
     abort { "nxt-wcs-apply: XY origin is 0,0 but machine is not at origin" }
 
 ; Idle before G10 so a leftover interpolator cannot run under the new origin
-M400
-
-if { var.offsetX != null && var.offsetY != null && var.offsetZ != null && var.offsetA != null }
-    G10 L2 P{var.wcsNumber} X{var.offsetX} Y{var.offsetY} Z{var.offsetZ} A{var.offsetA}
-elif { var.offsetX != null && var.offsetY != null && var.offsetZ != null }
-    G10 L2 P{var.wcsNumber} X{var.offsetX} Y{var.offsetY} Z{var.offsetZ}
-elif { var.offsetX != null && var.offsetY != null && var.offsetA != null }
-    G10 L2 P{var.wcsNumber} X{var.offsetX} Y{var.offsetY} A{var.offsetA}
-elif { var.offsetX != null && var.offsetZ != null && var.offsetA != null }
-    G10 L2 P{var.wcsNumber} X{var.offsetX} Z{var.offsetZ} A{var.offsetA}
-elif { var.offsetY != null && var.offsetZ != null && var.offsetA != null }
-    G10 L2 P{var.wcsNumber} Y{var.offsetY} Z{var.offsetZ} A{var.offsetA}
-elif { var.offsetX != null && var.offsetY != null }
-    G10 L2 P{var.wcsNumber} X{var.offsetX} Y{var.offsetY}
-elif { var.offsetX != null && var.offsetZ != null }
-    G10 L2 P{var.wcsNumber} X{var.offsetX} Z{var.offsetZ}
-elif { var.offsetX != null && var.offsetA != null }
-    G10 L2 P{var.wcsNumber} X{var.offsetX} A{var.offsetA}
-elif { var.offsetY != null && var.offsetZ != null }
-    G10 L2 P{var.wcsNumber} Y{var.offsetY} Z{var.offsetZ}
-elif { var.offsetY != null && var.offsetA != null }
-    G10 L2 P{var.wcsNumber} Y{var.offsetY} A{var.offsetA}
-elif { var.offsetZ != null && var.offsetA != null }
-    G10 L2 P{var.wcsNumber} Z{var.offsetZ} A{var.offsetA}
-elif { var.offsetX != null }
-    G10 L2 P{var.wcsNumber} X{var.offsetX}
-elif { var.offsetY != null }
-    G10 L2 P{var.wcsNumber} Y{var.offsetY}
-elif { var.offsetZ != null }
-    G10 L2 P{var.wcsNumber} Z{var.offsetZ}
-elif { var.offsetA != null }
-    G10 L2 P{var.wcsNumber} A{var.offsetA}
+if { !exists(global.nxtWcsG10X) }
+    global nxtWcsG10X = null
+if { !exists(global.nxtWcsG10Y) }
+    global nxtWcsG10Y = null
+if { !exists(global.nxtWcsG10Z) }
+    global nxtWcsG10Z = null
+if { !exists(global.nxtWcsG10A) }
+    global nxtWcsG10A = null
+set global.nxtWcsG10X = { var.offsetX }
+set global.nxtWcsG10Y = { var.offsetY }
+set global.nxtWcsG10Z = { var.offsetZ }
+set global.nxtWcsG10A = { var.offsetA }
+M98 P"nxt-wcs-g10-apply.g" W{var.wcsNumber}
 
 echo "nxt-wcs-apply: Set WCS G" ^ (53 + var.wcsNumber) ^ " from result " ^ param.I
 if { var.offsetX != null }

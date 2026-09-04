@@ -1,9 +1,8 @@
 ; M6520.g: SET WCS OFFSET FROM PROBE RESULT
 ;
 ; Sets a Work Coordinate System origin from the probe results table.
-; Same contract as legacy G650x.1: G10 L2 gets the feature's M5000
-; machine coords as stored (no tool-offset subtract). Never G10 L20.
-; After G10 + WCS select, G53 G1 flagged X/Y to stored L2 machine coords
+; G10 L2: X/Y = tip M5000; Z slot = tool-normalized surface (G6512 hit − L1).
+; Never G10 L20. After G10 + WCS select, G53 G1 flagged X/Y to stored L2 machine coords
 ; (Z/A pinned from current pose). A1 touches off live rotary pose (G10 L2 A
 ; = current machine A so work A reads 0). Never work G0 X0 Y0.
 ; Does not apply G68 — that is M5011 at job start. Q only arms policy.
@@ -23,7 +22,7 @@
 ;   T: Optional override for max |skew| allowed (deg); default global.nxtProbeMaxSkewDeg
 ;
 ; XY apply stores theta in nxtWPDeg[W-1] for M5011. Always G69 after G10/park.
-; Z results are raw trigger (G6512; no tip radius / Z deflection).
+; Z in nxtProbeResults is L2-ready (G6512 subtracts L1 at capture; no tip R / Z D).
 ;
 ; At least one axis flag (X, Y, Z, or A) must be specified.
 
@@ -59,7 +58,7 @@ if { abs(var.thetaDeg) > var.skewLimit }
 
 var wcsNumber = { param.W }
 
-; Legacy G10 L2: feature M5000 coords as stored (no tools[].offsets subtract)
+; G10 L2: X/Y = tip M5000 from table; Z = tool-normalized (G6512 capture).
 ; A1 = touch off current rotary pose (not result slot 3, which XY cycles leave 0).
 var offsetX = { exists(param.X) ? var.resultVector[0] : null }
 var offsetY = { exists(param.Y) ? var.resultVector[1] : null }
@@ -88,38 +87,19 @@ if { var.nxtReject00 }
     abort { "M6520: XY origin is 0,0 but machine is not at origin — empty result?" }
 
 ; Idle before G10 so a leftover interpolator cannot run under the new origin
-M400
-
-if { var.offsetX != null && var.offsetY != null && var.offsetZ != null && var.offsetA != null }
-    G10 L2 P{var.wcsNumber} X{var.offsetX} Y{var.offsetY} Z{var.offsetZ} A{var.offsetA}
-elif { var.offsetX != null && var.offsetY != null && var.offsetZ != null }
-    G10 L2 P{var.wcsNumber} X{var.offsetX} Y{var.offsetY} Z{var.offsetZ}
-elif { var.offsetX != null && var.offsetY != null && var.offsetA != null }
-    G10 L2 P{var.wcsNumber} X{var.offsetX} Y{var.offsetY} A{var.offsetA}
-elif { var.offsetX != null && var.offsetZ != null && var.offsetA != null }
-    G10 L2 P{var.wcsNumber} X{var.offsetX} Z{var.offsetZ} A{var.offsetA}
-elif { var.offsetY != null && var.offsetZ != null && var.offsetA != null }
-    G10 L2 P{var.wcsNumber} Y{var.offsetY} Z{var.offsetZ} A{var.offsetA}
-elif { var.offsetX != null && var.offsetY != null }
-    G10 L2 P{var.wcsNumber} X{var.offsetX} Y{var.offsetY}
-elif { var.offsetX != null && var.offsetZ != null }
-    G10 L2 P{var.wcsNumber} X{var.offsetX} Z{var.offsetZ}
-elif { var.offsetX != null && var.offsetA != null }
-    G10 L2 P{var.wcsNumber} X{var.offsetX} A{var.offsetA}
-elif { var.offsetY != null && var.offsetZ != null }
-    G10 L2 P{var.wcsNumber} Y{var.offsetY} Z{var.offsetZ}
-elif { var.offsetY != null && var.offsetA != null }
-    G10 L2 P{var.wcsNumber} Y{var.offsetY} A{var.offsetA}
-elif { var.offsetZ != null && var.offsetA != null }
-    G10 L2 P{var.wcsNumber} Z{var.offsetZ} A{var.offsetA}
-elif { var.offsetX != null }
-    G10 L2 P{var.wcsNumber} X{var.offsetX}
-elif { var.offsetY != null }
-    G10 L2 P{var.wcsNumber} Y{var.offsetY}
-elif { var.offsetZ != null }
-    G10 L2 P{var.wcsNumber} Z{var.offsetZ}
-elif { var.offsetA != null }
-    G10 L2 P{var.wcsNumber} A{var.offsetA}
+if { !exists(global.nxtWcsG10X) }
+    global nxtWcsG10X = null
+if { !exists(global.nxtWcsG10Y) }
+    global nxtWcsG10Y = null
+if { !exists(global.nxtWcsG10Z) }
+    global nxtWcsG10Z = null
+if { !exists(global.nxtWcsG10A) }
+    global nxtWcsG10A = null
+set global.nxtWcsG10X = { var.offsetX }
+set global.nxtWcsG10Y = { var.offsetY }
+set global.nxtWcsG10Z = { var.offsetZ }
+set global.nxtWcsG10A = { var.offsetA }
+M98 P"nxt-wcs-g10-apply.g" W{var.wcsNumber}
 
 echo "M6520: Set WCS G" ^ (53 + var.wcsNumber) ^ " origin from probe result " ^ param.P
 if { var.offsetX != null }

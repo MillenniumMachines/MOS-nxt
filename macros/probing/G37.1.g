@@ -55,4 +55,10 @@ if { !exists(global.nxtAbsPos) || global.nxtAbsPos[2] == null }
 G27 Z1
 
 echo { "nxt: Setting WCS " ^ var.wPN ^ " Z origin to probed co-ordinate." }
-G10 L2 P{var.wPN} Z{global.nxtAbsPos[2]}
+if { !exists(global.nxtWcsHitZ) }
+    global nxtWcsHitZ = null
+if { !exists(global.nxtWcsNormZ) }
+    global nxtWcsNormZ = null
+set global.nxtWcsHitZ = { global.nxtAbsPos[2] }
+M98 P"nxt-wcs-z-from-hit.g"
+G10 L2 P{var.wPN} Z{global.nxtWcsNormZ}

@@ -1,7 +1,7 @@
 ; G6512.g: SINGLE-AXIS PROBING
 ;
 ; Deflection/tip compensation + optional multi-sample repeatability.
-; X/Y: tip radius + deflection → surface. Z: raw trigger (no D, no tip R) for now.
+; X/Y: tip radius + deflection → surface. Z: raw trigger, then L1-normalized L2 Z.
 ; A: raw trigger, no diveHeight backoff (rotary; those distances are millimetres).
 ; Touch probe IDs: probe feeds clamped to ≤200 / ≤50 mm/min (G6511 caps).
 ; Defaults: macros/system/nxt-vars.g (Probe repeatability).
@@ -284,7 +284,17 @@ if { var.toleranceOk == false }
     set var.nxtG6512Abort = { var.nxtG6512Abort ^ " mm (over by " ^ var.lastPairOverMm ^ " mm) after " ^ var.outerLimit ^ " cycle(s)" }
     abort { var.nxtG6512Abort }
 
-set global.nxtLastProbeResult = { round(var.finalSumUm / var.finalCount) / 1000 }
+var nxtResultMm = { round(var.finalSumUm / var.finalCount) / 1000 }
+if { var.probeAxisIndex == 2 }
+    if { !exists(global.nxtWcsHitZ) }
+        global nxtWcsHitZ = null
+    if { !exists(global.nxtWcsNormZ) }
+        global nxtWcsNormZ = null
+    set global.nxtWcsHitZ = { var.nxtResultMm }
+    M98 P"nxt-wcs-z-from-hit.g"
+    set global.nxtLastProbeResult = { global.nxtWcsNormZ }
+else
+    set global.nxtLastProbeResult = { var.nxtResultMm }
 
 if { exists(param.H) && param.H != null }
     if { var.finalHitN <= 0 }
