@@ -147,6 +147,8 @@ What the Calibration tab (and related cycles) can and cannot do with a touch pro
 
 **Goal**: Estimate backlash using a dial indicator on a fixed face (8 / 16 / 24 mm travel legs). Round-trip tests on one surface **do not isolate steps/mm** — use Phase 3 for M92.
 
+**Dial stroke:** `M5014` commanded legs must stay within typical indicator travel (**~25 mm**). Default **8 / 16 / 24 mm** (TR8×8 1×/2×/3× lead) is intentional — do not raise the third leg above ~25 mm without a longer-stroke gauge. Probe-side positioning moves (`M5017`/`M5018` outside, `G9000` overshoot) are machine travel, not dial reads.
+
 **Procedure** (Calibration tab → `M5014`):
 1. Secure the 1-2-3 block (**3″∥X**). Select which face you are measuring; travel is **away** from that face.
 2. Jog the indicator onto the face and **zero the dial**.
@@ -447,7 +449,7 @@ echo {sensors.probes[global.nxtToolSetterID].value[0]}
 | `M5016` | Phase 0 static datum (jog-confirm when establishing ref) |
 | `M5017` | Phase 1 XY spans: `D` dive, O=5 face clearance, 10 mm corner inset, 3-pt perimeter |
 | `M5018` | Phase 3: raise → outside O=15 → dive → G6512 find edge; default return to center; `R0` stay out (G9000) |
-| `G6511` | Optional pad probe (`R1`); skips if mill virtual already set from M5016; clears Z D / `nxtCalDefZ` |
+| `G6511` | Optional pad probe (`R1`); skips if mill virtual already set from M5016; clears Z channel of `nxtProbeDeflection` |
 | `G9000` | Probe-mode 8/16/24: probe → away → re-probe ×3 per leg (backlash only); XY via `M5018 … R0` then `J0 H±1` |
 | `M4005` / `M4006` | Job preamble: version check + require non-zero deflection when touch probe on |
 

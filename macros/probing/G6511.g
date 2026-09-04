@@ -121,11 +121,6 @@ echo { "G6511: slow validate mean Z=" ^ var.meanZ ^ " mm" }
 set global.nxtProbeDeflection = { var.dxKeep, var.dyKeep, 0 }
 set global.nxtLastProbeResult = { var.meanZ }
 
-if { !exists(global.nxtCalDefZ) }
-    global nxtCalDefZ = null
-else
-    set global.nxtCalDefZ = null
-
 set global.nxtRefSurfaceProbed = true
 
 var probeVirtual = { var.meanZ - global.nxtDeltaMachine }

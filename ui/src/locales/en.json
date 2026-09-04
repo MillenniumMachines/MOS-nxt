@@ -293,7 +293,7 @@
       "actual": "Actual / measured (may be −)",
       "applyM4806": "Apply via M4806",
       "phase1Title": "Phase 2 — Travel calibration (indicator)",
-      "phase1Hint": "Block: 3″∥X. Zero the dial, then away/return TR8×8 legs 8/16/24 mm. Residual estimates backlash only — use Phase 3 for steps/mm. Skip OK if already done.",
+      "phase1Hint": "Block: 3″∥X. Zero the dial, then away/return TR8×8 legs 8/16/24 mm (≤ ~25 mm dial stroke). Residual estimates backlash only — use Phase 3 for steps/mm. Skip OK if already done.",
       "residualSignHint": "Residual sign: + = short of zero after return (gap). measured = commanded − residual.",
       "blockFaceAway": "Block face (travel away)",
       "faceAwayPlus": "+{0} face (travel +{0})",

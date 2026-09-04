@@ -73,28 +73,17 @@ var dirAway = { 0 - var.dir }
 M5000 P0
 var approach0 = { global.nxtAbsPos }
 
-; Overshoot past the surface for G6512 target
-var overshoot = { 30 }
+; Overshoot past the surface for G6512 target (align with M5018 default O=15)
+var overshoot = { 15 }
 
-; nxt-vars declares these null — never use # on null (RRF: Expecting array expression).
-if { !exists(global.nxtCalTravelCmd) }
-    global nxtCalTravelCmd = { 8.0, 16.0, 24.0 }
-else
-    set global.nxtCalTravelCmd = { 8.0, 16.0, 24.0 }
-if { !exists(global.nxtCalTravelMeas) }
-    global nxtCalTravelMeas = { 0.0, 0.0, 0.0 }
-else
-    set global.nxtCalTravelMeas = { 0.0, 0.0, 0.0 }
-if { !exists(global.nxtCalTravelAxis) }
-    global nxtCalTravelAxis = null
-
+M98 P"nxt-cal-travel-seed.g"
 set global.nxtCalTravelAxis = { var.letter }
 
 var feed = { 300 }
 if { exists(global.nxtManualProbeFeeds) && #global.nxtManualProbeFeeds > 1 }
     set var.feed = { global.nxtManualProbeFeeds[1] }
 
-; TR8x8 lead 8 mm → travel legs 1× / 2× / 3× lead
+; TR8x8 lead 8 mm → travel legs 1× / 2× / 3× lead (dial-safe; probe path same legs)
 var distances = { 8.0, 16.0, 24.0 }
 var meas0 = 0.0
 var meas1 = 0.0

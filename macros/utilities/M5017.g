@@ -10,7 +10,7 @@
 ; Expect ~76.2 mm on X (3in), ~50.8 mm on Y (2in) from face means.
 ; Ends at probed XY center at original safe Z; echoes tip/D diagnostics.
 ; USAGE: M5017 D<diveMm> [O<overshootMm>]
-; Results: nxtCalDefSpanX, nxtCalDefSpanY (also nxtCalDefSpan = X for compat)
+; Results: nxtCalDefSpanX, nxtCalDefSpanY (UI applies deflectionFromSpan)
 
 if { !inputs[state.thisInput].active }
     M99
@@ -92,70 +92,29 @@ M6515 Y{var.yTgtN}
 
 echo { "M5017: 3-pt perimeter E=" ^ var.edgeInset ^ " O=" ^ var.overshoot }
 
+; 1-2-3 geometry: 76.2 / 50.8 match ui NXT_123_BLOCK_MM (inch3 / inch2)
+; intoMm=2, edgeInset=10, default O=5 (deflection); M5018 default O=15 (find)
+
 var sumYm = 0
 var sumXp = 0
 var sumYp = 0
 var sumXn = 0
 
-; --- Face −Y ---
-echo "M5017: Face -Y (3 pts)"
-G53 G0 Z{var.safeZ}
-G53 G0 X{var.xLow} Y{var.yOutN}
-G53 G1 Z{var.diveZ} F{var.feed}
-M400
-G6512 Y{var.yTgtN} I{var.probeId}
-set var.sumYm = { var.sumYm + global.nxtLastProbeResult }
-G53 G0 X{var.xMid} Y{var.yOutN}
-G6512 Y{var.yTgtN} I{var.probeId}
-set var.sumYm = { var.sumYm + global.nxtLastProbeResult }
-G53 G0 X{var.xHigh} Y{var.yOutN}
-G6512 Y{var.yTgtN} I{var.probeId}
-set var.sumYm = { var.sumYm + global.nxtLastProbeResult }
+; Face −Y (probe Y, along X)
+M98 P"nxt-cal-probe-face.g" N1 T{var.yTgtN} U{var.yOutN} A{var.xLow} B{var.xMid} C{var.xHigh} Z{var.diveZ} S{var.safeZ} F{var.feed} I{var.probeId} Q0
+set var.sumYm = { global.nxtCalFaceSum }
 
-; --- Face +X ---
-echo "M5017: Face +X (3 pts)"
-G53 G0 Z{var.safeZ}
-G53 G0 X{var.xOutP} Y{var.yLow}
-G53 G1 Z{var.diveZ} F{var.feed}
-M400
-G6512 X{var.xTgtP} I{var.probeId}
-set var.sumXp = { var.sumXp + global.nxtLastProbeResult }
-G53 G0 X{var.xOutP} Y{var.yMid}
-G6512 X{var.xTgtP} I{var.probeId}
-set var.sumXp = { var.sumXp + global.nxtLastProbeResult }
-G53 G0 X{var.xOutP} Y{var.yHigh}
-G6512 X{var.xTgtP} I{var.probeId}
-set var.sumXp = { var.sumXp + global.nxtLastProbeResult }
+; Face +X (probe X, along Y)
+M98 P"nxt-cal-probe-face.g" N0 T{var.xTgtP} U{var.xOutP} A{var.yLow} B{var.yMid} C{var.yHigh} Z{var.diveZ} S{var.safeZ} F{var.feed} I{var.probeId} Q1
+set var.sumXp = { global.nxtCalFaceSum }
 
-; --- Face +Y ---
-echo "M5017: Face +Y (3 pts)"
-G53 G0 Z{var.safeZ}
-G53 G0 X{var.xHigh} Y{var.yOutP}
-G53 G1 Z{var.diveZ} F{var.feed}
-M400
-G6512 Y{var.yTgtP} I{var.probeId}
-set var.sumYp = { var.sumYp + global.nxtLastProbeResult }
-G53 G0 X{var.xMid} Y{var.yOutP}
-G6512 Y{var.yTgtP} I{var.probeId}
-set var.sumYp = { var.sumYp + global.nxtLastProbeResult }
-G53 G0 X{var.xLow} Y{var.yOutP}
-G6512 Y{var.yTgtP} I{var.probeId}
-set var.sumYp = { var.sumYp + global.nxtLastProbeResult }
+; Face +Y (probe Y, along X)
+M98 P"nxt-cal-probe-face.g" N1 T{var.yTgtP} U{var.yOutP} A{var.xHigh} B{var.xMid} C{var.xLow} Z{var.diveZ} S{var.safeZ} F{var.feed} I{var.probeId} Q2
+set var.sumYp = { global.nxtCalFaceSum }
 
-; --- Face −X ---
-echo "M5017: Face -X (3 pts)"
-G53 G0 Z{var.safeZ}
-G53 G0 X{var.xOutN} Y{var.yHigh}
-G53 G1 Z{var.diveZ} F{var.feed}
-M400
-G6512 X{var.xTgtN} I{var.probeId}
-set var.sumXn = { var.sumXn + global.nxtLastProbeResult }
-G53 G0 X{var.xOutN} Y{var.yMid}
-G6512 X{var.xTgtN} I{var.probeId}
-set var.sumXn = { var.sumXn + global.nxtLastProbeResult }
-G53 G0 X{var.xOutN} Y{var.yLow}
-G6512 X{var.xTgtN} I{var.probeId}
-set var.sumXn = { var.sumXn + global.nxtLastProbeResult }
+; Face −X (probe X, along Y)
+M98 P"nxt-cal-probe-face.g" N0 T{var.xTgtN} U{var.xOutN} A{var.yHigh} B{var.yMid} C{var.yLow} Z{var.diveZ} S{var.safeZ} F{var.feed} I{var.probeId} Q3
+set var.sumXn = { global.nxtCalFaceSum }
 
 G53 G0 Z{var.safeZ}
 M400
@@ -175,35 +134,17 @@ if { !exists(global.nxtCalDefSpanY) }
     global nxtCalDefSpanY = { var.spanY }
 else
     set global.nxtCalDefSpanY = { var.spanY }
-if { !exists(global.nxtCalDefSpan) }
-    global nxtCalDefSpan = { var.spanX }
-else
-    set global.nxtCalDefSpan = { var.spanX }
 
 var tipR = 0
 if { exists(global.nxtProbeTipRadius) && global.nxtProbeTipRadius != null }
     set var.tipR = { global.nxtProbeTipRadius }
-var curDx = 0
-var curDy = 0
-if { exists(global.nxtProbeDeflection) && global.nxtProbeDeflection != null }
-    if { #global.nxtProbeDeflection >= 1 }
-        set var.curDx = { global.nxtProbeDeflection[0] }
-    if { #global.nxtProbeDeflection >= 2 }
-        set var.curDy = { global.nxtProbeDeflection[1] }
 
-var shortX = { var.sizeX - var.spanX }
-var shortY = { var.sizeY - var.spanY }
-var propDx = { var.curDx + var.shortX / 2 }
-var propDy = { var.curDy + var.shortY / 2 }
-
-echo { "M5017: tipR=" ^ var.tipR ^ " curD={" ^ var.curDx ^ "," ^ var.curDy ^ "}" }
+echo { "M5017: tipR=" ^ var.tipR }
 echo { "M5017: spanX=" ^ var.spanX ^ " (expect ~76.2) spanY=" ^ var.spanY ^ " (expect ~50.8)" }
-echo { "M5017: shortfallX=" ^ var.shortX ^ " shortfallY=" ^ var.shortY }
-echo { "M5017: proposed Dx=" ^ var.propDx ^ " Dy=" ^ var.propDy }
+echo { "M5017: Apply deflection in Calibration UI (deflectionFromSpan)" }
 
-var warnD = { abs(var.propDx) > 0.5 || abs(var.propDy) > 0.5 }
 var warnTip = { var.tipR >= 2 }
-if { var.warnD || var.warnTip }
+if { var.warnTip }
     echo { "M5017: WARN check tip radius (half ball dia), not diameter — do not Apply yet" }
 
 var ctrX = { (var.hitXp + var.hitXn) / 2 }

@@ -22,7 +22,7 @@ import {
   dwcFileExists,
   uploadDwcFile
 } from './nxtFileUpload'
-import { ensureSetFirmwareGlobal } from './nxtOmEnsureSet'
+import { ensureSetFirmwareGlobal, clearFirmwareGlobalIfExists } from './nxtOmEnsureSet'
 import store from '../compat/dwcStore'
 
 let _customGlobalsEnsured = false
@@ -214,6 +214,21 @@ export async function persistNxtUserConfig(
       }
     } catch (e) {
       console.warn('nxt: probe virtual rewrite after geometry Save', e)
+    }
+    // Null deprecated / stray OM keys if still present (RRF cannot delete keys).
+    for (const dep of [
+      'nxtBoardKitKey',
+      'nxtScyllaMotorVoltage',
+      'nxtBoardPackExpectedEntry',
+      'nxtRgbLedIndex',
+      'nxtCalDefZ',
+      'nxtCalDefSpan'
+    ] as const) {
+      try {
+        await clearFirmwareGlobalIfExists(dep, opts.sendCode)
+      } catch (e) {
+        console.warn(`nxt: clear deprecated ${dep}`, e)
+      }
     }
   }
 

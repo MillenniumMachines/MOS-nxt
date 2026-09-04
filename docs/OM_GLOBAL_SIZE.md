@@ -62,4 +62,6 @@ check-om-global-budget: estimate lean≈NNNNB customNulls≈MMMMB lean+custom≈
 
 Estimates are **not** a live DSF capture — leave headroom for `nxt-user-vars.g` strings, filled `nxtTT` slots, filled `arborVFDStatus`, and leftover `mosTT` (RRF cannot delete declared globals). Recapture live `key=global` length after probe/VFD Apply. If the printer still reports `total length 8xxx, key global`, shrink further even when the checker is green.
 
+**Largest live win on migrated machines:** stop loading MOS boot files (`mos.g` / `mos-vars.g`) so `mosTT` never coexists with `nxtTT`. RRF cannot reclaim keys once declared; dual tables are an operational cliff, not a lean-boot estimate issue.
+
 Cursor rule: [`.cursor/rules/om-global-size.mdc`](../.cursor/rules/om-global-size.mdc).

@@ -53,10 +53,8 @@ global nxtCalTravelCmd = null
 global nxtCalTravelMeas = null
 global nxtCalTravelAxis = null
 ; M5017 deflection spans — session results (UI applies deflection)
-global nxtCalDefSpan = null
 global nxtCalDefSpanX = null
 global nxtCalDefSpanY = null
-global nxtCalDefZ = null          ; unused (Z deflection discarded); G6511 clears
 ; G6512 H-slot contacts — allocated on first H= write (OM ~8KB budget)
 global nxtProbeHitXY = null
 ; Face-line / corner-intersect scratch (session; not persisted)
@@ -97,15 +95,13 @@ global nxtSkipJobPark = false
 ; --- RGB status LED (optional feature) -------------------------------------
 ; A single status light that mirrors what the machine is doing. The daemon
 ; turns the machine state into a colour a few times a second - see nxt-run-rgb.g.
-global nxtRgbLedIndex = 0 ; legacy unused; strip length is nxtRGBCount (Configuration)
-
 ; Work-state hint. nxt macros set this (e.g. "probing", "homing"); the daemon
 ; clears it back to "" when the machine returns to idle, so a finished or
 ; aborted operation can never leave the light showing the wrong thing.
 ; (global nxtWS is declared above with operator / tutorial modes.)
 
 ; LED strip hardware. Configured in DWC and saved to nxt-user-vars.g. The strip
-; is created on first run from these values.
+; is created on first run from these values. Strip length is nxtRGBCount.
 global nxtRGBStrip = 0      ; LED strip number (the E in M950 E0 / M150 E0)
 global nxtRGBPin   = null   ; data pin, e.g. "PA_10" - null until configured
 global nxtRGBType  = 1      ; M950 T: 1=RGB NeoPixel, 2=RGBW NeoPixel

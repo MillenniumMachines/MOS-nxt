@@ -61,21 +61,10 @@ if { result != 0 }
 M5000 P0
 var startPos = { global.nxtAbsPos }
 
-; nxt-vars declares these null — never use # on null (RRF: Expecting array expression).
-if { !exists(global.nxtCalTravelCmd) }
-    global nxtCalTravelCmd = { 8.0, 16.0, 24.0 }
-else
-    set global.nxtCalTravelCmd = { 8.0, 16.0, 24.0 }
-if { !exists(global.nxtCalTravelMeas) }
-    global nxtCalTravelMeas = { 0.0, 0.0, 0.0 }
-else
-    set global.nxtCalTravelMeas = { 0.0, 0.0, 0.0 }
-if { !exists(global.nxtCalTravelAxis) }
-    global nxtCalTravelAxis = null
-
+M98 P"nxt-cal-travel-seed.g"
 set global.nxtCalTravelAxis = { var.letter }
 
-; TR8x8 lead 8 mm → travel legs 1× / 2× / 3× lead
+; TR8x8 lead 8 mm → travel legs 1× / 2× / 3× lead (≤ ~25 mm dial stroke)
 var distances = { 8.0, 16.0, 24.0 }
 var meas0 = 0.0
 var meas1 = 0.0

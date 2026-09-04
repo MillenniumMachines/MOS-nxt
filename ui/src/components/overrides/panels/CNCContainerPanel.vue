@@ -475,8 +475,7 @@ export default defineNxtComponent({
 
 		touchProbeEnabled(): boolean {
 			const feat = readFirmwareGlobal(store.state.machine.model.global, 'nxtFeatureTouchProbe');
-			const legacyFeat = readFirmwareGlobal(store.state.machine.model.global, 'nxtFeatTouchProbe');
-			const enabled = feat === true || feat === 1 || legacyFeat === true || legacyFeat === 1;
+			const enabled = feat === true || feat === 1;
 			const id =
 				readFirmwareGlobal(store.state.machine.model.global, 'nxtTouchProbeID') ??
 				readFirmwareGlobal(store.state.machine.model.global, 'nxtTPID');
@@ -485,8 +484,7 @@ export default defineNxtComponent({
 
 		toolsetterEnabled(): boolean {
 			const feat = readFirmwareGlobal(store.state.machine.model.global, 'nxtFeatureToolSetter');
-			const legacyFeat = readFirmwareGlobal(store.state.machine.model.global, 'nxtFeatToolSetter');
-			const enabled = feat === true || feat === 1 || legacyFeat === true || legacyFeat === 1;
+			const enabled = feat === true || feat === 1;
 			const id =
 				readFirmwareGlobal(store.state.machine.model.global, 'nxtToolSetterID') ??
 				readFirmwareGlobal(store.state.machine.model.global, 'nxtTSID');

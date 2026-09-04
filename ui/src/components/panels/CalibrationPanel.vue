@@ -350,43 +350,12 @@
             </v-col>
           </v-row>
 
-          <div v-if="travelClassification" class="mt-3">
-            <v-alert
-              :type="travelClassification.kind === 'mixed' ? 'warning' : 'success'"
-              density="compact"
-              variant="outlined"
-              class="mb-2"
-            >
-              {{ travelClassification.summary }}
-            </v-alert>
-            <v-table density="compact" class="mb-2">
-              <thead>
-                <tr>
-                  <th>{{ $t('plugins.nxt.panels.calibration.travelCmd') }}</th>
-                  <th>{{ $t('plugins.nxt.panels.calibration.travelMeas') }}</th>
-                  <th>{{ $t('plugins.nxt.panels.calibration.travelErr') }}</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="(leg, i) in travelLegs" :key="'leg' + i">
-                  <td>{{ leg.commanded.toFixed(3) }}</td>
-                  <td>{{ leg.measured.toFixed(4) }}</td>
-                  <td>{{ (leg.measured - leg.commanded).toFixed(4) }}</td>
-                </tr>
-              </tbody>
-            </v-table>
-            <div class="d-flex flex-wrap ga-2">
-              <v-btn
-                size="small"
-                color="primary"
-                variant="outlined"
-                :disabled="travelClassification.proposedBacklash == null || uiFrozen"
-                @click="applyTravelBacklash"
-              >
-                {{ $t('plugins.nxt.panels.calibration.applyTravelBacklash') }}
-              </v-btn>
-            </div>
-          </div>
+          <cal-travel-results
+            :legs="travelLegs"
+            :classification="travelClassification"
+            :apply-disabled="travelClassification == null || travelClassification.proposedBacklash == null || uiFrozen"
+            @apply-backlash="applyTravelBacklash"
+          />
         </v-card>
       </template>
 
@@ -580,43 +549,13 @@
             </v-row>
             <p class="text-caption text-grey mt-2 mb-2">{{ $t('plugins.nxt.panels.calibration.runMotionTestHint') }}</p>
 
-            <div v-if="calMode === 'manual' && travelClassification" class="mt-3">
-              <v-alert
-                :type="travelClassification.kind === 'mixed' ? 'warning' : 'success'"
-                density="compact"
-                variant="outlined"
-                class="mb-2"
-              >
-                {{ travelClassification.summary }}
-              </v-alert>
-              <v-table density="compact" class="mb-2">
-                <thead>
-                  <tr>
-                    <th>{{ $t('plugins.nxt.panels.calibration.travelCmd') }}</th>
-                    <th>{{ $t('plugins.nxt.panels.calibration.travelMeas') }}</th>
-                    <th>{{ $t('plugins.nxt.panels.calibration.travelErr') }}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="(leg, i) in travelLegs" :key="'p1leg' + i">
-                    <td>{{ leg.commanded.toFixed(3) }}</td>
-                    <td>{{ leg.measured.toFixed(4) }}</td>
-                    <td>{{ (leg.measured - leg.commanded).toFixed(4) }}</td>
-                  </tr>
-                </tbody>
-              </v-table>
-              <div class="d-flex flex-wrap ga-2">
-                <v-btn
-                  size="small"
-                  color="primary"
-                  variant="outlined"
-                  :disabled="travelClassification.proposedBacklash == null || uiFrozen || selectedAxis === 'A'"
-                  @click="applyTravelBacklash"
-                >
-                  {{ $t('plugins.nxt.panels.calibration.applyTravelBacklash') }}
-                </v-btn>
-              </div>
-            </div>
+            <cal-travel-results
+              v-if="calMode === 'manual'"
+              :legs="travelLegs"
+              :classification="travelClassification"
+              :apply-disabled="travelClassification == null || travelClassification.proposedBacklash == null || uiFrozen || selectedAxis === 'A'"
+              @apply-backlash="applyTravelBacklash"
+            />
             <div class="d-flex justify-end mt-3">
               <v-btn variant="text" size="small" @click="skipPhase('2')">
                 {{ $t('plugins.nxt.panels.calibration.skipPhase') }}
@@ -1045,11 +984,13 @@ import {
   assessNxtProbeSetupReadiness,
   type NxtProbeReadinessItem
 } from '../../utils/nxtProbeSetupReadiness'
+import CalTravelResults from './CalTravelResults.vue'
 
 type AxisLetter = 'X' | 'Y' | 'Z' | 'A'
 
 export default defineNxtComponent({
   name: 'CalibrationPanel',
+  components: { CalTravelResults },
   data() {
     return {
       selectedAxis: 'X' as AxisLetter,
