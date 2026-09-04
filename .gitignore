@@ -19,3 +19,7 @@ ai-coding-cache/
 .cursor/hooks.json
 .cursor/rules/jarvis-mcp-rl.mdc
 
+# Local agent plans / skills (keep product .cursor/rules/ tracked)
+.cursor/plans/
+.cursor/skills/
+
