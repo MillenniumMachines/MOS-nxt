@@ -1,0 +1,60 @@
+---
+description: New nxt globals — declare-or-set defaults in boot; user-vars overlays with set only
+alwaysApply: true
+---
+
+# New `global nxt*` lifecycle (mandatory)
+
+Every new firmware global must be **declared with a default before use**, then **overwritten by operator Save** (`nxt-user-vars.g`). Never first-touch `set global.foo` on an undeclared name (RRF: `unknown variable`).
+
+## Boot overlay (who wins)
+
+1. **Defaults** — `nxt-vars.g` (core) or `nxt-custom-globals.g` (Custom-only `nxtCustom*`)
+2. Optional MOS import / tooltable / probe-wcs / align
+3. **`nxt-user-vars.g`** — `set` only; omit unset keys (overwrites defaults)
+4. Board pack / tools / boot / …
+5. **`nxt-user-overrides.g`** last → `nxtLoaded`
+
+See [om-global-size.mdc](om-global-size.mdc) and [docs/OM_GLOBAL_SIZE.md](../../docs/OM_GLOBAL_SIZE.md).
+
+## When adding a new global (checklist)
+
+1. **Pick home**
+   - Core / all machines → [`macros/system/nxt-vars.g`](../../macros/system/nxt-vars.g) lean default (`null` / `false` / `0` / `""` as appropriate)
+   - Custom platform only → [`nxt-custom-globals.g`](../../macros/system/nxt-custom-globals.g) — **never** bare-declare Custom keys in `nxt-vars.g`
+2. **Idempotent assign** anywhere that may run when the name might already exist (re-entry, pack resolve, UI scratch, Custom):
+
+```gcode
+; ✅ GOOD — declare default or reset default
+if { !exists(global.nxtExample) }
+    global nxtExample = null
+else
+    set global.nxtExample = null
+
+; later user-vars / Save:
+set global.nxtExample = 42
+```
+
+```gcode
+; ❌ BAD — set without declare (fails if missing)
+set global.nxtExample = null
+
+; ❌ BAD — declare inside if, then set outside (scope / unknown variable)
+if { !exists(global.nxtExample) }
+    global nxtExample = null
+set global.nxtExample = var.x
+```
+
+3. **`nxt-vars.g` first boot** may use bare `global nxtExample = …` because `nxt.g` loads it once behind `nxtVarsLoaded`. Still add the name there so pack/UI never race an undeclared global.
+4. **Persistence / UI**
+   - Generated `nxt-user-vars.g`: **`set` only**; do **not** persist `set global.<optional> = null`
+   - Live OM updates: [`ensureSetFirmwareGlobal`](../../ui/src/utils/nxtOmEnsureSet.ts) (if !exists → `global` else `set`)
+   - Configuration Save: `persistNxtUserConfig`
+5. **Manifest** — add a one-line entry in [`ui/src/utils/nxtGlobalsManifest.ts`](../../ui/src/utils/nxtGlobalsManifest.ts) when the key is operator-visible or diagnostic.
+6. **Gates** — `node dist/check-om-global-budget.mjs` (exit 0); keep packed vectors over many tiny related globals.
+
+## Do not
+
+- Invent mid-macro globals without a boot declare (e.g. board-pack telemetry like `nxtBoardPackEntry` belongs in the pack loader, not a surprise first `set`).
+- Put Custom `nxtCustom*` defaults in `nxt-vars.g`.
+- Treat `exists(global.x)` as optional documentation — use it (or boot declare) before every first `set`.

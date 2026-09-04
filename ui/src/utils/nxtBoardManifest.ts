@@ -35,8 +35,11 @@ function machineDisplayTitle(id: string, overviewTitle: string): string {
   if (id === 'v1.6') {
     return 'Milo v1.6'
   }
-  if (id === 'v2.0') {
-    return 'Milo v2.0'
+  if (id === 'v2.0-milo' || id === 'v2.0') {
+    return 'V2.0 Milo'
+  }
+  if (id === 'v2.0-miley') {
+    return 'V2.0 Miley'
   }
   if (id === 'custom') {
     return 'Custom'
@@ -44,7 +47,7 @@ function machineDisplayTitle(id: string, overviewTitle: string): string {
   return overviewTitle.replace(/\s*(nxt)\s*$/i, '').trim() || id
 }
 
-/** Migrate legacy combined platform id to v1.6. */
+/** Migrate legacy platform ids (combined v1.6_v2; unsplit v2.0). */
 export function migratePlatformProfileId(id: string | null | undefined): string | null {
   if (id == null || typeof id !== 'string') {
     return null
@@ -55,6 +58,9 @@ export function migratePlatformProfileId(id: string | null | undefined): string 
   }
   if (s === 'v1.6_v2') {
     return 'v1.6'
+  }
+  if (s === 'v2.0') {
+    return 'v2.0-milo'
   }
   return s
 }
@@ -210,13 +216,97 @@ export type ProbeRoleOccupancy = {
 
 const GPOUT_ROLE_LABELS: Array<{ key: keyof GpOutRoleOccupancy; label: string }> = [
   { key: 'nxtRelayID', label: 'Relay' },
-  { key: 'nxtAux1ID', label: 'Aux 1' },
-  { key: 'nxtAux2ID', label: 'Aux 2' },
-  { key: 'nxtAux3ID', label: 'Aux 3' },
+  { key: 'nxtAux1ID', label: 'Aux 0' },
+  { key: 'nxtAux2ID', label: 'Aux 1' },
+  { key: 'nxtAux3ID', label: 'Aux 2' },
   { key: 'nxtCoolantAirID', label: 'Air' },
   { key: 'nxtCoolantMistID', label: 'Mist' },
   { key: 'nxtCoolantFloodID', label: 'Flood' }
 ]
+
+/** Canonical Scylla named-output create order (matches gpio.g; relay is P5, not a fan). */
+export const NXT_NAMED_OUTPUT_ALIASES = [
+  'aux0',
+  'aux1',
+  'aux2',
+  'coolant',
+  'mist'
+] as const
+
+export type NxtNamedOutputAlias = (typeof NXT_NAMED_OUTPUT_ALIASES)[number]
+
+/** Default tool fan pin; aux outputs are 24V regardless of motor pack voltage. */
+export function defaultBoardFanPinsForVoltage(
+  _voltage: number | null | undefined
+): string[] {
+  return ['aux0']
+}
+
+/** True when the board pinmap assigns a fixed motor/VFD relay (hide picker, no hold-to-test). */
+export function boardHasAtxMotorRelay(boardShortName: string | null | undefined): boolean {
+  const pack = nxtBoardPackFromManifest(boardShortName)
+  const assigned = pack?.pinmap?.assigned ?? []
+  return assigned.some(
+    (p) => p.id === 'motor_relay' || (p.aliases != null && p.aliases.includes('relay'))
+  )
+}
+
+/** gpOut index for the board-assigned motor relay, or null. */
+export function boardMotorRelayGpOutIndex(
+  boardShortName: string | null | undefined
+): number | null {
+  const pack = nxtBoardPackFromManifest(boardShortName)
+  const assigned = pack?.pinmap?.assigned ?? []
+  const pin = assigned.find(
+    (p) => p.id === 'motor_relay' || (p.aliases != null && p.aliases.includes('relay'))
+  )
+  if (pin != null && typeof pin.gpOutIndex === 'number' && pin.gpOutIndex >= 0) {
+    return pin.gpOutIndex
+  }
+  return null
+}
+
+/**
+ * Fan index (M106 P) for a pin alias, given create order among fan pins.
+ * Matches Scylla gpio.g sequential F0…Fn assignment.
+ */
+export function fanIndexForPinAlias(
+  fanPins: string[] | null | undefined,
+  alias: string
+): number | null {
+  if (fanPins == null || fanPins.length === 0) {
+    return null
+  }
+  const set = new Set(fanPins.map((p) => String(p).toLowerCase()))
+  let idx = 0
+  for (const name of NXT_NAMED_OUTPUT_ALIASES) {
+    if (!set.has(name)) {
+      continue
+    }
+    if (name === alias) {
+      return idx
+    }
+    idx += 1
+  }
+  return null
+}
+
+export function namedOutputSelectItems(
+  boardShortName: string | null | undefined
+): Array<{ value: string; title: string }> {
+  const pack = nxtBoardPackFromManifest(boardShortName)
+  const named =
+    (pack?.pinmap as { namedOutputs?: string[] } | null)?.namedOutputs ??
+    [...NXT_NAMED_OUTPUT_ALIASES]
+  const free = pack?.pinmap?.free ?? []
+  return named.map((id) => {
+    const hit = free.find((p) => p.id === id || p.aliases?.includes(id))
+    return {
+      value: id,
+      title: hit?.label ? `${hit.label} (${id})` : id
+    }
+  })
+}
 
 const PROBE_ROLE_LABELS: Array<{ key: keyof ProbeRoleOccupancy; label: string }> = [
   { key: 'nxtTouchProbeID', label: 'Touch probe' },
@@ -355,7 +445,6 @@ export function gpOutItemsForBoard(
   const currentKey = options?.currentRoleKey ?? null
   const currentId =
     currentKey != null && occupancy != null ? occupancy[currentKey] ?? null : null
-  const volt = options?.motorVoltage
 
   if (free.length > 0) {
     return free
@@ -365,15 +454,6 @@ export function gpOutItemsForBoard(
         const ownedByOther = role != null && id !== currentId
         let label = p.label ?? p.aliases?.[0] ?? `Output ${id}`
         let pin = p.pin
-        if (p.id === 'aux_spare') {
-          if (volt === 24) {
-            label = 'Aux 1'
-            pin = 'A.5'
-          } else if (volt === 48) {
-            label = 'Aux 0'
-            pin = 'A.4'
-          }
-        }
         // Keep the human pin name clean; occupancy only disables the row.
         const name = ownedByOther
           ? `${formatPinSelectName(label, pin)} — used by ${role}`
@@ -622,18 +702,28 @@ export function applyKitKeyToGlobals(
   return { nxtBoardKitKey: kit, nxtBoardMotorVoltage: null }
 }
 
-export function platformStructureSummary(machineId: NxtPlatformId | null | undefined): {
+export function platformStructureSummary(
+  machineId: NxtPlatformId | null | undefined,
+  boardShortName?: string | null
+): {
   sysDeployFiles: string[]
   boardEntryPaths: string[]
   machineEntryPath: string | null
+  boardTxtPath: string | null
 } {
   const m = nxtMachineFromManifest(machineId)
+  const pack = nxtBoardPackFromManifest(boardShortName)
+  const boardTxtPath =
+    pack?.boardTxtPath != null && String(pack.boardTxtPath).trim() !== ''
+      ? String(pack.boardTxtPath)
+      : null
   if (!m) {
-    return { sysDeployFiles: [], boardEntryPaths: [], machineEntryPath: null }
+    return { sysDeployFiles: [], boardEntryPaths: [], machineEntryPath: null, boardTxtPath }
   }
   return {
     sysDeployFiles: [...m.sysDeployFiles],
     boardEntryPaths: boardEntriesList().map((b) => b.entryPath),
-    machineEntryPath: m.machineEntryPath
+    machineEntryPath: m.machineEntryPath,
+    boardTxtPath
   }
 }

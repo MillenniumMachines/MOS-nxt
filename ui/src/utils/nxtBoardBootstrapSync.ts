@@ -13,7 +13,11 @@ import {
 export async function syncBoardBootstrapSentinels(mode: 'auto' | 'off'): Promise<void> {
   if (mode === 'auto') {
     if (!(await dwcFileExists(NXT_BOARD_BOOTSTRAP_REQUESTED))) {
-      await uploadDwcFile(NXT_BOARD_BOOTSTRAP_REQUESTED, '')
+      // Non-empty body: some SBC/RRF paths treat 0-byte files as missing for fileexists().
+      await uploadDwcFile(
+        NXT_BOARD_BOOTSTRAP_REQUESTED,
+        '; nxt-board-bootstrap.requested — Configuration Bootstrap Auto\n'
+      )
     }
     if (await dwcFileExists(NXT_BOARD_BOOTSTRAP_SKIP)) {
       try {

@@ -5,5 +5,7 @@ v1.5	scylla1_0_h723	24v	nxt-config/board/scylla1_0_h723/motor-24v/entry.g	nxt-co
 v1.5	scylla1_0_h723	48v	nxt-config/board/scylla1_0_h723/motor-48v/entry.g	nxt-config/machine/v1.5/entry.g
 v1.6	scylla1_0_h723	24v	nxt-config/board/scylla1_0_h723/motor-24v/entry.g	nxt-config/machine/v1.6/entry.g
 v1.6	scylla1_0_h723	48v	nxt-config/board/scylla1_0_h723/motor-48v/entry.g	nxt-config/machine/v1.6/entry.g
-v2.0	scylla1_0_h723	24v	nxt-config/board/scylla1_0_h723/motor-24v/entry.g	nxt-config/machine/v2.0/entry.g
-v2.0	scylla1_0_h723	48v	nxt-config/board/scylla1_0_h723/motor-48v/entry.g	nxt-config/machine/v2.0/entry.g
+v2.0-miley	scylla1_0_h723	24v	nxt-config/board/scylla1_0_h723/motor-24v/entry.g	nxt-config/machine/v2.0-miley/entry.g
+v2.0-miley	scylla1_0_h723	48v	nxt-config/board/scylla1_0_h723/motor-48v/entry.g	nxt-config/machine/v2.0-miley/entry.g
+v2.0-milo	scylla1_0_h723	24v	nxt-config/board/scylla1_0_h723/motor-24v/entry.g	nxt-config/machine/v2.0-milo/entry.g
+v2.0-milo	scylla1_0_h723	48v	nxt-config/board/scylla1_0_h723/motor-48v/entry.g	nxt-config/machine/v2.0-milo/entry.g

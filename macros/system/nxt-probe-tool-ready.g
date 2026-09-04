@@ -1,4 +1,7 @@
-; nxt-probe-tool-ready.g — M4000 probe row, select probe tool, wait for sensor active.
+; nxt-probe-tool-ready.g — M4000 probe row, select probe tool.
+;
+; Tip trigger wait lives in tpre.g (install). Skip wait when the probe is
+; already selected, or after T{probe} (tpre already waited).
 ;
 ; USAGE: M98 P"nxt-probe-tool-ready.g" [S1]
 ;   S1: skip T{probe} selection (caller already selected tool)
@@ -30,8 +33,15 @@ if { !var.nxtProbeRowOk }
     M98 P"nxt-probe-tool-sync.g"
 
 var skipSelect = { exists(param.S) && param.S == 1 }
+var didSelect = false
 if { !var.skipSelect && state.currentTool != global.nxtProbeToolID }
     echo "nxt-probe-tool-ready: Selecting touch probe T" ^ global.nxtProbeToolID
     T{global.nxtProbeToolID}
+    set var.didSelect = true
 
-M98 P"nxt-probe-sensor-wait.g"
+; Q1 prompt if a wait is still needed (not already on probe, T did not run tpre).
+var needWait = false
+if { !var.didSelect && state.currentTool != global.nxtProbeToolID }
+    set var.needWait = true
+if { var.needWait }
+    M98 P"nxt-probe-sensor-wait.g" Q1

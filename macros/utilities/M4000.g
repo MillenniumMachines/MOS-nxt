@@ -9,7 +9,7 @@
 ; nxtTT[P] = [ radius, {deflX, deflY}, fluteCount(-1), fluteLength(-1.0), tcCapable(1), tsCapable(1) ]
 ;
 ; USAGE: M4000 P<idx> R<radius> S"<name>" [I<spindle>] [X<deflX>] [Y<deflY>] [F<flutes>] [L<fluteLen>]
-;   [C<0|1>] [B<0|1>] [K1] — K1 required for system writes to nxtReservedFrom (probe/datum slot).
+;   [C<0|1>] [B<0|1>] [K1] — K1 required to write the probe slot (nxtProbeToolID, usually T49).
 
 ; Make sure this file is not executed by the secondary motion system
 if { !inputs[state.thisInput].active }
@@ -31,11 +31,16 @@ if { #param.S < 1 }
 if { param.P >= limits.tools || param.P < 0 }
     abort { "Tool index must be between 0 and " ^ limits.tools-1 ^ "!" }
 
-; Reserved system slot (probe/datum at nxtProbeToolID) may ONLY be written by system macros with K1.
-if { exists(global.nxtReservedFrom) && param.P >= global.nxtReservedFrom && (!exists(param.K) || param.K != 1) }
-    abort { "Tool " ^ param.P ^ " is a reserved system slot (probe/datum). User tools must be 0-" ^ (global.nxtReservedFrom - 1) ^ "." }
+; Reserved probe slot (nxtProbeToolID, typically T49) may ONLY be written with K1.
+; No separate datum-tool pocket — user tools may use every other index including limits.tools-2.
+if { exists(global.nxtProbeToolID) && param.P == global.nxtProbeToolID && (!exists(param.K) || param.K != 1) }
+    abort { "Tool " ^ param.P ^ " is reserved for the touch probe. User tools must use another index." }
 
-var spinId = { (exists(param.I)) ? param.I : (global.nxtSpindleID != null ? global.nxtSpindleID : 0) }
+var spinId = 0
+if { exists(param.I) }
+    set var.spinId = { param.I }
+elif { exists(global.nxtSpindleID) && global.nxtSpindleID != null }
+    set var.spinId = { global.nxtSpindleID }
 
 ; Initial tool similarity check - defined in both the RRF tool table and our nxtTT table.
 ; nxtTT slots may be null (OM-size slim fill) — never use # or [] on a null row.
@@ -200,6 +205,6 @@ else
     set global.nxtTT[param.P][5] = { var.preserveB }
 
 ; Persist full tool library to SD (optional; disable with global nxtAutoPersistTools = false).
-; Skip while loading library, and skip K1 probe/datum system writes (not in user-tools file).
+; Skip while loading library, and skip K1 probe system writes (not in user-tools file).
 if { var.nxtDoToolsSync }
     M98 P"nxt-user-tools-sync.g"

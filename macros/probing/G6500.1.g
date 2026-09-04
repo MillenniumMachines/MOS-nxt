@@ -1,152 +1,94 @@
-; G6500.1.g: BORE - EXECUTE
+; G6500.1.g: GUIDED BORE PROBE
 ;
-; Probe the inside surface of a bore.
-;
-; J, K and L indicate the start X, Y and Z
-; positions of the probe, which should be an
-; approximate center of the bore in X and Y, with
-; the L value below the surface of the bore.
-;
-; H indicates the approximate bore diameter,
-; and is used to calculate a probing radius along
-; with O, the overtravel distance.
-; If W is specified, the WCS origin will be set
-; to the center of the bore.
+; Meta macro to gather operator input, then run modern G6500
+; (3-pt bore triangulation → nxtProbeResults + M6520 via U).
 
 ; Make sure this file is not executed by the secondary motion system
 if { !inputs[state.thisInput].active }
     M99
 
-if { exists(param.W) && param.W != null && (param.W < 0 || param.W >= limits.workplaces) }
-    abort { "Work Offset (W..) must be between 0 and " ^ limits.workplaces-1 ^ "!" }
-
-if { !exists(param.J) || !exists(param.K) || !exists(param.L) }
-    abort { "Must provide a start position to probe from using J, K and L parameters!" }
-
-if { !exists(param.Z) }
-    abort { "Must provide a probe position using the Z parameter!" }
-
-if { !exists(param.H) }
-    abort { "Must provide an approximate bore diameter using the H parameter!" }
-
-; Default workOffset to the current workplace number if not specified
-; with the W parameter.
-var workOffset = { (exists(param.W) && param.W != null) ? param.W : move.workplaceNumber }
-var wcsNumber = { var.workOffset + 1 }
-
-; Increment the probe surface and point totals for status reporting
-set global.nxtProbeSurfaceTotal = { global.nxtProbeSurfaceTotal + 1 }
-set global.nxtProbePointTotal = { global.nxtProbePointTotal + 3 }
-
-var probeId = { global.nxtFeatureTouchProbe ? global.nxtTouchProbeID : null }
+; Display description of bore probe if not already displayed this session
+if { global.nxtTutorialMode && !global.nxtDialogDisplayed[2] }
+    var nxtM291Msg1 = "This probe cycle finds the X and Y co-ordinates of the center of a circular bore (hole) in a workpiece by moving downwards into the bore and probing outwards in 3 directions."
+    M291 P{var.nxtM291Msg1} R"nxt: Probe Bore" T0 S2
+    var nxtM291Msg2a = "You will be asked to enter an approximate <b>bore diameter</b> and <b>overtravel distance</b>.<br/>"
+    var nxtM291Msg2b = { var.nxtM291Msg2a ^ "These define how far the probe will move from the centerpoint, without being triggered, before erroring." }
+    M291 P{var.nxtM291Msg2b} R"nxt: Probe Bore" T0 S2
+    var nxtM291Msg3a = "You will then jog the tool over the approximate center of the bore.<br/>"
+    var nxtM291Msg3b = { var.nxtM291Msg3a ^ "<b>CAUTION</b>: Jogging in RRF does not watch the probe status, so you could cause damage if moving in the wrong direction!" }
+    M291 P{var.nxtM291Msg3b} R"nxt: Probe Bore" T0 S2
+    M291 P"You will then be asked for a <b>probe depth</b>. This is how far the probe will move downwards into the bore before probing outwards." R"nxt: Probe Bore" T0 S2
+    var nxtM291Msg4 = "If you are still unsure, you can <a target=""_blank"" href=""https://mos.diycnc.xyz/usage/circular-bore"">View the Circular Bore Documentation</a> for more details."
+    M291 P{var.nxtM291Msg4} R"nxt: Probe Bore" T0 S4 K{"Continue", "Cancel"} F0
+    if { input != 0 }
+        abort { "Bore probe aborted!" }
+    set global.nxtDialogDisplayed[2] = true
 
 ; Make sure probe tool is selected
 if { global.nxtProbeToolID != state.currentTool }
-    abort { "Must run T" ^ global.nxtProbeToolID ^ " to select the probe tool before probing!" }
+    T T{global.nxtProbeToolID}
 
-; Reset stored values that we're going to overwrite
-; Reset center position, rotation and radius
-M5010 W{var.workOffset} R37
+; Default workOffset to the current workplace number if not specified
+; with the W parameter.
+var workOffset = { move.motionSystems[0].workplaceNumber }
+if { exists(param.W) && param.W != null }
+    set var.workOffset = { param.W }
 
-; Apply tool radius to overtravel. We want to allow less movement past the expected point of contact
-var overtravel = { (exists(param.O) ? param.O : global.nxtOvertravel) - ((state.currentTool <= limits.tools-1 && state.currentTool >= 0) ? global.nxtTT[state.currentTool][0] : 0) }
 
-; We add the overtravel to the bore radius
-var bR = { (param.H / 2) + var.overtravel }
+; WCS Numbers and Offsets are confusing. Work Offset indicates the offset
+; from the first work co-ordinate system, so is 0-indexed. WCS number indicates
+; the number of the work co-ordinate system, so is 1-indexed.
+var wcsNumber = { var.workOffset + 1 }
 
-; Store our own safe Z position as the current position. We return to
-; this position where necessary to make moves across the workpiece to
-; the next probe point.
-; We do this _after_ any switch to the touch probe, because while the
-; original position may have been safe with a different tool installed,
-; the touch probe may be longer. After a tool change the spindle
-; will be parked, so essentially our safeZ is at the parking location.
-var safeZ = { param.L }
+; Note: These if's below are nested for a reason.
+; During a print file, sometimes the lines after an M291 are executed
+; before the M291 has been acknowledged by the operator. This is bad.
+; We nest the ifs to make sure that the subsequent code is run only
+; after the M291 has been acknowledged.
 
-; J = start position X
-; K = start position Y
-; L = start position Z - our probe height
+; Prompt for bore diameter
+var nxtBoreF = { 0 }
+if { exists(global.nxtWPRad) && exists(global.nxtDfltWPRad) }
+    if { global.nxtWPRad[var.workOffset] != global.nxtDfltWPRad }
+        set var.nxtBoreF = { global.nxtWPRad[var.workOffset] * 2 }
+M291 P"Please enter approximate bore diameter in mm." R"nxt: Probe Bore" J1 T0 S6 F{var.nxtBoreF}
+if { result != 0 }
+    abort { "Bore probe aborted!" }
 
-; Start position is operator chosen center of the bore
-var sX = { param.J }
-var sY = { param.K }
+var boreDiameter = { input }
 
-; Create an array of probe points for G6513
-var numPoints = 3
+if { var.boreDiameter < 1 }
+    abort { "Bore diameter too low!" }
 
-var probePoints = { vector(var.numPoints, {{{null, null, null}, {null, null, null}},}) }
 
-; Set first probe point directly (0 degrees) to avoid rounding errors
-set var.probePoints[0][0][0] = {var.sX, var.sY, param.Z}
-set var.probePoints[0][0][1] = {var.sX + var.bR + var.overtravel, var.sY, param.Z}
+; Prompt for overtravel distance
+M291 P"Please enter overtravel distance in mm." R"nxt: Probe Bore" J1 T0 S6 F{global.nxtOvertravel}
+if { result != 0 }
+    abort { "Bore probe aborted!" }
 
-; Generate remaining probe points
-while { iterations < var.numPoints - 1 }
-    var pointNo = { iterations + 1 }
-    var probeAngle = { radians(120 * var.pointNo) }
+var overTravel = { input }
+if { var.overTravel < 0.1 }
+    abort { "Overtravel distance too low!" }
 
-    ; Set probe point directly with calculated positions
-    ; We have to keep the lines short to avoid going over the 255 character limit
-    ; So we should set each index separately
-    set var.probePoints[var.pointNo][0][0] = { var.sX, var.sY, param.Z }
-    set var.probePoints[var.pointNo][0][1] = { var.sX + (var.bR + var.overtravel) * cos(var.probeAngle), var.sY + (var.bR + var.overtravel) * sin(var.probeAngle), param.Z }
+M291 P"Please jog the probe <b>OVER</b> the center of the bore and press <b>OK</b>." R"nxt: Probe Bore" X1 Y1 Z1 J1 T0 S3
+if { result != 0 }
+    abort { "Bore probe aborted!" }
 
-; Call G6513 to probe the points
-G6513 I{var.probeId} P{var.probePoints} S{var.safeZ} D1 H1
+var nxtM291Msg5 = "Please enter the depth to probe at in mm, relative to the current location. A value of 10 will move the probe downwards 10mm before probing outwards."
+M291 P{var.nxtM291Msg5} R"nxt: Probe Bore" J1 T0 S6 F{global.nxtOvertravel}
+if { result != 0 }
+    abort { "Bore probe aborted!" }
 
-; Extract the compensated probe points from G6513's output
-var result = { global.nxtAbsPos }
-var pXY = { vector(3, null) }
+var probingDepth = { input }
 
-; Get the probed points from each surface
-while { iterations < #var.result }
-    set var.pXY[iterations] = { var.result[iterations][0][0][0], var.result[iterations][0][0][1] }
+if { var.probingDepth < 0 }
+    abort { "Probing depth was negative!" }
 
-; Calculate the slopes, midpoints, and perpendicular bisectors
-var sM1 = { (var.pXY[1][1] - var.pXY[0][1]) / (var.pXY[1][0] - var.pXY[0][0]) }
-var sM2 = { (var.pXY[2][1] - var.pXY[1][1]) / (var.pXY[2][0] - var.pXY[1][0]) }
+; Run the bore probe cycle
+if { global.nxtTutorialMode }
+    M291 P{"Probe will now move downwards " ^ var.probingDepth ^ "mm into the bore then probe towards the edge in 3 directions."} R"nxt: Probe Bore" T0 S4 K{"Continue", "Cancel"} F0
+    if { input != 0 }
+        abort { "Bore probe aborted!" }
 
-; Validate the slopes
-if { isnan(var.sM1) || isnan(var.sM2) }
-    abort { "Could not calculate bore center position!" }
-
-var m1X = { (var.pXY[1][0] + var.pXY[0][0]) / 2 }
-var m1Y = { (var.pXY[1][1] + var.pXY[0][1]) / 2 }
-var m2X = { (var.pXY[2][0] + var.pXY[1][0]) / 2 }
-var m2Y = { (var.pXY[2][1] + var.pXY[1][1]) / 2 }
-
-var pM1 = { -1 / var.sM1 }
-var pM2 = { -1 / var.sM2 }
-
-if { var.pM1 == var.pM2 }
-    abort { "Could not calculate bore center position!" }
-
-; Solve the equations of the lines formed by the perpendicular bisectors to find the circumcenter X,Y
-var cX = { (var.pM2 * var.m2X - var.pM1 * var.m1X + var.m1Y - var.m2Y) / (var.pM2 - var.pM1) }
-var cY = { var.pM1 * (var.cX - var.m1X) + var.m1Y }
-
-; Calculate the radii from the circumcenter to each of the probed points
-var r1 = { sqrt(pow((var.pXY[0][0] - var.cX), 2) + pow((var.pXY[0][1] - var.cY), 2)) }
-var r2 = { sqrt(pow((var.pXY[1][0] - var.cX), 2) + pow((var.pXY[1][1] - var.cY), 2)) }
-var r3 = { sqrt(pow((var.pXY[2][0] - var.cX), 2) + pow((var.pXY[2][1] - var.cY), 2)) }
-
-; Calculate the average radius
-var avgR = { (var.r1 + var.r2 + var.r3) / 3 }
-
-; Update global vars for correct workplace
-set global.nxtWPCtrPos[var.workOffset]   = { var.cX, var.cY }
-set global.nxtWPRad[var.workOffset]      = { var.avgR }
-
-; Move to the calculated center of the bore
-G6550 I{var.probeId} X{var.cX} Y{var.cY}
-
-; Move back to safe Z height
-G6550 I{var.probeId} Z{var.safeZ}
-
-; Report probe results if requested
-if { !exists(param.R) || param.R != 0 }
-    M7601 W{var.workOffset}
-echo { "nxt: Setting WCS " ^ var.wcsNumber ^ " X,Y origin to center of bore." }
-
-; Set WCS origin to the probed center
-G10 L2 P{var.wcsNumber} X{var.cX} Y{var.cY}
+; Operator is already at approx center — G6500 uses current XY as assumed center
+G6500 U{var.wcsNumber} D{var.boreDiameter} L{var.probingDepth} O{var.overTravel}

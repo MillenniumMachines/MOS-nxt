@@ -6,7 +6,7 @@
   "license": "GPL-3.0-or-later",
   "homepage": "https://github.com/MillenniumMachines/MOS-nxt",
   "tags": [],
-  "dwcVersion": "auto",
+  "dwcVersion": "auto-minor",
   "dwcDependencies": [],
   "rrfVersion": "auto-major",
   "dwcWebpackChunk": "nxt",

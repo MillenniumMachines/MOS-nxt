@@ -8,6 +8,7 @@
 ;
 ; atan2(dy,dx) of the segment between averaged contacts gives edge angle; midpoint is stored as
 ; XY “anchor” point with that θ in the rotation slot for M6520.
+; Finish: G6550 to startZ (XY pinned), then G6550 to midpoint XY, then M6520.
 ;
 ; USAGE: G6506 P|U N<axis> D<dir> S<spacing> L<depth> [F] [R] [O] [T] [Q]
 
@@ -36,8 +37,12 @@ else
 if { var.pSlot < 0 || var.pSlot >= #global.nxtProbeResults }
     abort { "G6506: Result slot out of range" }
 
-if { !exists(param.N) || !exists(param.D) || !exists(param.S) || !exists(param.L) }
-    abort { "G6506: N D S L required" }
+if { !exists(param.N) || param.N == null || !exists(param.D) || param.D == null }
+    abort { "G6506: N and D are required" }
+if { !exists(param.S) || param.S == null || param.S <= 0 }
+    abort { "G6506: Spacing S is required and must be positive" }
+if { !exists(param.L) || param.L == null || param.L <= 0 }
+    abort { "G6506: Depth L is required and must be positive" }
 
 if { param.N != 0 && param.N != 1 }
     abort { "G6506: N must be 0 or 1" }
@@ -69,7 +74,7 @@ if { param.N == 0 }
     echo "G6506: Touch 1"
     G6550 X{var.x0} Y{var.yAir0}
     G6550 Z{var.probeZ}
-    G6512 X{var.x0} Y{var.yTgt0} Z{var.probeZ} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H0
+    G6512 Y{var.yTgt0} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H0
     G6550 Z{var.startZ}
 
     var yAir1 = { var.yAir0 }
@@ -78,8 +83,15 @@ if { param.N == 0 }
     echo "G6506: Touch 2"
     G6550 X{var.x1} Y{var.yAir1}
     G6550 Z{var.probeZ}
-    G6512 X{var.x1} Y{var.yTgt1} Z{var.probeZ} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H1
+    G6512 Y{var.yTgt1} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H1
     G6550 Z{var.startZ}
+
+    if { !exists(global.nxtProbeHitXY) || global.nxtProbeHitXY == null || #global.nxtProbeHitXY < 4 }
+        abort { "G6506: Missing probe hits in nxtProbeHitXY" }
+    if { global.nxtProbeHitXY[0] == null || global.nxtProbeHitXY[1] == null }
+        abort { "G6506: Null hit A — check G6512 H0 writes" }
+    if { global.nxtProbeHitXY[2] == null || global.nxtProbeHitXY[3] == null }
+        abort { "G6506: Null hit B — check G6512 H1 writes" }
 
     var xA = { global.nxtProbeHitXY[0] }
     var yA = { global.nxtProbeHitXY[1] }
@@ -93,7 +105,7 @@ else
     echo "G6506: Touch 1"
     G6550 X{var.xAir0} Y{var.y0}
     G6550 Z{var.probeZ}
-    G6512 X{var.xTgt0} Y{var.y0} Z{var.probeZ} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H0
+    G6512 X{var.xTgt0} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H0
     G6550 Z{var.startZ}
 
     var xAir1 = { var.xAir0 }
@@ -102,8 +114,15 @@ else
     echo "G6506: Touch 2"
     G6550 X{var.xAir1} Y{var.y1}
     G6550 Z{var.probeZ}
-    G6512 X{var.xTgt1} Y{var.y1} Z{var.probeZ} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H1
+    G6512 X{var.xTgt1} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H1
     G6550 Z{var.startZ}
+
+    if { !exists(global.nxtProbeHitXY) || global.nxtProbeHitXY == null || #global.nxtProbeHitXY < 4 }
+        abort { "G6506: Missing probe hits in nxtProbeHitXY" }
+    if { global.nxtProbeHitXY[0] == null || global.nxtProbeHitXY[1] == null }
+        abort { "G6506: Null hit A — check G6512 H0 writes" }
+    if { global.nxtProbeHitXY[2] == null || global.nxtProbeHitXY[3] == null }
+        abort { "G6506: Null hit B — check G6512 H1 writes" }
 
     var xA = { global.nxtProbeHitXY[0] }
     var yA = { global.nxtProbeHitXY[1] }
@@ -115,6 +134,11 @@ var dx = { var.xB - var.xA }
 var dy = { var.yB - var.yA }
 var rotationRad = { atan2(var.dy, var.dx) }
 var rotationDeg = { var.rotationRad * 180 / pi }
+; Fold to (−90, 90] so reversed touch order does not yield ~±180°
+if { var.rotationDeg > 90 }
+    set var.rotationDeg = { var.rotationDeg - 180 }
+elif { var.rotationDeg <= -90 }
+    set var.rotationDeg = { var.rotationDeg + 180 }
 
 if { abs(var.rotationDeg) > var.skewLimit }
     abort { "G6506: |angle| " ^ var.rotationDeg ^ " exceeds limit " ^ var.skewLimit }
@@ -130,14 +154,16 @@ set global.nxtProbeResults[var.pSlot][0] = { var.midpointX }
 set global.nxtProbeResults[var.pSlot][1] = { var.midpointY }
 set global.nxtProbeResults[var.pSlot][#move.axes] = { var.rotationDeg }
 
-G27 Z1
-
 echo "G6506: Edge midpoint X=" ^ var.midpointX ^ " Y=" ^ var.midpointY
 echo "G6506: Edge angle vs machine X: " ^ var.rotationDeg ^ " deg"
 echo "G6506: Index " ^ var.pSlot
 
+; Raise to startZ with XY pinned (G6550 +Z pins current XY), then midpoint XY
+G6550 Z{var.startZ}
+G6550 X{var.midpointX} Y{var.midpointY}
+
 if { exists(param.U) && param.U != null }
     if { exists(param.Q) && param.Q != null }
-        M98 P"M6520.g" P{var.pSlot} W{param.U} X Y T{var.skewLimit} Q{param.Q}
+        M6520 P{var.pSlot} W{param.U} X1 Y1 T{var.skewLimit} Q{param.Q}
     else
-        M98 P"M6520.g" P{var.pSlot} W{param.U} X Y T{var.skewLimit}
+        M6520 P{var.pSlot} W{param.U} X1 Y1 T{var.skewLimit}

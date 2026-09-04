@@ -1,7 +1,12 @@
 ; pause.g - PAUSE CURRENT JOB
 
-; Save pre-pause state of all general purpose
-; output pins.
+; Save pre-pause state of general purpose output pins (allocate snapshot on demand).
+if { !exists(global.nxtPinStates) || global.nxtPinStates == null }
+    if { !exists(global.nxtPinStates) }
+        global nxtPinStates = { vector(min(limits.gpOutPorts, 8), 0.0) }
+    else
+        set global.nxtPinStates = { vector(min(limits.gpOutPorts, 8), 0.0) }
+
 while { iterations < min(#state.gpOut, #global.nxtPinStates) }
     if { state.gpOut[iterations] != null }
         set global.nxtPinStates[iterations] = state.gpOut[iterations].pwm

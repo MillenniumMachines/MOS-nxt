@@ -4,7 +4,7 @@
  * This file registers the nxt plugin routes, localization, and plugin data
  * for the DuetWebControl plugin integration.
  *
- * Compatibility: `plugin.json` uses `dwcVersion: "auto"` (exact DWC version at build) and `rrfVersion: "auto-major"`. Rebuild the plugin ZIP when the host DWC version changes. Dev reference (branch `v0.7.0`): **3.7.0-beta.1** — `docs/RRF_REFERENCE.md`, `docs/VERSIONING.md`.
+ * Compatibility: `plugin.json` uses `dwcVersion: "auto-minor"` (major.minor.patch prefix at build, e.g. `3.7.0`) and `rrfVersion: "auto-major"`. Rebuild when the host moves to a new patch (`3.7.1`) or major line. Dev reference (branch `v0.7.0`): **3.7.0-beta.1** — `docs/RRF_REFERENCE.md`, `docs/VERSIONING.md`.
  * Building or running the plugin inside a much older or newer DWC tree can cause opaque
  * runtime errors at plugin start if the plugin host API does not match.
  *
@@ -20,22 +20,24 @@
  * Route/i18n registration stays synchronous so /nxt exists as soon as the chunk evaluates.
  */
 
-import { registerRoute, registerPluginMessages } from '@/plugins'
+import { registerRoute, registerPluginMessages, registerLayout } from '@/plugins'
 import { registerPluginData, PluginDataType } from './compat/dwcStore'
+import { defaultNxtCalSessionPluginData } from './utils/nxtCalSession'
+import { installNxtM292NoWaitPatch } from './utils/nxtPatchM292NoWait'
+import i18n from '@/i18n'
 
 // Import main components
 import nxt from './nxt.vue'
 import ToolManagementPanel from './components/panels/ToolManagementPanel.vue'
+import NxtShell from './layouts/NxtShell.vue'
 
 // Import component modules for their side effects (utility registrations only - Vue 3 has no
 // global `Vue.component`, so panels used inside nxt.vue's template are imported locally there)
 import './components/base'
 import './components/inputs'
 import './components/panels'
-// Overrides (CNC dashboard + MessageBoxDialog) replace core DWC components. DWC's own templates
-// import those components directly, so a plugin can't override them via global registration in
-// Vue 3 - see components/overrides/index.ts for details. Left imported (inert) so the override
-// components stay compiled/available if a future DWC version exposes an override hook.
+// Overrides: MessageBoxDialog remains inert under Vue 3 (DWC binds it in App.vue).
+// CNC every-page status is restored via registerLayout(NxtShell) below — see CUSTOM-LAYOUT.md.
 import './components/overrides'
 
 // Import localization
@@ -45,7 +47,17 @@ const NXT_ROUTE_PATH = '/nxt'
 
 function registerNxtSideEffects(): void {
   try {
+    // Before routes/UI: stock MessageBoxDialog awaits M292; standalone PollConnector
+    // never gets matching replies — force noWait (DWC 3.6 workaround, not in 3.7).
+    installNxtM292NoWaitPatch()
+
     registerPluginMessages('nxt', { en })
+
+    registerLayout(NxtShell, {
+      id: 'nxt',
+      caption: String(i18n.global.t('plugins.nxt.layout.caption')),
+      takeoverOnFirstLoad: true,
+    })
 
     registerPluginData('nxt', PluginDataType.globalSetting, 'nxtUiState', {
       ready: false,
@@ -53,7 +65,8 @@ function registerNxtSideEffects(): void {
       dialogMessage: null,
       dialogResponse: null,
       lastProbeResults: [],
-      selectedResultIndex: 0
+      selectedResultIndex: 0,
+      selectedWcs: 1
     })
 
     registerPluginData('nxt', PluginDataType.globalSetting, 'nxtRgbUiState', {
@@ -63,6 +76,13 @@ function registerNxtSideEffects(): void {
       brightness: 100,
       on: true
     })
+
+    registerPluginData(
+      'nxt',
+      PluginDataType.globalSetting,
+      'nxtCalSession',
+      defaultNxtCalSessionPluginData()
+    )
 
     registerRoute(nxt, {
       Control: {

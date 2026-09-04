@@ -1,24 +1,44 @@
-; M81.9.g: DISABLE ATX POWER
+; M81.9.g: DISABLE MACHINE POWER
 ;
-; Allows the operator to disable ATX power with confirmation.
+; Operator-confirmed drop of the motor/VFD contactor.
+; Scylla: gpOut nxtRelayID (P5 / PD_5). Other boards: RRF ATX if configured.
+; No thisInput.active guard — power disarm must work from any operator channel.
 ;
 ; USAGE: M81.9
 
-if { !inputs[state.thisInput].active }
+var nxtUseGp = false
+if { exists(global.nxtRelayID) && global.nxtRelayID != null }
+    if { global.nxtRelayID >= 0 }
+        set var.nxtUseGp = true
+
+if { !var.nxtUseGp }
+    if { state.atxPowerPort == null }
+        echo "nxt: No relay gpOut (nxtRelayID) and no ATX — cannot disarm."
+        M99
+
+var nxtAlreadyOff = true
+if { var.nxtUseGp }
+    set var.nxtAlreadyOff = true
+    if { global.nxtRelayID < #state.gpOut }
+        if { state.gpOut[global.nxtRelayID] != null }
+            if { state.gpOut[global.nxtRelayID].pwm > 0 }
+                set var.nxtAlreadyOff = false
+if { !var.nxtUseGp }
+    set var.nxtAlreadyOff = { !state.atxPower }
+
+if { var.nxtAlreadyOff }
+    echo "nxt: Machine power already off."
     M99
 
-; If no ATX power port is configured, exit
-if { state.atxPowerPort == null }
-    M99
-
-; If power is already disabled, exit
-if { !state.atxPower }
-    M99
-
-; Prompt the operator to disable ATX power
 var nxtM81Msg = {"<b>CAUTION</b>: Machine Power is <b>on</b>. Deactivate?<br/>Stops <b>ALL</b> movement and spindle."}
-M291 P{var.nxtM81Msg} R"nxt: Safety Net" S4 K{"Deactivate", "Cancel"} F1
+M291 P{var.nxtM81Msg} R"nxt: Safety Net" S4 K{"Deactivate", "Cancel"} F0
 
-if { input == 0 }
-    M81
+var nxtM81Choice = input
+if { var.nxtM81Choice == 0 }
+    if { var.nxtUseGp }
+        M42 P{global.nxtRelayID} S0
+    else
+        M81
     echo {"nxt: Safety Net - Machine Power Deactivated!<br/>Run <b>M80.9</b> to activate power."}
+else
+    echo "nxt: Machine power disarm cancelled."

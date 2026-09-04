@@ -18,11 +18,14 @@ This document outlines the complete tool setting and Z-offsetting workflow for n
 This process is performed once via the **Calibration** tab (Phase 0 → `M5016`, then park + load probe tool) to establish the machine's core geometry. It is only re-run if the toolsetter or reference surface is physically moved. See [CALIBRATION.md](CALIBRATION.md) §4 for the UI path and probe-mode calibration (`G9000`).
 
 1.  **Install Datum Tool:** The user installs a rigid, known-geometry datum tool (e.g., a gauge pin).
-2.  **Measure Toolsetter:** The system automatically probes the toolsetter with the datum tool to get the absolute machine coordinate `Z_act_datum` (`M5016`).
-3.  **Measure Reference Surface:** The user manually jogs the datum tool to the designated flat reference surface to get the absolute machine coordinate `Z_ref_datum`.
-4.  **Store Static Datum:** The system calculates and permanently saves the static datum:
+2.  **Verify Toolsetter Input:** `M5016` requires `nxtToolSetterID` from Configuration, asks the operator to press and hold the platen, and confirms that configured probe input is active.
+3.  **Measure Toolsetter:** Jog XY over the platen with ~20 mm Z clearance; `M5016` probes down 20 mm (or until trigger) for `Z_act_datum` / `nxtToolSetterPos`.
+4.  **Measure Reference Surface:**
+    - **V1 (default):** The user manually jogs the datum tool onto the designated flat reference surface (mill **paper-touch**, not a probe trigger) to get `Z_ref_datum` (and XY).
+    - **V2.0** (`nxtToolSetterV2`): Configuration sets the ref-pad side of the platen (`nxtToolSetterRefDir`: +X / −X / +Y / −Y). After probing `Z_act`, M5016 places `nxtTouchProbeRefPos` at **±13 mm** from the platen center in that direction and **`Z_ref = Z_act − 6`** (no second jog). Then `nxtDeltaMachine = −6`.
+5.  **Store Static Datum:** The system calculates and permanently saves:
     `nxtDeltaMachine = Z_ref_datum - Z_act_datum`
-5.  **Load touch probe:** Park (`G27`), install probe, `T{nxtProbeToolID}` so `tpost` / `G6511` establish the probe offset; **Save** writes `nxtToolSetterPos`, `nxtTouchProbeRefPos`, and `nxtDeltaMachine` to `nxt-user-vars.g`.
+6.  **Load touch probe:** Park (`G27`), install probe, `T{nxtProbeToolID}`. Probe `tpost` zeros incoming L1 then **`G6511 R1 S0`** at **`nxtTouchProbeRefPos`** (reference surface, not the setter pad). Fast find seeks **`nxtToolSetterProbeTravelMm`** (default 80 mm) past mill-touch Z so a shorter probe still triggers. Mill virtual = `meanZ − nxtDeltaMachine`. **Save** writes setter/ref/delta (and finite virtual) to `nxt-user-vars.g`.
 
 ### UI Babystepping
 
@@ -41,47 +44,46 @@ This is the standard and recommended way to start a job.
 1.  The operator installs the **touch probe**.
 2.  From the UI, they initiate a "Probe Z" cycle on the workpiece.
 3.  The probe touches the workpiece, recording the trigger coordinate `Z_wcs_trigger`.
-4.  The system sets the WCS Z-origin directly to this point (`G10 L20 P(wcs) Z{Z_wcs_trigger}`) and internally sets the probe's current tool offset to `0`.
+4.  The system sets the WCS Z-origin to this trigger in machine coords (`G10 L2 P(wcs) Z{Z_wcs_trigger}`), or equivalently `G10 L20 P(wcs) Z0` **while still at the trigger**. It internally sets the probe's current tool offset to `0`. **`G10 L20 … Z{trigger}`** would treat the trigger as a *work* value, not a machine height.
 
 *Result: The machine's coordinate system is now defined such that the tip of the triggered probe is at Z=0 in the active WCS.*
 
 ### Scenario B: First Tool Change (Probe -> Cutter)
 
-This workflow uses the static datum to link the two different measurement devices (reference surface and toolsetter).
+Every probe install (`T{nxtProbeToolID}`) **`G6511 R1`** on the **saved reference surface** (`nxtTouchProbeRefPos`) and keeps the probe **`G10 L1 Z0`**. Mills then `G10 L1` vs that virtual (MOS G37). Incoming mill L1 is zeroed before the platen hit.
 
-1.  A tool change from the probe to a cutting tool is commanded.
-2.  **Measure "Old" Tool (Probe):** The system automatically probes the **reference surface** with the touch probe, recording `Z_ref_probe`.
-3.  **Swap:** The user is prompted to swap the probe for the new cutting tool.
-4.  **Measure "New" Tool (Cutter):** The system automatically probes the **toolsetter** with the new cutter, recording `Z_act_cutter`.
-5.  **Calculate Offset:**
-    - The probe's "virtual" position on the toolsetter is calculated: `Z_act_probe_virtual = Z_ref_probe - nxtDeltaMachine`.
-    - The length difference is found: `Length_Diff = Z_act_cutter - Z_act_probe_virtual`.
-    - The new tool's offset is the probe's offset (which was 0) plus the difference: `New_Offset = 0 + Length_Diff`.
-6.  **Apply & Cache:** The system applies this `New_Offset` to the cutter (`G10 L1...`) and **caches** the measured `Z_act_cutter` value for this tool for the current session.
+1.  A tool change from the probe to a cutting tool is commanded (`T{mill}`).
+2.  **Probe `tpost`:** Incoming **`G10 L1 Z0`**, then **`G6511 R1 S0`** at **`nxtTouchProbeRefPos`** every load (does not skip if mill virtual already exists; does not use the setter pad `Z_act−8`). Fast find seeks past mill-touch Z (`nxtToolSetterProbeTravelMm`) so probe vs mill stickout still triggers. Cache virtual. Probe L1 stays 0.
+3.  **Swap:** `tfree` then `tpre` run a **full `G27`** before Remove/Install `M291` **S4** OK/Cancel (soft Cancel → `nxtToolChangeCancelled`; **never** `abort` in the T-stack). Soft Cancel sets `nxtToolChangeCancelled` when the macro continues. First `T` skips tfree — tpre still full-parks.
+4.  **Measure cutter:** Mill `tpost` **`G10 L1 Z0`** on the incoming mill, then **`G27 Z1`**, probes the **toolsetter**. Trailing full **`G27`** parks after `G10`. Same-T does not run tpost.
+5.  **Calculate Offset:** `New_Offset = -(Z_act_cutter − nxtProbeVirtualTsZ)` where virtual is pad `meanZ − nxtDeltaMachine` after the last T49. Probe L1 stays 0. Do not add the previous mill’s L1.
+6.  **Apply & Cache:** `G10 L1 P{mill} Z{New_Offset}` and cache `Z_act_cutter` for this mill for the session.
+
+**Job-start mill from T-1:** CAM often issues the first mill `T` with no prior `tfree`, so RRF `previousTool` is **-1**. tpost measures against **probe virtual** (last G6511 / persist), not a previousTool match. Confirm Console **`Offset=`** after the setter slow pass.
+
+**Park:** Real T-change zeros **incoming** L1 before measure (not the outgoing mill in tfree/tpre). After measure + `G10 L1`, tpost runs a **full `G27`**. `G27 Z1` at tpost *start* is only a raise after that Z0.
 
 ### Scenario C: Subsequent Tool Change (Cutter A -> Cutter B)
 
-This workflow is optimized using the session cache.
+With pad virtual (live or persisted after a T49 G6511), every mill is measured **against that virtual**, same as MOS G37 — not against cutter A’s L1.
 
-1.  A tool change from Cutter A to Cutter B is commanded.
-2.  **Use Cached Value for "Old" Tool:** The system retrieves the cached `Z_act_cutter_A` from when Cutter A was installed. **No measurement is performed.**
-3.  **Swap:** The user is prompted to swap Cutter A for Cutter B.
-4.  **Measure "New" Tool (Cutter B):** The system measures Cutter B on the **toolsetter**, recording `Z_act_cutter_B`.
-5.  **Calculate Offset:**
-    - The length difference is a direct comparison: `Length_Diff = Z_act_cutter_B - Z_act_cutter_A`.
-    - The new offset is calculated relative to the previous one: `New_Offset = Old_Offset_A + Length_Diff`.
-6.  **Apply & Cache:** The system applies the `New_Offset` to Cutter B and **caches** the `Z_act_cutter_B` value.
+1.  A tool change from Cutter A (e.g. T1) to Cutter B (e.g. T7) is commanded from DWC or CAM — **not** only at job start.
+2.  **No measurement of T1 on tfree.**
+3.  After **M999**, mill cache is empty: tpost still uses **persisted `nxtProbeVirtualTsZ`**. A new T49 **G6511 R1** refreshes it from the reference surface.
+4.  **Measure "New" Tool:** Cutter B on the **toolsetter**.
+5.  **Calculate Offset:** `New_Offset = -(Z_act_B − virtual)`.
+6.  **Apply & Cache:** `G10 L1` on B and cache `Z_act_B` for session diagnostics.
+
+If there is **no** mill virtual and **no** setter Z, mill-to-mill cannot run vs the datum pin. tpost **aborts** and asks for **M5016**. Optional session cache `New_Offset = Old_Offset − (Z_new − Z_old)` only when virtual is still null but cache Z exists.
 
 ### Scenario D: The `T-1` Edge Case (Unmeasured Tool -> Known Tool)
 
-This workflow handles the situation where an operator sets an origin with an unmeasured tool.
+This workflow handles a **paper touch-off** when the **toolsetter is not** in the mill `tpost` path (`nxtFeatureToolSetter` off or `nxtToolSetterPos` null).
 
-1.  **Initial State:** The machine is in `T-1` (no tool selected). The operator has installed a tool and manually set a WCS Z-origin (e.g., by touching off on paper and sending `G10 L20 P(wcs) Z0`). The system has no length data for this tool.
-2.  **Tool Change Request:** The operator commands a change to a known tool (e.g., `T0`) or the touch probe.
-3.  **System Action:** The system cannot automatically determine a valid offset because the reference length is unknown. Instead of guessing, it will take the safest path:
-    - It will invalidate the current Z-origin by displaying a clear message to the operator.
-    - It will **force the user to manually re-establish the Z-origin** with the new tool.
-    - If the new tool is a cutter, it will prompt the user to perform a manual touch-off.
-    - If the new tool is the touch probe, it will prompt the user to run the standard "Probe Z" cycle (Scenario A).
+1.  **Initial State:** Operator set WCS Z with an unmeasured stick-out (paper `G10 L20 … Z0`). There is no platen mill datum.
+2.  **Tool Change Request:** Operator or CAM loads a mill (`T0`, …).
+3.  **System Action:** mill `tpost` zeros **incoming** L1 then measures. If setter XY exists but **Z is missing**, it **aborts** and asks for **M5016** (not G6511 / not paper-touch). Only the **no-toolsetter** branch takes Scenario D:
+    - **`G37.1`** — re-establish WCS Z with the mill on the workpiece.
+    - Then a **full `G27`** so CAM spindle/XY start from park.
 
-This approach ensures that there is no ambiguity. It prioritizes safety and accuracy by refusing to perform an offset calculation without a known reference, guiding the user to the correct, safe procedure.
+If M5016 has run (virtual = platen Z, persisted), mill-to-mill is **Scenario C**, not D — even after M999, and even when `previousTool` is -1.

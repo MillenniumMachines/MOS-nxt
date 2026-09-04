@@ -4,7 +4,7 @@
 if { !global.nxtCoolantPulseActive || !global.nxtFeatureCoolantControl }
     M99
 
-var nxtNowMs = { millis() }
+var nxtNowMs = { state.upTime * 1000 + state.msUpTime }
 var nxtLastMs = { global.nxtCoolantPulseLastMs }
 if { var.nxtNowMs < var.nxtLastMs }
     set global.nxtCoolantPulseLastMs = { var.nxtNowMs }

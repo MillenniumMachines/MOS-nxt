@@ -63,6 +63,9 @@ class GCODES:
     INCHES                  = 20
     MILLIMETERS             = 21
     FEED_PER_MIN            = 94
+    PLANE_XY                = 17
+    PLANE_XZ                = 18
+    PLANE_YZ                = 19
 
     PARK                    = 27
     HOME                    = 28
@@ -84,10 +87,13 @@ class MCODES:
     VSSC_DISABLE                 = 7001
     SHOW_DIALOG                  = 3000
 
+# Coordinate / arc IJKR decimal places (RRF G2/G3 arc tolerance)
+AXIS_DECIMALS = 4
+
 # Define format strings for variable and command types
 class FORMATS:
     CMD   = '{:0.3f}'
-    AXES  = '{:0.3f}'
+    AXES  = '{:0.' + str(AXIS_DECIMALS) + 'f}'
     TOOLS = '{:0.0f}'
     RPM   = '{:0.0f}'
     STR   = '"{!s}"'
@@ -162,8 +168,8 @@ parser.add_argument('--allow-zero-rpm', action=argparse.BooleanOptionalAction, d
 parser.add_argument('--version-check', action=argparse.BooleanOptionalAction, default=True,
     help="""
     When enabled, the post-processor will output a version check command
-    to make sure the post-processor version and nxt version installed
-    in RRF match.
+    (M4005) so the post and installed nxt share the same major.minor line
+    (patch / beta / rc tags are ignored).
     """)
 probe_mode = parser.add_mutually_exclusive_group(required=False)
 probe_mode.add_argument('--probe-at-start', dest='probe_mode', action='store_const', const=PROBE.AT_START, default=PROBE.ON_CHANGE,
@@ -473,7 +479,7 @@ class PostProcessor:
     # and will only accept numeric arguments.
     def _parseparam(self, key, value):
         # TODO: Check if number.
-        return '{}{:0.3f}'.format(key, value)
+        return '{}{}'.format(key, FORMATS.AXES.format(value))
 
     # Default operation parsing just outputs operation name
     # and arguments without any processing.
@@ -509,6 +515,7 @@ class NxtPostProcessor(PostProcessor):
     _RAPID_MOVES           = [0]
     _LINEAR_MOVES          = [0, 1]
     _ARC_MOVES             = [2, 3]
+    _PLANE_CODES           = [17, 18, 19]
     _SPINDLE_ACTIONS_START = [3, 4]
     _SPINDLE_ACTIONS_STOP  = [5]
     _SPINDLE_WAIT_SUFFIX   = .9
@@ -561,6 +568,11 @@ class NxtPostProcessor(PostProcessor):
         self.xy_seen         = False
         self.delayed_z       = None
         self.spindle_started = False
+        # After G17/G18/G19, force G1 to arc start so modal out-of-plane axes cannot drift.
+        self.plane_just_changed = False
+        self.cur_x = None
+        self.cur_y = None
+        self.cur_z = None
 
         with self.Section(Section.PRE):
             # Warn operator
@@ -611,6 +623,8 @@ class NxtPostProcessor(PostProcessor):
         elif code in self._WCS_CHANGES:
             self.onwcs(code, params)
 
+        elif code in self._PLANE_CODES:
+            self.onplane(code, params)
 
         elif code in self._MOVES:
             self.onmove(code, params)
@@ -620,6 +634,52 @@ class NxtPostProcessor(PostProcessor):
             if not cmd:
                 return None
 
+            self.cmd(' '.join(cmd))
+
+    def onplane(self, code, params):
+        """Emit G17/G18/G19 and mark that the next arc must restate start pose."""
+        cmd, _ = self._G(code, **params)
+        if not cmd:
+            return
+        plane_names = {
+            GCODES.PLANE_XY: "XY",
+            GCODES.PLANE_XZ: "XZ",
+            GCODES.PLANE_YZ: "YZ",
+        }
+        name = plane_names.get(int(code) if code == int(code) else code, "?")
+        self.brk()
+        self.comment("Switch to {} plane for arc moves".format(name))
+        self.cmd(' '.join(cmd))
+        self._forceLinearParams()
+        self.plane_just_changed = True
+
+    def _updateCurrentPose(self, params):
+        if ARGS.X in params and params[ARGS.X] is not None:
+            self.cur_x = params[ARGS.X]
+        if ARGS.Y in params and params[ARGS.Y] is not None:
+            self.cur_y = params[ARGS.Y]
+        if ARGS.Z in params and params[ARGS.Z] is not None:
+            self.cur_z = params[ARGS.Z]
+
+    def _forceArcStartPose(self):
+        """Emit G1 to CAM start before first arc after a plane change."""
+        if not self.plane_just_changed:
+            return
+        self.plane_just_changed = False
+        if self.cur_x is None and self.cur_y is None and self.cur_z is None:
+            return
+        self._forceLinearParams()
+        kwargs = {}
+        # Restate XY whenever known — covers G18→G17 scallop lead-in.
+        if self.cur_x is not None:
+            kwargs[ARGS.X] = self.cur_x
+        if self.cur_y is not None:
+            kwargs[ARGS.Y] = self.cur_y
+        if not kwargs:
+            return
+        self.comment("Confirm start before arc after plane change")
+        cmd, _ = self._G(GCODES.LINEAR, ctrl=Control.FORCE, **kwargs)
+        if cmd:
             self.cmd(' '.join(cmd))
 
     def M(self, code, **params):
@@ -718,6 +778,8 @@ class NxtPostProcessor(PostProcessor):
         # Make sure the first linear move after an arc move
         # contains the right parameters.
         if code in self._ARC_MOVES:
+            # Before consuming end XYZ from this arc, lock start pose if plane just changed.
+            self._forceArcStartPose()
             self._forceLinearParams()
 
         cmd, changed = self._G(code, **params)
@@ -747,7 +809,7 @@ class NxtPostProcessor(PostProcessor):
             # And Z has been changed
             if ARGS.Z in changed:
                 # Then store the Z height for later
-                self.delayed_z = [cmd, changed]
+                self.delayed_z = [cmd, changed, params]
                 return
 
             if ARGS.X in changed or ARGS.Y in changed:
@@ -756,14 +818,18 @@ class NxtPostProcessor(PostProcessor):
         # Otherwise if we have seen an X/Y move and there is a delayed Z,
         # then output the delayed move.
         elif self.delayed_z is not None:
-            dcmd, _ = self.delayed_z
+            dcmd = self.delayed_z[0]
+            dparams = self.delayed_z[2] if len(self.delayed_z) > 2 else {}
             self.brk()
             self.comment("Delayed Z move following XY")
             self.cmd(' '.join(dcmd))
+            self._updateCurrentPose(dparams)
             self.delayed_z = None
             self.brk()
 
         self.cmd(' '.join(cmd))
+        # Track modal pose after the move for plane-switch arc starts.
+        self._updateCurrentPose(params)
 
     def ontoolchange(self, _, params):
         self.T(params[ARGS.TOOL])

@@ -8,6 +8,7 @@ import { defineComponent } from 'vue'
 import { Axis } from "@duet3d/objectmodel";
 import store from "../../compat/dwcStore";
 import { extendComponent } from "../../compat/vueCompat";
+import { NXT_PROBE_TOOL_ID } from '../../utils/nxtProbeToolId'
 import { readFirmwareGlobal } from "../../utils/nxtToolChangerOm";
 
 /**
@@ -77,35 +78,51 @@ const BaseComponent = defineComponent({
     },
 
     /**
-     * Get the configured probe tool (last tool by default)
+     * Get the configured probe tool (T49 / index 49).
      */
     probeTool(): any {
       const tools = store.state.machine.model.tools
       const globals = this.globals
-      const probeToolId = globals.nxtProbeToolID
-      if (probeToolId !== undefined && tools[probeToolId]) {
+      const raw = globals.nxtProbeToolID
+      const probeToolId =
+        typeof raw === 'number' && Number.isFinite(raw) && raw >= 0 ? raw : NXT_PROBE_TOOL_ID
+      if (tools[probeToolId]) {
         return tools[probeToolId]
       }
-      // Default to last tool if nxtProbeToolID not set
-      return tools[tools.length - 1] || null
+      return tools[NXT_PROBE_TOOL_ID] || null
     },
 
     /**
-     * Get/Set current workplace coordinate system (1-based, maps to G54-G59.3)
+     * Current WCS as 1-based index (1 = G54 … 9 = G59.3).
+     * RRF move.workplaceNumber is 0-based (0 = G54); do not use `|| 1` (turns G54 into 1 then +1 → WCS2).
      */
     currentWorkplace: {
       get(): number {
-        return store.state.machine.model.move.workplaceNumber || 1
+        const move = store.state.machine.model.move as {
+          workplaceNumber?: number
+          motionSystems?: Array<{ workplaceNumber?: number }>
+        }
+        const fromSystem = move?.motionSystems?.[0]?.workplaceNumber
+        const raw =
+          typeof fromSystem === 'number'
+            ? fromSystem
+            : typeof move?.workplaceNumber === 'number'
+              ? move.workplaceNumber
+              : 0
+        return raw + 1
       },
       set(workplace: number) {
-        this.sendCode(`G${53 + workplace}`)
+        // 1-based WCS. G59.1–G59.3 are not G60–G62 — use nxt-select-wcs.g.
+        const w = typeof workplace === 'number' && workplace >= 1 && workplace <= 9
+          ? workplace
+          : 1
+        this.sendCode(`M98 P"nxt-select-wcs.g" W${w}`)
       }
     },
 
     /**
-     * Calculate absolute machine position for visible axes
-     * Note: RRF doesn't expose workplace offsets in the object model yet,
-     * so this returns the user position which already has offsets applied
+     * User position per visible axis (WCS already applied by RRF).
+     * Machine G10 L2 origins live in move.axes[].workplaceOffsets.
      */
     absolutePosition(): Record<string, number> {
       const result: Record<string, number> = {}
@@ -139,14 +156,18 @@ const BaseComponent = defineComponent({
     },
 
     /**
-     * Get available spindles from RRF configuration
+     * Get available spindles from RRF configuration (configured slots only).
      */
     availableSpindles(): Array<{ id: number, name: string }> {
       const spindles = store.state.machine.model.spindles || []
-      return spindles.map((_: any, index: number) => ({
-        id: index,
-        name: `Spindle ${index}`
-      }))
+      return spindles
+        .map((spindle: { state?: string } | null, index: number) => ({
+          id: index,
+          name: `Spindle ${index}`,
+          configured: spindle != null && spindle.state !== 'unconfigured'
+        }))
+        .filter((s: { configured: boolean }) => s.configured)
+        .map((s: { id: number; name: string }) => ({ id: s.id, name: s.name }))
     },
 
     /**
@@ -191,11 +212,16 @@ const BaseComponent = defineComponent({
 
   methods: {
     /**
-     * Send G-code command to the machine
+     * Send G-code command to the machine.
+     * @param noWait When true, return as soon as the code is enqueued (needed for M292
+     *   on standalone PollConnector; the Pinia M292 patch also forces this).
      */
-    async sendCode(code: string): Promise<any> {
+    async sendCode(code: string, noWait: boolean = false): Promise<any> {
       try {
-        return await store.dispatch('machine/sendCode', code)
+        return await store.dispatch(
+          'machine/sendCode',
+          noWait ? { code, noWait: true } : code
+        )
       } catch (error) {
         console.error('nxt UI: Failed to send code:', code, error)
         throw error

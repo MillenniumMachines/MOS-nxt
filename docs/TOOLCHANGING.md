@@ -29,6 +29,8 @@ nxt ships example tooling hooks under:
 
 …which you wire in **config.g** / tool definitions as appropriate for your machine. Those files are the right place to integrate with **your** physical changer logic.
 
+**Operator Cancel:** Install (`tpre`) and Remove (`tfree`) use **`M291 S4`** with **`K{"OK","Cancel"}`** — **not** `S3`. On RRF, **`S3` Cancel aborts the file**, which can leave **Changing Tool** stuck and can take down DCS on **USB SBC**. Cancel sets **`global.nxtToolChangeCancelled`** and **`M99`** (do **not** `abort`). Config / tip-check failures in `tpre`, `tpost`, and `nxt-probe-sensor-wait` are also **soft-fail** (echo + flag/`M99` / skip measure) so RRF can finish the `T` stack. RRF **still finishes** `Tn` and runs `tpost.g`; `tpost.g` skips toolsetter/probe/`G37.1` when cancelled, **clears the flag**, and **does not issue `T`**. RRF keeps the tool it already selected. To deselect with no further prompts, send **`T-1 P0`** from the console. If status is still Changing Tool with `nxtToolChangeState` null, use **`M999`** (no RRF API to clear a wedged T-change).
+
 ---
 
 ## 2. nxt base install vs optional extension
@@ -55,6 +57,8 @@ If you install a **compatible macro pack** on the machine (same object-model wir
 - `atcPocketToTool`, `atcToolToPocket`
 - `atcEnabled`, `atcToolChangeMode`, `atcBayMode`
 - Job sequence arrays (`atcJobSeq*`) if your post processor fills them
+
+**Enable:** Configuration → **Tool Changer (ATC)** → `nxtFeatureAtc` → **Save**, then reboot. Boot loads MosAtc init macros from SD only when the flag is on (`skipInitDispatch` in `nxt.g`). Install the **MosAtc** DWC plugin for operator UI. Leave the flag **off** when ATC is not installed — avoids ~800B+ `atc*` globals in the OM `global` key.
 
 Base **nxt** does not drive those from its Tool Library panel. Use the **mos-atc** DWC plugin (paired with that macro pack) for magazine layout, bay cards, job sequence, and M870–M879 / M401x controls. **`ui/src/utils/nxtToolChangerOm.ts`** remains the shared OM key / M-code map for that plugin or forks.
 

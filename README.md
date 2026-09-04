@@ -15,7 +15,7 @@ We build _on top of_ RepRapFirmware, providing operators of the Millennium Machi
 - Canned probing cycles usable directly from gcode or via Duet Web Control as named macros.
 - Fallbacks to guided manual probing when touch probe and / or toolsetter is not available.
 - Safety checks at every step to instill confidence in novice machinists.
-- Variable Spindle Speed Control (planned; not yet in v0.6 betas).
+- Variable Spindle Speed Control (`M7000` / `M7001`; CAM posts enable this by default).
 - Compatible with Millennium Machines Milo GCode Dialect.
 
 ## Usage
@@ -49,7 +49,7 @@ The information contained here is for advanced users who want to understand furt
 - You _must_ be using RRF **3.7.x** on branch **`v0.7.0`** (minimum **3.7.0-beta.1** while upstream is in beta). nxt uses meta G-code features that do not exist in earlier versions. For **3.6.x** machines, stay on nxt **`v0.6.0`** releases.
 
 **Reference firmware for development:** When reviewing or extending nxt on branch **`v0.7.0`**, treat **[RepRapFirmware 3.7.0-beta.1](docs/RRF_REFERENCE.md)** as the evaluation baseline. See [`docs/RRF_REFERENCE.md`](docs/RRF_REFERENCE.md) and [`docs/VERSIONING.md`](docs/VERSIONING.md).
-- nxt includes its own `daemon.g` file for repetitive tasks (VSSC is planned but not yet implemented). If you want to implement your own repetitive tasks, create a `user-daemon.g` file in the `/sys` directory, which nxt will run during its daemon loop. Do not use long-running loops inside `user-daemon.g` as this will interfere with nxt's daemon behaviour.
+- nxt includes a background daemon loop (source [`macros/system/daemon.g`](macros/system/daemon.g)). Plugin ZIPs ship it as `sd/sys/daemon.install`; [`nxt.g`](macros/system/nxt.g) renames it to `0:/sys/daemon.g` so DSF upgrades do not overwrite an open forever-loop file. If an older install still lists `daemon.g` in the plugin file list, use **Prepare for plugin update** in the UI (or `M6525`) once before upgrading — see [docs/PLUGIN_LOAD_TROUBLESHOOTING.md](docs/PLUGIN_LOAD_TROUBLESHOOTING.md). For custom background tasks, create `user-daemon.g` in `/sys` (nxt runs it each daemon tick). Do not use long-running loops inside `user-daemon.g`.
 
 ### RRF Config
 
@@ -61,7 +61,7 @@ You need to configure your Toolsetter and optionally, Touch Probe, in RRF before
 
 This involves configuring both of them as Z probes, which can be done with the `M558` command.
 
-You would add line(s) similar to these to your RRF `config.g` file, above where the nxt file (`nxt.g`) is included.
+**Scylla board packs** ship default `toolsetter.g` (K1 / `PE_7`) and `touchprobe.g` (K0 / `PE_15`, type P5). Place overrides at `0:/sys/toolsetter.g` or `0:/sys/touchprobe.g` if needed. Other boards still need explicit `M558` in `config.g` (or equivalent) above where `nxt.g` is included — for example:
 
 ```gcode
 
@@ -71,8 +71,8 @@ You would add line(s) similar to these to your RRF `config.g` file, above where 
 ; Max Retries A10     = retry probe a maximum of 10 times
 ; Tolerance S0.01     = when tolerance is reached, stop probing
 ; Travel Speed T1200  = travel moves run at this speed to the start of the probing location
-; Probe Speed F300:50 = initial probe speed runs at 300mm/min, subsequent at 50mm/min
-M558 K0 P5 C"probe" H2 A10 S0.01 T1200 F300:50
+; Probe Speed F200:50 = initial probe speed runs at 200mm/min, subsequent at 50mm/min
+M558 K0 P5 C"probe" H2 A10 S0.01 T1200 F200:50
 
 ; Configure the toolsetter as Z-Probe 1 on pin "xstopmax" - mainboard specific, DO NOT COPY AND PASTE!
 ; Type P8             = unfiltered digital
@@ -124,7 +124,7 @@ To install the nxt plugin on your physical machine:
 3. Click **Install Plugin** and upload the ZIP. Start the plugin once installed.
 4. **Mandatory Firmware Step:** Open your `0:/sys/config.g` via the System Directory and add `M98 P"nxt.g"` to the end of the file. (If you are upgrading from `mos`, ensure you remove the old `M98 P"mos.g"` and replace it with `nxt.g`).
 5. Run `M999` to restart the board and load the new nxt globals.
-6. In **Configuration**, select your **platform** (`v1.5`, `v1.6`, `v2.0`, or `custom`), then **Apply platform sys files** so `0:/sys/home*.g` match that platform ([homing requirements](docs/NXT_BOARD_HOMING.md)).
+6. In **Configuration**, select your **platform** (`v1.5`, `v1.6`, `v2.0-milo`, `v2.0-miley`, or `custom`), then **Apply platform sys files** so `0:/sys/home*.g` match that platform ([homing requirements](docs/NXT_BOARD_HOMING.md)).
 7. Optional tuning: the plugin installs `0:/sys/nxt-user-overrides.g.example`; copy it to `nxt-user-overrides.g` to override globals last in `nxt.g` before `global.nxtLoaded` is set (probe repeatability, etc.).
 
 ## DWC Plugin Development

@@ -5,7 +5,8 @@ M98 P"nxt-config/machine/v1.6/general.g"
 M98 P"nxt-config/machine/v1.6/movement.g"
 M98 P"nxt-config/machine/v1.6/limits.g"
 M98 P"nxt-config/machine/v1.6/steps.g"
-M98 P"nxt-config/machine/v1.6/endstop-y.g"
+M98 P"nxt-config/machine/v1.6/drives-dir.g"
+M98 P"nxt-config/machine/v1.6/endstops.g"
 if { fileexists("0:/sys/network.g") }
     M98 P"network.g"
 else

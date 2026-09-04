@@ -24,7 +24,7 @@ The **minor** digit in nxt semver (`0.M.0`) matches the **minor** digit in RRF/D
 |-----|----------|---------------|
 | DWC build ref | [`ci/dwc-build-ref`](../ci/dwc-build-ref) | `v3.7.0-beta.1` |
 | RRF evaluation target | [`RRF_REFERENCE.md`](RRF_REFERENCE.md) | **3.7.0-beta.1** (3.7.x line) |
-| Plugin manifest | [`ui/plugin.json`](../ui/plugin.json) | `rrfVersion: "auto-major"` → `3.7.*`; `dwcVersion: "auto"` → exact DWC at build |
+| Plugin manifest | [`ui/plugin.json`](../ui/plugin.json) | `rrfVersion: "auto-major"` → `3.7.*`; `dwcVersion: "auto-minor"` → patch prefix (e.g. `3.7.0`) |
 | OM budget | [OM_GLOBAL_SIZE.md](OM_GLOBAL_SIZE.md) | **~8 KiB** serialized `global` (CDYv3 dropped on this line) |
 
 When upstream ships a stable **3.7.0** (or newer 3.7.x patch), bump `ci/dwc-build-ref` and [`RRF_REFERENCE.md`](RRF_REFERENCE.md) together on branch `v0.7.0`. Rebuild plugin ZIPs against the matching DWC tree.
@@ -36,7 +36,7 @@ When upstream ships a stable **3.7.0** (or newer 3.7.x patch), bump `ci/dwc-buil
 3. **Release candidates:** `v0.7.0-rcN` (no dot before `rc`).
 4. **Stable:** `v0.7.0` on branch `v0.7.0`.
 5. **ZIP naming:** `nxt-<version>.zip` ([NAMING.md](NAMING.md)).
-6. **`global.nxtVersion`** and CAM post-processors (`M4005`) match the installed release from this line.
+6. **`global.nxtVersion`** may be the full tag (`v0.7.0-beta.1`); CAM posts (`M4005`) match the **line** (`0.M` / major.minor), not the exact tag.
 
 ## Starting a new RRF generation (e.g. 3.8)
 
@@ -53,5 +53,5 @@ When RRF **3.8.x** is the target:
 - [BRANCH_PORTING.md](BRANCH_PORTING.md) — dual-line manual porting until v0.6.0 EOL
 - [RRF_REFERENCE.md](RRF_REFERENCE.md) — evaluation RRF for macro/OM review on this branch
 - [RRF_3.7_MIGRATION.md](RRF_3.7_MIGRATION.md) — upgrading from 3.6 to 3.7
-- [PLUGIN_LOAD_TROUBLESHOOTING.md](PLUGIN_LOAD_TROUBLESHOOTING.md) — DWC exact-version match for plugin ZIPs
+- [PLUGIN_LOAD_TROUBLESHOOTING.md](PLUGIN_LOAD_TROUBLESHOOTING.md) — DWC patch-prefix (`auto-minor`) match for plugin ZIPs
 - [ROADMAP.md](ROADMAP.md) — feature track for the current line

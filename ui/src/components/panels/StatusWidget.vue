@@ -57,6 +57,8 @@
 
 <script lang="ts">
 import { defineNxtComponent } from '../base/BaseComponent.vue'
+import store from '../../compat/dwcStore'
+import { formatToolLabelFromTools } from '../../utils/nxtLoadedToolStatus'
 
 /**
  * nxt Status Widget
@@ -72,10 +74,12 @@ export default defineNxtComponent({
   
   computed: {
     toolDisplay(): string {
-      if (!this.currentTool) {
+      const idx = store.state.machine.model.state.currentTool
+      if (typeof idx !== 'number' || idx < 0) {
         return 'None'
       }
-      return `T${this.currentTool.number}`
+      const label = formatToolLabelFromTools(store.state.machine.model.tools, idx)
+      return label.length > 0 ? label : 'None'
     },
 
     toolIcon(): string {
@@ -83,7 +87,17 @@ export default defineNxtComponent({
         return 'mdi-tools'
       }
       // Check if current tool is the probe tool
-      if (this.probeTool && this.currentTool.number === this.probeTool.number) {
+      const idx = store.state.machine.model.state.currentTool
+      const probeId =
+        this.probeTool != null && typeof (this.probeTool as { number?: number }).number === 'number'
+          ? (this.probeTool as { number: number }).number
+          : null
+      if (probeId != null && idx === probeId) {
+        return 'mdi-target'
+      }
+      // Prefer configured probe slot from globals when tool.number is absent
+      const raw = (this.globals as { nxtProbeToolID?: number })?.nxtProbeToolID
+      if (typeof raw === 'number' && idx === raw) {
         return 'mdi-target'
       }
       return 'mdi-drill'
@@ -93,7 +107,9 @@ export default defineNxtComponent({
       if (!this.currentTool) {
         return 'text--secondary'
       }
-      if (this.probeTool && this.currentTool.number === this.probeTool.number) {
+      const idx = store.state.machine.model.state.currentTool
+      const raw = (this.globals as { nxtProbeToolID?: number })?.nxtProbeToolID
+      if (typeof raw === 'number' && idx === raw) {
         return 'text-orange'
       }
       return 'text-primary'

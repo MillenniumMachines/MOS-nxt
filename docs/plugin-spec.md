@@ -11,12 +11,23 @@ Each plugin uses DWC `plugin.json` and may include nxt runtime metadata in `data
 - `id`
 - `version`
 
+### Version compatibility (catalog policy)
+
+Catalog plugins in [`dist/plugins.catalog.json`](../dist/plugins.catalog.json) (nxt, MosAtc, ArborCTL, MosFourthAxis) should set:
+
+- `dwcVersion`: **`"auto-minor"`** — build stamps major.minor.patch without prerelease (e.g. pin `3.7.0-beta.1` → `3.7.0`). Host must share that prefix.
+- `rrfVersion`: **`"auto-major"`** — stamps major.minor (e.g. `3.7`).
+
+Do not hardcode a full prerelease string or major.minor-only `dwcVersion` for release ZIPs.
+
 ### nxt Metadata (`data.nxt`)
 
 - `tag` (string): must equal `nxt-plugin` to opt in.
 - `enabled` (bool): defaults to `true` if omitted.
 - `loadOrder` (number): lower values initialize first.
 - `failureMode` (`soft` or `strict`): defaults to `soft`.
+- `featureFlag` (string, optional): global name (e.g. `nxtFeatureAtc`) — init dispatch runs only when that global is true.
+- `skipInitDispatch` (bool, optional): when true, init is **not** emitted in `nxt-plugin-init-dispatch.g`; load from `nxt.g` when the feature flag and SD macros are present (MosAtc pattern).
 - `entrypoints` (object):
   - `init` (string, optional): one-time init macro path under `/sys`.
   - `daemon` (string, optional): periodic daemon macro path under `/sys`.
@@ -92,7 +103,7 @@ For local build, test, and sibling-directory layout, see
 - `nxt.g` calls the generated init dispatcher once boot checks pass.
 - `nxt-daemon.g` runs every daemon cycle and calls init dispatcher first, daemon dispatcher second.
 - system event macros (`pause.g`, `resume.g`, `stop.g`, `cancel.g`) call corresponding generated event dispatchers when present.
-- The built-in nxt plugin `plugins/next/next-init.g` echoes board-related globals (`nxtPlatformProfile`, `nxtBoardPackEntry`, `nxtBoardPackExpectedEntry`, `nxtBoardMotorVoltage`) for diagnostics after `nxt.g` has run; it does not load hardware board packs (that is `macros/system/nxt-board-pack-loader.g`). See [NXT_BOARD_CONFIG.md](NXT_BOARD_CONFIG.md).
+- The built-in nxt plugin `plugins/next/next-init.g` echoes board-related globals (`nxtPlatformProfile`, `nxtBoardPackEntry`, `nxtBoardMotorVoltage`) for diagnostics after `nxt.g` has run; it does not load hardware board packs (that is `macros/system/nxt-board-pack-loader.g`). See [NXT_BOARD_CONFIG.md](NXT_BOARD_CONFIG.md).
 
 ## Load Semantics
 
@@ -119,6 +130,7 @@ Flags are in-memory and reset on reboot.
 ## Compatibility
 
 - **ArborCTL** (optional catalog plugin): spindle polling runs via `data.nxt` daemon entrypoint `plugins/arborctl/arborctl-daemon-hook.g` → `arborctl/arborctl-daemon.g`. Install the ArborCTL DWC ZIP (or stage sibling `../ArborCTL`) so entrypoints exist; `macros/system/daemon.g` no longer hard-codes a direct `arborctl-daemon.g` call (avoids double-polling).
+- **MosFourthAxis** (optional catalog plugin): init runs via `data.nxt` + catalog `featureFlag` `nxtFeatureFourthAxis` (`plugins/mos-fourth-axis/mos-fourth-axis-init.g` → `mos-fourth-axis.g`). Mapping in `rotary-plugin-config.g` is skipped when A is already mapped (Scylla `axis-a.g`). Do not add an `M98` of that file to `config.g`.
 - Legacy standalone ArborCTL installs (no nxt) still use their own `daemon.g` → `arborctl-daemon.g`.
 - `nxt-daemon.g` and `user-daemon.g` remain valid.
 - Missing generated dispatcher files must not break core nxt startup.

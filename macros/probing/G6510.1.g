@@ -1,106 +1,115 @@
-; G6510.1.g: SINGLE SURFACE PROBE - EXECUTE
+; G6510.1.g: GUIDED SINGLE SURFACE PROBE
 ;
-; Execute the single surface probe given
-; the axis to probe, distance to probe in and
-; the depth to probe at or towards.
+; Meta macro to gather operator input before executing G6510.
+; Surface names are relative to an operator at the front of the mill
+; (surfaces: Left, Right, Front, Back, Top). Calls G6510 N/O
+; (and L for XY dive), not legacy execute params.
 
 ; Make sure this file is not executed by the secondary motion system
 if { !inputs[state.thisInput].active }
     M99
 
-if { exists(param.W) && param.W != null && (param.W < 0 || param.W >= limits.workplaces) }
-    abort { "Work Offset (W..) must be between 0 and " ^ limits.workplaces-1 ^ "!" }
+; Index of the zProbe entry as this requires different inputs (Top).
+var zProbeI = { 4 }
+var nxtSfc = { "Left", "Right", "Front", "Back", "Top" }
 
-if { !exists(param.J) || !exists(param.K) || !exists(param.L) }
-    abort { "Must provide a start position to probe from using J, K and L parameters!" }
+; Display description of surface probe if not displayed this session
+if { global.nxtTutorialMode && !global.nxtDialogDisplayed[4] }
+    var nxtM291Msg1 = "This operation finds the co-ordinate of a surface on a single axis. It is usually used to find the top surface of a workpiece but can be used to find X or Y positions as well."
+    M291 P{var.nxtM291Msg1} R"nxt: Probe Surface" T0 S2
+    M291 P"<b>CAUTION</b>: This operation will only return accurate results if the surface you are probing is perpendicular to the axis you are probing in." R"nxt: Probe Surface" T0 S2
+    var nxtM291Msg2 = "You will jog the tool or touch probe to your chosen starting position. Your starting position should be outside and above X or Y surfaces, or directly above the top surface."
+    M291 P{var.nxtM291Msg2} R"nxt: Probe Surface" T0 S2
+    M291 P"<b>CAUTION</b>: Jogging in RRF does <b>NOT</b> watch the probe status. Be careful!" R"nxt: Probe Surface" T0 S2
+    var nxtM291Msg3 = "<b>CAUTION</b>: For X or Y surfaces, the probe will move down <b>BEFORE</b> moving horizontally to detect a surface. Bear this in mind when selecting a starting position."
+    M291 P{var.nxtM291Msg3} R"nxt: Probe Surface" T0 S2
+    var nxtM291Msg4 = "For X or Y surfaces, you will then be asked for a <b>probe depth</b>. This is how far your probe will move down from the starting position before moving in X or Y."
+    M291 P{var.nxtM291Msg4} R"nxt: Probe Surface" T0 S2
+    var nxtM291Msg5 = "Finally, you will be asked to set a <b>probe distance</b>. This is how far the probe will move towards a surface before returning an error if it did not trigger."
+    M291 P{var.nxtM291Msg5} R"nxt: Probe Surface" T0 S2
+    var nxtM291Msg6 = "If you are still unsure, you can <a target=""_blank"" href=""https://mos.diycnc.xyz/usage/single-surface"">View the Single Surface Documentation</a> for more details."
+    M291 P{var.nxtM291Msg6} R"nxt: Probe Surface" T0 S4 K{"Continue", "Cancel"} F0
+    if { input != 0 }
+        abort { "Surface probe aborted!" }
 
-if { !exists(param.H) }
-    abort { "Must provide an axis to probe (H...)" }
-
-if { !exists(param.I) }
-    abort { "Must provide a distance to probe towards the target surface (I...)" }
-
-; Increment the probe surface and point totals for status reporting
-set global.nxtProbeSurfaceTotal = { global.nxtProbeSurfaceTotal + 1 }
-set global.nxtProbePointTotal = { global.nxtProbePointTotal + 1 }
-
-; Default workOffset to the current workplace number if not specified
-; with the W parameter.
-var workOffset = { (exists(param.W) && param.W != null) ? param.W : move.workplaceNumber }
-
-; WCS Numbers and Offsets are confusing. Work Offset indicates the offset
-; from the first work co-ordinate system, so is 0-indexed. WCS number indicates
-; the number of the work co-ordinate system, so is 1-indexed.
-var wcsNumber = { var.workOffset + 1 }
-
-var pID = { global.nxtFeatureTouchProbe ? global.nxtTouchProbeID : null }
+    set global.nxtDialogDisplayed[4] = true
 
 ; Make sure probe tool is selected
 if { global.nxtProbeToolID != state.currentTool }
-    abort { "Must run T" ^ global.nxtProbeToolID ^ " to select the probe tool before probing!" }
+    T T{global.nxtProbeToolID}
 
-; Reset stored values that we're going to overwrite -
-; surface and rotation
-M5010 W{var.workOffset} R40
+; Prompt for overtravel distance
+var nxtM291Msg7 = "Please enter <b>overtravel</b> distance in mm.<br/>This is how far we move past the expected surface to account for any innaccuracy in the dimensions."
+M291 P{var.nxtM291Msg7} R"nxt: Probe Surface" J1 T0 S6 F{global.nxtOvertravel}
+if { result != 0 }
+    abort { "Single Surface probe aborted!" }
 
-; Get current machine position on Z
-M5000 P1 I2
+var overtravel = { input }
+if { var.overtravel < 0 }
+    abort { "Overtravel distance must not be negative!" }
 
-var safeZ = { global.nxtAbsPos }
+; Ask the operator to jog to their chosen starting position
+var nxtM291Msg8 = "Please jog the probe or tool to your chosen starting position.<br/><b>CAUTION</b>: Remember - Jogging in RRF does <b>NOT</b> watch the probe status. Be careful!"
+M291 P{var.nxtM291Msg8} R"nxt: Probe Surface" X1 Y1 Z1 T0 S3
+if { result != 0 }
+    abort { "Surface probe aborted!" }
 
-; We do not apply tool radius to overtravel, because we need overtravel for
-; Z probes as well as X/Y. Tool radius only applies for X/Y probes.
-var overtravel = { exists(param.O) ? param.O : global.nxtOvertravel }
+M98 P"nxt-m291-surfaces.g" F{var.zProbeI}
+if { result != 0 }
+    abort { "Surface probe aborted!" }
+var probeAxis = { input }
 
-; Tool Radius if tool is selected
-var tR = { ((state.currentTool <= limits.tools-1 && state.currentTool >= 0) ? global.nxtTT[state.currentTool][0] : 0) }
+; For Z probes, our depth is 0 but our distance is the probing depth
+var probeDepth = 0
 
-; Set target positions
-var tPX = { param.J }
-var tPY = { param.K }
-var tPZ = { param.L }
+var isZProbe = { var.probeAxis == var.zProbeI }
 
-var probeAxis = { param.H }
-var probeDist = { param.I }
+; If this is an X/Y probe, ask for depth
+if { !var.isZProbe }
+    var nxtM291Msg10 = "Please enter the depth to probe at in mm, below the current location.<br/><b>Example</b>: A value of 10 will move the probe downwards 10mm before probing outwards."
+    M291 P{var.nxtM291Msg10} R"nxt: Probe Surface" J1 T0 S6 F{global.nxtOvertravel}
+    if { result != 0 }
+        abort { "Surface probe aborted!" }
 
-if { var.probeAxis == 0 }
-    set var.tPX = { var.tPX + var.probeDist + var.overtravel - var.tR }
-elif { var.probeAxis == 1 }
-    set var.tPX = { var.tPX - var.probeDist - var.overtravel + var.tR }
-elif { var.probeAxis == 2 }
-    set var.tPY = { var.tPY + var.probeDist + var.overtravel - var.tR }
-elif { var.probeAxis == 3 }
-    set var.tPY = { var.tPY - var.probeDist - var.overtravel + var.tR }
-elif { var.probeAxis == 4 }
-    set var.tPZ = { var.tPZ - var.probeDist - var.overtravel }
+    set var.probeDepth = { input }
+
+    if { var.probeDepth < 0 }
+        abort { "Probing depth was negative!" }
+
+M291 P"Please enter the distance to probe towards the surface in mm." R"nxt: Probe Surface" J1 T0 S6 F{global.nxtClearance}
+if { result != 0 }
+    abort { "Surface probe aborted!" }
+
+var probeDist = { input }
+
+if { var.probeDist < 0 }
+    abort { "Probe distance was negative!" }
+
+if { global.nxtTutorialMode }
+    if { !var.isZProbe }
+        var nxtM291Msg11 = {"Probe will now move down <b>" ^ var.probeDepth ^ "</b> mm and probe towards the <b>" ^ var.nxtSfc[var.probeAxis] ^ "</b> surface." }
+        M291 P{var.nxtM291Msg11} R"nxt: Probe Surface" T0 S4 K{"Continue", "Cancel"} F0
+        if { input != 0 }
+            abort { "Single Surface probe aborted!" }
+    else
+        M291 P{"Probe will now move towards the <b>" ^ var.nxtSfc[var.probeAxis] ^ "</b> surface." } R"nxt: Probe Surface" T0 S4 K{"Continue", "Cancel"} F0
+        if { input != 0 }
+            abort { "Single Surface probe aborted!" }
+
+; G6510 snapshots pose (M5000) and seeks O from that air position.
+var wcsU = { move.motionSystems[0].workplaceNumber + 1 }
+if { exists(param.W) && param.W != null }
+    set var.wcsU = { param.W + 1 }
+if { var.wcsU < 1 || var.wcsU > 9 }
+    abort { "G6510.1: WCS U must be 1-9" }
+
+var seek = { var.probeDist + var.overtravel }
+if { var.seek <= 0 }
+    abort { "G6510.1: Probe distance plus overtravel must be positive" }
+
+if { var.isZProbe }
+    G6510 U{var.wcsU} N{var.probeAxis} O{var.seek}
+elif { var.probeDepth > 0 }
+    G6510 U{var.wcsU} N{var.probeAxis} O{var.seek} L{var.probeDepth}
 else
-    abort { "Invalid probe axis!" }
-
-; Check if the positions are within machine limits
-M6515 X{ var.tPX } Y{ var.tPY } Z{ var.tPZ }
-
-var probePoints = {{{{param.J, param.K, param.L}, {var.tPX, var.tPY, var.tPZ}},}, }
-
-; Run probing operation using G6513 with direct vector creation
-G6513 I{var.pID} P{var.probePoints} S{var.safeZ} D1
-
-var sAxis = { (var.probeAxis <= 1)? "X" : (var.probeAxis <= 3)? "Y" : "Z" }
-
-; Set the axis that we probed on
-set global.nxtWPSfcAxis[var.workOffset] = { var.sAxis }
-
-; Set surface position on relevant axis
-set global.nxtWPSfcPos[var.workOffset] = { (var.probeAxis <= 1)? global.nxtAbsPos[0][0][0][0] : (var.probeAxis <= 3)? global.nxtAbsPos[0][0][0][1] : global.nxtAbsPos[0][0][0][2] }
-
-; Report probe results if requested
-if { !exists(param.R) || param.R != 0 }
-    M7601 W{var.workOffset}
-    echo { "nxt: Setting WCS " ^ var.wcsNumber ^ " " ^ var.sAxis ^ " origin to probed co-ordinate." }
-
-; Set WCS if required
-if { var.probeAxis <= 1 }
-    G10 L2 P{var.wcsNumber} X{global.nxtWPSfcPos[var.workOffset]}
-elif { var.probeAxis <= 3 }
-    G10 L2 P{var.wcsNumber} Y{global.nxtWPSfcPos[var.workOffset]}
-else
-    G10 L2 P{var.wcsNumber} Z{global.nxtWPSfcPos[var.workOffset]}
+    G6510 U{var.wcsU} N{var.probeAxis} O{var.seek}

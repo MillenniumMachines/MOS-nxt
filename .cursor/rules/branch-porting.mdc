@@ -15,7 +15,7 @@ Read [docs/BRANCH_PORTING.md](../../docs/BRANCH_PORTING.md) before cross-branch 
 2. **Never** copy version pins (`ci/dwc-build-ref`, `RRF_REFERENCE.md` values, `v0.7.0` strings) across lines.
 3. **v0.7.0 → v0.6.0:** RRF 3.6.3 ceiling; Vuetify 2; keep **CDYv3**; OM **~5 KiB**; no `ui/src/compat/`.
 4. **v0.6.0 → v0.7.0:** Vue 3 / Vuetify 3 pass; 3.7 build pin; separate commit on `v0.7.0`.
-5. **CDYv3 endstop:** On v0.6.0, `machine/*/endstop-y.g` must keep board conditional (`PD_11` / `PD_14`) — do not copy v0.7.0 Scylla-only files.
+5. **CDYv3 endstop:** On v0.6.0, Y (and shared pin maps) must keep board conditional (`PD_11` / `PD_14`) — do not copy v0.7.0 Scylla-only `machine/*/endstops.g` wholesale.
 
 ## Before claiming port work done
 

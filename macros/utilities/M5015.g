@@ -1,8 +1,9 @@
 ; M5015.g: CALIBRATION G6512 — JOG, PROBE, RETURN
 ;
 ; Jog to approach → G6512 to target → return to approach position.
-; USAGE: M5015 X|Y|Z<target> I<probeId>
+; USAGE: M5015 X|Y|Z<target> I<probeId> [J0]
 ; Target is machine coordinate for the probe move (may be negative).
+; J0: skip jog M291 (already at approach, e.g. after M5018).
 
 if { !inputs[state.thisInput].active }
     M99
@@ -30,13 +31,17 @@ if { var.axisIdx < 0 }
 if { !exists(param.I) || param.I == null }
     abort { "M5015: Probe ID I.. is required" }
 
-var letter = { move.axes[var.axisIdx].letter }
+var skipJog = { false }
+if { exists(param.J) && param.J == 0 }
+    set var.skipJog = { true }
 
-var jogMsgA = { "Jog near the measuring surface for " ^ var.letter }
-var jogMsgB = { var.jogMsgA ^ ", then press OK.<br/><b>CAUTION</b>: Jogging does not watch the probe." }
-M291 P{var.jogMsgB} R"nxt: Calibration probe" X1 Y1 Z1 J1 T0 S3
-if { result != 0 }
-    abort { "M5015: Operator cancelled before probe" }
+var letter = { move.axes[var.axisIdx].letter }
+var jogMsgA = { "Orient 1-2-3 with 3in ∥ X. Jog near the " ^ var.letter ^ " face, then OK." }
+
+if { !var.skipJog }
+    M291 P{var.jogMsgA} R"nxt: Calibration probe" X1 Y1 Z1 J1 T0 S3
+    if { result != 0 }
+        abort { "M5015: Operator cancelled before probe" }
 
 M5000 P0
 var approach = { global.nxtAbsPos }

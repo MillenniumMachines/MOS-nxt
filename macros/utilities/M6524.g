@@ -14,7 +14,7 @@ if { !exists(global.nxtFeatureRgbLight) || !global.nxtFeatureRgbLight }
 ; Ensure the strip exists (board rgb.g / daemon may already have created it).
 if { exists(global.nxtRGBPin) && global.nxtRGBPin != null }
     if { !exists(global.nxtRGBReady) || !global.nxtRGBReady }
-        M950 E{global.nxtRGBStrip} C{global.nxtRGBPin} T{global.nxtRGBType} U{global.nxtRGBCount}
+        M950 E{global.nxtRGBStrip} C{global.nxtRGBPin} T{global.nxtRGBType} K{global.nxtRGBOrder} U{global.nxtRGBCount}
         if { exists(global.nxtRGBReady) }
             set global.nxtRGBReady = true
 elif { !exists(global.nxtRGBReady) || !global.nxtRGBReady }

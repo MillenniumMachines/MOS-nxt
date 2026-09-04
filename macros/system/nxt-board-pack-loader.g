@@ -1,14 +1,33 @@
 ; nxt-board-pack-loader.g
 ; Invoked from nxt.g after nxt-vars.g and nxt-user-vars.g when auto pack load is requested.
 ;
-; Opt-in:  create empty file 0:/sys/nxt-board-bootstrap.requested (Configuration Save with bootstrap Auto)
+; Opt-in:  nxtBoardBootstrapMode=auto (nxt-user-vars) and/or
+;          0:/sys/nxt-board-bootstrap.requested (Configuration Save)
 ; Opt-out: create 0:/sys/nxt-board-bootstrap.skip
 ; Override: 0:/sys/nxt-user-board.g runs instead of resolution below.
 ;
 ; Load order: board pack (nxt-config/board/) then machine pack (nxt-config/machine/<profile>/).
 ; Homing macros are deploy-only (Configuration UI), not M98'd at boot.
+;
+; After M999, fileexists on a zero-byte .requested can race false — also trust mode=auto.
 
-if { !fileexists("0:/sys/nxt-board-bootstrap.requested") }
+var wantPack = false
+var hasRequested = { fileexists("0:/sys/nxt-board-bootstrap.requested") }
+var modeAuto = false
+if { exists(global.nxtBoardBootstrapMode) && global.nxtBoardBootstrapMode == "auto" }
+    set var.modeAuto = true
+
+if { var.hasRequested }
+    set var.wantPack = true
+elif { var.modeAuto }
+    set var.wantPack = true
+    ; Recreate sentinel so the next cold boot does not depend on a missing/empty file
+    echo >"0:/sys/nxt-board-bootstrap.requested" {"; nxt board bootstrap auto"}
+    echo "[nxt] board pack: restored nxt-board-bootstrap.requested (mode=auto)"
+
+if { !var.wantPack }
+    echo "[nxt] board pack: skipped (bootstrap off — set Configuration Bootstrap to Auto)"
+    M117 "nxt board pack off"
     M99
 
 if { fileexists("0:/sys/nxt-board-bootstrap.skip") }
@@ -21,7 +40,10 @@ M117 "nxt board pack start"
 
 if { fileexists("0:/sys/nxt-user-board.g") }
     M117 "nxt nxt-user-board.g"
-    set global.nxtBoardPackEntry = "nxt-user-board.g"
+    if { !exists(global.nxtBoardPackEntry) }
+        global nxtBoardPackEntry = "nxt-user-board.g"
+    else
+        set global.nxtBoardPackEntry = "nxt-user-board.g"
     M98 P"nxt-user-board.g"
     echo "[nxt] board pack: finished (nxt-user-board.g)"
     M99
@@ -30,6 +52,11 @@ if { !exists(global.nxtPlatformProfile) || global.nxtPlatformProfile == null || 
     echo "[nxt] board pack: set global nxtPlatformProfile in nxt-user-vars.g (nxt Configuration)"
     M117 "nxt board pack no platform"
     M99
+
+; one-release alias: former v2.0 id → v2.0-milo (OVERVIEW lives under the new directory)
+if { global.nxtPlatformProfile == "v2.0" }
+    set global.nxtPlatformProfile = "v2.0-milo"
+    echo "[nxt] machine pack: aliased v2.0 → v2.0-milo"
 
 if { !fileexists("0:/sys/nxt-config/machine/" ^ global.nxtPlatformProfile ^ "/OVERVIEW.txt") }
     if { !fileexists("0:/sys/nxt/config/" ^ global.nxtPlatformProfile ^ "/OVERVIEW.txt") }

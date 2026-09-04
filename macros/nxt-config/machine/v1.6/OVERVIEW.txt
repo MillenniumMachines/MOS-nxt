@@ -3,7 +3,7 @@ Milo v1.6 machine pack (nxt)
 Homing requirements: docs/NXT_BOARD_HOMING.md (v1.6 — Y toward Y0, Z reversed, Z800).
 
 This tree mirrors the nxt v1.5 board layout; edit under nxt-config/machine/v1.6/
-for Milo v1.6 without disturbing v1.5 or v2.0 users.
+for Milo v1.6 without disturbing v1.5 or v2.0-milo / v2.0-miley users.
 
 Automatic pack load (opt-in) runs from nxt.g after nxt-vars.g and nxt-user-vars.g
 via macros/system/nxt-board-pack-loader.g — see docs/NXT_BOARD_CONFIG.md.

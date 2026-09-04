@@ -11,6 +11,7 @@ import {
   NXT_FOURTH_AXIS_PLUGIN_ID
 } from './nxtInstalledPlugins'
 import { readFirmwareGlobal } from './nxtToolChangerOm'
+import { readConfigBool } from './nxtUserVarsPersistence'
 
 /** @deprecated Prefer NXT_FOURTH_AXIS_PLUGIN_ID — same value. */
 export const NXT_ROTARY_CALIBRATION_PLUGIN_ID = NXT_FOURTH_AXIS_PLUGIN_ID
@@ -26,10 +27,9 @@ export function hasVisibleAAxis(axes: Array<{ letter?: string; visible?: boolean
   })
 }
 
-/** True when nxtFeatureFourthAxis is set in firmware globals. */
+/** True when nxtFeatureFourthAxis is enabled (boolean in firmware; OM may also expose 1). */
 export function isNxtFourthAxisFeatureEnabled(globalVal: unknown): boolean {
-  const v = readFirmwareGlobal(globalVal, 'nxtFeatureFourthAxis')
-  return v === true || v === 1
+  return readConfigBool(readFirmwareGlobal(globalVal, 'nxtFeatureFourthAxis'))
 }
 
 export function isRotaryCalibrationAvailable(opts: {

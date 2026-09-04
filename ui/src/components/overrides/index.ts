@@ -3,13 +3,14 @@
  *
  * Central entry point for nxt's DWC UI overrides (custom dialog + CNC dashboard panel).
  *
- * NOT wired into ui/src/index.ts by default: under Vue 3 / Vite, DWC core binds
- * `<MessageBoxDialog />` (App.vue) and `<CNCContainerPanel />` (layouts/builtin.vue) to their own
- * imports at compile time, so global registration under these components' kebab-case names can no
- * longer intercept them the way Vue 2's global component registry could - these overrides are
- * currently inert. Exported here (not registered globally) so they're ready to wire up once DWC
- * exposes an explicit override/registration hook for these core singletons (e.g. via the layout
- * system's `registerLayout`).
+ * CNC every-page status: under Vue 3 / Vite, DWC's builtin shell statically imports stock
+ * `CNCContainerPanel`, so global registration cannot intercept it. nxt restores the rich CNC
+ * status (tool / WCS / Z offset / spindle) via `registerLayout(NxtShell)` in `ui/src/index.ts`
+ * (`takeoverOnFirstLoad`). See DuetWebControl CUSTOM-LAYOUT.md; users can return to the built-in
+ * shell from Settings → Display or `/BuiltInLayout`.
+ *
+ * MessageBoxDialog: still inert — App.vue binds DWC's own import at compile time. Exported here
+ * so it stays compiled if DWC later exposes an override hook.
  */
 
 import MessageBoxDialog from './MessageBoxDialog.vue'

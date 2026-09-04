@@ -29,8 +29,10 @@ M5.9
 ; If park is called with Z parameter, then the table itself will not be
 ; moved.
 if { !exists(param.Z) && move.axes[0].homed && move.axes[1].homed }
-    ; Move table to center of X, and front of Y
-    G53 G0 X{(move.axes[0].max - move.axes[0].min)/2} Y{move.axes[1].max}
+    var nxtParkX = { (move.axes[0].max - move.axes[0].min) / 2 }
+    var nxtParkY = { move.axes[1].max }
+    echo "G27: table X=" ^ var.nxtParkX ^ " Y=" ^ var.nxtParkY
+    G53 G0 X{var.nxtParkX} Y{var.nxtParkY}
 
 ; Wait for movement to stop
 M400

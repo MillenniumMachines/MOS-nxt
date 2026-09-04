@@ -29,12 +29,12 @@ Configure your CNC spindle parameters:
 | Setting | Description | Example |
 |---------|-------------|---------|
 | Spindle ID | RRF spindle index (0-based) | `0` |
-| Acceleration Time | Time for spindle to reach target speed | `3.0` seconds |
-| Deceleration Time | Time for spindle to stop | `2.5` seconds |
+| Acceleration Time | Time for spindle to reach target speed | `10` s default if unset; ArborCTL VFD Apply writes the real ramp |
+| Deceleration Time | Time for spindle to stop | Same ownership: hold-to-measure, or VFD tab when ArborCTL is live |
 
 **Usage Notes:**
 - Spindle ID should match your RRF configuration
-- Acceleration/deceleration times are used by M3.9/M4.9/M5.9 macros to wait for spindle speed changes
+- Acceleration/deceleration times are the full wait ceiling for M3.9/M4.9/M5.9 (and the VFD ramp when Apply pushes `J`/`K`). Boot default is **10 s**. With ArborCTL status live, those macros early-exit when the VFD reports ready/stopped, otherwise continue after the timeout. When ArborCTL firmware is live, Configuration disables hold-to-measure and shows the VFD ramp; **VFD Apply** persists `nxtSpindleAccelSec` / `nxtSpindleDecelSec`.
 
 ### 3. Touch Probe Configuration
 
@@ -44,7 +44,7 @@ Configure your touch probe settings:
 |---------|-------------|---------|
 | Touch Probe Sensor ID | RRF probe index | `0` |
 | Probe Tip Radius | Radius of probe tip for horizontal compensation | `1.5` mm |
-| Probe Deflection | Measured deflection compensation value | `0.025` mm |
+| Probe Deflection {X,Y,Z} | Positive magnitudes (mm) per linear axis | `{0.025, 0.025, 0.020}` |
 
 **Additional Features:**
 - **"Measure Probe Deflection" Button**: Launches the deflection measurement wizard
@@ -70,15 +70,15 @@ Select the machine platform and board pack that match your hardware. Platforms a
 
 | Control | Description |
 |---------|-------------|
-| **Platform** | e.g. `v1.5`, `v1.6`, `v2.0`, or `custom` — sets `global.nxtPlatformProfile` |
+| **Platform** | e.g. `v1.5`, `v1.6`, `v2.0-milo`, `v2.0-miley`, or `custom` — sets `global.nxtPlatformProfile` |
 | **Board profile** | Override `global.nxtBoardShortNameOverride` or leave Auto (first board in object model) |
 | **Scylla motor voltage** | Required for Scylla packs: `24` or `48` V variant |
 | **Bootstrap mode** | **Auto** — Save creates `0:/sys/nxt-board-bootstrap.requested`. **Off** — Save removes it. |
-| **Apply platform sys files** | Uploads `homeall.g`, `homex.g`, `homey.g`, `homez.g` from `nxt-config/machine/<profile>/` to `0:/sys/` (deploy-only, not boot) |
+| **Apply platform sys files** | Uploads `homeall.g`, `homex.g`, `homey.g`, `homez.g` (and `homea.g` when present) from `nxt-config/machine/<profile>/` to `0:/sys/` (deploy-only, not boot). Home all order: Z → A if present → X+Y |
 | **Check SD board packs** | Compares bundled manifest to `0:/sys/nxt-config/` (stale plugin warning) |
-| **Save Configuration** | Writes `nxt-user-vars.g` including `nxtBoardPackExpectedEntry` and syncs bootstrap sentinels |
+| **Save Configuration** | Writes `nxt-user-vars.g` (expected pack path as a comment) and syncs bootstrap sentinels |
 
-When you change platform, the UI may prompt to deploy homing files for that platform immediately. Homing direction requirements differ between v1.5 and v1.6/v2.0 — see [NXT_BOARD_HOMING.md](NXT_BOARD_HOMING.md).
+When you change platform, the UI may prompt to deploy homing files for that platform immediately. Homing direction requirements differ between v1.5, v1.6, V2.0 Milo, and V2.0 Miley — see [NXT_BOARD_HOMING.md](NXT_BOARD_HOMING.md).
 
 Platform **Custom** expands Configuration with:
 
@@ -97,7 +97,7 @@ If you previously saved overlays only under `0:/sys/nxt-config/machine/custom/`,
 
 **A axis (optional):** Same field set as XYZ. Leave A blank, or complete min/max, home side, endstop pin(s), drives, steps, and current. Multi-pin endstops use ordered chips stored as `pin1+pin2` for `M574 P"…"`.
 
-**Reload** re-runs `M98 P"nxt-user-vars.g"` and shows warnings if bootstrap files or pack paths do not match saved intent (`nxtBoardPackExpectedEntry` vs `nxtBoardPackEntry`).
+**Reload** re-runs `M98 P"nxt-user-vars.g"` and shows warnings if bootstrap files or pack paths do not match saved intent (draft expected path vs `nxtBoardPackEntry`).
 
 The **Platform bundle on SD** list shows deployable sys files and board `entry.g` paths for the selected platform.
 
@@ -105,20 +105,24 @@ Pack loading vs homing deploy: [NXT_BOARD_CONFIG.md](NXT_BOARD_CONFIG.md).
 
 ### 6. Coolant / output roles
 
-Configure GPIO outputs from **named board pins** (Mist, Coolant, Relay, Aux, …):
+Configure GPIO outputs from **named board pins** (Mist, Coolant, Aux, …). On Scylla, the board pack creates gpOut ports **aux0 → aux1 → aux2 → coolant → mist → relay** (P0–P5). The motor/VFD relay is **gpOut P5 on PD_5** — not a Configuration picker. Enable **Machine Power** (`nxtFeatureMachinePower`), then use Status or `M80.9`/`M81.9` (`M42`). Aux0–2 are 24 V rails.
 
-| Setting | Description | Example (Scylla) |
-|---------|-------------|------------------|
-| Relay | Motor/VFD contactor | Relay (`D.5`) |
-| Aux 1–3 | Spare aux MOSFET outputs | Aux 1 / Aux 2 |
-| Air Blast | Any free named gpOut | Aux 2 |
-| Mist Coolant | Prefer Mist pin | Mist (`A.7`) |
-| Flood / Coolant | Prefer Coolant pin | Coolant (`C.4`) |
+| Setting | Description | Example (Scylla preferred) |
+|---------|-------------|----------------------------|
+| Motor power | Enable feature, then arm VFD contactor (gpOut P5 / PD_5) | Configuration toggle + Status / `M80.9` |
+| Aux 0 / 1 / 2 | Spare aux MOSFET outputs (24 V) | Aux0 P0 / Aux1 P1 / Aux2 P2 |
+| Air Blast | Any free named gpOut | — |
+| Mist Coolant | Prefer Mist pin | Mist P4 (`A.7`) |
+| Flood / Coolant | Prefer Coolant pin | Coolant P3 (`C.4`) |
+| Board pins as fans | Multi-select → `M950 F` instead of gpOut | Default Aux0 (any motor voltage) |
+| UART accessory | Single device on PD8/PD9 | Off / PanelDue / TFT / Pendant |
 
 **Usage Notes:**
 - Dropdown labels use board pin names from `pinmap.json` (not bare `Output N`)
-- Clear a field to unassign; pins used by another role are disabled in other dropdowns
+- Clear a field to unassign; pins used by another role or selected as fans are disabled
 - Coolant IDs drive M7 / M8 / M9 via `M42 P{id}`
+- **Output test:** hold to energize (`M42` for gpOut, `M106` for fan-mode); release turns OFF (pointer capture avoids the old mouseleave race)
+- Fan / UART hardware changes need **Save** then **reboot** (or board pack reload) so `M950` / `M575` re-run
 - Pulse timing requires `macros/system/daemon.g` (enabled by default via `global.nxtDaemonEnabled`)
 - When pulsing is enabled for a type, `M7`/`M8` turn that output on in cycles; `M9` stops pulsing immediately
 - Pause saves coolant **intent** (not instantaneous OFF phase) so resume restores pulsing correctly
@@ -187,10 +191,11 @@ View measurement results and calculated deflection:
 
 | Axis | Known Dimension | Measured Dimension | Deflection |
 |------|----------------|-------------------|------------|
-| X | (entered value) | (measured value) | (difference) |
-| Y | (entered value) | (measured value) | (difference) |
+| X | (entered value) | (measured value) | `current + (actual − measured) / 2` |
+| Y | (entered value) | (measured value) | same residual form |
+| Z | (entered value) | (measured value) | same residual form |
 
-**Average Deflection:** The final value applied to `nxtProbeDeflection`
+**Per-axis Deflection:** Applied into `nxtProbeDeflection = {X,Y,Z}` (not averaged). Recalibrate after the G6512 sign fix.
 
 ### Deflection Warnings
 
@@ -204,9 +209,9 @@ The wizard provides automatic validation:
 ### Applying Results
 
 Click **"Apply Deflection"** to:
-1. Set `nxtProbeDeflection` to the average value
-2. Close the wizard
-3. Update the configuration panel
+1. Update the selected linear axis in `nxtProbeDeflection = {X,Y,Z}`
+2. Close the wizard / continue calibration
+3. Update the configuration panel (Save to persist)
 
 ## How Configuration is Stored
 
@@ -292,8 +297,8 @@ You can also set configuration variables manually via G-code:
 ; Enable touch probe
 set global.nxtFeatureTouchProbe = true
 
-; Set probe deflection
-set global.nxtProbeDeflection = 0.025
+; Set probe deflection {X,Y,Z} positive magnitudes (mm)
+set global.nxtProbeDeflection = {0.025, 0.025, 0.020}
 
 ; Set spindle parameters
 set global.nxtSpindleID = 0
@@ -302,19 +307,20 @@ set global.nxtSpindleAccelSec = 3.0
 
 ### Configuration Backup
 To backup your configuration:
-1. Copy `macros/system/nxt-user-vars.g` to a safe location
-2. Or use M500.1 to save a restore point
+1. Copy `0:/sys/nxt-user-vars.g` off the board (operator Save overlay).
+2. Copy `0:/sys/nxt-user-tools.g` if you keep a persisted tool library.
+3. Copy `0:/sys/nxt-user-wcs.g` if you keep probed workplace origins (`G10 L2`, written by `nxt-user-wcs-sync.g` after **M6520** / **nxt-wcs-apply**).
 
 ### Configuration Restore
 To restore configuration:
-1. Copy backed up file back to `macros/system/nxt-user-vars.g`
-2. Or use M501.1 to load a restore point
-3. Click "Reload" in Configuration UI
+1. Copy the backed-up `nxt-user-vars.g` to `0:/sys/`.
+2. Restore `nxt-user-tools.g` and/or `nxt-user-wcs.g` the same way if you use them.
+3. Click "Reload" in Configuration UI (or `M999` / power cycle so `nxt.g` loads the files).
 
 ## Related Documentation
 
 - [Board configuration & pack layout](NXT_BOARD_CONFIG.md)
-- [Homing requirements (v1.5 vs v1.6 / v2.0 / custom)](NXT_BOARD_HOMING.md)
+- [Homing requirements (v1.5 vs v1.6 / v2.0-milo / v2.0-miley / custom)](NXT_BOARD_HOMING.md)
 - [UI Implementation Details](UI_IMPLEMENTATION.md)
 - [Features Overview](FEATURES.md)
 - [Development Roadmap](ROADMAP.md)

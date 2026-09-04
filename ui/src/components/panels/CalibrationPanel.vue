@@ -9,7 +9,7 @@
         color="primary"
         variant="flat"
         :loading="saving"
-        :disabled="uiFrozen || !isConnected || (calMode === 'probe' && needsDeflectionRecheck)"
+        :disabled="uiFrozen || !isConnected || !canSaveCalibration"
         @click="saveCalibration"
       >
         {{ $t('plugins.nxt.panels.calibration.save') }}
@@ -27,13 +27,66 @@
         {{ $t('plugins.nxt.panels.calibration.needConnection') }}
       </v-alert>
 
-      <!-- Phase 0: static datum -->
-      <v-card v-if="needsProbeDatumSetup" variant="outlined" class="mb-4 pa-3">
-        <div class="text-subtitle-2 mb-2">{{ $t('plugins.nxt.panels.calibration.phase0Title') }}</div>
-        <p class="text-caption text-grey mb-3">{{ $t('plugins.nxt.panels.calibration.phase0Hint') }}</p>
-        <div class="d-flex flex-wrap ga-2 mb-3">
+      <!-- Phase 0 / probe setup readiness -->
+      <v-card v-if="showProbeSetupReadiness" variant="outlined" class="mb-4 pa-3">
+        <div class="text-subtitle-2 mb-2">
+          {{
+            needsProbeDatumSetup
+              ? $t('plugins.nxt.panels.calibration.phase0Title')
+              : $t('plugins.nxt.panels.calibration.readyTitle')
+          }}
+        </div>
+        <p v-if="needsProbeDatumSetup" class="text-caption text-grey mb-3">{{ phase0HintText }}</p>
+        <p v-else class="text-caption text-grey mb-3">
+          {{ $t('plugins.nxt.panels.calibration.readyHint') }}
+        </p>
+
+        <div class="mb-3">
+          <div class="text-caption font-weight-medium mb-1">
+            {{ $t('plugins.nxt.panels.calibration.readyListTitle') }}
+          </div>
+          <v-list density="compact" class="py-0 bg-transparent">
+            <v-list-item
+              v-for="row in probeSetupReadinessRows"
+              :key="row.id"
+              class="px-0 min-height-0"
+              density="compact"
+            >
+              <template #prepend>
+                <v-icon
+                  size="small"
+                  :color="row.ok ? 'success' : row.severity === 'error' ? 'error' : 'warning'"
+                  class="mr-2"
+                >
+                  {{ row.ok ? 'mdi-check-circle' : row.severity === 'error' ? 'mdi-close-circle' : 'mdi-alert' }}
+                </v-icon>
+              </template>
+              <v-list-item-title class="text-caption text-wrap">
+                {{ row.label }}
+              </v-list-item-title>
+            </v-list-item>
+          </v-list>
+        </div>
+
+        <div v-if="needsProbeDatumSetup" class="d-flex flex-wrap ga-2 mb-3">
           <v-chip size="small" :color="toolSetterPosSet ? 'success' : 'warning'" variant="outlined">
             {{ $t('plugins.nxt.panels.calibration.chipToolSetter') }}: {{ toolSetterPosDisplay }}
+          </v-chip>
+          <v-chip
+            v-if="toolSetterV2"
+            size="small"
+            color="info"
+            variant="outlined"
+          >
+            {{ $t('plugins.nxt.panels.calibration.chipRefSide') }}: {{ toolSetterRefSideDisplay }}
+          </v-chip>
+          <v-chip
+            v-if="toolSetterV2 && toolSetterRefPadPreview"
+            size="small"
+            color="info"
+            variant="tonal"
+          >
+            {{ toolSetterRefPadPreview }}
           </v-chip>
           <v-chip size="small" :color="touchProbeRefPosSet ? 'success' : 'warning'" variant="outlined">
             {{ $t('plugins.nxt.panels.calibration.chipRefPos') }}: {{ touchProbeRefPosDisplay }}
@@ -47,7 +100,7 @@
             <v-btn
               block
               color="primary"
-              :disabled="uiFrozen || !isConnected"
+              :disabled="uiFrozen || !isConnected || !canRunM5016"
               :loading="datumBusy"
               @click="runDatumSetup"
             >
@@ -59,11 +112,11 @@
               block
               color="secondary"
               variant="outlined"
-              :disabled="uiFrozen || !isConnected || !deltaMachineSet"
+              :disabled="uiFrozen || !isConnected || !canEnableProbeFromPhase0"
               :loading="probeLoadBusy"
               @click="parkAndLoadProbe"
             >
-              {{ $t('plugins.nxt.panels.calibration.parkLoadProbe') }}
+              {{ $t('plugins.nxt.panels.calibration.enableProbe') }}
             </v-btn>
           </v-col>
           <v-col cols="12" md="4">
@@ -78,7 +131,51 @@
             </v-btn>
           </v-col>
         </v-row>
+        <v-alert
+          v-if="!canRunM5016 && isConnected"
+          type="error"
+          density="compact"
+          variant="tonal"
+          class="mt-3 mb-0"
+        >
+          {{ $t('plugins.nxt.panels.calibration.readyBlockM5016') }}
+        </v-alert>
+        <v-alert
+          v-else-if="!canEnableProbeFromPhase0 && isConnected"
+          type="warning"
+          density="compact"
+          variant="tonal"
+          class="mt-3 mb-0"
+        >
+          <div>{{ $t('plugins.nxt.panels.calibration.readyBlockEnableProbe') }}</div>
+          <ul v-if="enableProbeBlockerLabels.length" class="text-caption mt-2 mb-0 pl-4">
+            <li v-for="(line, i) in enableProbeBlockerLabels" :key="i">{{ line }}</li>
+          </ul>
+        </v-alert>
       </v-card>
+
+      <v-alert
+        v-if="touchProbeReady && !probeToolLoaded"
+        type="info"
+        density="compact"
+        variant="outlined"
+        class="mb-3"
+      >
+        <div class="d-flex flex-wrap align-center justify-space-between ga-2">
+          <span>
+            {{ $t('plugins.nxt.panels.calibration.probeNotInstalled', [probeToolLabel]) }}
+          </span>
+          <v-btn
+            size="small"
+            color="primary"
+            :loading="probeLoadBusy"
+            :disabled="uiFrozen || !isConnected || probeLoadBusy || !canEnableProbeFromPhase0"
+            @click="parkAndLoadProbe"
+          >
+            {{ $t('plugins.nxt.panels.calibration.enableProbe') }}
+          </v-btn>
+        </div>
+      </v-alert>
 
       <v-alert
         v-if="needsProbeDatumSetup"
@@ -183,7 +280,19 @@
       </v-card>
 
       <!-- Probe mode: deflection gate + G9000 -->
-      <template v-if="calMode === 'probe' && !needsProbeDatumSetup">
+      <template v-if="calMode === 'probe'">
+        <v-alert type="info" density="compact" variant="tonal" class="mb-3">
+          {{ $t('plugins.nxt.panels.calibration.probeCapabilityHint') }}
+        </v-alert>
+        <v-alert
+          v-if="selectedAxis === 'A'"
+          type="warning"
+          density="compact"
+          variant="outlined"
+          class="mb-3"
+        >
+          {{ $t('plugins.nxt.panels.calibration.axisANoLinearCal') }}
+        </v-alert>
         <v-alert
           v-if="!probeDeflectionReady"
           type="info"
@@ -213,7 +322,7 @@
                 color="primary"
                 variant="outlined"
                 :disabled="uiFrozen || !isConnected || selectedAxis === 'A'"
-                @click="openPhase = '4'"
+                @click="openPhase = '1'"
               >
                 {{ $t('plugins.nxt.panels.calibration.gotoDeflection') }}
               </v-btn>
@@ -241,51 +350,12 @@
             </v-col>
           </v-row>
 
-          <div v-if="travelClassification" class="mt-3">
-            <v-alert
-              :type="travelClassification.kind === 'mixed' ? 'warning' : 'success'"
-              density="compact"
-              variant="outlined"
-              class="mb-2"
-            >
-              {{ travelClassification.summary }}
-            </v-alert>
-            <v-table density="compact" class="mb-2">
-              <thead>
-                <tr>
-                  <th>{{ $t('plugins.nxt.panels.calibration.travelCmd') }}</th>
-                  <th>{{ $t('plugins.nxt.panels.calibration.travelMeas') }}</th>
-                  <th>{{ $t('plugins.nxt.panels.calibration.travelErr') }}</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="(leg, i) in travelLegs" :key="'leg' + i">
-                  <td>{{ leg.commanded.toFixed(3) }}</td>
-                  <td>{{ leg.measured.toFixed(4) }}</td>
-                  <td>{{ (leg.measured - leg.commanded).toFixed(4) }}</td>
-                </tr>
-              </tbody>
-            </v-table>
-            <div class="d-flex flex-wrap ga-2">
-              <v-btn
-                size="small"
-                color="primary"
-                :disabled="travelClassification.proposedNewSteps == null || uiFrozen"
-                @click="applyTravelSteps"
-              >
-                {{ $t('plugins.nxt.panels.calibration.applyTravelSteps') }}
-              </v-btn>
-              <v-btn
-                size="small"
-                color="primary"
-                variant="outlined"
-                :disabled="travelClassification.proposedBacklash == null || uiFrozen"
-                @click="applyTravelBacklash"
-              >
-                {{ $t('plugins.nxt.panels.calibration.applyTravelBacklash') }}
-              </v-btn>
-            </div>
-          </div>
+          <cal-travel-results
+            :legs="travelLegs"
+            :classification="travelClassification"
+            :apply-disabled="travelClassification == null || travelClassification.proposedBacklash == null || uiFrozen"
+            @apply-backlash="applyTravelBacklash"
+          />
         </v-card>
       </template>
 
@@ -295,8 +365,150 @@
         variant="accordion"
         class="mb-2"
       >
-        <!-- Phase 1 (manual only) — zero / away 8-16-24 / return -->
-        <v-expansion-panel v-if="calMode === 'manual'" value="1">
+        <!-- Phase 1 — deflection (required when touch probe enabled) -->
+        <v-expansion-panel value="1">
+          <v-expansion-panel-title>{{ $t('plugins.nxt.panels.calibration.phase4Title') }}</v-expansion-panel-title>
+          <v-expansion-panel-text>
+            <p class="text-caption mb-2">{{ $t('plugins.nxt.panels.calibration.phase4Hint') }}</p>
+            <p class="text-caption text-grey mb-2">{{ $t('plugins.nxt.panels.calibration.phase4RequiredHint') }}</p>
+
+            <v-alert density="compact" variant="outlined" class="mb-3" type="info">
+              {{ $t('plugins.nxt.panels.calibration.zDeflectionUnusedHint') }}
+            </v-alert>
+
+            <!-- Probe mode: XY dual span + dive -->
+            <template v-if="calMode === 'probe'">
+              <p class="text-caption text-grey mb-2">{{ $t('plugins.nxt.panels.calibration.phase4ProbeHint') }}</p>
+              <v-row density="compact">
+                <v-col cols="12" md="4">
+                  <v-select
+                    v-model="p4DiveMm"
+                    :items="p4DiveItems"
+                    item-title="title"
+                    item-value="value"
+                    :label="$t('plugins.nxt.panels.calibration.zDiveDepth')"
+                    density="compact"
+                    variant="outlined"
+                    hide-details
+                  />
+                </v-col>
+                <v-col cols="12" md="4">
+                  <v-btn
+                    block
+                    variant="outlined"
+                    color="primary"
+                    :disabled="!canRunM5017"
+                    :loading="p4ProbeBusy"
+                    @click="runProbeDeflectionSpan"
+                  >
+                    {{ $t('plugins.nxt.panels.calibration.runXyDeflectionSpans') }}
+                  </v-btn>
+                </v-col>
+                <v-col cols="12" md="4">
+                  <v-btn
+                    block
+                    color="primary"
+                    :disabled="!canApplyXyDeflection"
+                    @click="applyXyDeflection"
+                  >
+                    {{ $t('plugins.nxt.panels.calibration.applyDeflection') }}
+                  </v-btn>
+                </v-col>
+              </v-row>
+              <v-row density="compact" class="mt-2">
+                <v-col cols="6" md="3">
+                  <v-text-field
+                    :model-value="defMeasuredX != null ? defMeasuredX.toFixed(4) : ''"
+                    density="compact"
+                    variant="outlined"
+                    :label="$t('plugins.nxt.panels.calibration.measuredSpanX')"
+                    hide-details
+                    readonly
+                  />
+                </v-col>
+                <v-col cols="6" md="3">
+                  <v-text-field
+                    :model-value="defMeasuredY != null ? defMeasuredY.toFixed(4) : ''"
+                    density="compact"
+                    variant="outlined"
+                    :label="$t('plugins.nxt.panels.calibration.measuredSpanY')"
+                    hide-details
+                    readonly
+                  />
+                </v-col>
+                <v-col cols="12" md="6" class="d-flex align-center">
+                  <span class="text-caption">{{ xyDefPreview }}</span>
+                </v-col>
+              </v-row>
+              <p v-if="probeTipRadiusDisplay" class="text-caption text-grey mt-1 mb-0">
+                {{ $t('plugins.nxt.panels.calibration.tipRadiusUsed') }}:
+                {{ probeTipRadiusDisplay }}
+                <span v-if="xyShortfallDisplay"> — {{ xyShortfallDisplay }}</span>
+              </p>
+              <v-alert
+                v-if="xyDeflectionImplausible"
+                type="warning"
+                density="compact"
+                variant="outlined"
+                class="mt-2"
+              >
+                {{ $t('plugins.nxt.panels.calibration.implausibleDeflectionHint') }}
+              </v-alert>
+            </template>
+
+            <!-- Manual mode: single-axis entry (advanced) -->
+            <template v-else>
+              <v-row density="compact">
+                <v-col cols="12" md="4">
+                  <v-select
+                    v-model="blockDeflectFace"
+                    :items="blockFaceItems"
+                    item-title="title"
+                    item-value="value"
+                    :label="$t('plugins.nxt.panels.calibration.blockFace')"
+                    density="compact"
+                    variant="outlined"
+                    hide-details
+                  />
+                </v-col>
+                <v-col cols="6" md="3">
+                  <v-text-field
+                    :model-value="defActual"
+                    type="number"
+                    step="0.001"
+                    density="compact"
+                    variant="outlined"
+                    :label="$t('plugins.nxt.panels.calibration.actualDim')"
+                    hide-details
+                    readonly
+                  />
+                </v-col>
+                <v-col cols="6" md="3">
+                  <v-text-field
+                    v-model.number="defMeasured"
+                    type="number"
+                    step="0.001"
+                    density="compact"
+                    variant="outlined"
+                    :label="$t('plugins.nxt.panels.calibration.measuredSpan')"
+                    hide-details
+                  />
+                </v-col>
+                <v-col cols="12" md="2" class="d-flex align-center">
+                  <span class="text-caption">{{ defPreview }}</span>
+                </v-col>
+                <v-col cols="12" md="3">
+                  <v-btn block color="primary" :disabled="defProposed == null" @click="applyDeflection">
+                    {{ $t('plugins.nxt.panels.calibration.applyDeflection') }}
+                  </v-btn>
+                </v-col>
+              </v-row>
+            </template>
+          </v-expansion-panel-text>
+        </v-expansion-panel>
+
+        <!-- Phase 2 (manual only) — zero / away 8-16-24 / return -->
+        <v-expansion-panel v-if="calMode === 'manual'" value="2" :disabled="touchProbeBlocksLaterPhases">
           <v-expansion-panel-title>{{ $t('plugins.nxt.panels.calibration.phase1Title') }}</v-expansion-panel-title>
           <v-expansion-panel-text>
             <p class="text-caption mb-2">{{ $t('plugins.nxt.panels.calibration.phase1Hint') }}</p>
@@ -337,58 +549,37 @@
             </v-row>
             <p class="text-caption text-grey mt-2 mb-2">{{ $t('plugins.nxt.panels.calibration.runMotionTestHint') }}</p>
 
-            <div v-if="calMode === 'manual' && travelClassification" class="mt-3">
-              <v-alert
-                :type="travelClassification.kind === 'mixed' ? 'warning' : 'success'"
-                density="compact"
-                variant="outlined"
-                class="mb-2"
-              >
-                {{ travelClassification.summary }}
-              </v-alert>
-              <v-table density="compact" class="mb-2">
-                <thead>
-                  <tr>
-                    <th>{{ $t('plugins.nxt.panels.calibration.travelCmd') }}</th>
-                    <th>{{ $t('plugins.nxt.panels.calibration.travelMeas') }}</th>
-                    <th>{{ $t('plugins.nxt.panels.calibration.travelErr') }}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="(leg, i) in travelLegs" :key="'p1leg' + i">
-                    <td>{{ leg.commanded.toFixed(3) }}</td>
-                    <td>{{ leg.measured.toFixed(4) }}</td>
-                    <td>{{ (leg.measured - leg.commanded).toFixed(4) }}</td>
-                  </tr>
-                </tbody>
-              </v-table>
-              <div class="d-flex flex-wrap ga-2">
-                <v-btn
-                  size="small"
-                  color="primary"
-                  :disabled="travelClassification.proposedNewSteps == null || uiFrozen || selectedAxis === 'A'"
-                  @click="applyTravelSteps"
-                >
-                  {{ $t('plugins.nxt.panels.calibration.applyTravelSteps') }}
-                </v-btn>
-                <v-btn
-                  size="small"
-                  color="primary"
-                  variant="outlined"
-                  :disabled="travelClassification.proposedBacklash == null || uiFrozen || selectedAxis === 'A'"
-                  @click="applyTravelBacklash"
-                >
-                  {{ $t('plugins.nxt.panels.calibration.applyTravelBacklash') }}
-                </v-btn>
-              </div>
+            <cal-travel-results
+              v-if="calMode === 'manual'"
+              :legs="travelLegs"
+              :classification="travelClassification"
+              :apply-disabled="travelClassification == null || travelClassification.proposedBacklash == null || uiFrozen || selectedAxis === 'A'"
+              @apply-backlash="applyTravelBacklash"
+            />
+            <div class="d-flex justify-end mt-3">
+              <v-btn variant="text" size="small" @click="skipPhase('2')">
+                {{ $t('plugins.nxt.panels.calibration.skipPhase') }}
+              </v-btn>
             </div>
           </v-expansion-panel-text>
         </v-expansion-panel>
 
-        <!-- Phase 2 -->
-        <v-expansion-panel v-if="calMode === 'manual'" value="2">
+        <!-- Phase 3 — dual-dimension steps (manual + probe; not A) -->
+        <v-expansion-panel
+          value="3"
+          :disabled="touchProbeBlocksLaterPhases || selectedAxis === 'A'"
+        >
           <v-expansion-panel-title>{{ $t('plugins.nxt.panels.calibration.phase2Title') }}</v-expansion-panel-title>
           <v-expansion-panel-text>
+            <v-alert
+              v-if="selectedAxis === 'A'"
+              type="warning"
+              density="compact"
+              variant="outlined"
+              class="mb-2"
+            >
+              {{ $t('plugins.nxt.panels.calibration.axisANoLinearCal') }}
+            </v-alert>
             <p class="text-caption mb-2">{{ $t('plugins.nxt.panels.calibration.phase2Hint') }}</p>
             <v-row density="compact">
               <v-col cols="12" md="4">
@@ -414,15 +605,99 @@
             </v-row>
             <v-row density="compact" class="mt-2">
               <v-col cols="6" md="3">
+                <v-text-field
+                  :model-value="p2Face1Left"
+                  type="number"
+                  step="0.001"
+                  density="compact"
+                  variant="outlined"
+                  :label="$t('plugins.nxt.panels.calibration.face1Left')"
+                  hide-details
+                  readonly
+                />
+              </v-col>
+              <v-col cols="6" md="3">
+                <v-text-field
+                  :model-value="p2Face1Right"
+                  type="number"
+                  step="0.001"
+                  density="compact"
+                  variant="outlined"
+                  :label="$t('plugins.nxt.panels.calibration.face1Right')"
+                  hide-details
+                  readonly
+                />
+              </v-col>
+              <v-col cols="6" md="3">
+                <v-text-field
+                  :model-value="p2Face2Left"
+                  type="number"
+                  step="0.001"
+                  density="compact"
+                  variant="outlined"
+                  :label="$t('plugins.nxt.panels.calibration.face2Left')"
+                  hide-details
+                  readonly
+                />
+              </v-col>
+              <v-col cols="6" md="3">
+                <v-text-field
+                  :model-value="p2Face2Right"
+                  type="number"
+                  step="0.001"
+                  density="compact"
+                  variant="outlined"
+                  :label="$t('plugins.nxt.panels.calibration.face2Right')"
+                  hide-details
+                  readonly
+                />
+              </v-col>
+            </v-row>
+            <v-row density="compact" class="mt-1">
+              <v-col cols="6" md="3">
+                <v-text-field
+                  :model-value="effectiveP2Measured1"
+                  type="number"
+                  step="0.001"
+                  density="compact"
+                  variant="outlined"
+                  :label="$t('plugins.nxt.panels.calibration.measured1')"
+                  hide-details
+                  readonly
+                />
+              </v-col>
+              <v-col cols="6" md="3">
+                <v-text-field
+                  :model-value="effectiveP2Measured2"
+                  type="number"
+                  step="0.001"
+                  density="compact"
+                  variant="outlined"
+                  :label="$t('plugins.nxt.panels.calibration.measured2')"
+                  hide-details
+                  readonly
+                />
+              </v-col>
+              <v-col v-if="calMode === 'manual'" cols="12" md="6" class="d-flex align-center">
+                <v-checkbox
+                  v-model="p2UseManualSpans"
+                  density="compact"
+                  hide-details
+                  :label="$t('plugins.nxt.panels.calibration.manualSpanOverride')"
+                />
+              </v-col>
+            </v-row>
+            <v-row v-if="calMode === 'manual' && p2UseManualSpans" density="compact" class="mt-1">
+              <v-col cols="6" md="3">
                 <v-text-field v-model.number="p2Measured1" type="number" step="0.001" density="compact" variant="outlined"
-                  :label="$t('plugins.nxt.panels.calibration.measured1')" hide-details />
+                  :label="$t('plugins.nxt.panels.calibration.manualSpan1')" hide-details />
               </v-col>
               <v-col cols="6" md="3">
                 <v-text-field v-model.number="p2Measured2" type="number" step="0.001" density="compact" variant="outlined"
-                  :label="$t('plugins.nxt.panels.calibration.measured2')" hide-details />
+                  :label="$t('plugins.nxt.panels.calibration.manualSpan2')" hide-details />
               </v-col>
             </v-row>
-            <v-row density="compact" class="mt-2">
+            <v-row v-if="calMode === 'manual'" density="compact" class="mt-2">
               <v-col cols="12" md="4">
                 <v-text-field v-model.number="probeTarget" type="number" step="0.001" density="compact" variant="outlined"
                   :label="$t('plugins.nxt.panels.calibration.probeTarget')" hide-details
@@ -432,64 +707,154 @@
                 <v-btn
                   block
                   variant="outlined"
-                  :disabled="!touchProbeReady || uiFrozen || needsProbeDatumSetup"
+                  :disabled="!touchProbeReady || uiFrozen || touchProbeBlocksLaterPhases || !probeToolLoaded"
                   @click="sendG6512"
                 >
                   {{ $t('plugins.nxt.panels.calibration.runG6512Jog') }}
                 </v-btn>
               </v-col>
-              <v-col cols="6" md="2">
-                <v-btn block variant="outlined" :disabled="!isConnected" @click="captureProbeInto('m1')">
-                  {{ $t('plugins.nxt.panels.calibration.captureM1') }}
+            </v-row>
+            <v-row density="compact" class="mt-1">
+              <v-col cols="6" md="3">
+                <v-btn
+                  block
+                  variant="outlined"
+                  size="small"
+                  :disabled="!canProbeCaptureFace"
+                  :loading="p2CaptureBusy === 'l1'"
+                  @click="onCaptureFace('l1')"
+                >
+                  {{ calMode === 'probe'
+                    ? $t('plugins.nxt.panels.calibration.probeCaptureL1')
+                    : $t('plugins.nxt.panels.calibration.captureL1') }}
                 </v-btn>
               </v-col>
-              <v-col cols="6" md="2">
-                <v-btn block variant="outlined" :disabled="!isConnected" @click="captureProbeInto('m2')">
-                  {{ $t('plugins.nxt.panels.calibration.captureM2') }}
+              <v-col cols="6" md="3">
+                <v-btn
+                  block
+                  variant="outlined"
+                  size="small"
+                  :disabled="!canProbeCaptureFace"
+                  :loading="p2CaptureBusy === 'r1'"
+                  @click="onCaptureFace('r1')"
+                >
+                  {{ calMode === 'probe'
+                    ? $t('plugins.nxt.panels.calibration.probeCaptureR1')
+                    : $t('plugins.nxt.panels.calibration.captureR1') }}
+                </v-btn>
+              </v-col>
+              <v-col cols="6" md="3">
+                <v-btn
+                  block
+                  variant="outlined"
+                  size="small"
+                  :disabled="!canProbeCaptureFace"
+                  :loading="p2CaptureBusy === 'l2'"
+                  @click="onCaptureFace('l2')"
+                >
+                  {{ calMode === 'probe'
+                    ? $t('plugins.nxt.panels.calibration.probeCaptureL2')
+                    : $t('plugins.nxt.panels.calibration.captureL2') }}
+                </v-btn>
+              </v-col>
+              <v-col cols="6" md="3">
+                <v-btn
+                  block
+                  variant="outlined"
+                  size="small"
+                  :disabled="!canProbeCaptureFace"
+                  :loading="p2CaptureBusy === 'r2'"
+                  @click="onCaptureFace('r2')"
+                >
+                  {{ calMode === 'probe'
+                    ? $t('plugins.nxt.panels.calibration.probeCaptureR2')
+                    : $t('plugins.nxt.panels.calibration.captureR2') }}
                 </v-btn>
               </v-col>
             </v-row>
-            <p class="text-caption text-grey mt-1">{{ $t('plugins.nxt.panels.calibration.runG6512JogHint') }}</p>
+            <p v-if="calMode === 'probe'" class="text-caption text-grey mt-1">
+              {{ $t('plugins.nxt.panels.calibration.phase2ProbeCaptureHint') }}
+            </p>
+            <p v-if="calMode === 'manual'" class="text-caption text-grey mt-1">{{ $t('plugins.nxt.panels.calibration.runG6512JogHint') }}</p>
             <div class="d-flex align-center justify-space-between mt-3">
               <span class="text-caption">{{ p2Preview }}</span>
               <v-btn color="primary" :disabled="!canApplyP2" @click="applySteps(p2Proposed, 'p2')">
                 {{ $t('plugins.nxt.panels.calibration.applySteps') }}
               </v-btn>
             </div>
+            <div class="d-flex justify-end mt-3">
+              <v-btn variant="text" size="small" @click="skipPhase('3')">
+                {{ $t('plugins.nxt.panels.calibration.skipPhase') }}
+              </v-btn>
+            </div>
           </v-expansion-panel-text>
         </v-expansion-panel>
 
-        <!-- Phase 3 -->
-        <v-expansion-panel v-if="calMode === 'manual'" value="3">
+        <!-- Phase 4 — backlash refine (probe samples or typed means; both modes) -->
+        <v-expansion-panel
+          value="4"
+          :disabled="touchProbeBlocksLaterPhases || selectedAxis === 'A'"
+        >
           <v-expansion-panel-title>{{ $t('plugins.nxt.panels.calibration.phase3Title') }}</v-expansion-panel-title>
           <v-expansion-panel-text>
             <p class="text-caption mb-2">{{ $t('plugins.nxt.panels.calibration.phase3Hint') }}</p>
+            <p v-if="calMode === 'probe'" class="text-caption text-grey mb-2">
+              {{ $t('plugins.nxt.panels.calibration.phase3ProbeHint') }}
+            </p>
+            <v-alert
+              v-if="selectedAxis === 'A'"
+              type="warning"
+              density="compact"
+              variant="outlined"
+              class="mb-2"
+            >
+              {{ $t('plugins.nxt.panels.calibration.axisANoLinearCal') }}
+            </v-alert>
             <v-row density="compact">
               <v-col cols="6" md="3">
                 <v-text-field v-model.number="blMeanPos" type="number" step="0.001" density="compact" variant="outlined"
-                  :label="$t('plugins.nxt.panels.calibration.meanPositive')" hide-details />
+                  :label="$t('plugins.nxt.panels.calibration.meanPositive')" hide-details
+                  :disabled="selectedAxis === 'A'" />
               </v-col>
               <v-col cols="6" md="3">
                 <v-text-field v-model.number="blMeanNeg" type="number" step="0.001" density="compact" variant="outlined"
-                  :label="$t('plugins.nxt.panels.calibration.meanNegative')" hide-details />
+                  :label="$t('plugins.nxt.panels.calibration.meanNegative')" hide-details
+                  :disabled="selectedAxis === 'A'" />
               </v-col>
               <v-col cols="12" md="3" class="d-flex align-center">
                 <span class="text-caption">{{ blPreview }}</span>
               </v-col>
               <v-col cols="12" md="3">
-                <v-btn block color="primary" :disabled="blProposed == null" @click="applyBacklash">
+                <v-btn
+                  block
+                  color="primary"
+                  :disabled="blProposed == null || selectedAxis === 'A' || uiFrozen"
+                  @click="applyBacklash"
+                >
                   {{ $t('plugins.nxt.panels.calibration.applyBacklash') }}
                 </v-btn>
               </v-col>
             </v-row>
             <v-row density="compact" class="mt-2">
               <v-col cols="12" md="4">
-                <v-btn block variant="outlined" size="small" :disabled="!isConnected" @click="addBacklashSample('pos')">
+                <v-btn
+                  block
+                  variant="outlined"
+                  size="small"
+                  :disabled="!canAddBacklashSample"
+                  @click="addBacklashSample('pos')"
+                >
                   {{ $t('plugins.nxt.panels.calibration.addSamplePos') }}
                 </v-btn>
               </v-col>
               <v-col cols="12" md="4">
-                <v-btn block variant="outlined" size="small" :disabled="!isConnected" @click="addBacklashSample('neg')">
+                <v-btn
+                  block
+                  variant="outlined"
+                  size="small"
+                  :disabled="!canAddBacklashSample"
+                  @click="addBacklashSample('neg')"
+                >
                   {{ $t('plugins.nxt.panels.calibration.addSampleNeg') }}
                 </v-btn>
               </v-col>
@@ -519,57 +884,16 @@
                 :fill="pt.dir === 'pos' ? '#1976D2' : '#E65100'"
               />
             </svg>
-          </v-expansion-panel-text>
-        </v-expansion-panel>
-
-        <!-- Phase 4 -->
-        <v-expansion-panel value="4">
-          <v-expansion-panel-title>{{ $t('plugins.nxt.panels.calibration.phase4Title') }}</v-expansion-panel-title>
-          <v-expansion-panel-text>
-            <p class="text-caption mb-2">{{ $t('plugins.nxt.panels.calibration.phase4Hint') }}</p>
-            <v-row density="compact">
-              <v-col cols="12" md="4">
-                <v-select
-                  v-model="blockDeflectFace"
-                  :items="blockFaceItems"
-                  item-title="title"
-                  item-value="value"
-                  :label="$t('plugins.nxt.panels.calibration.blockFace')"
-                  density="compact"
-                  variant="outlined"
-                  hide-details
-                />
-              </v-col>
-              <v-col cols="6" md="3">
-                <v-text-field
-                  :model-value="defActual"
-                  type="number"
-                  step="0.001"
-                  density="compact"
-                  variant="outlined"
-                  :label="$t('plugins.nxt.panels.calibration.actualDim')"
-                  hide-details
-                  readonly
-                />
-              </v-col>
-              <v-col cols="6" md="3">
-                <v-text-field v-model.number="defMeasured" type="number" step="0.001" density="compact" variant="outlined"
-                  :label="$t('plugins.nxt.panels.calibration.measuredSpan')" hide-details />
-              </v-col>
-              <v-col cols="12" md="2" class="d-flex align-center">
-                <span class="text-caption">{{ defPreview }}</span>
-              </v-col>
-              <v-col cols="12" md="3">
-                <v-btn block color="primary" :disabled="defProposed == null" @click="applyDeflection">
-                  {{ $t('plugins.nxt.panels.calibration.applyDeflection') }}
-                </v-btn>
-              </v-col>
-            </v-row>
+            <div class="d-flex justify-end mt-3">
+              <v-btn variant="text" size="small" @click="skipPhase('4')">
+                {{ $t('plugins.nxt.panels.calibration.skipPhase') }}
+              </v-btn>
+            </div>
           </v-expansion-panel-text>
         </v-expansion-panel>
 
         <!-- Phase 5 -->
-        <v-expansion-panel v-if="calMode === 'manual'" value="5">
+        <v-expansion-panel value="5">
           <v-expansion-panel-title>{{ $t('plugins.nxt.panels.calibration.phase5Title') }}</v-expansion-panel-title>
           <v-expansion-panel-text>
             <p class="text-caption mb-2">{{ $t('plugins.nxt.panels.calibration.phase5Hint') }}</p>
@@ -599,10 +923,17 @@ import {
   dualDimensionStepsCorrection,
   backlashFromMeans,
   deflectionFromSpan,
+  spanFromFaces,
   meanOf,
   classifyTravelCalibration,
+  travelCommandedLegs,
+  externalSpanShortfall,
+  implausibleExternalDeflection,
+  suspectTipDiameterAsRadius,
+  probeTipDiameterMm,
   NXT_123_FACE_PAIRS,
   NXT_123_FACES,
+  NXT_123_BLOCK_MM,
   NXT_123_AXIS_DEFAULTS,
   nxt123DefaultsForAxis,
   type Nxt123FacePairId,
@@ -620,16 +951,46 @@ import {
 import {
   snapshotConfigFromOm,
   readConfigVector,
+  readConfigDeflectionXY,
   readConfigNumber,
   readConfigBool,
+  isFactoryZeroDeflection,
   type NxtUserConfigDraft
 } from '../../utils/nxtUserVarsPersistence'
+import {
+  computeV2RefPadXY,
+  computeV2RefPadZ,
+  formatRefDirLabel,
+  type NxtOperatorFaceLabels
+} from '../../utils/nxtOperatorFaces'
 import { persistNxtUserConfig } from '../../utils/nxtUserConfigPersist'
+import { ensureSetFirmwareGlobal, formatOmRhs } from '../../utils/nxtOmEnsureSet'
+import {
+  applyCalSessionToPanel,
+  clearWizardProgressKeepConfirm,
+  pickCalSessionFromPanel,
+  readNxtCalSession,
+  reconcileDeflectionConfirm,
+  writeNxtCalSession,
+  type NxtCalSessionPanelFields
+} from '../../utils/nxtCalSession'
+import {
+  enableNxtProbeTool,
+  isNxtProbeToolLoaded,
+  resolveNxtProbeToolId
+} from '../../utils/nxtEnableProbe'
+import { formatToolLabelFromTools } from '../../utils/nxtLoadedToolStatus'
+import {
+  assessNxtProbeSetupReadiness,
+  type NxtProbeReadinessItem
+} from '../../utils/nxtProbeSetupReadiness'
+import CalTravelResults from './CalTravelResults.vue'
 
 type AxisLetter = 'X' | 'Y' | 'Z' | 'A'
 
 export default defineNxtComponent({
   name: 'CalibrationPanel',
+  components: { CalTravelResults },
   data() {
     return {
       selectedAxis: 'X' as AxisLetter,
@@ -643,18 +1004,33 @@ export default defineNxtComponent({
       statusType: 'info' as 'info' | 'success' | 'error' | 'warning',
       sessionDeflectionOk: false,
       needsDeflectionRecheck: false,
+      /** Last confirmed/applied D fingerprint for session restore */
+      confirmedDeflection: null as number[] | null,
+      /** Skip axis/mode watchers while hydrating from nxtCalSession */
+      calSessionHydrating: false,
+      calSessionPersistTimer: null as ReturnType<typeof setTimeout> | null,
       travelLegs: [] as TravelLeg[],
       travelClassification: null as TravelClassification | null,
       // Phase 1 — zero / 8-16-24 / return (face away dir + optional 3×)
       p1FaceAway: 1 as 1 | -1,
       p1Repeat3x: false,
       p1MotionBusy: false,
+      p4ProbeBusy: false,
+      p4DiveMm: 10 as number,
+      defMeasuredX: null as number | null,
+      defMeasuredY: null as number | null,
+      p2CaptureBusy: null as null | 'l1' | 'r1' | 'l2' | 'r2',
       // Kept for axis-default sync / A rotary commanded elsewhere
       p1Commanded: NXT_123_AXIS_DEFAULTS.X.p1Commanded as number | null,
       // Phase 2 — X default pair 2″+3″ (3″∥X)
       blockFacePair: NXT_123_AXIS_DEFAULTS.X.facePair as Nxt123FacePairId,
+      p2Face1Left: null as number | null,
+      p2Face1Right: null as number | null,
+      p2Face2Left: null as number | null,
+      p2Face2Right: null as number | null,
       p2Measured1: null as number | null,
       p2Measured2: null as number | null,
+      p2UseManualSpans: false,
       probeTarget: null as number | null,
       // Phase 3
       blMeanPos: null as number | null,
@@ -668,11 +1044,11 @@ export default defineNxtComponent({
       // Undo
       prevSteps: null as number | null,
       prevBacklash: null as number | null,
-      prevDeflection: null as number | null,
+      prevDeflection: null as number[] | null,
       // Pending for save
       pendingSteps: {} as Partial<Record<AxisLetter, number>>,
       pendingBacklash: {} as Partial<Record<AxisLetter, number>>,
-      pendingDeflection: null as number | null,
+      pendingDeflection: null as number[] | null,
       // Rotary
       rotaryWcs: 54,
       aCommanded: 90 as number | null,
@@ -725,9 +1101,10 @@ export default defineNxtComponent({
       const b = this.currentAxisOm?.backlash
       return typeof b === 'number' ? b : 0
     },
-    currentDeflection(): number | null {
-      const v = readFirmwareGlobal(this.$store.state.machine.model.global, 'nxtProbeDeflection')
-      return typeof v === 'number' ? v : null
+    currentDeflection(): number[] | null {
+      return readConfigDeflectionXY(
+        readFirmwareGlobal(this.$store.state.machine.model.global, 'nxtProbeDeflection')
+      )
     },
     currentStepsDisplay(): string {
       return this.currentSteps > 0 ? this.currentSteps.toFixed(4) : '—'
@@ -736,7 +1113,10 @@ export default defineNxtComponent({
       return this.currentBacklash.toFixed(4)
     },
     deflectionDisplay(): string {
-      return this.currentDeflection != null ? this.currentDeflection.toFixed(4) : '—'
+      const v = this.currentDeflection
+      if (v == null) return '—'
+      const z = v.length >= 3 ? v[2] : v[0]
+      return `X ${v[0].toFixed(4)} / Y ${v[1].toFixed(4)} / Z ${z.toFixed(4)}`
     },
     touchProbeReady(): boolean {
       const g = this.$store.state.machine.model.global
@@ -744,6 +1124,22 @@ export default defineNxtComponent({
         readFirmwareGlobal(g, 'nxtFeatureTouchProbe') === true &&
         typeof readFirmwareGlobal(g, 'nxtTouchProbeID') === 'number'
       )
+    },
+    probeToolIdResolved(): number {
+      return resolveNxtProbeToolId(this.$store.state.machine.model.global)
+    },
+    /** M4000 S human name with T# for Enable Probe copy (`T{n} — {name}`). */
+    probeToolLabel(): string {
+      const id = this.probeToolIdResolved
+      const label = formatToolLabelFromTools(this.$store.state.machine.model.tools, id)
+      return label.length > 0 ? label : `T${id}`
+    },
+    probeToolLoaded(): boolean {
+      const cur = this.$store.state.machine.model?.state?.currentTool
+      const idx = typeof cur === 'number' ? cur : null
+      const toolNumRaw = this.currentTool?.number
+      const toolNum = typeof toolNumRaw === 'number' ? toolNumRaw : null
+      return isNxtProbeToolLoaded(idx, this.probeToolIdResolved, toolNum)
     },
     touchProbeId(): number | null {
       const v = readFirmwareGlobal(this.$store.state.machine.model.global, 'nxtTouchProbeID')
@@ -765,6 +1161,7 @@ export default defineNxtComponent({
     canRunP1Motion(): boolean {
       if (!this.isConnected || this.uiFrozen) return false
       if (this.selectedAxis === 'A') return false
+      if (this.touchProbeBlocksLaterPhases) return false
       return this.p1FaceAway === 1 || this.p1FaceAway === -1
     },
     blockFacePairItems(): Array<{ value: Nxt123FacePairId; title: string }> {
@@ -788,15 +1185,35 @@ export default defineNxtComponent({
     defActual(): number {
       return NXT_123_FACES[this.blockDeflectFace as Nxt123FaceId].mm
     },
+    effectiveP2Measured1(): number | null {
+      if (
+        !this.p2UseManualSpans &&
+        this.p2Face1Left != null &&
+        this.p2Face1Right != null
+      ) {
+        return spanFromFaces(this.p2Face1Left, this.p2Face1Right)
+      }
+      return this.p2Measured1
+    },
+    effectiveP2Measured2(): number | null {
+      if (
+        !this.p2UseManualSpans &&
+        this.p2Face2Left != null &&
+        this.p2Face2Right != null
+      ) {
+        return spanFromFaces(this.p2Face2Left, this.p2Face2Right)
+      }
+      return this.p2Measured2
+    },
     p2Proposed(): number | null {
-      if (this.p2Measured1 == null || this.p2Measured2 == null) return null
+      if (this.effectiveP2Measured1 == null || this.effectiveP2Measured2 == null) return null
       return (
         dualDimensionStepsCorrection(
           this.currentSteps,
           this.refDim1,
           this.refDim2,
-          this.p2Measured1,
-          this.p2Measured2
+          this.effectiveP2Measured1,
+          this.effectiveP2Measured2
         ).result?.newSteps ?? null
       )
     },
@@ -805,8 +1222,8 @@ export default defineNxtComponent({
         this.currentSteps,
         this.refDim1,
         this.refDim2,
-        this.p2Measured1 ?? 0,
-        this.p2Measured2 ?? 0
+        this.effectiveP2Measured1 ?? 0,
+        this.effectiveP2Measured2 ?? 0
       )
       if (r.errors.length) return r.errors[0]
       if (!r.result) return ''
@@ -814,7 +1231,12 @@ export default defineNxtComponent({
       return `→ ${r.result.newSteps.toFixed(4)}${w}`
     },
     canApplyP2(): boolean {
-      return this.p2Proposed != null && this.selectedAxis !== 'A' && !this.uiFrozen
+      return (
+        this.p2Proposed != null &&
+        this.selectedAxis !== 'A' &&
+        !this.uiFrozen &&
+        !this.touchProbeBlocksLaterPhases
+      )
     },
     blProposed(): number | null {
       if (this.blMeanPos == null || this.blMeanNeg == null) return null
@@ -824,13 +1246,83 @@ export default defineNxtComponent({
       if (this.blProposed == null) return ''
       return `→ ${this.blProposed.toFixed(4)} mm`
     },
+    currentAxisDeflection(): number {
+      const v = this.currentDeflection
+      if (v == null) return 0
+      if (this.selectedAxis === 'Y') return v.length >= 2 ? v[1] : 0
+      if (this.selectedAxis === 'Z') return v.length >= 3 ? v[2] : v.length >= 1 ? v[0] : 0
+      return v.length >= 1 ? v[0] : 0
+    },
     defProposed(): number | null {
       if (this.defActual == null || this.defMeasured == null) return null
-      return deflectionFromSpan(this.defMeasured, this.defActual)
+      if (this.selectedAxis === 'A') return null
+      return (
+        deflectionFromSpan(this.defMeasured, this.defActual, this.currentAxisDeflection).result
+      )
     },
     defPreview(): string {
       if (this.defProposed == null) return ''
       return `→ ${this.defProposed.toFixed(4)} mm`
+    },
+    p4DiveItems(): Array<{ value: number; title: string }> {
+      return [
+        { value: 5, title: '5 mm' },
+        { value: 8, title: '8 mm' },
+        { value: 10, title: '10 mm' },
+        { value: 12.7, title: '12.7 mm (½″)' }
+      ]
+    },
+    defProposedX(): number | null {
+      if (this.defMeasuredX == null) return null
+      const cur = this.currentDeflection
+      const curX = cur != null && cur.length >= 1 ? cur[0] : 0
+      return deflectionFromSpan(this.defMeasuredX, NXT_123_BLOCK_MM.inch3, curX).result
+    },
+    defProposedY(): number | null {
+      if (this.defMeasuredY == null) return null
+      const cur = this.currentDeflection
+      const curY = cur != null && cur.length >= 2 ? cur[1] : 0
+      return deflectionFromSpan(this.defMeasuredY, NXT_123_BLOCK_MM.inch2, curY).result
+    },
+    xyDefPreview(): string {
+      const dx = this.defProposedX
+      const dy = this.defProposedY
+      if (dx == null && dy == null) return ''
+      const xs = dx != null ? dx.toFixed(4) : '—'
+      const ys = dy != null ? dy.toFixed(4) : '—'
+      return `→ {${xs}, ${ys}, 0}`
+    },
+    probeTipRadiusFromOm(): number | null {
+      return readConfigNumber(readFirmwareGlobal(this.globalOm, 'nxtProbeTipRadius'))
+    },
+    probeTipRadiusDisplay(): string {
+      const r = this.probeTipRadiusFromOm
+      if (r == null || !Number.isFinite(r)) return ''
+      const dia = probeTipDiameterMm(r)
+      return `${r.toFixed(3)} mm (ball ⌀ ${dia.toFixed(3)} mm)`
+    },
+    xyShortfallDisplay(): string {
+      if (this.defMeasuredX == null || this.defMeasuredY == null) return ''
+      const sx = externalSpanShortfall(this.defMeasuredX, NXT_123_BLOCK_MM.inch3)
+      const sy = externalSpanShortfall(this.defMeasuredY, NXT_123_BLOCK_MM.inch2)
+      return `shortfall X ${sx.toFixed(3)} / Y ${sy.toFixed(3)} mm`
+    },
+    xyDeflectionImplausible(): boolean {
+      const tip = this.probeTipRadiusFromOm
+      const tipSuspect = tip != null && suspectTipDiameterAsRadius(tip)
+      const dxBad =
+        this.defProposedX != null && implausibleExternalDeflection(this.defProposedX)
+      const dyBad =
+        this.defProposedY != null && implausibleExternalDeflection(this.defProposedY)
+      return tipSuspect || dxBad || dyBad
+    },
+    canApplyXyDeflection(): boolean {
+      return (
+        this.defProposedX != null &&
+        this.defProposedY != null &&
+        !this.uiFrozen &&
+        this.selectedAxis !== 'A'
+      )
     },
     aProposed(): number | null {
       if (this.aCommanded == null || this.aActual == null) return null
@@ -893,9 +1385,47 @@ export default defineNxtComponent({
     deltaMachineSet(): boolean {
       return readConfigNumber(readFirmwareGlobal(this.globalOm, 'nxtDeltaMachine')) != null
     },
+    toolSetterV2(): boolean {
+      return readConfigBool(readFirmwareGlobal(this.globalOm, 'nxtToolSetterV2'))
+    },
+    phase0HintText(): string {
+      if (this.toolSetterV2) {
+        return this.$t('plugins.nxt.panels.calibration.phase0HintV2').toString()
+      }
+      return this.$t('plugins.nxt.panels.calibration.phase0Hint').toString()
+    },
     toolSetterPosDisplay(): string {
       const v = this.toolSetterPosVec
       return v ? v.map((n: number) => n.toFixed(3)).join(', ') : '—'
+    },
+    operatorFaceLabels(): NxtOperatorFaceLabels {
+      return {
+        left: this.$t('plugins.nxt.panels.operatorFaces.left').toString(),
+        right: this.$t('plugins.nxt.panels.operatorFaces.right').toString(),
+        front: this.$t('plugins.nxt.panels.operatorFaces.front').toString(),
+        back: this.$t('plugins.nxt.panels.operatorFaces.back').toString()
+      }
+    },
+    toolSetterRefSideDisplay(): string {
+      const refDir = readConfigNumber(readFirmwareGlobal(this.globalOm, 'nxtToolSetterRefDir'))
+      return formatRefDirLabel(refDir, this.operatorFaceLabels)
+    },
+    toolSetterRefPadPreview(): string {
+      if (!this.toolSetterV2) {
+        return ''
+      }
+      const pos = this.toolSetterPosVec
+      if (!pos || !Number.isFinite(pos[0]) || !Number.isFinite(pos[1])) {
+        return ''
+      }
+      const refDir = readConfigNumber(readFirmwareGlobal(this.globalOm, 'nxtToolSetterRefDir'))
+      const xy = computeV2RefPadXY(pos[0], pos[1], refDir)
+      const zStr = Number.isFinite(pos[2]) ? computeV2RefPadZ(pos[2]).toFixed(3) : '—'
+      return this.$t('plugins.nxt.panels.calibration.chipRefPadPreview', [
+        xy.x.toFixed(3),
+        xy.y.toFixed(3),
+        zStr
+      ]).toString()
     },
     touchProbeRefPosDisplay(): string {
       const v = this.touchProbeRefPosVec
@@ -914,45 +1444,146 @@ export default defineNxtComponent({
         readConfigNumber(readFirmwareGlobal(g, 'nxtToolSetterID')) != null
       )
     },
+    showProbeSetupReadiness(): boolean {
+      const g = this.globalOm
+      return (
+        readConfigBool(readFirmwareGlobal(g, 'nxtFeatureTouchProbe')) ||
+        readConfigBool(readFirmwareGlobal(g, 'nxtFeatureToolSetter'))
+      )
+    },
+    probeSetupReadiness(): ReturnType<typeof assessNxtProbeSetupReadiness> {
+      const model = this.$store.state.machine.model as {
+        sensors?: { probes?: unknown }
+        tools?: unknown
+        move?: { axes?: unknown }
+      }
+      return assessNxtProbeSetupReadiness({
+        globalOm: this.globalOm,
+        probes: model.sensors?.probes,
+        tools: model.tools,
+        axes: model.move?.axes
+      })
+    },
+    probeSetupReadinessRows(): Array<{
+      id: string
+      ok: boolean
+      severity: string
+      label: string
+    }> {
+      return this.probeSetupReadiness.items.map((it: NxtProbeReadinessItem) => ({
+        id: it.id,
+        ok: it.ok,
+        severity: it.severity,
+        label: this.$t(`plugins.nxt.panels.calibration.${it.messageKey}`).toString()
+      }))
+    },
+    canRunM5016(): boolean {
+      return this.isConnected && !this.probeSetupReadiness.blockM5016
+    },
+    canEnableProbeFromPhase0(): boolean {
+      return this.isConnected && !this.probeSetupReadiness.blockEnableProbe
+    },
+    enableProbeBlockerLabels(): string[] {
+      return this.probeSetupReadiness.blockEnableProbeReasons.map((key: string) =>
+        this.$t(`plugins.nxt.panels.calibration.${key}`).toString()
+      )
+    },
     needsProbeDatumSetup(): boolean {
       if (!this.probeAndToolsetterConfigured) return false
       return !this.touchProbeRefPosSet || !this.deltaMachineSet
     },
     probeModeSelectable(): boolean {
-      return this.touchProbeReady && !this.needsProbeDatumSetup
+      return this.touchProbeReady
     },
-    rawDeflectionValue(): number | null {
-      const v = readFirmwareGlobal(this.globalOm, 'nxtProbeDeflection')
-      if (typeof v === 'number' && Number.isFinite(v)) return v
-      const vec = readConfigVector(v)
-      if (vec && vec.length > 0 && Number.isFinite(vec[0])) return vec[0]
-      return null
+    rawDeflectionValue(): number[] | null {
+      return readConfigDeflectionXY(readFirmwareGlobal(this.globalOm, 'nxtProbeDeflection'))
     },
     probeDeflectionReady(): boolean {
       if (this.sessionDeflectionOk) return true
-      if (this.pendingDeflection != null && this.pendingDeflection !== 0) return true
+      if (this.pendingDeflection != null) {
+        const p = this.pendingDeflection
+        if (
+          p.length >= 3 &&
+          (p[0] !== 0 || p[1] !== 0 || p[2] !== 0)
+        ) {
+          return true
+        }
+      }
       return false
+    },
+    /** Touch probe on and D not session-ready — block P1–P3 / G9000 / Save. */
+    touchProbeBlocksLaterPhases(): boolean {
+      return this.touchProbeReady && (!this.probeDeflectionReady || this.needsDeflectionRecheck)
+    },
+    canSaveCalibration(): boolean {
+      if (this.touchProbeReady) {
+        return this.probeDeflectionReady && !this.needsDeflectionRecheck
+      }
+      return true
     },
     canConfirmExistingDeflection(): boolean {
       const v = this.rawDeflectionValue
-      return v != null && Number.isFinite(v)
+      if (v == null || v.length < 2) return false
+      if (!Number.isFinite(v[0]) || !Number.isFinite(v[1])) return false
+      return !isFactoryZeroDeflection([v[0], v[1], 0])
     },
     canRunG9000(): boolean {
+      const xyReady =
+        (this.selectedAxis === 'X' || this.selectedAxis === 'Y') && this.p4DiveMm > 0
+      const zOk = this.selectedAxis === 'Z'
       return (
         this.calMode === 'probe' &&
-        !this.needsProbeDatumSetup &&
+        this.probeToolLoaded &&
         this.probeDeflectionReady &&
         !this.needsDeflectionRecheck &&
         this.isConnected &&
         !this.uiFrozen &&
         this.selectedAxis !== 'A' &&
-        this.touchProbeReady
+        this.touchProbeReady &&
+        (xyReady || zOk)
       )
+    },
+    canRunM5017(): boolean {
+      return (
+        this.calMode === 'probe' &&
+        this.touchProbeReady &&
+        this.probeToolLoaded &&
+        this.isConnected &&
+        !this.uiFrozen &&
+        this.p4DiveMm > 0
+      )
+    },
+    canProbeCaptureFace(): boolean {
+      if (!this.isConnected) return false
+      if (this.touchProbeBlocksLaterPhases) return false
+      if (this.calMode !== 'probe') return true
+      // Phase 3 approach assist (M5018) is XY-only; Z fine span remains deferred
+      if (this.selectedAxis !== 'X' && this.selectedAxis !== 'Y') return false
+      return (
+        this.touchProbeReady &&
+        this.probeToolLoaded &&
+        !this.uiFrozen &&
+        this.p4DiveMm > 0
+      )
+    },
+    canAddBacklashSample(): boolean {
+      return (
+        this.isConnected &&
+        !this.uiFrozen &&
+        this.selectedAxis !== 'A' &&
+        !this.touchProbeBlocksLaterPhases
+      )
+    },
+    /** Deep-watched blob for debounced nxtCalSession persist */
+    calSessionSnapshot(): NxtCalSessionPanelFields {
+      return pickCalSessionFromPanel(this as unknown as NxtCalSessionPanelFields)
     }
   },
   watch: {
     selectedAxis(axis: AxisLetter) {
+      if (this.calSessionHydrating) return
       this.apply123DefaultsForAxis(axis)
+      this.schedulePersistCalSession()
     },
     probeModeSelectable(ready: boolean) {
       if (!ready && this.calMode === 'probe') {
@@ -960,14 +1591,100 @@ export default defineNxtComponent({
       }
     },
     calMode(mode: string) {
+      if (this.calSessionHydrating) return
       if (mode === 'probe') {
-        this.openPhase = this.probeDeflectionReady ? null : '4'
-      } else if (mode === 'manual' && !this.openPhase) {
-        this.openPhase = '1'
+        this.p2UseManualSpans = false
+        this.openPhase = this.probeDeflectionReady && !this.needsDeflectionRecheck ? null : '1'
+        void this.enforceDeflectionJobGate()
+      } else if (mode === 'manual') {
+        this.openPhase =
+          this.touchProbeReady && (!this.probeDeflectionReady || this.needsDeflectionRecheck)
+            ? '1'
+            : '2'
+      }
+      this.schedulePersistCalSession()
+    },
+    calSessionSnapshot: {
+      deep: true,
+      handler(this: {
+        calSessionHydrating: boolean
+        schedulePersistCalSession: () => void
+      }) {
+        if (this.calSessionHydrating) return
+        this.schedulePersistCalSession()
       }
     }
   },
+  mounted() {
+    this.hydrateCalSession()
+    if (this.touchProbeReady && (!this.probeDeflectionReady || this.needsDeflectionRecheck)) {
+      this.openPhase = '1'
+    }
+  },
+  beforeUnmount() {
+    this.flushPersistCalSession()
+  },
   methods: {
+    schedulePersistCalSession() {
+      if (this.calSessionHydrating) return
+      if (this.calSessionPersistTimer != null) {
+        clearTimeout(this.calSessionPersistTimer)
+      }
+      this.calSessionPersistTimer = setTimeout(() => {
+        this.calSessionPersistTimer = null
+        this.flushPersistCalSession()
+      }, 250)
+    },
+    flushPersistCalSession() {
+      if (this.calSessionPersistTimer != null) {
+        clearTimeout(this.calSessionPersistTimer)
+        this.calSessionPersistTimer = null
+      }
+      if (this.calSessionHydrating) return
+      try {
+        writeNxtCalSession(pickCalSessionFromPanel(this as unknown as NxtCalSessionPanelFields))
+      } catch {
+        /* settings store may be unavailable during teardown */
+      }
+    },
+    hydrateCalSession() {
+      this.calSessionHydrating = true
+      try {
+        const snap = readNxtCalSession(this.$store.state.settings?.plugins)
+        if (snap != null) {
+          applyCalSessionToPanel(this as unknown as NxtCalSessionPanelFields, snap)
+        }
+        const live = this.rawDeflectionValue
+        const gate = reconcileDeflectionConfirm({
+          liveOm: live,
+          confirmedDeflection: this.confirmedDeflection,
+          sessionDeflectionOk: this.sessionDeflectionOk,
+          needsDeflectionRecheck: this.needsDeflectionRecheck
+        })
+        this.sessionDeflectionOk = gate.sessionDeflectionOk
+        this.needsDeflectionRecheck = gate.needsDeflectionRecheck
+        if (this.travelLegs.length === 0) {
+          const travelAxis = readFirmwareGlobal(this.globalOm, 'nxtCalTravelAxis')
+          const axisStr =
+            travelAxis != null && travelAxis !== '' ? String(travelAxis).toUpperCase() : ''
+          if (axisStr === this.selectedAxis) {
+            const cmd = this.readTravelVector('nxtCalTravelCmd')
+            const meas = this.readTravelVector('nxtCalTravelMeas')
+            if (this.travelVectorsReady(cmd, meas)) {
+              this.applyTravelLegsFromVectors(cmd, meas)
+            }
+          }
+        }
+      } finally {
+        this.calSessionHydrating = false
+      }
+    },
+    markDeflectionConfirmed(vector: number[]) {
+      this.confirmedDeflection = vector.slice(0, 3)
+      this.sessionDeflectionOk = true
+      this.needsDeflectionRecheck = false
+      this.schedulePersistCalSession()
+    },
     apply123DefaultsForAxis(axis: AxisLetter) {
       const d = nxt123DefaultsForAxis(axis)
       this.blockFacePair = d.facePair
@@ -1012,6 +1729,12 @@ export default defineNxtComponent({
         await this.sendCode(`M92 ${axis}${proposed}`)
         this.pendingSteps[axis] = proposed
         this.show(`Steps applied for ${axis}`, 'success')
+        if (this.calMode === 'probe') {
+          this.needsDeflectionRecheck = true
+          this.sessionDeflectionOk = false
+          this.openPhase = '1'
+          this.show(this.$t('plugins.nxt.panels.calibration.deflectionRecheckHint').toString(), 'warning')
+        }
       } catch (e: any) {
         this.show(e?.message ?? 'M92 failed', 'error')
       }
@@ -1038,14 +1761,31 @@ export default defineNxtComponent({
     },
     async applyDeflection() {
       if (this.defProposed == null) return
-      if (!window.confirm(`Set nxtProbeDeflection = ${this.defProposed.toFixed(4)}?`)) return
-      this.prevDeflection = this.currentDeflection
+      const axis = this.selectedAxis
+      if (axis === 'A') {
+        this.show('A-axis has no linear probe deflection channel', 'warning')
+        return
+      }
+      if (axis === 'Z') {
+        this.show(this.$t('plugins.nxt.panels.calibration.zDeflectionUnusedHint').toString(), 'warning')
+        return
+      }
+      const cur = this.currentDeflection ?? [0, 0, 0]
+      const next: number[] = [
+        cur.length >= 1 ? cur[0] : 0,
+        cur.length >= 2 ? cur[1] : 0,
+        0
+      ]
+      if (axis === 'X') next[0] = this.defProposed
+      else if (axis === 'Y') next[1] = this.defProposed
+      const label = `{${next[0].toFixed(4)}, ${next[1].toFixed(4)}, 0}`
+      if (!window.confirm(`Set nxtProbeDeflection = ${label}?`)) return
+      this.prevDeflection = cur
       try {
-        await this.sendCode(`set global.nxtProbeDeflection = ${this.defProposed}`)
-        this.pendingDeflection = this.defProposed
-        this.sessionDeflectionOk = true
-        this.needsDeflectionRecheck = false
-        this.show('Probe deflection updated', 'success')
+        await ensureSetFirmwareGlobal('nxtProbeDeflection', formatOmRhs(next), (c) => this.sendCode(c))
+        this.pendingDeflection = next
+        this.markDeflectionConfirmed(next)
+        this.show(`Probe deflection updated ${label}`, 'success')
       } catch (e: any) {
         this.show(e?.message ?? 'Failed to set deflection', 'error')
       }
@@ -1053,20 +1793,71 @@ export default defineNxtComponent({
     confirmExistingDeflection() {
       const v = this.rawDeflectionValue
       if (v == null) return
-      if (v === 0) {
-        if (!window.confirm(this.$t('plugins.nxt.panels.calibration.confirmZeroDeflection').toString())) {
-          return
-        }
+      const normalized: number[] = [
+        v.length >= 1 ? v[0] : 0,
+        v.length >= 2 ? v[1] : 0,
+        0
+      ]
+      if (isFactoryZeroDeflection(normalized)) {
+        this.show(this.$t('plugins.nxt.panels.calibration.confirmZeroDeflection').toString(), 'error')
+        this.openPhase = '1'
+        return
       }
-      this.sessionDeflectionOk = true
-      this.needsDeflectionRecheck = false
-      this.show(`Using deflection ${v.toFixed(4)} mm`, 'success')
+      this.markDeflectionConfirmed(normalized)
+      this.show(
+        `Using deflection X ${normalized[0].toFixed(4)} / Y ${normalized[1].toFixed(4)} / Z 0 mm`,
+        'success'
+      )
+    },
+    skipPhase(phase: string) {
+      if (phase === '1' || phase === '0') return
+      const order =
+        this.calMode === 'probe' ? ['1', '3', '4', '5'] : ['1', '2', '3', '4', '5']
+      const i = order.indexOf(phase)
+      if (i < 0 || i >= order.length - 1) {
+        this.openPhase = '5'
+        return
+      }
+      this.openPhase = order[i + 1]
+    },
+    async enforceDeflectionJobGate() {
+      if (!this.touchProbeReady || !this.isConnected) return
+      try {
+        await this.sendCode('M4006')
+      } catch (e: any) {
+        this.openPhase = '1'
+        this.show(
+          e?.message ?? this.$t('plugins.nxt.panels.calibration.deflectionGateHint').toString(),
+          'warning'
+        )
+      }
     },
     async runDatumSetup() {
+      if (!this.canRunM5016) {
+        this.show(this.$t('plugins.nxt.panels.calibration.readyBlockM5016').toString(), 'error')
+        return
+      }
       this.datumBusy = true
       try {
         await this.sendCode('M5016')
-        this.show('Datum setup (M5016) finished — park and load probe, then Save', 'success')
+        // OM may lag one tick after macro return — re-read globals
+        const g = this.$store.state.machine.model.global
+        const pos = readConfigVector(readFirmwareGlobal(g, 'nxtToolSetterPos'))
+        const virt = readConfigNumber(readFirmwareGlobal(g, 'nxtProbeVirtualTsZ'))
+        const zOk =
+          (pos != null && pos.length >= 3 && typeof pos[2] === 'number' && Number.isFinite(pos[2])) ||
+          (virt != null && Number.isFinite(virt))
+        if (zOk) {
+          this.show(
+            this.$t('plugins.nxt.panels.calibration.datumSetupDone').toString(),
+            'success'
+          )
+        } else {
+          this.show(
+            this.$t('plugins.nxt.panels.calibration.datumSetupIncomplete').toString(),
+            'warning'
+          )
+        }
       } catch (e: any) {
         this.show(e?.message ?? 'M5016 failed', 'error')
       } finally {
@@ -1074,40 +1865,85 @@ export default defineNxtComponent({
       }
     },
     async parkAndLoadProbe() {
-      const toolId = readConfigNumber(readFirmwareGlobal(this.globalOm, 'nxtProbeToolID'))
-      if (toolId == null) {
-        this.show('nxtProbeToolID is not set', 'error')
+      if (!this.canEnableProbeFromPhase0) {
+        const detail =
+          this.enableProbeBlockerLabels.length > 0
+            ? `: ${this.enableProbeBlockerLabels.join('; ')}`
+            : ''
+        this.show(
+          this.$t('plugins.nxt.panels.calibration.readyBlockEnableProbe').toString() + detail,
+          'warning'
+        )
         return
       }
+      const toolId = this.probeToolIdResolved
       this.probeLoadBusy = true
       try {
-        await this.sendCode('G27 Z1')
-        await this.sendCode(`T${toolId}`)
-        this.show(`Loaded probe tool T${toolId} (tpost/G6511)`, 'success')
+        await enableNxtProbeTool(
+          (c: string) => this.sendCode(c),
+          toolId
+        )
+        this.show(
+          this.$t('plugins.nxt.panels.calibration.enableProbeDone', [this.probeToolLabel]).toString(),
+          'success'
+        )
       } catch (e: any) {
-        this.show(e?.message ?? 'Park / probe load failed', 'error')
+        this.show(e?.message ?? 'Enable Probe failed', 'error')
       } finally {
         this.probeLoadBusy = false
       }
     },
     readTravelVector(key: string): number[] {
       const v = readConfigVector(readFirmwareGlobal(this.globalOm, key))
-      return v && v.length >= 3 ? v.slice(0, 3) : []
+      if (!v || v.length < 3) return []
+      const out = v.slice(0, 3).map((n: number) => Number(n))
+      return out.every((n: number) => Number.isFinite(n)) ? out : []
     },
-    loadTravelResultsFromGlobals(): boolean {
-      const cmd = this.readTravelVector('nxtCalTravelCmd')
-      const meas = this.readTravelVector('nxtCalTravelMeas')
-      if (cmd.length < 3 || meas.length < 3) {
-        this.show('Travel test finished but globals are incomplete', 'warning')
-        return false
+    travelVectorsReady(cmd: number[], meas: number[]): boolean {
+      if (cmd.length < 3 || meas.length < 3) return false
+      const expected = travelCommandedLegs()
+      // Initial macro seed is {0,0,0}; wait until the longest slot is written.
+      if (cmd[0] === expected[0] && cmd[1] === expected[1] && cmd[2] === expected[2]) {
+        if (meas[0] === 0 && meas[1] === 0 && meas[2] === 0) return false
       }
+      return true
+    },
+    applyTravelLegsFromVectors(cmd: number[], meas: number[]): void {
       this.travelLegs = [0, 1, 2].map((i: number) => ({
         commanded: cmd[i],
         measured: meas[i]
       }))
       this.travelClassification = classifyTravelCalibration(this.travelLegs, this.currentSteps)
-      this.show(this.travelClassification.summary, 'info')
-      return true
+      const eLong = meas[2] - cmd[2]
+      this.show(
+        `${this.travelClassification.summary} (${cmd[2]} mm err ${eLong >= 0 ? '+' : ''}${eLong.toFixed(4)} mm)`,
+        'info'
+      )
+    },
+    async loadTravelResultsFromGlobals(): Promise<boolean> {
+      const maxAttempts = 12
+      for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        const cmd = this.readTravelVector('nxtCalTravelCmd')
+        const meas = this.readTravelVector('nxtCalTravelMeas')
+        if (this.travelVectorsReady(cmd, meas)) {
+          this.applyTravelLegsFromVectors(cmd, meas)
+          return true
+        }
+        await new Promise((resolve: (v: void) => void) => setTimeout(resolve, 300))
+      }
+      const cmd = this.readTravelVector('nxtCalTravelCmd')
+      const meas = this.readTravelVector('nxtCalTravelMeas')
+      if (cmd.length >= 3 && meas.length >= 3) {
+        this.applyTravelLegsFromVectors(cmd, meas)
+        this.show('Travel globals loaded but longest slot may still be stale — check console echoes', 'warning')
+        return true
+      }
+      const legs = travelCommandedLegs()
+      this.show(
+        `Travel test finished but globals are incomplete (need ${legs.join('/')})`,
+        'warning'
+      )
+      return false
     },
     async runG9000() {
       if (!this.canRunG9000) return
@@ -1122,31 +1958,54 @@ export default defineNxtComponent({
       this.travelLegs = []
       this.travelClassification = null
       try {
-        await this.sendCode(`G9000 ${axis}0`)
-        this.loadTravelResultsFromGlobals()
+        if (axis === 'X' || axis === 'Y') {
+          // Save center, M5018 R0 (outside + find, stay out), G9000, return to center
+          const sizeMm = nxt123DefaultsForAxis(axis).primaryMm
+          const approachDir = -1
+          const clearance = 15
+          const toward = 1
+          const centerBefore = this.axisMachinePosition()
+          await this.sendCode(
+            `M5018 ${axis}${approachDir} O${clearance} S${sizeMm} D${this.p4DiveMm} R0`
+          )
+          await this.sendCode(`G9000 ${axis}0 J0 H${toward}`)
+          if (centerBefore != null) {
+            await this.sendCode('G90')
+            await this.sendCode(`G91 G0 Z${this.p4DiveMm}`)
+            await this.sendCode('G90')
+            await this.sendCode(`G53 G0 ${axis}${centerBefore}`)
+          }
+        } else {
+          await this.sendCode(`G9000 ${axis}0`)
+        }
+        await this.loadTravelResultsFromGlobals()
       } catch (e: any) {
         this.show(e?.message ?? 'G9000 failed', 'error')
       } finally {
         this.g9000Busy = false
       }
     },
-    async applyTravelSteps() {
-      const proposed = this.travelClassification?.proposedNewSteps
-      if (proposed == null) return
-      await this.applySteps(proposed, 'g9000')
-      if (this.calMode === 'probe') {
-        this.needsDeflectionRecheck = true
-        this.sessionDeflectionOk = false
-        this.openPhase = '4'
-        this.show(this.$t('plugins.nxt.panels.calibration.deflectionRecheckHint').toString(), 'warning')
-      }
-    },
     async applyTravelBacklash() {
       const proposed = this.travelClassification?.proposedBacklash
       if (proposed == null) return
-      this.blMeanPos = proposed
-      this.blMeanNeg = 0
-      await this.applyBacklash()
+      const axis = this.selectedAxis
+      if (axis === 'A') return
+      if (!window.confirm(`Apply M425 ${axis}${proposed.toFixed(4)} from travel test?`)) return
+      this.prevBacklash = this.currentBacklash
+      const axes = this.$store.state.machine.model.move?.axes ?? []
+      const parts: string[] = []
+      for (let i = 0; i < Math.min(axes.length, 4); i++) {
+        const letter = (axes[i]?.letter ?? ['X', 'Y', 'Z', 'A'][i]) as string
+        const val = letter === axis ? proposed : (axes[i]?.backlash ?? 0)
+        parts.push(`${letter}${val}`)
+      }
+      try {
+        await this.sendCode(`M425 ${parts.join(' ')}`)
+        this.pendingBacklash[axis] = proposed
+        this.show(`Backlash ${proposed.toFixed(4)} mm applied for ${axis}`, 'success')
+      } catch (e: any) {
+        this.show(e?.message ?? 'M425 failed', 'error')
+      }
     },
     async runPhase1MotionTest() {
       if (!this.canRunP1Motion) return
@@ -1164,7 +2023,7 @@ export default defineNxtComponent({
       this.travelClassification = null
       try {
         await this.sendCode(`M5014 ${axis}0 D${dir}${rPart}`)
-        this.loadTravelResultsFromGlobals()
+        await this.loadTravelResultsFromGlobals()
       } catch (e: any) {
         this.show(e?.message ?? 'M5014 motion test failed', 'error')
       } finally {
@@ -1183,19 +2042,106 @@ export default defineNxtComponent({
         this.show(e?.message ?? 'M5015 / G6512 failed', 'error')
       }
     },
+    axisMachinePosition(): number | null {
+      const axes = this.$store.state.machine.model.move?.axes
+      if (!Array.isArray(axes)) return null
+      const ax = axes[this.axisIndex] as { machinePosition?: number; userPosition?: number } | undefined
+      const mp = ax?.machinePosition
+      if (typeof mp === 'number' && Number.isFinite(mp)) return mp
+      const up = ax?.userPosition
+      return typeof up === 'number' && Number.isFinite(up) ? up : null
+    },
+    async applyXyDeflection() {
+      if (!this.canApplyXyDeflection || this.defProposedX == null || this.defProposedY == null) return
+      const cur = this.currentDeflection ?? [0, 0, 0]
+      const next: number[] = [this.defProposedX, this.defProposedY, 0]
+      const label = `{${next[0].toFixed(4)}, ${next[1].toFixed(4)}, 0}`
+      let confirmMsg = `Set nxtProbeDeflection = ${label}?`
+      if (this.xyDeflectionImplausible) {
+        confirmMsg =
+          `Proposed deflection looks implausible (check tip RADIUS, not diameter). ` +
+          `Still set nxtProbeDeflection = ${label}?`
+      }
+      if (!window.confirm(confirmMsg)) return
+      this.prevDeflection = cur
+      try {
+        await ensureSetFirmwareGlobal('nxtProbeDeflection', formatOmRhs(next), (c) => this.sendCode(c))
+        this.pendingDeflection = next
+        this.markDeflectionConfirmed(next)
+        this.show(`Probe deflection updated ${label}`, 'success')
+      } catch (e: any) {
+        this.show(e?.message ?? 'Failed to set deflection', 'error')
+      }
+    },
+    async runProbeDeflectionSpan() {
+      if (!this.canRunM5017) return
+      if (!window.confirm(this.$t('plugins.nxt.panels.calibration.runM5017Confirm').toString())) {
+        return
+      }
+      this.p4ProbeBusy = true
+      try {
+        await this.sendCode(`M5017 D${this.p4DiveMm} O5`)
+        const sx = readConfigNumber(readFirmwareGlobal(this.globalOm, 'nxtCalDefSpanX'))
+        const sy = readConfigNumber(readFirmwareGlobal(this.globalOm, 'nxtCalDefSpanY'))
+        if (sx == null || sy == null || !Number.isFinite(sx) || !Number.isFinite(sy)) {
+          this.show('M5017 finished but nxtCalDefSpanX/Y missing', 'warning')
+          return
+        }
+        this.defMeasuredX = sx
+        this.defMeasuredY = sy
+        this.show(
+          `Spans X ${sx.toFixed(4)} / Y ${sy.toFixed(4)} mm — review and Apply`,
+          'success'
+        )
+      } catch (e: any) {
+        this.show(e?.message ?? 'M5017 failed', 'error')
+      } finally {
+        this.p4ProbeBusy = false
+      }
+    },
+    async onCaptureFace(slot: 'l1' | 'r1' | 'l2' | 'r2') {
+      if (this.calMode === 'probe') {
+        await this.probeAndCaptureFace(slot)
+      } else {
+        this.captureProbeFace(slot)
+      }
+    },
+    async probeAndCaptureFace(slot: 'l1' | 'r1' | 'l2' | 'r2') {
+      if (!this.canProbeCaptureFace || this.calMode !== 'probe') return
+      const axis = this.selectedAxis as AxisLetter
+      if (axis !== 'X' && axis !== 'Y') return
+      if (this.touchProbeId == null) return
+      const sizeMm = slot === 'l1' || slot === 'r1' ? this.refDim1 : this.refDim2
+      const dir = slot === 'r1' || slot === 'r2' ? 1 : -1
+      const clearance = 15
+      this.p2CaptureBusy = slot
+      try {
+        // Raise→outside→dive→G6512 find→return to center (M5018 default)
+        await this.sendCode(
+          `M5018 ${axis}${dir} O${clearance} S${sizeMm} D${this.p4DiveMm}`
+        )
+        this.captureProbeFace(slot)
+      } catch (e: any) {
+        this.show(e?.message ?? 'Probe + capture failed', 'error')
+      } finally {
+        this.p2CaptureBusy = null
+      }
+    },
     lastProbeResult(): number | null {
       const v = readFirmwareGlobal(this.$store.state.machine.model.global, 'nxtLastProbeResult')
       return typeof v === 'number' ? v : null
     },
-    captureProbeInto(which: 'm1' | 'm2') {
+    captureProbeFace(slot: 'l1' | 'r1' | 'l2' | 'r2') {
       const v = this.lastProbeResult()
       if (v == null) {
         this.show('No nxtLastProbeResult yet', 'warning')
         return
       }
-      if (which === 'm1') this.p2Measured1 = v
-      else this.p2Measured2 = v
-      this.show(`Captured ${v}`, 'success')
+      if (slot === 'l1') this.p2Face1Left = v
+      else if (slot === 'r1') this.p2Face1Right = v
+      else if (slot === 'l2') this.p2Face2Left = v
+      else this.p2Face2Right = v
+      this.show(`Captured ${slot.toUpperCase()} = ${v}`, 'success')
     },
     addBacklashSample(dir: 'pos' | 'neg') {
       const v = this.lastProbeResult()
@@ -1212,26 +2158,52 @@ export default defineNxtComponent({
       }
     },
     mergePendingIntoDraft(draft: NxtUserConfigDraft): void {
-      if (this.pendingSteps.X != null) draft.nxtCustomXSteps = this.pendingSteps.X
-      if (this.pendingSteps.Y != null) draft.nxtCustomYSteps = this.pendingSteps.Y
-      if (this.pendingSteps.Z != null) draft.nxtCustomZSteps = this.pendingSteps.Z
-      if (this.pendingSteps.A != null) draft.nxtCustomASteps = this.pendingSteps.A
-      if (this.pendingBacklash.X != null) draft.nxtCustomXBacklash = this.pendingBacklash.X
-      if (this.pendingBacklash.Y != null) draft.nxtCustomYBacklash = this.pendingBacklash.Y
-      if (this.pendingBacklash.Z != null) draft.nxtCustomZBacklash = this.pendingBacklash.Z
-      if (this.pendingBacklash.A != null) draft.nxtCustomABacklash = this.pendingBacklash.A
-      if (this.pendingDeflection != null) draft.nxtProbeDeflection = this.pendingDeflection
+      // nxtCustom*Steps / *Backlash are Custom-platform durable store only (drives-overlay).
+      // Non-Custom: Apply already sent live M92/M425; do not write undeclared Custom keys.
+      if (this.isCustomPlatform) {
+        if (this.pendingSteps.X != null) draft.nxtCustomXSteps = this.pendingSteps.X
+        if (this.pendingSteps.Y != null) draft.nxtCustomYSteps = this.pendingSteps.Y
+        if (this.pendingSteps.Z != null) draft.nxtCustomZSteps = this.pendingSteps.Z
+        if (this.pendingSteps.A != null) draft.nxtCustomASteps = this.pendingSteps.A
+        if (this.pendingBacklash.X != null) draft.nxtCustomXBacklash = this.pendingBacklash.X
+        if (this.pendingBacklash.Y != null) draft.nxtCustomYBacklash = this.pendingBacklash.Y
+        if (this.pendingBacklash.Z != null) draft.nxtCustomZBacklash = this.pendingBacklash.Z
+        if (this.pendingBacklash.A != null) draft.nxtCustomABacklash = this.pendingBacklash.A
+      }
+      if (this.pendingDeflection != null) {
+        const p = this.pendingDeflection
+        draft.nxtProbeDeflection = [
+          p.length >= 1 ? p[0] : 0,
+          p.length >= 2 ? p[1] : 0,
+          0
+        ]
+      }
     },
     async saveCalibration() {
+      if (!this.canSaveCalibration) {
+        this.show(this.$t('plugins.nxt.panels.calibration.saveBlockedDeflection').toString(), 'error')
+        this.openPhase = '1'
+        return
+      }
       this.saving = true
       try {
         const draft = snapshotConfigFromOm(this.$store.state.machine.model.global)
         this.mergePendingIntoDraft(draft)
+        if (
+          this.touchProbeReady &&
+          (draft.nxtProbeDeflection == null || isFactoryZeroDeflection(draft.nxtProbeDeflection))
+        ) {
+          this.show(this.$t('plugins.nxt.panels.calibration.saveBlockedDeflection').toString(), 'error')
+          this.openPhase = '1'
+          return
+        }
         const result = await persistNxtUserConfig(draft, {
           sendCode: (c) => this.sendCode(c),
           isConnected: this.isConnected,
           deployCustomPack: this.isCustomPlatform
         })
+        clearWizardProgressKeepConfirm(this as unknown as NxtCalSessionPanelFields)
+        this.flushPersistCalSession()
         this.show(
           'Calibration saved to nxt-user-vars.g' +
             (result.customDeployed.length > 0 ? ' + custom overlays' : ''),

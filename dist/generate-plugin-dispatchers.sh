@@ -130,6 +130,8 @@ while IFS= read -r plugin; do
     exit 1
   fi
 
+  skip_init_dispatch="$(jq -r '.skipInitDispatch // false' <<<"${plugin}")"
+
   failure_mode="$(jq -r '.data.nxt.failureMode // empty' "${manifest_abs}")"
   if [[ -z "${failure_mode}" ]]; then
     if [[ "${STRICT_DEFAULT}" == "true" ]]; then
@@ -181,14 +183,32 @@ while IFS= read -r plugin; do
   stage_entrypoint_from_repo "${stop_path}"
   stage_entrypoint_from_repo "${cancel_path}"
 
-  if [[ -z "${init_path}" ]]; then
+  feature_flag="$(jq -r '.featureFlag // empty' <<<"${plugin}")"
+  if [[ -z "${feature_flag}" || "${feature_flag}" == "null" ]]; then
+    feature_flag="$(jq -r '.data.nxt.featureFlag // empty' "${manifest_abs}")"
+  fi
+
+  if [[ "${skip_init_dispatch}" == "true" ]]; then
+    warn "skipping init dispatch for ${plugin_id} (boot via nxt.g when feature flag set)"
+  elif [[ -z "${init_path}" ]]; then
     fail_or_warn "${failure_mode}" "missing init entrypoint for ${plugin_id}"
   else
     normalized_init="$(normalize_m98_path "${init_path}")"
     if [[ ! -f "${SYS_ROOT}/${normalized_init}" ]]; then
       fail_or_warn "${failure_mode}" "missing init entrypoint file for ${plugin_id}: ${init_path}"
     else
-      cat >> "${INIT_FILE}" <<EOF
+      if [[ -n "${feature_flag}" && "${feature_flag}" != "null" ]]; then
+        cat >> "${INIT_FILE}" <<EOF
+if { exists(global.${feature_flag}) && global.${feature_flag} }
+    if { !exists(global.nxtPluginLoaded_${plugin_global}) }
+        global nxtPluginLoaded_${plugin_global} = false
+    if { !global.nxtPluginLoaded_${plugin_global} }
+        M98 P"${normalized_init}"
+        set global.nxtPluginLoaded_${plugin_global} = true
+
+EOF
+      else
+        cat >> "${INIT_FILE}" <<EOF
 if { !exists(global.nxtPluginLoaded_${plugin_global}) }
     global nxtPluginLoaded_${plugin_global} = false
 
@@ -196,6 +216,7 @@ if { !global.nxtPluginLoaded_${plugin_global} }
     M98 P"${normalized_init}"
     set global.nxtPluginLoaded_${plugin_global} = true
 EOF
+      fi
       ENTRY_COUNT=$((ENTRY_COUNT + 1))
     fi
   fi

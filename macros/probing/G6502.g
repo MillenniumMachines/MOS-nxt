@@ -45,8 +45,12 @@ else
 if { var.pSlot < 0 || var.pSlot >= #global.nxtProbeResults }
     abort { "G6502: Result slot out of range" }
 
-if { !exists(param.W) || !exists(param.H) || !exists(param.L) }
-    abort { "G6502: Width (W), Height (H), and Depth (L) parameters are required" }
+if { !exists(param.W) || param.W == null || param.W <= 0 }
+    abort { "G6502: Width W is required and must be positive" }
+if { !exists(param.H) || param.H == null || param.H <= 0 }
+    abort { "G6502: Height H is required and must be positive" }
+if { !exists(param.L) || param.L == null || param.L <= 0 }
+    abort { "G6502: Depth L is required and must be positive" }
 
 ; Set parameters
 var feedRate = { exists(param.F) ? param.F : null }
@@ -79,7 +83,7 @@ echo "G6502: Probing rectangular pocket " ^ var.pocketWidth ^ "x" ^ var.pocketHe
 ; Probe +X edge (right side of pocket)
 echo "G6502: Probing +X edge"
 var xPlusTarget = { var.centerX + var.xProbeDistance }
-G6512 X{var.xPlusTarget} Y{var.centerY} Z{var.probeZ} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H0
+G6512 X{var.xPlusTarget} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H0
 
 ; Move back to center for next probe
 G6550 X{var.centerX}
@@ -87,7 +91,7 @@ G6550 X{var.centerX}
 ; Probe -X edge (left side of pocket)
 echo "G6502: Probing -X edge"
 var xMinusTarget = { var.centerX - var.xProbeDistance }
-G6512 X{var.xMinusTarget} Y{var.centerY} Z{var.probeZ} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H1
+G6512 X{var.xMinusTarget} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H1
 
 ; Move back to center for next probe
 G6550 X{var.centerX}
@@ -95,7 +99,7 @@ G6550 X{var.centerX}
 ; Probe +Y edge (front of pocket)
 echo "G6502: Probing +Y edge"
 var yPlusTarget = { var.centerY + var.yProbeDistance }
-G6512 X{var.centerX} Y{var.yPlusTarget} Z{var.probeZ} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H2
+G6512 Y{var.yPlusTarget} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H2
 
 ; Move back to center for next probe
 G6550 Y{var.centerY}
@@ -103,10 +107,13 @@ G6550 Y{var.centerY}
 ; Probe -Y edge (back of pocket)
 echo "G6502: Probing -Y edge"
 var yMinusTarget = { var.centerY - var.yProbeDistance }
-G6512 X{var.centerX} Y{var.yMinusTarget} Z{var.probeZ} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H3
+G6512 Y{var.yMinusTarget} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H3
 
 ; Chord vectors from opposing pocket walls; skew θ = angle of X chord vs machine X.
 ; Center = mean of (midpoint of X pair) and (midpoint of Y pair) — see G6500 header.
+if { !exists(global.nxtProbeHitXY) || global.nxtProbeHitXY == null || #global.nxtProbeHitXY < 8 }
+    abort { "G6502: Missing probe hits in nxtProbeHitXY" }
+
 var xPx = { global.nxtProbeHitXY[0] }
 var xPy = { global.nxtProbeHitXY[1] }
 var xMx = { global.nxtProbeHitXY[2] }
@@ -116,6 +123,11 @@ var yPy = { global.nxtProbeHitXY[5] }
 var yMx = { global.nxtProbeHitXY[6] }
 var yMy = { global.nxtProbeHitXY[7] }
 
+if { var.xPx == null || var.xPy == null || var.xMx == null || var.xMy == null }
+    abort { "G6502: Null ±X hit — check G6512 H0/H1 writes" }
+if { var.yPx == null || var.yPy == null || var.yMx == null || var.yMy == null }
+    abort { "G6502: Null ±Y hit — check G6512 H2/H3 writes" }
+
 var vx = { var.xPx - var.xMx }
 var vy = { var.xPy - var.xMy }
 var wx = { var.yPx - var.yMx }
@@ -123,6 +135,11 @@ var wy = { var.yPy - var.yMy }
 
 var thetaRad = { atan2(var.vy, var.vx) }
 var thetaDeg = { var.thetaRad * 180 / pi }
+; Fold to (−90, 90] so reversed ±X hit order does not yield ~±180°
+if { var.thetaDeg > 90 }
+    set var.thetaDeg = { var.thetaDeg - 180 }
+elif { var.thetaDeg <= -90 }
+    set var.thetaDeg = { var.thetaDeg + 180 }
 
 if { abs(var.thetaDeg) > var.skewLimit }
     abort { "G6502: |skew| " ^ var.thetaDeg ^ " deg exceeds limit " ^ var.skewLimit }
@@ -139,8 +156,9 @@ var xMinusEdge = { var.calculatedCenterX - var.vx / 2 }
 var yPlusEdge = { var.calculatedCenterY + var.wy / 2 }
 var yMinusEdge = { var.calculatedCenterY - var.wy / 2 }
 
-var actualWidth = { abs(var.vx) }
-var actualHeight = { abs(var.wy) }
+; Chord length = true wall spacing (projected |vx|/|wy| underestimate when skewed)
+var actualWidth = { sqrt(var.vx * var.vx + var.vy * var.vy) }
+var actualHeight = { sqrt(var.wx * var.wx + var.wy * var.wy) }
 
 ; Log results to probe results table
 if { global.nxtProbeResults[var.pSlot] == null || #global.nxtProbeResults[var.pSlot] < 3 }
@@ -164,6 +182,6 @@ echo "G6502: Result logged to table index " ^ var.pSlot
 
 if { exists(param.U) && param.U != null }
     if { exists(param.Q) && param.Q != null }
-        M98 P"M6520.g" P{var.pSlot} W{param.U} X Y T{var.skewLimit} Q{param.Q}
+        M6520 P{var.pSlot} W{param.U} X1 Y1 T{var.skewLimit} Q{param.Q}
     else
-        M98 P"M6520.g" P{var.pSlot} W{param.U} X Y T{var.skewLimit}
+        M6520 P{var.pSlot} W{param.U} X1 Y1 T{var.skewLimit}

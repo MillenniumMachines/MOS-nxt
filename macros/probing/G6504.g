@@ -64,6 +64,13 @@ var startZ = { global.nxtAbsPos[2] }
 
 var halfW = { var.webWidth / 2 }
 
+; Hoist before if/else — RRF block-scopes var declarations
+var resultX = 0
+var resultY = 0
+var calculatedCenter = 0
+var actualWidth = 0
+var probeZ = { var.startZ - var.probeDepth }
+
 echo "G6504: Probing web with width ~" ^ var.webWidth ^ "mm along " ^ var.axisName ^ " axis"
 
 if { var.probeAxis == 0 }
@@ -72,10 +79,9 @@ if { var.probeAxis == 0 }
     var xPlusTarget = { var.centerX + var.halfW - var.overtravel }
 
     G6550 X{var.xPlusStart} Y{var.centerY}
-    var probeZ = { var.startZ - var.probeDepth }
     G6550 Z{var.probeZ}
 
-    G6512 X{var.xPlusTarget} Y{var.centerY} Z{var.probeZ} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H0
+    G6512 X{var.xPlusTarget} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H0
     G6550 Z{var.startZ}
 
     echo "G6504: Probing from -X direction"
@@ -85,24 +91,27 @@ if { var.probeAxis == 0 }
     G6550 X{var.xMinusStart} Y{var.centerY}
     G6550 Z{var.probeZ}
 
-    G6512 X{var.xMinusTarget} Y{var.centerY} Z{var.probeZ} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H1
+    G6512 X{var.xMinusTarget} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H1
     G6550 Z{var.startZ}
 
-    var calculatedCenter = { (global.nxtProbeHitXY[0] + global.nxtProbeHitXY[2]) / 2 }
-    var actualWidth = { abs(global.nxtProbeHitXY[0] - global.nxtProbeHitXY[2]) }
+    if { !exists(global.nxtProbeHitXY) || global.nxtProbeHitXY == null || #global.nxtProbeHitXY < 4 }
+        abort { "G6504: Missing probe hits in nxtProbeHitXY" }
+    if { global.nxtProbeHitXY[0] == null || global.nxtProbeHitXY[2] == null }
+        abort { "G6504: Null ±X hit — check G6512 H0/H1 writes" }
 
-    var resultX = { var.calculatedCenter }
-    var resultY = { var.centerY }
+    set var.calculatedCenter = { (global.nxtProbeHitXY[0] + global.nxtProbeHitXY[2]) / 2 }
+    set var.actualWidth = { abs(global.nxtProbeHitXY[0] - global.nxtProbeHitXY[2]) }
+    set var.resultX = { var.calculatedCenter }
+    set var.resultY = { var.centerY }
 else
     echo "G6504: Probing from +Y direction"
     var yPlusStart = { var.centerY + var.halfW + var.clearance }
     var yPlusTarget = { var.centerY + var.halfW - var.overtravel }
 
     G6550 X{var.centerX} Y{var.yPlusStart}
-    var probeZ = { var.startZ - var.probeDepth }
     G6550 Z{var.probeZ}
 
-    G6512 X{var.centerX} Y{var.yPlusTarget} Z{var.probeZ} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H0
+    G6512 Y{var.yPlusTarget} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H0
     G6550 Z{var.startZ}
 
     echo "G6504: Probing from -Y direction"
@@ -112,14 +121,18 @@ else
     G6550 X{var.centerX} Y{var.yMinusStart}
     G6550 Z{var.probeZ}
 
-    G6512 X{var.centerX} Y{var.yMinusTarget} Z{var.probeZ} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H1
+    G6512 Y{var.yMinusTarget} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H1
     G6550 Z{var.startZ}
 
-    var calculatedCenter = { (global.nxtProbeHitXY[1] + global.nxtProbeHitXY[3]) / 2 }
-    var actualWidth = { abs(global.nxtProbeHitXY[1] - global.nxtProbeHitXY[3]) }
+    if { !exists(global.nxtProbeHitXY) || global.nxtProbeHitXY == null || #global.nxtProbeHitXY < 4 }
+        abort { "G6504: Missing probe hits in nxtProbeHitXY" }
+    if { global.nxtProbeHitXY[1] == null || global.nxtProbeHitXY[3] == null }
+        abort { "G6504: Null ±Y hit — check G6512 H0/H1 writes" }
 
-    var resultX = { var.centerX }
-    var resultY = { var.calculatedCenter }
+    set var.calculatedCenter = { (global.nxtProbeHitXY[1] + global.nxtProbeHitXY[3]) / 2 }
+    set var.actualWidth = { abs(global.nxtProbeHitXY[1] - global.nxtProbeHitXY[3]) }
+    set var.resultX = { var.centerX }
+    set var.resultY = { var.calculatedCenter }
 
 if { global.nxtProbeResults[var.pSlot] == null || #global.nxtProbeResults[var.pSlot] < 3 }
     set global.nxtProbeResults[var.pSlot] = { vector(#move.axes + 1, 0.0) }
@@ -129,7 +142,6 @@ set global.nxtProbeResults[var.pSlot][1] = { var.resultY }
 set global.nxtProbeResults[var.pSlot][#move.axes] = 0.0
 
 G6550 X{var.resultX} Y{var.resultY}
-G27 Z1
 
 echo "G6504: Web probe completed"
 echo "G6504: Web center along " ^ var.axisName ^ " axis: " ^ var.calculatedCenter
@@ -138,6 +150,6 @@ echo "G6504: Result logged to table index " ^ var.pSlot
 
 if { exists(param.U) && param.U != null }
     if { exists(param.Q) && param.Q != null }
-        M98 P"M6520.g" P{var.pSlot} W{param.U} X Y Q{param.Q}
+        M6520 P{var.pSlot} W{param.U} X1 Y1 Q{param.Q}
     else
-        M98 P"M6520.g" P{var.pSlot} W{param.U} X Y
+        M6520 P{var.pSlot} W{param.U} X1 Y1

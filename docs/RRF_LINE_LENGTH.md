@@ -50,7 +50,7 @@ if { var.nxtRunMosImport }
 
 ```gcode
 var nxtM81Msg = {"<b>CAUTION</b>: Machine Power is <b>on</b>. Deactivate?<br/>Stops <b>ALL</b> movement and spindle."}
-M291 P{var.nxtM81Msg} R"nxt: Safety Net" S4 K{"Deactivate", "Cancel"} F1
+M291 P{var.nxtM81Msg} R"nxt: Safety Net" S4 K{"Deactivate", "Cancel"} F0
 ```
 
 ### Long `echo` / `abort`
@@ -70,4 +70,6 @@ Also runs automatically at the start of `dist/build-plugin.sh` and `dist/build-p
 ## Related docs
 
 - [CODE.md](CODE.md) — macro style (includes line-length summary)
-- [macros/system/RRF_META.txt](../macros/system/RRF_META.txt) — CNC meta syntax
+- [RRF_META_PITFALLS.md](RRF_META_PITFALLS.md) — `^` vs power, A-axis indexing, probe dive/`startZ`, hit buffers
+- [RRF_META.txt](RRF_META.txt) — CNC meta syntax
+- [macros/system/](../macros/system/) — boot macros

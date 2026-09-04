@@ -18,3 +18,7 @@
 ; if { !exists(global.nxtToolSetterInnerSampleCount) }
 ;     global nxtToolSetterInnerSampleCount = 3
 ; set global.nxtToolSetterInnerSampleCount = 3
+; Platen mill tpost uses L=0.02 when this key is unset (do not inherit 0.0075):
+; if { !exists(global.nxtToolSetterMaxSampleSpreadMm) }
+;     global nxtToolSetterMaxSampleSpreadMm = 0.02
+; set global.nxtToolSetterMaxSampleSpreadMm = 0.02

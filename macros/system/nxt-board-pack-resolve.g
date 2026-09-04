@@ -12,10 +12,6 @@ else
     M117 "nxt board pack no board id"
     M99
 
-if { !exists(global.nxtBoardPackShortName) }
-    global nxtBoardPackShortName = ""
-set global.nxtBoardPackShortName = var.brd
-
 var volt = null
 if { exists(global.nxtBoardMotorVoltage) && global.nxtBoardMotorVoltage != null }
     set var.volt = global.nxtBoardMotorVoltage
@@ -57,10 +53,19 @@ if { var.entry == "" }
     M117 "nxt board pack not found"
     M99
 
-if { exists(global.nxtBoardPackExpectedEntry) && global.nxtBoardPackExpectedEntry != null && global.nxtBoardPackExpectedEntry != "" && var.entry != global.nxtBoardPackExpectedEntry }
-    echo "[nxt] board pack: resolved " ^ var.entry ^ " expected " ^ global.nxtBoardPackExpectedEntry
+; Reconstruct expected path from shortName + voltage (do not store it in OM).
+var expected = var.base ^ "/entry.g"
+if { var.volt == 48 }
+    set var.expected = var.base ^ "/motor-48v/entry.g"
+elif { var.volt == 24 }
+    set var.expected = var.base ^ "/motor-24v/entry.g"
+if { var.entry != var.expected }
+    echo "[nxt] board pack: resolved " ^ var.entry ^ " expected " ^ var.expected
 
-set global.nxtBoardPackEntry = var.entry
+if { !exists(global.nxtBoardPackEntry) }
+    global nxtBoardPackEntry = var.entry
+else
+    set global.nxtBoardPackEntry = var.entry
 M117 "nxt board pack load"
 M98 P{var.entry}
 echo "[nxt] board pack: loaded " ^ global.nxtBoardPackEntry

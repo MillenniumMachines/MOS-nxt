@@ -6,15 +6,56 @@ This document outlines the custom G and M codes implemented in nxt, detailing th
 
 ## nxt native probing: workplace `U`, skew, and `M6520`
 
-nxt **`G650x`** cycle macros accept **`U1`–`U9`** to select the target workplace (same numbering as **`M6520 W`** / `G10 L2 P`: **1 = G54**, …, **9** last standard offset). The probe result is stored at row **`P = U − 1`** in **`global.nxtProbeResults`**. With **`U`** set, the cycle ends by calling **`M6520.g`** with **`P`**, **`W=U`**, and the appropriate axis flags (`X` `Y`, etc.), so the operator does not run **`M6520`** as a separate step.
+nxt **`G650x`** cycle macros accept **`U1`–`U9`** to select the target workplace (same numbering as **`M6520 W`** / `G10 L2 P`: **1 = G54**, …, **9** last standard offset). The probe result is stored at row **`P = U − 1`** in **`global.nxtProbeResults`**. With **`U`** set, most cycles call **`M6520`** directly with **`P`**, **`W=U`**, and the appropriate axis flags (`X1` `Y1`, etc.) — not via **`M98`** (which cannot pass **`P`**). **G6500** / **G6501** / **G6508** / **G6509** / **G6520** **G53**-park at the fit then call **`M98 P"nxt-wcs-apply.g"`** (no post-apply `G0`).
 
 **Legacy:** omit **`U`** and pass **`P`** only to store results without applying a WCS.
 
-**Skew:** **`G6500`**, **`G6501`**, **`G6502`**, **`G6503`**, and **`G6506`** populate **`nxtProbeResults[row][#move.axes]`** with an estimate of in-plane rotation (degrees vs machine X). If **`|θ|`** exceeds **`global.nxtProbeMaxSkewDeg`** (default **5°**, overridable per cycle with **`T`** on supported macros), the cycle **`abort`s**.
+### Workpiece skew (θ) maths
 
-**`M6520`:** After **`G10 L2`** translation, optional **`G68 X0 Y0 R…`** applies coordinate rotation in the XY plane (**RepRapFirmware** **`G68`**). **G68** sign was fixed in **RRF 3.6.1**; the project’s **reference** firmware for evaluation is **3.6.2** ([`docs/RRF_REFERENCE.md`](RRF_REFERENCE.md)). **`Q`** on **`M6520`** (and forwarded from **`G650x`** when present): **0** (default) = **`M291`** prompt to apply or skip rotation; **1** = apply **`G68`** without prompt; **2** = translation only (no **`G68`**).
+In nxt, **“skew” means in-plane workpiece rotation vs machine +X**, not machine-axis non-orthogonality.
 
-**`M6522`:** When both results have a rotation slot, the rotation component is averaged with a **circular mean** of angles.
+| Cycle | θ | Notes |
+|-------|---|--------|
+| **G6506** | `atan2(dy, dx)` along two edge touches | Edge angle vs +X |
+| **G6500**–**G6503** | `atan2(vy, vx)` on the **±X chord only** | Y chord is for size/center; remapped Y angle would be θ+90°. **G6503** uses means of 3 pts/face for the chord endpoints |
+| Store | `nxtProbeResults[row][#move.axes]` | Degrees; folded into **(−90°, 90°]** so reversed hit order does not yield ~±180° |
+| Abort | `\|θ\| > T` / `nxtProbeMaxSkewDeg` (default **5°**) | |
+| Size echo (G6502/G6503) | `hypot(vx,vy)` / `hypot(wx,wy)` | Chord length = true wall spacing |
+
+**G68 polarity:** RRF **≥ 3.6.1** rotates **anticlockwise** for positive **R**. nxt passes measured θ through unchanged into **`G68 X0 Y0 R{θ}`** so a stock edge at +α from machine +X aligns programmed +X with that edge. Offline checks: `node dist/check-rotation-skew-math.mjs`.
+
+**`M6520`:** After **`G10 L2`** (**X/Y** tip M5000 from table; **Z** = tool-normalized surface from **G6512** `hit − L1`; never **L20**), stores θ in **`nxtWPDeg[W−1]`** when both **X** and **Y** are updated. **Does not issue `G68`**. Then **`G53 G1`** flagged **XY** to those stored millimetres (**Z/A pinned**; **never work `G0 X0 Y0`**, **never `G0 Z0`**). **`A1`** touches off the **current homed machine A** (not `resultVector[3]`, which XY cycles leave **0**). Callers raise to jog **startZ** first. **`M400`** before **G10** and before the park. Aborts a **0,0** XY origin if the mill is not near machine origin. **`Q`** arms job-start policy on **`nxtG68Policy`**: **0** = prompt at **M5011** (**default if omitted**); **1** = always at **M5011**; **2** = translation only. Always **G69** after the XY park so post-probe jogging is unrotated.
+
+**`M5011`:** CAM posts call this on WCS change / job start. Applies **`G68 X0 Y0 R{θ}`** from **`nxtWPDeg`** according to **`nxtG68Policy`**. Successful **G68** arms **`nxtJobG68Deg`** / **`nxtJobG68Wcs`** (not saved to `nxt-user-vars.g`).
+
+**`M6522`:** Circular mean of two θ slots when both non-zero.
+
+**`G6512` / `G6550`:** Probe/protected moves use **`G53`** (machine coordinates), so an active **G68** does not warp hit capture. Legacy `.1` paths still **`G69`** before probe; **`tpost.g`** temporarily **`G69`** then restores from **`nxtJobG68Deg`**.
+
+### Job-scoped G68 lifecycle
+
+| Event | Behavior |
+|-------|----------|
+| **M6520** | **G10 L2**, **G53 G1** flagged XY to stored origin (never Z0), store θ + **Q**, **G69**, clear `nxtJobG68Deg` / `nxtJobG68Wcs` |
+| **nxt-wcs-apply** | Same **G10 L2** + **Q** + **G69** (no **G0** — already G53-parked) |
+| **M5011** (job start) | Apply **G68** per **Q** (or **G69**); set session globals only when applied |
+| Toolchange (`tpost`) | Native **G6512** uses **G53** (safe under G68). End of `tpost` always **`nxt-job-g68-restore.g`** so **G6512.2**/**G37.1** `G69` does not drop job rotation |
+| Pause / resume | Leave G68; resume re-asserts restore helper if needed |
+| **cancel.g** | Always **`nxt-job-g68-clear.g`** (`G69` + null globals) |
+| **stop.g** | Clear only when **not** paused/pausing/resuming (avoids killing mid-job rotation if `stop.g` runs on pause) |
+
+### What this corrects vs what it does not
+
+| Geometry error | Handled? |
+|----------------|----------|
+| Stock/fixture rotated in **XY** | Yes — θ → `G68` |
+| WCS origin translate | Yes — `G10 L2` |
+| Non-square pocket/block (sides not ⊥) | Detect/abort on legacy `.1` only; **not** corrected by G68 |
+| Machine X/Y (or XZ/YZ) not orthogonal | **No** — would need separate machine-geometry compensation |
+| Part lean out of XY | **No** |
+| Probe tip deflection | Separate (**G6512** / calibration) |
+
+**Ranked follow-ups (workpiece path):** Y-chord cross-check vs X θ (after −90° remap); optional native squareness abort (port from `.1`); bore/boss θ is noisy on a true circle — prefer G6506 or pocket/block for fixture angle. **Machine-axis skew** remains a separate spike (RRF has no general XY skew matrix beyond G68).
 
 **`G6512 H0`–`H3`:** Optional hit index records averaged **(X,Y)** contact position (machine mm) into **`global.nxtProbeHitXY`**.
 
@@ -153,16 +194,22 @@ nxt **`G650x`** cycle macros accept **`U1`–`U9`** to select the target workpla
     *   Resets the RRF tool definition using `M563` with `R-1` (unassigned spindle) and a default name "Unknown Tool".
     *   Resets the corresponding entry in `global.mosTT` to `global.mosET` (empty tool) to clear the extended tool table row.
 
-### M4005: CHECK MILLENNIUMOS POST VERSION
+### M4005: CHECK nxt POST VERSION
 
 *   **Code:** `M4005`
-*   **Description:** Verifies that the version of the post-processor being used matches the installed version of MillenniumOS. This ensures compatibility between the generated G-code and the firmware's capabilities.
+*   **Description:** Verifies that the CAM post `V"…"` string is on the same **major.minor** line as `global.nxtVersion` (patch / beta / rc ignored), then runs **`M4006`** (touch-probe deflection required when that feature is on).
 *   **Arguments:**
     *   `V<version>`: The version string of the post-processor.
 *   **How it works:**
     *   Validates that the `V` parameter is provided.
-    *   Compares the provided `param.V` with the `global.mosVer` variable, which holds the installed MillenniumOS version.
-    *   If the versions do not match, it aborts the execution with an error message indicating the mismatch.
+    *   Compares major.minor of `param.V` with `global.nxtVersion` (not an exact tag match).
+    *   On match, invokes `M4006` so probe-equipped machines cannot start jobs with unset / factory-zero deflection.
+
+### M4006: REQUIRE TOUCH-PROBE DEFLECTION
+
+*   **Code:** `M4006`
+*   **Description:** When `nxtFeatureTouchProbe` is true, aborts unless `nxtProbeDeflection` is a non-zero `{X,Y,Z}` vector.
+*   **Arguments:** none (usually called from `M4005`)
 
 ### M5.9: SPINDLE OFF
 
@@ -243,17 +290,16 @@ nxt **`G650x`** cycle macros accept **`U1`–`U9`** to select the target workpla
 ### M5011: APPLY ROTATION COMPENSATION
 
 *   **Code:** `M5011`
-*   **Description:** Applies rotation compensation to the current Work Coordinate System (WCS) if a rotation has been previously probed and stored for that WCS. This helps align machining operations with a rotated workpiece.
+*   **Description:** At **job start**, applies rotation compensation (`G68`) to the current Work Coordinate System if a rotation was previously probed and stored. Probing (**M6520**) stores θ and policy but does **not** apply **G68**.
 *   **Arguments:**
-    *   `W<work-offset>`: (Optional) The 0-indexed work offset number for which to apply rotation compensation. Defaults to the current workplace number.
+    *   `W<work-offset>`: (Optional) The 0-indexed work offset number. Defaults to the current workplace number.
 *   **How it works:**
-    *   Validates the `W` parameter, ensuring it's within the valid range of workplaces.
-    *   Checks `global.mosWPDeg[var.workOffset]` to determine if a non-default rotation angle has been stored for the specified WCS.
-    *   If a rotation exists:
-        *   It prompts the user via `M291` to confirm applying the rotation compensation, displaying the detected angle.
-        *   If the user confirms, it applies the rotation using the `G68` command, rotating around the origin (X0 Y0) by the stored angle.
-        *   It echoes a confirmation message about the applied rotation.
-    *   If no rotation exists or the user cancels, it executes `G69` to cancel any existing rotation compensation.
+    *   Validates the `W` parameter against `limits.workplaces`.
+    *   Reads `global.nxtWPDeg[var.workOffset]` (stored by **M6520** / **nxt-wcs-apply** on XY apply) and `global.nxtG68Policy` (last probe **Q**).
+    *   **Q2** or no non-trivial θ: **`G69`**, clear `nxtJobG68Deg` / `nxtJobG68Wcs`.
+    *   **Q1**: apply **`G68 X0 Y0 R{θ}`** without prompt; arm session globals.
+    *   **Q0** (default): `M291` Apply/Skip; **G68** or **G69** accordingly.
+    *   CAM posts emit **M5011** after switching WCS.
 
 ### M5012: RESET PROBE COUNTS
 
@@ -538,7 +584,11 @@ nxt **`G650x`** cycle macros accept **`U1`–`U9`** to select the target workpla
     *   Sets the tool's Z offset using `G10 P{state.currentTool} X0 Y0 Z{var.toolOffset}`.
     *   Saves the updated settings to the restore point file using `M500.1`.
 
-### G6500.1: BORE - EXECUTE
+> **nxt note (v0.7):** Cycle **`G65xx.1`** macros are **guided** entry (prompts → modern **`G65xx`**). They are **not** the old MOS silent execute bodies. Prefer **`GCODE.md`** for current contracts. Sections below that still say “EXECUTE” / absolute `J/K/L` describe **legacy MOS** behavior and may be stale.
+
+**WCS Z save (nxt vs legacy MOS):** Legacy **`G6510.1`** / **`G37.1`** applied raw **`mosMI[2]`** (M5000 tip hit) to **`G10 L2 Z`**, relying on probe **`L1 = 0`** or **`G37`** zeroing L1 before touch. nxt **`G6512`** stores **`hitZ − tools[].offsets[2]`** in **`nxtProbeResults`** via **`nxt-wcs-z-from-hit.g`** (shorter tool → negative L1 vs **`nxtProbeVirtualTsZ`** / probe reference). **`mosMI` ↔ `nxtAbsPos`**, **`mosTSAP` ↔ `nxtProbeVirtualTsZ`**. Regression: **`node dist/check-wcs-z-math.mjs`**.
+
+### G6500.1: BORE - GUIDED (was MOS execute)
 
 *   **Code:** `G6500.1`
 *   **Description:** Probes the inside surface of a circular bore to accurately determine its X and Y center coordinates. It uses multiple probe points around the bore's circumference and geometric calculations to find the center.
@@ -1682,7 +1732,7 @@ When a post-processor generates G-code for MillenniumOS, it typically orchestrat
 Here's a common high-level sequence of operations a post-processor would generate at the start of a job:
 
 1.  **MillenniumOS Version Check (`M4005`):**
-    *   The very first command is usually `M4005 V<post-processor-version>`. This is a critical compatibility check. If the post-processor's version doesn't match the installed MillenniumOS version, the job will immediately abort. This prevents unexpected behavior due to API changes or feature differences between versions.
+    *   The very first command is usually `M4005 V<post-processor-version>`. This is a compatibility check on the **major.minor** line (not an exact tag). If the post is on a different line than installed nxt (e.g. 0.6 vs 0.7), the job aborts.
 
 2.  **Tool Definitions (`M4000`):**
     *   Before any tools are used, the post-processor will define them using `M4000 P<tool-number> R<radius> S"<description>" [X<deflection-x>] [Y<deflection-y>]`.

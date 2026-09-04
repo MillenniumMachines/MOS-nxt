@@ -5,7 +5,7 @@
 `./dist/build-plugin.sh` runs DWC **vue-tsc**. Untyped `.map` / `.filter` / `.find` callbacks in Options API SFCs routinely fail with `Plugin type check failed` / `TS7006: Parameter 'x' implicitly has an 'any' type`. **Annotate callback parameters when you write them** — this is a recurring build breaker. Do **not** use `NXT_SKIP_DWC_TYPECHECK=1` for real UI work. Agent rule: [.cursor/rules/ui-plugin-typecheck.mdc](../.cursor/rules/ui-plugin-typecheck.mdc).
 
 ## Overview
-This guide explains how to develop the nxt UI plugin within the DuetWebControl workspace. The nxt UI is a Vue 2.7 plugin that integrates with Duet Web Control **v3.7.0-beta.1** (pin: `ci/dwc-build-ref`; shipped ZIPs set exact `dwcVersion` at build) on branch **`v0.7.0`**. See [VERSIONING.md](VERSIONING.md).
+This guide explains how to develop the nxt UI plugin within the DuetWebControl workspace. The nxt UI is a Vue 2.7 plugin that integrates with Duet Web Control **v3.7.0-beta.1** (pin: `ci/dwc-build-ref`; shipped ZIPs use `auto-minor` `dwcVersion`, e.g. `3.7.0`) on branch **`v0.7.0`**. See [VERSIONING.md](VERSIONING.md).
 
 > [!WARNING]
 > **NEVER** edit files within the `DuetWebControl` directory as the nxt plugin is symlinked into it already. All source code changes should be within the `MOS-nxt/ui` directory structure.
@@ -98,6 +98,10 @@ When you first open DWC, the "Connect to Machine" modal dialog will appear. **Be
    - Leave password blank unless configured on the machine
    - Click **Connect**
 6. Once connected, use **nxt** (dashboard: Status, Configuration, Probing) or **Tool Library** (configured RRF tools; mos-atc plugin adds ATC UI) under **Control**
+
+### Every-page CNC status (`registerLayout`)
+
+On DWC 3.7+, nxt registers a custom shell (`ui/src/layouts/NxtShell.vue`, layout id `nxt`) that mirrors DWC’s built-in chrome but swaps the CNC status panel for nxt’s rich `CNCContainerPanel` (tool, WCS, Z offset, spindle, positions). Registration uses `takeoverOnFirstLoad: true` so the first install activates it without a Settings visit. Operators can return to the stock shell via **Settings → Display** or the `/BuiltInLayout` magic URL (see DuetWebControl `CUSTOM-LAYOUT.md`). Re-diff `NxtShell.vue` against DWC `src/layouts/builtin.vue` when bumping `ci/dwc-build-ref`.
 
 ### Subsequent Sessions (Plugin Already Enabled)
 
@@ -214,7 +218,7 @@ This is almost always **404**, **`dwcFiles`**, or **version skew** — see **[PL
 **Installed ZIP on a printer / SBC:**
 
 1. Rebuild and reinstall the latest `dist/nxt-*.zip` (Settings → Plugins → upload). The ZIP must include `dwc/js/nxt.*.js` (and `.css`).
-2. DWC on the machine must match the ZIP’s **`plugin.json` `dwcVersion` exactly** (e.g. `3.7.0-beta.1`, not merely “3.7.x”). Run `./dist/verify-dwc-build-alignment.sh` before `./dist/build-plugin.sh`. See [PLUGIN_LOAD_TROUBLESHOOTING.md](PLUGIN_LOAD_TROUBLESHOOTING.md).
+2. DWC on the machine must share the ZIP’s **`plugin.json` `dwcVersion` major.minor.patch** prefix (e.g. ZIP `3.7.0` ↔ host `3.7.0-beta.1`). Run `./dist/verify-dwc-build-alignment.sh` before `./dist/build-plugin.sh`. See [PLUGIN_LOAD_TROUBLESHOOTING.md](PLUGIN_LOAD_TROUBLESHOOTING.md).
 3. Hard-refresh or clear site data for the DWC URL so old `nxt.<hash>.js` chunks are not cached.
 
 If the error persists, open the browser devtools → **Sources**, enable the nxt source map, and note the first stack frame outside webpack runtime (that module is the real missing/broken import).

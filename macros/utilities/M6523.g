@@ -9,7 +9,7 @@
 ;   B: Reference probe — 0 = touch probe, 1 = toolsetter (default: touch if enabled, else toolsetter)
 ;   C: Number of G6512 cycles (default 10, max 50)
 ;   Z: Machine Z target for G6512 (default: ref surface Z from configured position)
-;   F, L, O: Passed to G6512 (L/O default from nxtTouchProbe* or nxtToolSetter* globals)
+;   F, L, O: Passed to G6512 (L/O: optional nxtTouchProbe*/nxtToolSetter* else nxtProbe*)
 
 if { !inputs[state.thisInput].active }
     M99
@@ -61,9 +61,19 @@ if { var.useTouch }
     set var.refY = { global.nxtTouchProbeRefPos[1] }
     set var.refZ = { exists(param.Z) && param.Z != null ? param.Z : global.nxtTouchProbeRefPos[2] }
     set var.probeId = { global.nxtTouchProbeID }
-    set var.limitMm = { exists(param.L) ? param.L : global.nxtTouchProbeMaxSampleSpreadMm }
-    set var.outerRetries = { exists(param.O) ? floor(param.O) : global.nxtTouchProbeSampleOuterRetries }
     set var.probeLabel = "touch"
+    if { exists(param.L) }
+        set var.limitMm = { param.L }
+    elif { exists(global.nxtTouchProbeMaxSampleSpreadMm) && global.nxtTouchProbeMaxSampleSpreadMm >= 0 }
+        set var.limitMm = { global.nxtTouchProbeMaxSampleSpreadMm }
+    else
+        set var.limitMm = { global.nxtProbeMaxSampleSpreadMm }
+    if { exists(param.O) }
+        set var.outerRetries = { floor(param.O) }
+    elif { exists(global.nxtTouchProbeSampleOuterRetries) && global.nxtTouchProbeSampleOuterRetries >= 0 }
+        set var.outerRetries = { floor(global.nxtTouchProbeSampleOuterRetries) }
+    else
+        set var.outerRetries = { global.nxtProbeSampleOuterRetries }
 else
     if { !global.nxtFeatureToolSetter }
         abort { "M6523: Toolsetter feature not enabled (B1)" }
@@ -73,11 +83,21 @@ else
     set var.refY = { global.nxtToolSetterPos[1] }
     set var.refZ = { exists(param.Z) && param.Z != null ? param.Z : global.nxtToolSetterPos[2] }
     set var.probeId = { global.nxtToolSetterID }
-    set var.limitMm = { exists(param.L) ? param.L : global.nxtToolSetterMaxSampleSpreadMm }
-    set var.outerRetries = { exists(param.O) ? floor(param.O) : global.nxtToolSetterSampleOuterRetries }
     set var.probeLabel = "toolsetter"
+    if { exists(param.L) }
+        set var.limitMm = { param.L }
+    elif { exists(global.nxtToolSetterMaxSampleSpreadMm) && global.nxtToolSetterMaxSampleSpreadMm >= 0 }
+        set var.limitMm = { global.nxtToolSetterMaxSampleSpreadMm }
+    else
+        set var.limitMm = { global.nxtProbeMaxSampleSpreadMm }
+    if { exists(param.O) }
+        set var.outerRetries = { floor(param.O) }
+    elif { exists(global.nxtToolSetterSampleOuterRetries) && global.nxtToolSetterSampleOuterRetries >= 0 }
+        set var.outerRetries = { floor(global.nxtToolSetterSampleOuterRetries) }
+    else
+        set var.outerRetries = { global.nxtProbeSampleOuterRetries }
 
-var safeZ = { var.refZ + 10 }
+var safeZ = { move.axes[2].max }
 M5000
 M6515 X{var.refX} Y{var.refY} Z{var.refZ}
 M6515 Z{var.safeZ}

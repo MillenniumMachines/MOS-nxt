@@ -13,6 +13,7 @@ export type NxtConfigBoardEntry = {
 export type NxtConfigPinmapEntry = {
   id?: string
   label?: string
+  /** Pin role: endstop, gpout, probe, serial, led, drive, spindle, atx, … */
   kind?: string
   pin?: string
   aliases?: string[]
@@ -27,7 +28,10 @@ export type NxtConfigPinmap = {
   boardId?: string
   assigned?: NxtConfigPinmapEntry[]
   free?: NxtConfigPinmapEntry[]
+  /** @deprecated Prefer fanDefaultsByVoltage + namedOutputs */
   fanByVoltage?: Record<string, NxtConfigPinmapEntry>
+  namedOutputs?: string[]
+  fanDefaultsByVoltage?: Record<string, string[]>
 }
 
 export type NxtConfigBoardPack = {
@@ -36,6 +40,8 @@ export type NxtConfigBoardPack = {
   variant: 'single' | 'motor-24v-48v'
   entries: NxtConfigBoardEntry[]
   pinmap: NxtConfigPinmap | null
+  /** Pack path under 0:/sys/ (e.g. nxt-config/board/scylla…/board.txt); null if pack has none */
+  boardTxtPath?: string | null
 }
 
 export type NxtConfigMachineEntry = {

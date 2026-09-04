@@ -8,7 +8,10 @@
 if { !inputs[state.thisInput].active }
     M99
 
-var wPN = { move.workplaceNumber + 1 }
+; Temporary G69 for jog + Z probe. Do not clear nxtJobG68Deg — tpost restores.
+G69
+
+var wPN = { move.motionSystems[0].workplaceNumber + 1 }
 
 if { global.nxtTutorialMode && !global.nxtDialogDisplayed[12] }
     var nxtG371Msg1 = { "The <b>Toolsetter</b> feature is disabled, so you must set the Z origin in the current WCS after each tool change.<br/>We will run a manual probe cycle to do this." }
@@ -52,4 +55,10 @@ if { !exists(global.nxtAbsPos) || global.nxtAbsPos[2] == null }
 G27 Z1
 
 echo { "nxt: Setting WCS " ^ var.wPN ^ " Z origin to probed co-ordinate." }
-G10 L2 P{var.wPN} Z{global.nxtAbsPos[2]}
+if { !exists(global.nxtWcsHitZ) }
+    global nxtWcsHitZ = null
+if { !exists(global.nxtWcsNormZ) }
+    global nxtWcsNormZ = null
+set global.nxtWcsHitZ = { global.nxtAbsPos[2] }
+M98 P"nxt-wcs-z-from-hit.g"
+G10 L2 P{var.wPN} Z{global.nxtWcsNormZ}

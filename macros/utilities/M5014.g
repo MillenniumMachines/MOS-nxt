@@ -1,7 +1,8 @@
-; M5014.g: CALIBRATION PHASE-1 — INDICATOR ZERO / TRAVEL / RETURN
+; M5014.g: CALIBRATION PHASE-1 — INDICATOR ZERO / TRAVEL / RETURN (backlash estimate)
 ;
 ; Zero dial on block face → away by 8/16/24 → return same distance → enter residual.
 ; measured = commanded - residual → global.nxtCalTravelCmd / nxtCalTravelMeas
+; Round-trip isolates lost motion (backlash), not steps/mm — use Phase 2 for M92.
 ;
 ; USAGE: M5014 X0|Y0|Z0|A0 D<±1> [R<1|3>] [F<feed>]
 ;   D = away direction along the axis (+1 or -1)
@@ -53,30 +54,21 @@ G94
 
 var jogA = { "Align indicator on the " ^ var.letter ^ " face (away dir " }
 var jogB = { var.jogA ^ var.dirAway ^ "). Zero the dial, then OK." }
-var jogC = { var.jogB ^ "<br/><b>CAUTION</b>: Jogging does not watch probes." }
-M291 P{var.jogC} R"nxt: Calibration P1" X1 Y1 Z1 J1 T0 S3
+M291 P{var.jogB} R"nxt: Calibration P2" X1 Y1 Z1 J1 T0 S3
 if { result != 0 }
     abort { "M5014: Operator cancelled before test" }
 
 M5000 P0
 var startPos = { global.nxtAbsPos }
 
-if { !exists(global.nxtCalTravelCmd) || global.nxtCalTravelCmd == null }
-    global nxtCalTravelCmd = { vector(3, 0.0) }
-if { !exists(global.nxtCalTravelMeas) || global.nxtCalTravelMeas == null }
-    global nxtCalTravelMeas = { vector(3, 0.0) }
-if { !exists(global.nxtCalTravelAxis) }
-    global nxtCalTravelAxis = null
-
-set global.nxtCalTravelCmd[0] = 8
-set global.nxtCalTravelCmd[1] = 16
-set global.nxtCalTravelCmd[2] = 24
-set global.nxtCalTravelMeas[0] = 0
-set global.nxtCalTravelMeas[1] = 0
-set global.nxtCalTravelMeas[2] = 0
+M98 P"nxt-cal-travel-seed.g"
 set global.nxtCalTravelAxis = { var.letter }
 
-var distances = { 8, 16, 24 }
+; TR8x8 lead 8 mm → travel legs 1× / 2× / 3× lead (≤ ~25 mm dial stroke)
+var distances = { 8.0, 16.0, 24.0 }
+var meas0 = 0.0
+var meas1 = 0.0
+var meas2 = 0.0
 var leg = 0
 while { var.leg < 3 }
     var dCmd = { var.distances[var.leg] }
@@ -132,7 +124,14 @@ while { var.leg < 3 }
 
     var meanR = { var.sumR / var.repeats }
     var measured = { var.dCmd - var.meanR }
-    set global.nxtCalTravelMeas[var.leg] = { var.measured }
+    ; Full-vector assign so DSF/DWC OM sees all three legs (indexed set can drop [2]).
+    if { var.leg == 0 }
+        set var.meas0 = { var.measured }
+    elif { var.leg == 1 }
+        set var.meas1 = { var.measured }
+    else
+        set var.meas2 = { var.measured }
+    set global.nxtCalTravelMeas = { var.meas0, var.meas1, var.meas2 }
     echo "M5014: leg " ^ { var.leg + 1 } ^ " cmd=" ^ var.dCmd ^ " meas=" ^ var.measured
 
     set var.leg = { var.leg + 1 }
@@ -148,4 +147,4 @@ else
     G53 G1 A{var.startPos[3]} F{var.feed}
 M400
 
-echo { "M5014: Done on " ^ var.letter ^ " — review 8/16/24 results in Calibration UI" }
+echo { "M5014: Done on " ^ var.letter ^ " — cmd {8,16,24} meas {" ^ var.meas0 ^ ", " ^ var.meas1 ^ ", " ^ var.meas2 ^ "}" }

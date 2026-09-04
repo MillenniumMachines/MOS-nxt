@@ -11,13 +11,18 @@ if { global.nxtPlatformProfile == "v1.5" }
     set var.machineEntry = "nxt-config/machine/v1.5/entry.g"
 if { global.nxtPlatformProfile == "v1.6" }
     set var.machineEntry = "nxt-config/machine/v1.6/entry.g"
-if { global.nxtPlatformProfile == "v2.0" }
-    set var.machineEntry = "nxt-config/machine/v2.0/entry.g"
+if { global.nxtPlatformProfile == "v2.0-milo" }
+    set var.machineEntry = "nxt-config/machine/v2.0-milo/entry.g"
+if { global.nxtPlatformProfile == "v2.0-miley" }
+    set var.machineEntry = "nxt-config/machine/v2.0-miley/entry.g"
 if { global.nxtPlatformProfile == "custom" }
     set var.machineEntry = "nxt-config/machine/custom/entry.g"
 ; one-release alias: former combined pack → v1.6
 if { global.nxtPlatformProfile == "v1.6_v2" }
     set var.machineEntry = "nxt-config/machine/v1.6/entry.g"
+; one-release alias: former v2.0 pack → V2.0 Milo
+if { global.nxtPlatformProfile == "v2.0" }
+    set var.machineEntry = "nxt-config/machine/v2.0-milo/entry.g"
 
 if { var.machineEntry == "" }
     echo "[nxt] machine pack: unknown nxtPlatformProfile " ^ global.nxtPlatformProfile

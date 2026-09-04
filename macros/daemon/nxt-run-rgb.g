@@ -7,7 +7,7 @@
 
 ; Create the LED strip once, the first time we run with a pin configured.
 if { !global.nxtRGBReady && global.nxtRGBPin != null }
-    M950 E{global.nxtRGBStrip} C{global.nxtRGBPin} T{global.nxtRGBType} U{global.nxtRGBCount}
+    M950 E{global.nxtRGBStrip} C{global.nxtRGBPin} T{global.nxtRGBType} K{global.nxtRGBOrder} U{global.nxtRGBCount}
     set global.nxtRGBReady = true
 
 ; Work out the effective state, highest priority first:

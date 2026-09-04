@@ -13,7 +13,7 @@ Sources:
 
 Review upstream license before redistribution; refresh vendored files when kits change.
 
-nxt on-SD layout (per platform v1.5 / v1.6 / v2.0 / custom):
+nxt on-SD layout (per platform v1.5 / v1.6 / v2.0-milo / v2.0-miley / custom):
   boards/scylla1_0_h723/motor-24v/entry.g
   boards/scylla1_0_h723/motor-48v/entry.g
   common/  (shared fragments + homing macros for sys deploy)

@@ -3,21 +3,20 @@
   <!-- When nxt UI is ready, render nothing (persistent display handled by ActionConfirmationWidget) -->
   <!-- Otherwise, fall back to standard modal dialog -->
   <div v-if="shouldShowModal">
-    <!-- Standard modal dialog fallback -->
-    <v-dialog 
-      :model-value="hasMessage" 
-      persistent 
+    <v-dialog
+      :model-value="hasMessage"
+      persistent
       max-width="500"
     >
       <v-card>
         <v-card-title v-if="messageBox.title">
           {{ messageBox.title }}
         </v-card-title>
-        
+
         <v-card-text>
-          <div class="text-body-1">{{ messageBox.message }}</div>
+          <div class="text-body-1" v-html="messageBox.message"></div>
         </v-card-text>
-        
+
         <v-card-actions>
           <v-spacer />
           <v-btn
@@ -38,127 +37,92 @@
 import { defineComponent } from 'vue'
 import store from '../../compat/dwcStore'
 import { readFirmwareGlobal } from '../../utils/nxtToolChangerOm'
+import {
+  nxtBuildM292Ack,
+  nxtMessageBoxButtons,
+  type NxtMessageBoxLike
+} from '../../utils/nxtMessageBoxRespond'
 
 /**
- * nxt MessageBoxDialog Override
+ * nxt MessageBoxDialog Override (not active under DWC 3.7 Vue 3)
  *
- * When nxt firmware has booted (`nxtLoaded`), non-critical M291 traffic can stay off the
- * blocking modal (persistent UI handles it). If nxt globals are not loaded, or the message
- * looks critical, show the standard modal.
+ * Stock DWC App.vue binds its own MessageBoxDialog at compile time, so this file does not
+ * replace the modal. Kept compiled for a future DWC override hook. Operator ack is stock
+ * DWC only — nxt dashboard must not also send M292 (see nxt.vue).
  *
- * NOTE: under Vue 3 / Vite, DWC's own `App.vue` binds `<MessageBoxDialog />` to its *own*
- * imported component at compile time - global registration (`app.component('message-box-dialog', ...)`)
- * can no longer intercept that reference the way Vue 2's global registry could. This override is
- * therefore inert until DWC exposes an explicit override/registration hook for core singletons;
- * kept (and disabled by default - see components/overrides/index.ts) for when that lands.
+ * Ack helper: nxtMessageBoxRespond (M292 S{seq} for S2/S3; R{n} S{seq} for S4).
  */
 export default defineComponent({
   name: 'MessageBoxDialog',
-  
+
   computed: {
-    /**
-     * Get the current message box from the store
-     */
-    messageBox(): any {
-      return store.state.machine.model.state.messageBox || {}
+    messageBox(): NxtMessageBoxLike {
+      return (store.state.machine.model.state.messageBox || {}) as NxtMessageBoxLike
     },
 
-    /**
-     * Check if there's an active message
-     */
     hasMessage(): boolean {
       return !!(this.messageBox && this.messageBox.message)
     },
 
-    /** nxt macros/vars loaded and boot succeeded — safe to defer non-critical dialogs. */
     nxtFirmwareReady(): boolean {
       const g = store.state.machine.model.global
       const v = readFirmwareGlobal(g, 'nxtLoaded')
       return v === true || v === 1
     },
 
-    /**
-     * Determine if we should show the modal dialog
-     * Show modal when:
-     * - nxt firmware is not in a loaded state (fallback)
-     * - Message is marked as critical
-     * - Message contains specific critical keywords
-     */
     shouldShowModal(): boolean {
       if (!this.hasMessage) return false
-      
+
       if (!this.nxtFirmwareReady) return true
-      
-      // Check for critical message indicators
+
       const message = (this.messageBox.message || '').toLowerCase()
       const title = (this.messageBox.title || '').toLowerCase()
-      
-      // Show modal for critical/emergency messages
+
       const criticalKeywords = ['emergency', 'error', 'fault', 'alarm', 'critical', 'warning']
-      const isCritical = criticalKeywords.some(keyword => 
-        message.includes(keyword) || title.includes(keyword)
+      const isCritical = criticalKeywords.some(
+        (keyword: string) => message.includes(keyword) || title.includes(keyword)
       )
-      
+
       return isCritical
     },
 
-    /**
-     * Get dialog buttons based on message box mode
-     */
     dialogButtons(): string[] {
-      const messageBox = this.messageBox
-      if (!messageBox) return ['OK']
-      
-      // Handle different M291 dialog types
-      switch (messageBox.mode) {
-        case 0: // Close dialog
-          return []
-        case 1: // OK button
-          return ['OK']
-        case 2: // OK/Cancel buttons
-          return ['OK', 'Cancel']
-        case 3: // Yes/No buttons
-          return ['Yes', 'No']
-        case 4: // Yes/No/Cancel buttons
-          return ['Yes', 'No', 'Cancel']
-        default:
-          // Handle custom button labels if provided
-          if (messageBox.choices && Array.isArray(messageBox.choices)) {
-            return messageBox.choices
-          }
-          return ['OK']
-      }
+      return nxtMessageBoxButtons(this.messageBox)
     }
   },
 
   methods: {
     getButtonColor(button: string, index: number): string {
       const lowerButton = button.toLowerCase()
-      
-      // Primary action (usually first button)
+
       if (index === 0) {
-        if (lowerButton.includes('cancel') || lowerButton.includes('abort')) {
+        if (lowerButton.includes('cancel') || lowerButton.includes('abort') || lowerButton.includes('leave')) {
           return 'error'
         }
         return 'primary'
       }
-      
-      // Secondary actions
-      if (lowerButton.includes('cancel') || lowerButton.includes('abort')) {
+
+      if (lowerButton.includes('cancel') || lowerButton.includes('abort') || lowerButton.includes('leave')) {
         return 'error'
       }
-      if (lowerButton.includes('ok') || lowerButton.includes('yes')) {
+      if (
+        lowerButton.includes('ok') ||
+        lowerButton.includes('yes') ||
+        lowerButton.includes('activate') ||
+        lowerButton.includes('arm')
+      ) {
         return 'success'
       }
-      
+
       return 'default'
     },
 
     async respondToDialog(buttonIndex: number): Promise<void> {
       try {
-        // Send M292 response to the message box
-        await store.dispatch('machine/sendCode', `M292 P${buttonIndex}`)
-        console.log(`nxt UI: MessageBoxDialog response sent: ${buttonIndex}`)
+        const code = nxtBuildM292Ack(this.messageBox, buttonIndex)
+        // noWait: standalone PollConnector must not await M292 reply-seq
+        await store.dispatch('machine/sendCode', { code, noWait: true, logReply: false })
+        console.log(`nxt UI: MessageBoxDialog response sent: ${code}`)
       } catch (error) {
         console.error('nxt UI: Failed to send dialog response:', error)
       }

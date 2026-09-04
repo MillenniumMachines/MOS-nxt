@@ -35,27 +35,27 @@
         item-value="index"
       >
         <template v-slot:item.x="{ item }: { item: any }">
-          {{ formatCoordinate(item.x) }}
+          {{ formatCoordinate(probeRow(item).x, probeRow(item).hasData) }}
         </template>
         <template v-slot:item.y="{ item }: { item: any }">
-          {{ formatCoordinate(item.y) }}
+          {{ formatCoordinate(probeRow(item).y, probeRow(item).hasData) }}
         </template>
         <template v-slot:item.z="{ item }: { item: any }">
-          {{ formatCoordinate(item.z) }}
+          {{ formatCoordinate(probeRow(item).z, probeRow(item).hasData) }}
         </template>
         <template v-slot:item.a="{ item }: { item: any }">
-          {{ formatCoordinate(item.a) }}
+          {{ formatCoordinate(probeRow(item).a, probeRow(item).hasData) }}
         </template>
         <template v-slot:item.rotation="{ item }: { item: any }">
-          {{ formatRotation(item.rotation) }}
+          {{ formatRotation(probeRow(item).rotation, probeRow(item).hasData) }}
         </template>
         <template v-slot:item.actions="{ item }: { item: any }">
           <v-btn
             size="x-small"
             icon
             color="error"
-            @click="clearResult(item.index)"
-            :disabled="!item.hasData"
+            @click="clearResult(probeRow(item).index)"
+            :disabled="!probeRow(item).hasData"
           >
             <v-icon size="x-small">mdi-delete</v-icon>
           </v-btn>
@@ -94,7 +94,7 @@
                     density="compact"
                     hide-details
                     class="my-1"
-                    :disabled="!selectedResultData.x"
+                    :disabled="!selectedResultData.hasData"
                   />
                   <v-checkbox
                     v-model="pushAxes.y"
@@ -102,7 +102,7 @@
                     density="compact"
                     hide-details
                     class="my-1"
-                    :disabled="!selectedResultData.y"
+                    :disabled="!selectedResultData.hasData"
                   />
                   <v-checkbox
                     v-model="pushAxes.z"
@@ -110,17 +110,20 @@
                     density="compact"
                     hide-details
                     class="my-1"
-                    :disabled="!selectedResultData.z"
+                    :disabled="!selectedResultData.hasData"
                   />
                   <v-checkbox
                     v-if="hasAAxis"
                     v-model="pushAxes.a"
-                    label="A Axis"
+                    label="A Axis (current pose)"
                     density="compact"
                     hide-details
                     class="my-1"
-                    :disabled="!selectedResultData.a"
+                    :disabled="!selectedResultData.hasData"
                   />
+                  <div class="text-caption text-medium-emphasis mb-2">
+                    Travel follows flagged X/Y only (Z stays at the current pose). Z sets WCS only (no work Z0). A touches off the current rotary pose so work A reads 0.
+                  </div>
                   <v-btn
                     size="small"
                     block
@@ -149,7 +152,14 @@
                     variant="outlined"
                     hide-details
                     class="mb-2"
+                    :disabled="filledResultCount < 2"
                   />
+                  <div
+                    v-if="filledResultCount < 2"
+                    class="text-caption text-medium-emphasis mb-2"
+                  >
+                    Average needs two filled table rows (run another cycle into a different WCS).
+                  </div>
                   <v-alert type="info" density="compact" variant="text" class="mt-2 mb-3">
                     <div class="text-caption">
                       Averages common axes between selected result and chosen result.
@@ -177,7 +187,23 @@
 </template>
 
 <script lang="ts">
+import store from '../../compat/dwcStore'
 import { defineNxtComponent } from '../base/BaseComponent.vue'
+import { isNxtFeatureTouchProbe } from '../../utils/nxtEnableProbe'
+import { readFirmwareGlobal } from '../../utils/nxtToolChangerOm'
+import {
+  clearNxtUiProbeResultsSnapshot,
+  NXT_PROBE_RESULTS_SLOT_COUNT,
+  normalizeProbeResultsTable,
+  probeResultsTableHasData,
+  readNxtUiState,
+  restoreProbeResultsToOm,
+  suggestPushAxesFromRow,
+  wcsApplyTravelNote,
+  writeNxtUiProbeResults,
+  writeNxtUiSelectedWcs,
+  type NxtProbeResultRow
+} from '../../utils/nxtProbeResultsUi'
 
 interface ProbeResult {
   index: number
@@ -195,13 +221,13 @@ export default defineNxtComponent({
       // Vuetify 3's v-data-table binds selection to an array of `item-value` values
       // (the row's `index` field), not full row objects like Vuetify 2's v-data-table did
       selectedResults: [] as number[],
-      selectedWcs: 1,
       pushAxes: {
         x: true,
         y: true,
-        z: true,
+        z: false,
         a: false
       },
+      probeRestoreDone: false,
       averageWithIndex: null as number | null,
       headers: [
         { title: '#', key: 'index', sortable: false, width: '60px' },
@@ -213,38 +239,46 @@ export default defineNxtComponent({
         { title: '', key: 'actions', sortable: false, width: '60px' }
       ],
       wcsOptions: [
-        { text: 'WCS1', value: 1 },
-        { text: 'WCS2', value: 2 },
-        { text: 'WCS3', value: 3 },
-        { text: 'WCS4', value: 4 },
-        { text: 'WCS5', value: 5 },
-        { text: 'WCS6', value: 6 },
-        { text: 'WCS7', value: 7 },
-        { text: 'WCS8', value: 8 },
-        { text: 'WCS9', value: 9 }
+        { text: 'WCS1 (G54)', value: 1 },
+        { text: 'WCS2 (G55)', value: 2 },
+        { text: 'WCS3 (G56)', value: 3 },
+        { text: 'WCS4 (G57)', value: 4 },
+        { text: 'WCS5 (G58)', value: 5 },
+        { text: 'WCS6 (G59)', value: 6 },
+        { text: 'WCS7 (G59.1)', value: 7 },
+        { text: 'WCS8 (G59.2)', value: 8 },
+        { text: 'WCS9 (G59.3)', value: 9 }
       ]
     }
   },
   computed: {
-    touchProbeEnabled(): boolean {
-      return this.globals.nxtFeatureTouchProbe === true
+    firmwareGlobal(): unknown {
+      return this.$store.state.machine.model.global
     },
-    probeResults(): any[] {
-      return this.globals.nxtProbeResults || []
+    touchProbeEnabled(): boolean {
+      return isNxtFeatureTouchProbe(this.firmwareGlobal)
+    },
+    normalizedProbeResults(): NxtProbeResultRow[] {
+      return normalizeProbeResultsTable(
+        readFirmwareGlobal(this.firmwareGlobal, 'nxtProbeResults')
+      )
     },
     resultsTableData(): ProbeResult[] {
       const results: ProbeResult[] = []
-      for (let i = 0; i < this.probeResults.length; i++) {
-        const result = this.probeResults[i]
-        const hasData = result != null && Array.isArray(result)
-        
+      const rows = this.normalizedProbeResults
+      const len = Math.max(rows.length, NXT_PROBE_RESULTS_SLOT_COUNT)
+      for (let i = 0; i < len; i++) {
+        const result = i < rows.length ? rows[i] : null
+        const hasData = result != null && result.length >= 3
+
         results.push({
           index: i,
-          x: hasData && result[0] ? result[0] : 0,
-          y: hasData && result[1] ? result[1] : 0,
-          z: hasData && result[2] ? result[2] : 0,
-          a: hasData && result[3] ? result[3] : 0,
-          rotation: hasData && result.length > 4 && result[4] ? result[4] : 0,
+          x: hasData && result!.length > 0 ? (result![0] ?? 0) : 0,
+          y: hasData && result!.length > 1 ? (result![1] ?? 0) : 0,
+          z: hasData && result!.length > 2 ? (result![2] ?? 0) : 0,
+          a: hasData && this.hasAAxis && result!.length > 3 ? (result![3] ?? 0) : 0,
+          // θ is always the last slot (#move.axes), not a fixed index 4
+          rotation: hasData && result!.length > 3 ? (result![result!.length - 1] ?? 0) : 0,
           hasData
         })
       }
@@ -252,6 +286,9 @@ export default defineNxtComponent({
     },
     hasResults(): boolean {
       return this.resultsTableData.some((r: ProbeResult) => r.hasData)
+    },
+    filledResultCount(): number {
+      return this.resultsTableData.filter((r: ProbeResult) => r.hasData).length
     },
     selectedResultIndex(): number | null {
       return this.selectedResults.length > 0 ? this.selectedResults[0] : null
@@ -270,11 +307,11 @@ export default defineNxtComponent({
       return wcs ? wcs.text : 'WCS'
     },
     canPushToWcs(): boolean {
-      return this.selectedResultIndex !== null && 
+      return this.selectedResultIndex !== null &&
              this.selectedResultData.hasData &&
              (this.pushAxes.x || this.pushAxes.y || this.pushAxes.z || this.pushAxes.a)
     },
-    averageableResults(): any[] {
+    averageableResults(): { text: string; value: number }[] {
       return this.resultsTableData
         .filter((r: ProbeResult) => r.hasData && r.index !== this.selectedResultIndex)
         .map((r: ProbeResult) => ({
@@ -286,20 +323,123 @@ export default defineNxtComponent({
       return this.selectedResultIndex !== null &&
              this.averageWithIndex !== null &&
              this.selectedResultData.hasData
+    },
+    pluginsState(): unknown {
+      return this.$store.state.settings?.plugins
+    },
+    selectedWcs: {
+      get(): number {
+        const w = readNxtUiState(store.state.settings?.plugins)?.selectedWcs
+        return typeof w === 'number' && w >= 1 && w <= 9 ? w : 1
+      },
+      set(v: number) {
+        writeNxtUiSelectedWcs(v, store.state.settings?.plugins)
+      }
+    },
+    uiSelectedResultIndex(): number | null {
+      const ui = readNxtUiState(this.pluginsState)
+      if (ui == null || typeof ui.selectedResultIndex !== 'number') return null
+      return ui.selectedResultIndex
     }
   },
+  watch: {
+    normalizedProbeResults: {
+      deep: true,
+      handler: 'onNormalizedProbeResults'
+    },
+    selectedResultIndex: 'onSelectedResultIndex',
+    uiSelectedResultIndex: 'onUiSelectedResultIndex',
+    resultsTableData: {
+      deep: true,
+      handler: 'maybeApplyPendingSelection'
+    }
+  },
+  async mounted() {
+    await this.maybeRestoreProbeResultsFromUi()
+    this.maybeApplyPendingSelection()
+  },
   methods: {
-    formatCoordinate(value: number): string {
-      if (!value || value === 0) return '-'
+    onNormalizedProbeResults(rows: NxtProbeResultRow[]) {
+      if (probeResultsTableHasData(rows)) {
+        writeNxtUiProbeResults(
+          rows,
+          this.pluginsState,
+          this.selectedResultIndex ?? this.uiSelectedResultIndex ?? 0
+        )
+      }
+      this.maybeApplyPendingSelection()
+    },
+    onSelectedResultIndex(idx: number | null) {
+      if (idx === null) return
+      const row = this.resultsTableData[idx]
+      if (!row?.hasData) return
+      this.pushAxes = suggestPushAxesFromRow(row, this.hasAAxis)
+    },
+    onUiSelectedResultIndex(idx: number | null) {
+      if (idx === null) return
+      this.applyResultSelection(idx)
+    },
+    maybeApplyPendingSelection() {
+      const idx = this.uiSelectedResultIndex
+      if (idx === null) return
+      this.applyResultSelection(idx)
+    },
+    applyResultSelection(idx: number) {
+      if (idx < 0 || idx >= this.resultsTableData.length) return
+      const row = this.resultsTableData[idx]
+      if (!row?.hasData) return
+      if (this.selectedResults.length !== 1 || this.selectedResults[0] !== idx) {
+        this.selectedResults = [idx]
+      }
+      // Slot index + 1 matches U / M6520 W (G54 = 1)
+      const wcs = idx + 1
+      if (wcs >= 1 && wcs <= 9 && this.selectedWcs !== wcs) {
+        this.selectedWcs = wcs
+      }
+    },
+    // Vuetify 4 passes the raw row as `item`; older shapes used `item.raw`.
+    probeRow(item: any): ProbeResult {
+      const row = item?.raw ?? item
+      return row as ProbeResult
+    },
+    formatCoordinate(value: number, hasData: boolean): string {
+      if (!hasData) return '-'
       return value.toFixed(3)
     },
-    formatRotation(value: number): string {
-      if (!value || value === 0) return '-'
+    formatRotation(value: number, hasData: boolean): string {
+      if (!hasData) return '-'
       return value.toFixed(2)
+    },
+    async maybeRestoreProbeResultsFromUi() {
+      if (this.probeRestoreDone) return
+      this.probeRestoreDone = true
+      if (probeResultsTableHasData(this.normalizedProbeResults)) {
+        writeNxtUiProbeResults(
+          this.normalizedProbeResults,
+          this.pluginsState,
+          this.selectedResultIndex ?? this.uiSelectedResultIndex ?? 0
+        )
+        return
+      }
+      const ui = readNxtUiState(this.pluginsState)
+      if (!ui || !probeResultsTableHasData(ui.lastProbeResults)) return
+      try {
+        await restoreProbeResultsToOm(ui.lastProbeResults, (code: string) => this.sendCode(code))
+      } catch (error) {
+        this.$store.dispatch('machine/showMessage', {
+          type: 'warning',
+          message: `Could not restore probe results: ${error}`
+        })
+      }
     },
     async clearResult(index: number) {
       try {
         await this.sendCode(`M6521 P${index}`)
+        const next = this.normalizedProbeResults.slice()
+        if (index >= 0 && index < next.length) {
+          next[index] = null
+        }
+        writeNxtUiProbeResults(next, this.pluginsState)
         this.$store.dispatch('machine/showMessage', {
           type: 'success',
           message: `Cleared probe result at index ${index}`
@@ -316,6 +456,7 @@ export default defineNxtComponent({
         await this.sendCode('M6521')
         this.selectedResults = []
         this.averageWithIndex = null
+        clearNxtUiProbeResultsSnapshot(this.pluginsState)
         this.$store.dispatch('machine/showMessage', {
           type: 'success',
           message: 'Cleared all probe results'
@@ -332,13 +473,13 @@ export default defineNxtComponent({
 
       const index = this.selectedResultIndex
       const wcs = this.selectedWcs
-      
-      // Build axis flags
-      const axisFlags = []
-      if (this.pushAxes.x && this.selectedResultData.x) axisFlags.push('X')
-      if (this.pushAxes.y && this.selectedResultData.y) axisFlags.push('Y')
-      if (this.pushAxes.z && this.selectedResultData.z) axisFlags.push('Z')
-      if (this.pushAxes.a && this.selectedResultData.a) axisFlags.push('A')
+
+      // RRF meta needs letter+number (X1) so exists(param.X); value is ignored by M6520.
+      const axisFlags: string[] = []
+      if (this.pushAxes.x && this.selectedResultData.hasData) axisFlags.push('X1')
+      if (this.pushAxes.y && this.selectedResultData.hasData) axisFlags.push('Y1')
+      if (this.pushAxes.z && this.selectedResultData.hasData) axisFlags.push('Z1')
+      if (this.pushAxes.a && this.hasAAxis && this.selectedResultData.hasData) axisFlags.push('A1')
 
       if (axisFlags.length === 0) {
         this.$store.dispatch('machine/showMessage', {
@@ -349,12 +490,13 @@ export default defineNxtComponent({
       }
 
       const gcode = `M6520 P${index} W${wcs} ${axisFlags.join(' ')}`
+      const travelNote = wcsApplyTravelNote(axisFlags)
 
       try {
         await this.sendCode(gcode)
         this.$store.dispatch('machine/showMessage', {
           type: 'success',
-          message: `Pushed result ${index} to ${this.wcsLabel}`
+          message: `Pushed result ${index} to ${this.wcsLabel}${travelNote}`
         })
       } catch (error) {
         this.$store.dispatch('machine/showMessage', {

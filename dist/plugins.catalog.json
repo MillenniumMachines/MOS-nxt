@@ -10,13 +10,22 @@
       "id": "MosAtc",
       "repoPath": "../mos-atc",
       "manifestPath": "dwc-plugin/plugin.json",
-      "required": false
+      "required": false,
+      "skipInitDispatch": true,
+      "featureFlag": "nxtFeatureAtc"
     },
     {
       "id": "ArborCTL",
       "repoPath": "../ArborCTL",
       "manifestPath": "dwc-plugin/plugin.json",
       "required": false
+    },
+    {
+      "id": "MosFourthAxis",
+      "repoPath": "../mos-fourth-axis",
+      "manifestPath": "dwc-plugin/plugin.json",
+      "required": false,
+      "featureFlag": "nxtFeatureFourthAxis"
     }
   ]
 }

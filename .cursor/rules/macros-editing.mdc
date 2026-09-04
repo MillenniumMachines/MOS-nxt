@@ -17,17 +17,21 @@ alwaysApply: false
 
 See [gcode-line-length.mdc](gcode-line-length.mdc). Run both checkers before done.
 
+## Numbered G/M codes
+
+Never `M98 P"M….g"` / `M98 P"G….g"` — call **`M####`** / **`G####`** directly (files are on `0:/sys/`). See [rrf-numbered-meta-m98.mdc](rrf-numbered-meta-m98.mdc); run `node dist/check-m98-numbered-meta.mjs`.
+
 ## Global OM size
 
-See [om-global-size.mdc](om-global-size.mdc). When editing `nxt-vars.g`, `nxt-boot.g`, tool table, or Custom persistence, run `node dist/check-om-global-budget.mjs`.
+See [om-global-size.mdc](om-global-size.mdc). New globals: [nxt-global-lifecycle.mdc](nxt-global-lifecycle.mdc) (declare-or-set → user-vars overlay). When editing `nxt-vars.g`, `nxt-boot.g`, tool table, or Custom persistence, run `node dist/check-om-global-budget.mjs`.
 
 ## Probe tool helpers
 
 | Macro | Role |
 |-------|------|
 | `system/nxt-probe-tool-sync.g` | M4000 probe row |
-| `system/nxt-probe-tool-ready.g` | Select T + sensor active |
-| `system/nxt-probe-sensor-wait.g` | Sensor wait only |
+| `system/nxt-probe-tool-ready.g` | Select T + M4000 sync |
+| `system/nxt-probe-sensor-wait.g` | Sensor wait only (`Q1` prompt; M98 cannot pass `P`) |
 
 ## Do not read
 

@@ -11,7 +11,7 @@ This directory contains the Vue.js-based UI plugin for **nxt** that integrates w
 - Base component with common functionality (`BaseComponent.vue`)
 - Main layout component (`nxt.vue`)
 - Core Status Widget for persistent machine status display
-- Action Confirmation Widget for M291 dialog integration
+- Action Confirmation Widget (kept; not mounted — stock DWC modal owns M291)
 - Component registration system for modular organization
 - Localization support (English)
 - Integration with nxt global variables
@@ -39,7 +39,7 @@ This directory contains the Vue.js-based UI plugin for **nxt** that integrates w
 
 ### Panel Components
 - **`StatusWidget.vue`**: Persistent status bar showing tool, WCS, spindle, and position
-- **`ActionConfirmationWidget.vue`**: Non-blocking dialog interface for M291 dialogs
+- **`ActionConfirmationWidget.vue`**: Unused on dashboard (kept for a future DWC MessageBox hook); stock DWC modal owns M291 ack
 - **`MachineStatusPanel.vue`**: Detailed machine and nxt system status
 - **`ConfigurationPanel.vue`**: Comprehensive settings interface replacing G8000 wizard
 
@@ -47,7 +47,7 @@ This directory contains the Vue.js-based UI plugin for **nxt** that integrates w
 - **`ProbeDeflectionWizard.vue`**: Guided wizard for measuring probe deflection using reference blocks
 
 ### Override Components
-- **`MessageBoxDialog.vue`**: Replaces DWC's MessageBoxDialog with conditional rendering (persistent vs modal)
+- **`MessageBoxDialog.vue`**: Inert under Vue 3 (stock DWC modal wins); kept for a future override hook
 
 ### Placeholder Components
 - **`overrides/panels/`**: Ready for DWC panel replacement components
@@ -62,16 +62,24 @@ This directory contains the Vue.js-based UI plugin for **nxt** that integrates w
 5. **Modular Design**: Component-based architecture for easy extension
 6. **Localization Ready**: i18n support with English strings
 
-## Dialog System Integration
+# Dialog System Integration
 
-The Action Confirmation Widget integrates with the M291 dialog system from PR #16:
-- **MessageBoxDialog Override**: Replaces DWC's built-in MessageBoxDialog component with conditional rendering
-- **Persistent Dialogs**: When nxt UI is active, dialogs appear in the ActionConfirmationWidget instead of blocking modals
-- **Critical Message Fallback**: Emergency/error messages still show as blocking modals for safety
-- **Automatic Detection**: Uses `global.nxtLoaded` and message content analysis to determine MessageBox rendering mode
-- Responds to dialogs using M292 commands
-- Provides responsive button interface for user actions
+Under DWC 3.7 (Vue 3), **stock DWC `MessageBoxDialog`** is the only M291/M292 ack UI. nxt’s
+`MessageBoxDialog` override is inert (App.vue binds DWC’s own import). The nxt dashboard does
+**not** mount a second Action Required widget — that caused double `M292` and hung macros
+(Calibration / M5016).
 
+`ActionConfirmationWidget.vue` / `nxtMessageBoxRespond.ts` remain in the tree for a future DWC
+override hook. Do not re-enable a second ack path until the stock modal can be suppressed.
+
+### Standalone (no SBC): M292 must not await replies
+
+On boards **without an SBC**, DWC uses **PollConnector** (`rr_gcode` + wait on reply sequence).
+RRF does not yet return matching per-request G-code replies ([RRF #925](https://github.com/Duet3D/RepRapFirmware/issues/925)). Stock DWC 3.7 `MessageBoxDialog` still `await`s `sendCode(M292)` without `noWait`, so after the **first** prompt OK the UI can hang and never show the next M291. **SBC / DSF** is fine (HTTP response carries the reply).
+
+Duet fixed this on **DWC 3.6 only** (`M292` with `noWait: true`) and did not port it to 3.7+. nxt restores that workaround at plugin load via [`ui/src/utils/nxtPatchM292NoWait.ts`](../ui/src/utils/nxtPatchM292NoWait.ts) (wraps Pinia `machineStore.sendCode` so every `M292` is fire-and-forget). Kits do not need a custom DWC `www` build or an SBC for multi-prompt macros (M5016, tool-change S4, etc.).
+
+Full code map (3.6 commit `d02661dd` vs 3.7 gap, PollConnector hang path, upstream one-liner): [DWC_M292_NOWAIT.md](DWC_M292_NOWAIT.md).
 ## Configuration UI Details
 
 The Configuration Panel provides a complete replacement for the G8000 wizard with the following features:

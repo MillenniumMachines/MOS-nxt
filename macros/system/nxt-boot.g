@@ -29,16 +29,16 @@ if { exists(global.nxtUserVarsPresent) && !global.nxtUserVarsPresent }
 ; 4. Full configuration when user-vars file was loaded
 ; nxt-user-vars.g from Configuration Save may persist null for fields not in the UI — restore defaults.
 if { !exists(global.nxtProbeToolID) || global.nxtProbeToolID == null }
-    set global.nxtProbeToolID = { limits.tools - 1 }
-    echo "[nxt] boot: nxtProbeToolID unset — defaulting to last tool index " ^ global.nxtProbeToolID
+    set global.nxtProbeToolID = 49
+    echo "[nxt] boot: nxtProbeToolID unset — defaulting to T49 (49)"
 
-if { !exists(global.nxtReservedFrom) || global.nxtReservedFrom == null }
-    set global.nxtReservedFrom = { limits.tools - 1 }
+if { global.nxtProbeToolID != 49 }
+    set global.nxtProbeToolID = 49
+    echo "[nxt] boot: nxtProbeToolID normalized to T49 (49)"
 
-; Normalize probe slot to last index (single-slot T49 model).
-if { global.nxtProbeToolID != limits.tools - 1 }
-    set global.nxtProbeToolID = { limits.tools - 1 }
-    set global.nxtReservedFrom = { limits.tools - 1 }
+; Legacy nxtReservedFrom (dual-slot alias) — clear if present so it does not bloat OM.
+if { exists(global.nxtReservedFrom) }
+    set global.nxtReservedFrom = null
 
 if { global.nxtFeatureTouchProbe && (!exists(global.nxtDeltaMachine) || global.nxtDeltaMachine == null) }
     set global.nxtConfigPending = true
@@ -49,7 +49,7 @@ if { global.nxtFeatureTouchProbe && (!exists(global.nxtDeltaMachine) || global.n
 
 ; --- All checks passed ---
 
-; Ensure probe/datum tool row matches config (M4000 early-exits when unchanged; no M4001 wipe).
+; Ensure probe tool row matches config (M4000 early-exits when unchanged; no M4001 wipe).
 if { exists(global.nxtProbeToolID) && global.nxtProbeToolID != null }
     if { global.nxtProbeToolID < limits.tools }
         M98 P"nxt-probe-tool-sync.g"

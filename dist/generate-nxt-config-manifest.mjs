@@ -95,12 +95,16 @@ function scanBoard(shortName) {
     return null
   }
   const hasMotorVariant = entries.some((e) => e.variant != null)
+  const boardTxtRel = `nxt-config/board/${shortName}/board.txt`
+  const boardTxtPath = fs.existsSync(path.join(boardDir, 'board.txt')) ? boardTxtRel : null
   return {
     shortName,
     title: BOARD_TITLE_OVERRIDE[shortName] ?? shortName,
     variant: hasMotorVariant ? 'motor-24v-48v' : 'single',
     entries,
-    pinmap: readPinmap(boardDir)
+    pinmap: readPinmap(boardDir),
+    /** Pack-relative path; Apply platform sys files copies to 0:/sys/board.txt */
+    boardTxtPath
   }
 }
 

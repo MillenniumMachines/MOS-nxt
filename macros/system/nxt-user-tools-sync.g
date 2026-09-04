@@ -40,8 +40,8 @@ echo >>{var.TP} {""}
 
 var ti = 0
 while { var.ti < limits.tools }
-    ; Skip probe/datum slot — regenerated from config at boot (nxt-probe-tool-sync with K1).
-    if { exists(global.nxtReservedFrom) && var.ti >= global.nxtReservedFrom }
+    ; Skip probe slot — regenerated from config at boot (nxt-probe-tool-sync with K1).
+    if { exists(global.nxtProbeToolID) && var.ti == global.nxtProbeToolID }
         set var.ti = { var.ti + 1 }
         continue
     if { var.ti < #tools && tools[var.ti] != null && tools[var.ti].name != "Unknown Tool" }

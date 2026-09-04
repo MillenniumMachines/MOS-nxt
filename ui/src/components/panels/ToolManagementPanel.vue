@@ -329,6 +329,21 @@
             {{ importError }}
           </v-alert>
           <v-alert
+            v-if="importRows.length > 0 || importWarnings.length > 0"
+            type="info"
+            density="compact"
+            variant="outlined"
+            class="mt-3"
+          >
+            {{
+              $t('plugins.nxt.panels.toolManagement.importSummary', {
+                kept: importRows.length,
+                skipped: importWarnings.filter((w: string) => String(w).startsWith('Skipped')).length,
+                max: maxUserIndex
+              })
+            }}
+          </v-alert>
+          <v-alert
             v-for="(w, wi) in importWarnings"
             :key="'iw' + wi"
             type="warning"
@@ -400,7 +415,10 @@ import {
   isNxtToolSlotConfiguredInLibrary,
   isToolRecord,
   buildNxtUserToolsGContent,
-  sendM4000
+  buildM4000Command,
+  buildToolImportScratchContent,
+  sendM4000,
+  NXT_TOOL_IMPORT_SCRATCH_PATH
 } from '../../utils/nxtUserToolsFile'
 import { uploadDwcFile, NXT_USER_TOOLS_DWC_PATH } from '../../utils/nxtFileUpload'
 import {
@@ -408,6 +426,7 @@ import {
   maxUserToolIndex,
   parseFusionToolsFile
 } from '../../utils/fusionToolsImport'
+import { formatToolLabelFromTools } from '../../utils/nxtLoadedToolStatus'
 
 function machineModel(): Record<string, any> {
   const m = store.state.machine?.model
@@ -488,8 +507,8 @@ export default defineNxtComponent({
     },
 
     reservedFrom() {
-      const v = readFirmwareGlobal(this.firmwareGlobals, 'nxtReservedFrom')
-      return typeof v === 'number' && v >= 0 ? v : null
+      // Legacy OM key cleared at boot; probe slot is nxtProbeToolID only.
+      return this.probeToolIndexForLibrary >= 0 ? this.probeToolIndexForLibrary : null
     },
 
     maxUserIndex() {
@@ -525,12 +544,8 @@ export default defineNxtComponent({
       if (ct < 0) {
         return this.$t('plugins.nxt.panels.toolManagement.activeNone').toString()
       }
-      const tools = machineModel().tools
-      let name = ''
-      if (Array.isArray(tools) && tools[ct] && typeof tools[ct].name === 'string') {
-        name = tools[ct].name
-      }
-      return name.length > 0 ? `T${ct} — ${name}` : `T${ct}`
+      const label = formatToolLabelFromTools(machineModel().tools, ct)
+      return label.length > 0 ? label : `T${ct}`
     },
 
     indexError() {
@@ -596,9 +611,9 @@ export default defineNxtComponent({
         if (!inSpindle && !isReservedSlot && !isNxtToolSlotConfiguredInLibrary(t)) {
           continue
         }
-        if (!isReservedSlot && i > this.maxUserIndex) {
-          continue
-        }
+        // Show every configured RRF slot (including above maxUserIndex). Import/add
+        // still clamp to 0..maxUserIndex; hiding here made T17/T18 look "discarded"
+        // when reservedFrom was tight or tools loaded before boot normalized the probe slot.
         const isProbe = isReservedSlot || this.probeNameMatch(t)
         const augmented = t != null ? augmentRrfToolForNxtUi(t, this.firmwareGlobals, i) : null
         const row = readMosTTRow(this.firmwareGlobals, i)
@@ -717,7 +732,7 @@ export default defineNxtComponent({
           name: String(this.editing.name).trim(),
           flutes: this.editing.flutes,
           fluteLengthMm: this.editing.fluteLen,
-          reservedFrom: this.reservedFrom,
+          probeToolIndex: this.probeToolIndexForLibrary >= 0 ? this.probeToolIndexForLibrary : null,
           includeTc: false
         })
         this.editDialog = false
@@ -759,7 +774,9 @@ export default defineNxtComponent({
       }
       this.resettingLife = true
       try {
+        await this.sendCode('M98 P"nxt-tool-life-ensure.g"')
         await this.sendCode(`set global.nxtToolLife[${this.resetLifeTool.index}] = 0`)
+
         this.resetLifeDialog = false
       } catch (e) {
         console.error('nxt: doResetLife', e)
@@ -769,11 +786,11 @@ export default defineNxtComponent({
     },
 
     async setActive(row) {
-      await this.sendCode(`T${row.index} P0`)
+      await this.sendCode(`T${row.index}`)
     },
 
     async clearActive() {
-      await this.sendCode('T-1 P0')
+      await this.sendCode('T-1')
     },
 
     async toggleLock() {
@@ -805,8 +822,8 @@ export default defineNxtComponent({
       try {
         const records = await parseFusionToolsFile(file)
         const preview = buildFusionImportPreview(records, {
-          maxIndex: this.maxUserIndex,
-          probeIndex: this.probeToolIndexForLibrary
+          limitsTools: this.limitsTools ?? 50,
+          probeIndex: this.probeToolIndexForLibrary >= 0 ? this.probeToolIndexForLibrary : 49
         })
         this.importRows = preview.rows
         this.importWarnings = preview.warnings
@@ -829,21 +846,34 @@ export default defineNxtComponent({
       this.importTotal = this.importRows.length
       this.importProgress = 0
       try {
-        if (this.replaceImport) {
-          await this.sendCode('M4002')
-        }
-        for (const row of this.importRows) {
-          await sendM4000(this.sendCode.bind(this), {
-            toolIndex: row.index,
-            radius: row.radius,
-            name: row.name,
-            flutes: row.flutes,
-            fluteLengthMm: row.fluteLengthMm,
-            reservedFrom: this.reservedFrom,
-            includeTc: false
-          })
-          this.importProgress += 1
-        }
+        // One upload + one M98 — per-tool sendCode floods DSF and often yields
+        // "Invalid password" / disconnect on SBC (session churn + per-M4000 SD sync).
+        const m4000Lines = this.importRows.map(
+          (row: {
+            index: number
+            radius: number
+            name: string
+            flutes: number | null
+            fluteLengthMm: number | null
+          }) =>
+            buildM4000Command({
+              toolIndex: row.index,
+              radius: row.radius,
+              name: row.name,
+              flutes: row.flutes,
+              fluteLengthMm: row.fluteLengthMm,
+              probeToolIndex: this.probeToolIndexForLibrary >= 0 ? this.probeToolIndexForLibrary : null,
+              includeTc: false
+            })
+        )
+        const body = buildToolImportScratchContent({
+          replace: this.replaceImport,
+          m4000Lines
+        })
+        await uploadDwcFile(NXT_TOOL_IMPORT_SCRATCH_PATH, body)
+        this.importProgress = Math.max(1, Math.floor(this.importTotal / 2))
+        await this.sendCode('M98 P"nxt-tool-import-scratch.g"')
+        this.importProgress = this.importTotal
         this.importDialog = false
         await this.$store.dispatch('machine/showMessage', {
           type: 'success',

@@ -52,6 +52,27 @@ jobs:
       - name: Check OM global hygiene
         run: node dist/check-om-global-budget.mjs
 
+  g6512-axis-contract:
+    name: G6512 single-axis call contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check G6512 callers pass exactly one axis
+        run: node dist/check-g6512-axis-contract.mjs
+
+      - name: Check G6512 deflection compensation math
+        run: node dist/check-g6512-deflection-math.mjs
+
+  calibration-math:
+    name: Calibration math regression
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check calibration math self-test
+        run: node dist/check-calibration-math.mjs
+
   line-endings:
     name: LF line endings (no CRLF)
     runs-on: ubuntu-latest

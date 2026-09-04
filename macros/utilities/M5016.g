@@ -3,10 +3,14 @@
 ; One-time geometry: toolsetter Z_act, reference Z_ref, nxtDeltaMachine = Z_ref - Z_act.
 ; USAGE: M5016
 ; Requires: nxtFeatureTouchProbe, nxtFeatureToolSetter, nxtTouchProbeID, nxtToolSetterID.
-; After success: park (G27) and T{nxtProbeToolID} from the Calibration UI so tpost runs G6511.
-
-if { !inputs[state.thisInput].active }
-    M99
+; Verifies configured toolsetter input by user toggle, then probes ~20mm from jog Z.
+; V2.0 (nxtToolSetterV2): ref pad at ±13mm XY from platen + Z = Z_act - 6.
+; Operator must jog-confirm near the pad (V1) or V2 pad location.
+; After success: park (G27) and load the probe from Calibration if needed.
+; Mill length datum is platen Z_act (nxtProbeVirtualTsZ); no G6511 pad hit.
+; No thisInput.active guard — must run from DWC Calibration (same as M80.9).
+; Use S2/S3 (not S4): jog axes only work on S2/S3; S4 needs M292 R{n} which is
+; unreliable across DWC channels (same class as Safety Net M80.9). Cancel → abort.
 
 if { !global.nxtFeatureTouchProbe || !global.nxtFeatureToolSetter }
     abort { "M5016: Touch probe and toolsetter features must be enabled" }
@@ -15,8 +19,9 @@ if { global.nxtTouchProbeID == null }
     abort { "M5016: nxtTouchProbeID is not configured" }
 
 if { global.nxtToolSetterID == null }
-    abort { "M5016: nxtToolSetterID is not configured" }
+    abort { "M5016: nxtToolSetterID is not configured — set it in Configuration first" }
 
+echo "M5016: starting datum setup"
 G90
 G21
 G94
@@ -26,25 +31,74 @@ var msgDatum = "Install a rigid datum tool (gauge pin) in the spindle, then pres
 M291 P{var.msgDatum} R"nxt: Datum setup" S3
 if { result != 0 }
     abort { "M5016: Cancelled — install datum tool" }
+echo "M5016: datum tool confirmed"
 
-; --- 2. Jog over toolsetter ---
-var msgTsA = "Jog the datum tool over the center of the toolsetter."
-var msgTsB = { var.msgTsA ^ "<br/><b>CAUTION</b>: Jogging does not watch probes. Leave Z clear above the platen." }
-M291 P{var.msgTsB} R"nxt: Datum setup" X1 Y1 Z1 J1 T0 S3
+; --- 2. Verify configured toolsetter input is pressed ---
+var tsId = { global.nxtToolSetterID }
+if { var.tsId < 0 || var.tsId >= #sensors.probes || sensors.probes[var.tsId] == null }
+    abort { "M5016: nxtToolSetterID K" ^ var.tsId ^ " is not a valid probe in the object model" }
+
+var tsVal = 0
+var tsThr = 0
+var tsTripped = false
+var tsReady = false
+
+while { !var.tsReady }
+    var msgTsInA = { "Press and <b>hold</b> toolsetter (probe K" ^ var.tsId ^ ")," }
+    var msgTsInB = { var.msgTsInA ^ " keep holding, then OK. Cancel aborts." }
+    M291 P{var.msgTsInB} R"nxt: Toolsetter input" S3
+    if { result != 0 }
+        abort { "M5016: Cancelled — toolsetter input check" }
+
+    set var.tsVal = { sensors.probes[var.tsId].value[0] }
+    set var.tsThr = { sensors.probes[var.tsId].threshold }
+    set var.tsTripped = false
+    if { var.tsThr == null }
+        set var.tsTripped = { var.tsVal != 0 }
+    elif { var.tsVal >= var.tsThr }
+        set var.tsTripped = true
+    elif { var.tsVal != 0 }
+        set var.tsTripped = true
+
+    echo { "M5016: K" ^ var.tsId ^ " val=" ^ var.tsVal ^ " thr=" ^ var.tsThr }
+
+    if { var.tsTripped }
+        set var.tsReady = true
+        var msgOkA = { "Toolsetter input K" ^ var.tsId ^ " confirmed (pressed)." }
+        M291 P{var.msgOkA} R"nxt: Toolsetter input" S2
+        echo { "M5016: nxtToolSetterID K" ^ var.tsId ^ " confirmed" }
+    else
+        var msgRetry = { "Probe K" ^ var.tsId ^ " was not active at OK." }
+        set var.msgRetry = { var.msgRetry ^ " Hold the platen, then OK again." }
+        M291 P{var.msgRetry} R"nxt: Toolsetter input" S2
+
+; --- 3. Jog over toolsetter; leave ~20mm Z clear above platen ---
+; Jog axes (X1 Y1 Z1) are only valid with M291 S2/S3 per RRF docs.
+var msgTsA = "Jog XY over the center of the toolsetter platen."
+var msgTsB = { var.msgTsA ^ "<br/>Leave Z about <b>20 mm</b> clear above the platen, then OK." }
+var msgTsC = { var.msgTsB ^ "<br/><b>CAUTION</b>: Jogging does not watch probes." }
+M291 P{var.msgTsC} R"nxt: Datum setup" X1 Y1 Z1 J1 T0 S3
 if { result != 0 }
     abort { "M5016: Cancelled before toolsetter probe" }
+echo "M5016: jog position confirmed — probing toolsetter"
 
 M5000 P0
 var tsX = { global.nxtAbsPos[0] }
 var tsY = { global.nxtAbsPos[1] }
 var tsZ = { global.nxtAbsPos[2] }
 
-var tsTravel = { 80.0 }
-if { exists(global.nxtToolSetterProbeTravelMm) && global.nxtToolSetterProbeTravelMm > 0 }
-    set var.tsTravel = { global.nxtToolSetterProbeTravelMm }
+; Datum probe: 20mm down from jog Z (or until toolsetter triggers)
+var tsTravel = 20.0
 var tsProbeTargetZ = { var.tsZ - var.tsTravel }
+if { var.tsProbeTargetZ < move.axes[2].min }
+    set var.tsProbeTargetZ = { move.axes[2].min }
 
-; --- 3. Probe toolsetter with datum ---
+var tsProbeTravelAvail = { var.tsZ - var.tsProbeTargetZ }
+if { var.tsProbeTravelAvail < 5.0 }
+    var msgShort = "M5016: Not enough Z travel to probe the toolsetter"
+    abort { var.msgShort ^ " (need >= 5mm below jog Z toward Zmin)" }
+
+; --- 4. Probe toolsetter with datum ---
 echo "M5016: Probing toolsetter at X=" ^ var.tsX ^ " Y=" ^ var.tsY
 G53 G0 X{var.tsX} Y{var.tsY}
 G6512 Z{var.tsProbeTargetZ} I{global.nxtToolSetterID}
@@ -52,28 +106,91 @@ var zAct = { global.nxtLastProbeResult }
 
 set global.nxtToolSetterPos = { var.tsX, var.tsY, var.zAct }
 echo "M5016: nxtToolSetterPos = {" ^ var.tsX ^ ", " ^ var.tsY ^ ", " ^ var.zAct ^ "}"
+if { !exists(global.nxtProbeVirtualTsZ) }
+    global nxtProbeVirtualTsZ = { var.zAct }
+else
+    set global.nxtProbeVirtualTsZ = { var.zAct }
+echo "M5016: nxtProbeVirtualTsZ = " ^ global.nxtProbeVirtualTsZ ^ " mm (datum platen Z)"
+M98 P"nxt-probe-virtual-sync.g"
 
-; Park Z before moving to reference surface
+; Park Z before moving / computing reference surface
 G27 Z1
 
-; --- 4. Jog datum onto probe reference surface ---
-var msgRefA = "Jog the datum tool onto the touch-probe reference surface."
-var msgRefB = { var.msgRefA ^ "<br/>Touch the surface with the datum tip, then press OK to store XYZ." }
-M291 P{var.msgRefB} R"nxt: Datum setup" X1 Y1 Z1 J1 T0 S3
-if { result != 0 }
-    abort { "M5016: Cancelled before reference surface" }
+; --- 5. Reference surface (V2 fixed geometry vs V1 jog) ---
+var nxtTsV2 = false
+if { exists(global.nxtToolSetterV2) && global.nxtToolSetterV2 }
+    set var.nxtTsV2 = true
 
-M5000 P0
-var refX = { global.nxtAbsPos[0] }
-var refY = { global.nxtAbsPos[1] }
-var refZ = { global.nxtAbsPos[2] }
+if { var.nxtTsV2 }
+    ; V2.0: ref pad 13mm from platen center, 6mm below activation plane
+    var v2XyMm = 13.0
+    var v2DzMm = -6.0
+    var refDir = 0
+    if { exists(global.nxtToolSetterRefDir) }
+        set var.refDir = global.nxtToolSetterRefDir
 
-set global.nxtTouchProbeRefPos = { var.refX, var.refY, var.refZ }
-echo "M5016: nxtTouchProbeRefPos = {" ^ var.refX ^ ", " ^ var.refY ^ ", " ^ var.refZ ^ "}"
+    var refX = { var.tsX }
+    var refY = { var.tsY }
+    if { var.refDir == 0 }
+        set var.refX = { var.tsX + var.v2XyMm }
+    elif { var.refDir == 1 }
+        set var.refX = { var.tsX - var.v2XyMm }
+    elif { var.refDir == 2 }
+        set var.refY = { var.tsY + var.v2XyMm }
+    elif { var.refDir == 3 }
+        set var.refY = { var.tsY - var.v2XyMm }
+    else
+        abort { "M5016: nxtToolSetterRefDir must be 0..3 (+X/-X/+Y/-Y)" }
 
-; --- 5. Static datum ---
-set global.nxtDeltaMachine = { var.refZ - var.zAct }
-echo "M5016: nxtDeltaMachine = " ^ global.nxtDeltaMachine ^ " mm (Z_ref - Z_act)"
+    var refZ = { var.zAct + var.v2DzMm }
+
+    var refFace = "Left"
+    var refAxis = "(+X)"
+    if { var.refDir == 0 }
+        set var.refFace = "Left"
+        set var.refAxis = "(+X)"
+    elif { var.refDir == 1 }
+        set var.refFace = "Right"
+        set var.refAxis = "(-X)"
+    elif { var.refDir == 2 }
+        set var.refFace = "Back"
+        set var.refAxis = "(+Y)"
+    elif { var.refDir == 3 }
+        set var.refFace = "Front"
+        set var.refAxis = "(-Y)"
+
+    set global.nxtTouchProbeRefPos = { var.refX, var.refY, var.refZ }
+    set global.nxtDeltaMachine = { var.refZ - var.zAct }
+
+    var msgV2a = "V2.0 ref pad on the " ^ var.refFace ^ " side " ^ var.refAxis ^ "."
+    var msgV2b = { var.msgV2a ^ "<br/>XY ≈ {" ^ var.refX ^ ", " ^ var.refY ^ "}; Z target ≈ " ^ var.refZ ^ " mm." }
+    var msgV2c = { var.msgV2b ^ "<br/>Jog near the pad with clearance, then OK." }
+    var msgV2d = { var.msgV2c ^ "<br/><b>CAUTION</b>: Jogging does not watch probes." }
+    M291 P{var.msgV2d} R"nxt: Datum setup" X1 Y1 Z1 J1 T0 S3
+    if { result != 0 }
+        abort { "M5016: Cancelled — verify V2 ref pad location before continuing" }
+
+    echo "M5016: nxtTouchProbeRefPos = {" ^ var.refX ^ ", " ^ var.refY ^ ", " ^ var.refZ ^ "}"
+    echo "M5016: ref pad side = " ^ var.refFace ^ " " ^ var.refAxis
+    echo "M5016: nxtDeltaMachine = " ^ global.nxtDeltaMachine ^ " mm (Z_ref - Z_act)"
+else
+    ; V1: jog datum onto probe reference surface
+    var msgRefA = "Jog the datum tool onto the touch-probe reference surface."
+    var msgRefB = { var.msgRefA ^ "<br/>Touch the surface with the datum tip, then press OK to store XYZ." }
+    M291 P{var.msgRefB} R"nxt: Datum setup" X1 Y1 Z1 J1 T0 S3
+    if { result != 0 }
+        abort { "M5016: Cancelled before reference surface" }
+
+    M5000 P0
+    var refX = { global.nxtAbsPos[0] }
+    var refY = { global.nxtAbsPos[1] }
+    var refZ = { global.nxtAbsPos[2] }
+
+    set global.nxtTouchProbeRefPos = { var.refX, var.refY, var.refZ }
+    echo "M5016: nxtTouchProbeRefPos = {" ^ var.refX ^ ", " ^ var.refY ^ ", " ^ var.refZ ^ "}"
+
+    set global.nxtDeltaMachine = { var.refZ - var.zAct }
+    echo "M5016: nxtDeltaMachine = " ^ global.nxtDeltaMachine ^ " mm (Z_ref - Z_act)"
 
 G27 Z1
 

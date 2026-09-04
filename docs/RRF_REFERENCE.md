@@ -17,6 +17,8 @@ This is the **evaluation target**: PR review, macro design, and docs on branch *
 
 **Migration from 3.6:** [RRF_3.7_MIGRATION.md](RRF_3.7_MIGRATION.md)
 
+**Meta pitfalls (probing / macros):** [RRF_META_PITFALLS.md](RRF_META_PITFALLS.md) — `^` is not power, 3-axis `G6550`, dive from jogged `startZ`, `nxtProbeHitXY` null, line length.
+
 **Useful links**
 
 - [Duet3D G-code dictionary](https://docs.duet3d.com/User_manual/Reference/Gcodes) (select documentation matching the reference RRF generation)
@@ -24,4 +26,4 @@ This is the **evaluation target**: PR review, macro design, and docs on branch *
 - [Object model documentation](https://github.com/Duet3D/RepRapFirmware/wiki/Object-Model-Documentation)
 - [RRF 3.6.3 → 3.7.0-beta.1 changelog](https://github.com/Duet3D/RepRapFirmware/wiki/Changelog-RRF-3.x-Beta#reprapfirmware-changes-from-363-to-370-beta1)
 
-**Note:** nxt probing uses **`G68`** for XY coordinate rotation after **`G10 L2`**. **G68** rotation direction was fixed in **RRF 3.6.1**; **G68** per motion system landed in **3.6.2**. The **3.7** line inherits those fixes.
+**Note:** nxt applies **`G68`** for XY workpiece rotation at **job start** (**M5011**), not immediately after probing. **G68** rotation direction was fixed in **RRF 3.6.1** (anticlockwise **R**, matching CNC convention); **G68** per motion system landed in **3.6.2**. The **3.7** line inherits those fixes. nxt arms session **`nxtJobG68Deg`** when **M5011** applies rotation and clears it at job end and after probe apply — see [DETAILS.md](DETAILS.md) (native probing / job-scoped G68).

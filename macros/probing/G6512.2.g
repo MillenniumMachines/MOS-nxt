@@ -21,9 +21,8 @@ G90
 G21
 G94
 
-; Cancel rotation compensation as we use G53 on the probe move.
-; Leaving rotation compensation active causes us to fail position
-; checks.
+; Temporary G69 for probe (G53/position checks). Do not clear nxtJobG68Deg —
+; tpost / resume restore while a job owns rotation.
 G69
 
 ; Get current machine position
@@ -93,10 +92,12 @@ while { true }
     ; cancel option.
     set var.vDN = { vector(var.vDC+1, "Unknown") }
 
+    var nxtDistN = { "50mm", "10mm", "5mm", "1mm", "0.1mm", "0.01mm", "Finish", "Back-Off 1mm" }
+
     ; Append the valid distance to the list of valid distances and names
     while { iterations < var.vDC }
         set var.vD[iterations] = { global.nxtManualProbeDistances[iterations + var.vDI] }
-        set var.vDN[iterations] = { global.nxtManualProbeDistNames[iterations + var.vDI] }
+        set var.vDN[iterations] = { var.nxtDistN[iterations + var.vDI] }
 
     ; Add cancel button
     set var.vDN[#var.vDN-1] = "Cancel"
@@ -165,7 +166,12 @@ var bP = { 0, 0, 0 }
     set var.bP[1] = { var.cP[1] + ((var.sP[1] - var.cP[1]) / var.bN * ((var.nxtMbo > var.bN) ? var.bN : var.nxtMbo)) }
     set var.bP[2] = { var.cP[2] + ((var.sP[2] - var.cP[2]) / var.bN * ((var.nxtMbo > var.bN) ? var.bN : var.nxtMbo)) }
 
-G6550 X{ var.bP[0] } Y{ var.bP[1] } Z{ var.bP[2] }
-
-; Wait for all moves in the queue to finish
+; Rapid backoff toward start — unprotected G0, all axes pinned
+M400
+var boHasA = { #move.axes > 3 }
+if { var.boHasA }
+    var boA = { move.axes[3].machinePosition }
+    G53 G0 X{var.bP[0]} Y{var.bP[1]} Z{var.bP[2]} A{var.boA}
+else
+    G53 G0 X{var.bP[0]} Y{var.bP[1]} Z{var.bP[2]}
 M400

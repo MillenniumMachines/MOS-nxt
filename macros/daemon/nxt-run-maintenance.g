@@ -62,15 +62,18 @@ if { var.nxtSpindleIdx >= 0 && var.nxtSpindleIdx < #spindles }
     if { spindles[var.nxtSpindleIdx] != null && spindles[var.nxtSpindleIdx].current != 0 }
         set var.spindleOn = true
 
-; --- Tool life: spindle-on seconds while a real (non-reserved) tool is loaded ---
+; --- Tool life: spindle-on seconds while a real (non-probe) tool is loaded ---
 var dt = { state.upTime - global.nxtMaintLastTime }
 set global.nxtMaintLastTime = { state.upTime }
 var ct = { state.currentTool }
-var nxtLifeOk = { var.ct >= 0 && var.ct < #global.nxtToolLife }
-if { exists(global.nxtReservedFrom) && global.nxtReservedFrom != null }
-    set var.nxtLifeOk = { var.nxtLifeOk && var.ct < global.nxtReservedFrom }
-if { var.nxtLifeOk }
-    if { var.spindleOn && var.dt > 0 && var.dt < 10 }
+var nxtLifeOk = { var.ct >= 0 }
+if { exists(global.nxtProbeToolID) && global.nxtProbeToolID != null }
+    set var.nxtLifeOk = { var.nxtLifeOk && var.ct != global.nxtProbeToolID }
+if { var.nxtLifeOk && var.spindleOn && var.dt > 0 && var.dt < 10 }
+    M98 P"nxt-tool-life-ensure.g"
+    if { var.ct < #global.nxtToolLife }
+        if { global.nxtToolLife[var.ct] == null }
+            set global.nxtToolLife[var.ct] = 0
         set global.nxtToolLife[var.ct] = { global.nxtToolLife[var.ct] + var.dt }
         set var.active = true
 

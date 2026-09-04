@@ -9,6 +9,16 @@ WD="${PWD}"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 echo "Checking RRF macro line lengths (max 200)..."
 node "${ROOT}/dist/check-gcode-line-length.mjs" || exit 1
+echo "Checking M98 must not invoke numbered M####/G#### macros..."
+node "${ROOT}/dist/check-m98-numbered-meta.mjs" || exit 1
+echo "Checking G6512 single-axis call contract..."
+node "${ROOT}/dist/check-g6512-axis-contract.mjs" || exit 1
+echo "Checking G6512 deflection math..."
+node "${ROOT}/dist/check-g6512-deflection-math.mjs" || exit 1
+echo "Checking rotation / skew math..."
+node "${ROOT}/dist/check-rotation-skew-math.mjs" || exit 1
+echo "Checking calibration math..."
+node "${ROOT}/dist/check-calibration-math.mjs" || exit 1
 echo "Checking OM global size budget hygiene..."
 node "${ROOT}/dist/check-om-global-budget.mjs" || exit 1
 chmod +x "${ROOT}/dist/check-node-for-dwc-build.sh"
@@ -17,7 +27,9 @@ TMP_DIR=$(mktemp -d -t nxt-release-XXXXX)
 SYNC_CMD="rsync -a --exclude=README.md --exclude='*.gitkeep'"
 # shellcheck source=dist/resolve-build-version.sh
 source "${ROOT}/dist/resolve-build-version.sh"
-DWC_PLUGIN_ZIP="nxt-${BUILD_VERSION}.zip"
+# plugin.json semver without leading v — DWC build-plugin prints/names as v${version}.
+PLUGIN_SEMVER="${BUILD_VERSION#v}"
+DWC_PLUGIN_ZIP="nxt-${PLUGIN_SEMVER}.zip"
 DWC_REPO_PATH="${1:-${WD}/../DuetWebControl}"
 if [[ ! -d "${DWC_REPO_PATH}" && -d "${WD}/DuetWebControl" ]]; then
   DWC_REPO_PATH="${WD}/DuetWebControl"
@@ -158,6 +170,13 @@ if [[ -d "${WD}/macros/nxt-config" ]]; then
     ${SYNC_CMD} "${WD}/macros/nxt-config/" "${TMP_DIR}/sd/sys/nxt-config/"
 fi
 
+# Ship daemon as daemon.install so DSF upgrade does not overwrite/delete the live
+# forever-loop 0:/sys/daemon.g (open while nxtDaemonEnabled). nxt.g applies the rename.
+if [[ -f "${TMP_DIR}/sd/sys/daemon.g" ]]; then
+    echo "Staging daemon.g as sd/sys/daemon.install (applied by nxt.g)..."
+    mv -f "${TMP_DIR}/sd/sys/daemon.g" "${TMP_DIR}/sd/sys/daemon.install"
+fi
+
 [[ -f "${PLUGIN_PATH}" ]] && rm "${PLUGIN_PATH}"
 
 cd "${TMP_DIR}"
@@ -178,7 +197,8 @@ fi
 echo "UI directory found, building plugin..."
 
 cp -r "${WD}/ui/"* "${TMP_DIR}/"
-sed -si -e "s/%%NXT_VERSION%%/${BUILD_VERSION}/g" plugin.json
+# plugin.json only: strip leading v so DWC does not display/name vv….
+sed -si -e "s/%%NXT_VERSION%%/${PLUGIN_SEMVER}/g" plugin.json
 
 echo "Generating nxt-config manifest..."
 node "${WD}/dist/generate-nxt-config-manifest.mjs" "${WD}"
@@ -242,11 +262,17 @@ if [[ -f "${BUILD_PLUGIN_JS}.next-bak" ]]; then
 fi
 
 BUILT_PLUGIN_ZIP=""
-if [[ -f "${TMP_DIR}/${DWC_PLUGIN_ZIP}" ]]; then
-    BUILT_PLUGIN_ZIP="${TMP_DIR}/${DWC_PLUGIN_ZIP}"
-elif [[ -f "${DWC_REPO_PATH}/dist/${DWC_PLUGIN_ZIP}" ]]; then
-    BUILT_PLUGIN_ZIP="${DWC_REPO_PATH}/dist/${DWC_PLUGIN_ZIP}"
-else
+_dwc_zip_names=("${DWC_PLUGIN_ZIP}" "nxt-${BUILD_VERSION}.zip")
+for _zip_name in "${_dwc_zip_names[@]}"; do
+    if [[ -f "${TMP_DIR}/${_zip_name}" ]]; then
+        BUILT_PLUGIN_ZIP="${TMP_DIR}/${_zip_name}"
+        break
+    elif [[ -f "${DWC_REPO_PATH}/dist/${_zip_name}" ]]; then
+        BUILT_PLUGIN_ZIP="${DWC_REPO_PATH}/dist/${_zip_name}"
+        break
+    fi
+done
+if [[ -z "${BUILT_PLUGIN_ZIP}" ]]; then
     shopt -s nullglob
     _candidates=("${TMP_DIR}"/nxt-*.zip "${DWC_REPO_PATH}/dist"/nxt-*.zip)
     shopt -u nullglob

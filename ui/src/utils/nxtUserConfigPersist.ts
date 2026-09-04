@@ -3,17 +3,26 @@
  * Keeps nxt-user-vars.g, bootstrap/custom sentinels, and Custom pack deploy consistent.
  */
 import type { NxtUserConfigDraft } from './nxtUserVarsPersistence'
-import { buildNxtUserVarsGcode } from './nxtUserVarsPersistence'
-import { buildCustomPackFiles } from './nxtCustomPackGenerate'
+import {
+  buildNxtUserVarsGcode,
+  snapshotConfigFromOm,
+  applyDatumVirtualFromSetter,
+  emptyConfigDraft,
+  probeGeometryChanged,
+  setterDatumZ
+} from './nxtUserVarsPersistence'
+import { buildCustomPackFiles, customAAxisPartiallyConfigured } from './nxtCustomPackGenerate'
 import { deployPlatformSysFiles } from './nxtBoardSysDeploy'
 import { syncBoardBootstrapSentinels } from './nxtBoardBootstrapSync'
 import {
+  NXT_CUSTOM_A_REQUESTED_PATH,
   NXT_CUSTOM_REQUESTED_PATH,
   NXT_USER_VARS_DWC_PATH,
   deleteDwcFile,
   dwcFileExists,
   uploadDwcFile
 } from './nxtFileUpload'
+import { ensureSetFirmwareGlobal, clearFirmwareGlobalIfExists } from './nxtOmEnsureSet'
 import store from '../compat/dwcStore'
 
 let _customGlobalsEnsured = false
@@ -96,6 +105,27 @@ export async function syncCustomRequestedSentinel(wantCustom: boolean): Promise<
   }
 }
 
+/** Optional A-axis Custom keys — OM budget; pairs with nxt-custom-globals.g gate. */
+export async function syncCustomARequestedSentinel(wantA: boolean): Promise<void> {
+  const exists = await dwcFileExists(NXT_CUSTOM_A_REQUESTED_PATH)
+  if (wantA) {
+    if (!exists) {
+      await uploadDwcFile(
+        NXT_CUSTOM_A_REQUESTED_PATH,
+        '; Custom A-axis fields set — declare nxtCustomA* in nxt-custom-globals.g\n'
+      )
+    }
+    return
+  }
+  if (exists) {
+    try {
+      await deleteDwcFile(NXT_CUSTOM_A_REQUESTED_PATH)
+    } catch {
+      /* absent is fine */
+    }
+  }
+}
+
 export type PersistNxtUserConfigOpts = {
   /** Upload nxt-user-vars.g (default true). */
   uploadUserVars?: boolean
@@ -152,9 +182,54 @@ export async function persistNxtUserConfig(
   const bootMode = draft.nxtBoardBootstrapMode === 'auto' ? 'auto' : 'off'
   const custom = isCustomDraft(draft)
 
+  let live: NxtUserConfigDraft = emptyConfigDraft()
+  try {
+    live = snapshotConfigFromOm(store.state?.machine?.model?.global)
+  } catch {
+    live = emptyConfigDraft()
+  }
+
+  if (probeGeometryChanged(live, draft)) {
+    const z = setterDatumZ(draft.nxtToolSetterPos)
+    if (z != null) {
+      draft.nxtProbeVirtualTsZ = z
+    }
+  } else {
+    applyDatumVirtualFromSetter(draft)
+  }
+
   if (uploadUserVars) {
     const content = buildNxtUserVarsGcode(draft)
     await uploadDwcFile(NXT_USER_VARS_DWC_PATH, content)
+  }
+
+  if (opts.sendCode && connected) {
+    try {
+      if (probeGeometryChanged(live, draft)) {
+        const z = setterDatumZ(draft.nxtToolSetterPos)
+        if (z != null) {
+          await ensureSetFirmwareGlobal('nxtProbeVirtualTsZ', String(z), opts.sendCode)
+          await opts.sendCode('M98 P"nxt-probe-virtual-sync.g"')
+        }
+      }
+    } catch (e) {
+      console.warn('nxt: probe virtual rewrite after geometry Save', e)
+    }
+    // Null deprecated / stray OM keys if still present (RRF cannot delete keys).
+    for (const dep of [
+      'nxtBoardKitKey',
+      'nxtScyllaMotorVoltage',
+      'nxtBoardPackExpectedEntry',
+      'nxtRgbLedIndex',
+      'nxtCalDefZ',
+      'nxtCalDefSpan'
+    ] as const) {
+      try {
+        await clearFirmwareGlobalIfExists(dep, opts.sendCode)
+      } catch (e) {
+        console.warn(`nxt: clear deprecated ${dep}`, e)
+      }
+    }
   }
 
   if (syncBootstrap) {
@@ -163,6 +238,7 @@ export async function persistNxtUserConfig(
 
   if (syncCustom) {
     await syncCustomRequestedSentinel(custom)
+    await syncCustomARequestedSentinel(custom && customAAxisPartiallyConfigured(draft))
   }
 
   if (doEnsure && custom && opts.sendCode) {
@@ -179,7 +255,7 @@ export async function persistNxtUserConfig(
     })
     if (setDeployPlat && opts.sendCode && connected) {
       draft.nxtBoardSysDeployPlatform = 'custom'
-      await opts.sendCode('set global.nxtBoardSysDeployPlatform = "custom"')
+      await ensureSetFirmwareGlobal('nxtBoardSysDeployPlatform', '"custom"', opts.sendCode)
     }
   }
 

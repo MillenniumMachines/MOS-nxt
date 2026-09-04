@@ -44,7 +44,7 @@ When changing **board/machine layout**, **SD paths**, **manifest shape**, or **C
 
 This is **webpack**, not RRF. See `dist/diagnose-plugin-chunk.mjs` for a full report.
 
-**Architecture:** nxt `dwc/js/nxt.*.js` is only ~73 modules; **~45 more** must come from the host `app.*.js` (store, routes, i18n, vue, vuetify). Shipped ZIPs require **exact** `dwcVersion` match (`auto` at build → e.g. `3.6.2`). Different patch or major line → missing modules → `.call` error. Run `./dist/verify-dwc-build-alignment.sh` before release builds.
+**Architecture:** nxt `dwc/js/nxt.*.js` is only ~73 modules; **~45 more** must come from the host `app.*.js` (store, routes, i18n, vue, vuetify). Shipped ZIPs use **`auto-minor`** `dwcVersion` (stamps e.g. `3.7.0`); host must share that major.minor.patch prefix. A different patch or major line → missing modules → `.call` error even if the version gate is loosened. Run `./dist/verify-dwc-build-alignment.sh` before release builds.
 
 **URL resolution (critical on stock DWC):** Host `getChunkScriptFilename` uses `plugin.dwcFiles` when `window.pluginBeingLoaded` is set. Stock app has **no** `nxt:"<hash>"` entry. If `dwcFiles` is empty or missing `js/nxt.*.js`, webpack requests **`js/nxt.undefined.js`** → same `.call` symptom.
 

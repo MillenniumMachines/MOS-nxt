@@ -1,37 +1,32 @@
 /**
- * Run: node --import tsx ui/scripts/run-fusion-import-policy-tests.mjs
- * Or: node --experimental-strip-types ui/scripts/run-fusion-import-policy-tests.mjs
+ * Lightweight checks for fusionToolsImport policy (no full Vue build).
  */
-import { readFileSync } from 'node:fs'
-import { fileURLToPath } from 'node:url'
-import { dirname, join } from 'node:path'
-import test from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import test from 'node:test'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const policySrc = readFileSync(join(root, 'src/utils/fusionToolsImport/fusionImportPolicy.ts'), 'utf8')
 
 test('fusionImportPolicy source exports maxUserToolIndex', () => {
   assert.ok(policySrc.includes('export function maxUserToolIndex'))
-  assert.ok(policySrc.includes('reservedFrom - 1'))
+  assert.ok(policySrc.includes('limitsTools - 1'))
 })
 
-test('fusionImportPolicy source skips probe pocket', () => {
-  assert.ok(policySrc.includes('probeIndex'))
-  assert.ok(policySrc.includes('25.4'))
+test('fusionImportPolicy source skips probe pocket only', () => {
+  assert.ok(policySrc.includes('opts.probeIndex'))
+  assert.ok(policySrc.includes('reserved for the touch probe'))
 })
 
-// Inline policy checks (no TS compile step required in CI)
-test('max user index math', () => {
-  const maxUserToolIndex = (limitsTools, reservedFrom) => {
-    if (typeof reservedFrom === 'number' && Number.isFinite(reservedFrom) && reservedFrom > 0) {
-      return reservedFrom - 1
+test('max user index is firmware last slot', () => {
+  const maxUserToolIndex = (limitsTools, _reservedFrom) => {
+    if (typeof limitsTools === 'number' && Number.isFinite(limitsTools) && limitsTools > 0) {
+      return limitsTools - 1
     }
-    if (typeof limitsTools === 'number' && Number.isFinite(limitsTools) && limitsTools > 1) {
-      return limitsTools - 2
-    }
-    return 48
+    return 49
   }
-  assert.equal(maxUserToolIndex(50, 49), 48)
-  assert.equal(maxUserToolIndex(50, null), 48)
+  assert.equal(maxUserToolIndex(50, 49), 49)
+  assert.equal(maxUserToolIndex(50, null), 49)
 })

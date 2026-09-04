@@ -52,7 +52,7 @@ This phase focuses on implementing the most critical, non-UI backend functionali
     *   Re-implement the core loading scripts (`nxt.g`, `nxt-boot.g`) and the global variable system (`nxt-vars.g`).
 
 2.  **Essential Control Macros:** ✅
-    *   Implement core macros for Spindle Control (`M3.9`, `M4.9`, `M5.9`), Coolant Control (`M7`, `M7.1`, `M8`, `M9`), ATX Power Control (`M80.9`, `M81.9`), and Parking (`G27`).
+    *   Implement core macros for Spindle Control (`M3.9`, `M4.9`, `M5.9`), Coolant Control (`M7`, `M7.1`, `M8`, `M9`), machine power (`M80.9`, `M81.9`), and Parking (`G27`).
 
 3.  **Basic Utility Macros:** ✅
     *   Machine information queries (`M5000`) and limit checking (`M6515`).
@@ -154,9 +154,10 @@ This phase focuses on completing the tool change system and advanced features. *
 2.  **Drilling Canned Cycles:** ✅ (see `docs/CODE.md` §8.1)
     *   `G80`, `G81`, `G73`, `G83`, `G82`, `G85`, `G89`, `G98`, `G99` in `macros/canned/` (LinuxCNC-oriented, absolute coordinates).
 
-3.  **VSSC (Variable Spindle Speed Control):** ⬜ Not started
-    *   Re-implement VSSC as a self-contained feature that can be enabled via the new UI configuration.
-    *   Legacy MillenniumOS VSSC is **not** ported; `README.md` still mentions VSSC as a planned feature.
+3.  **VSSC (Variable Spindle Speed Control):** ✅
+    *   CAM-driven: `M7000 P<period-ms> V<variance-rpm>` / `M7001`; daemon tick in `nxt-run-vssc.g`.
+    *   Session globals `nxtVSEnabled` / `nxtVSP` / `nxtVSV` / `nxtVSPS` / `nxtVSPT` (not persisted).
+    *   No Configuration operator-override UI yet.
 
 4.  **Machine Calibration System:** ⬜ Design only
     *   Implement UI-based calibration wizard in Settings panel for guided step-by-step workflow.
@@ -206,7 +207,7 @@ Shipped on branch `v0.6.0`; RRF/DWC **3.6.x** (`ci/dwc-build-ref` was `v3.6.2`).
 |----------|------|--------|
 | High | **Public site manual** | [millenniummachines.github.io](https://github.com/MillenniumMachines/millenniummachines.github.io) `millennium-os/` chapters still describe legacy MOS (G8000 wizard, old repo links). Staging branch: `next-docs`. |
 | High | **Migration guide** | `nxt-mos-import.g` exists; user-facing `docs/MIGRATION.md` not written. |
-| Medium | **VSSC** | Not implemented under `nxt*`; see Phase 4. |
+| Medium | **VSSC UI override** | CAM `M7000`/`M7001` + daemon implemented; no operator toggle in Configuration yet. |
 | Medium | **Machine calibration** | `docs/CALIBRATION.md` only; M9001–M9004 macros missing. |
 | Medium | **`M4005` post version check** | Documented in `DETAILS.md`; macro not implemented (post-processors in `post-processors/`). |
 | Low | **Spindle/coolant control UI** | Optional panels beyond status widget. |
@@ -227,7 +228,7 @@ This phase focuses on testing, documentation, and preparing for a public release
     *   Update all documentation (`README.md`, `DETAILS.md`, `UI.md`, etc.) to reflect the new architecture, features, and UI workflow.
     *   Create a migration guide for existing MillenniumOS users (`docs/MIGRATION.md`).
     *   Rewrite [millennium-os manual](https://millenniummachines.github.io/docs/millennium-os/) on `next-docs` branch (install nxt ZIP, Configuration panel, probing tolerance, MOS import).
-    *   Align README / FEATURES with implemented vs planned items (e.g. VSSC).
+    *   Align README / FEATURES with implemented vs planned items.
 
 3.  **Release Preparation:**
     *   Utilize the existing build and release scripts to package the new version (`dist/build-plugin.sh`, `dist/release.sh`; CI on tag push).

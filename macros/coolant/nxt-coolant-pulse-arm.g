@@ -20,7 +20,7 @@ var nxtNeedPulse = { var.nxtMistPulse || var.nxtFloodPulse }
 if { var.nxtNeedPulse }
     if { !global.nxtCoolantPulseActive }
         set global.nxtCoolantPulsePhaseOn = true
-        set global.nxtCoolantPulseLastMs = { millis() }
+        set global.nxtCoolantPulseLastMs = { state.upTime * 1000 + state.msUpTime }
     set global.nxtCoolantPulseActive = true
 else
     set global.nxtCoolantPulseActive = false

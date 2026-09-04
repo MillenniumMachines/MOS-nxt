@@ -9,7 +9,7 @@
     <v-card-text class="py-2">
       <div class="dialog-container">
         <div class="dialog-title">{{ dialogTitle }}</div>
-        <div class="dialog-message">{{ dialogMessage }}</div>
+        <div class="dialog-message" v-html="dialogMessage"></div>
         
         <v-divider class="my-3" />
         
@@ -33,24 +33,28 @@
 
 <script lang="ts">
 import { defineNxtComponent } from '../base/BaseComponent.vue'
+import {
+  nxtBuildM292Ack,
+  nxtMessageBoxButtons,
+  type NxtMessageBoxLike
+} from '../../utils/nxtMessageBoxRespond'
 
 /**
  * nxt Action Confirmation Widget
- * 
- * Displays persistent dialog interface for M291 dialogs.
- * Intercepts M291 dialogs from the DWC object model and displays them
- * in a non-blocking persistent panel instead of modal dialogs.
+ *
+ * Not mounted from nxt.vue (stock DWC MessageBoxDialog is the sole M292 ack path).
+ * Kept for a future DWC override hook. Do not remount beside the stock modal.
  */
 export default defineNxtComponent({
   name: 'NxtActionConfirmationWidget',
   
   computed: {
-    /**
-     * Get active message box from DWC object model
-     */
-    activeMessageBox(): any {
-      const messageBox = this.$store.state.machine.model.state.messageBox
-      return messageBox && messageBox.message ? messageBox : null
+    activeMessageBox(): NxtMessageBoxLike | null {
+      const messageBox = this.$store.state.machine.model.state.messageBox as NxtMessageBoxLike | null | undefined
+      if (messageBox == null || !messageBox.message) {
+        return null
+      }
+      return messageBox
     },
 
     hasActiveDialog(): boolean {
@@ -66,28 +70,7 @@ export default defineNxtComponent({
     },
 
     dialogButtons(): string[] {
-      const messageBox = this.activeMessageBox
-      if (!messageBox) return ['OK']
-      
-      // Handle different M291 dialog types
-      switch (messageBox.mode) {
-        case 0: // Close dialog
-          return []
-        case 1: // OK button
-          return ['OK']
-        case 2: // OK/Cancel buttons
-          return ['OK', 'Cancel']
-        case 3: // Yes/No buttons
-          return ['Yes', 'No']
-        case 4: // Yes/No/Cancel buttons
-          return ['Yes', 'No', 'Cancel']
-        default:
-          // Handle custom button labels if provided
-          if (messageBox.choices && Array.isArray(messageBox.choices)) {
-            return messageBox.choices
-          }
-          return ['OK']
-      }
+      return nxtMessageBoxButtons(this.activeMessageBox)
     }
   },
 
@@ -95,19 +78,23 @@ export default defineNxtComponent({
     getButtonColor(button: string, index: number): string {
       const lowerButton = button.toLowerCase()
       
-      // Primary action (usually first button)
       if (index === 0) {
-        if (lowerButton.includes('cancel') || lowerButton.includes('abort')) {
+        if (lowerButton.includes('cancel') || lowerButton.includes('abort') || lowerButton.includes('leave')) {
           return 'error'
         }
         return 'primary'
       }
       
-      // Secondary actions
-      if (lowerButton.includes('cancel') || lowerButton.includes('abort')) {
+      if (lowerButton.includes('cancel') || lowerButton.includes('abort') || lowerButton.includes('leave')) {
         return 'error'
       }
-      if (lowerButton.includes('continue') || lowerButton.includes('ok') || lowerButton.includes('yes')) {
+      if (
+        lowerButton.includes('continue') ||
+        lowerButton.includes('ok') ||
+        lowerButton.includes('yes') ||
+        lowerButton.includes('activate') ||
+        lowerButton.includes('arm')
+      ) {
         return 'success'
       }
       
@@ -119,11 +106,10 @@ export default defineNxtComponent({
       if (!messageBox) return
 
       try {
-        // Send M292 response to the message box
-        // M292 P<response> where response is the button index (0-based)
-        await this.sendCode(`M292 P${buttonIndex}`)
-        
-        console.log(`nxt UI: M291 dialog response sent: ${buttonIndex}`)
+        const code = nxtBuildM292Ack(messageBox, buttonIndex)
+        // noWait: standalone PollConnector must not await M292 reply-seq
+        await this.sendCode(code, true)
+        console.log(`nxt UI: M291 dialog response sent: ${code}`)
       } catch (error) {
         console.error('nxt UI: Failed to send M291 dialog response:', error)
         this.$store.dispatch('machine/showMessage', {
@@ -136,9 +122,6 @@ export default defineNxtComponent({
   },
 
   mounted() {
-    // Best-effort: Vuex's global mutation feed has no Pinia equivalent (see compat/dwcStore.ts
-    // subscribe()) - `activeMessageBox` already reacts to object model changes via Vue's own
-    // reactivity, so this is purely a diagnostic log, not a functional dependency
     this.$store.subscribe(() => {
       if (this.activeMessageBox) {
         console.log('nxt UI: Message box state changed:', this.activeMessageBox)
@@ -192,7 +175,6 @@ export default defineNxtComponent({
   padding-bottom: 12px !important;
 }
 
-/* Responsive adjustments */
 @media (max-width: 600px) {
   .dialog-actions {
     justify-content: center;

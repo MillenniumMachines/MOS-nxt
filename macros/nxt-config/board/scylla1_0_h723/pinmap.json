@@ -57,6 +57,31 @@
       "axis": "A",
       "driveIndex": 3,
       "note": "Physical drive 3. Enable with nxtFeatureFourthAxis → axis-a.g (M584 A3 R1). Sense R already set in drives.g M569.9 P0.3."
+    },
+    {
+      "id": "rs485",
+      "label": "RS485 / Modbus (PA9/PA10)",
+      "kind": "serial",
+      "pin": "A.9+A.10",
+      "aliases": ["tx1", "rx1", "rs485a", "rs485b"],
+      "note": "serial.aux: TX=PA_9 (tx1), RX=PA_10 (rx1). VFD Modbus via ArborCTL M575 S7 (RRF 3.7: P2). Firmware must set serial.aux.rxTxPins={A.10, A.9}."
+    },
+    {
+      "id": "uart_header",
+      "label": "UART header (PD8/PD9)",
+      "kind": "serial",
+      "pin": "D.8+D.9",
+      "aliases": ["tx3", "rx3"],
+      "note": "serial.aux2: TX=PD_8 (tx3), RX=PD_9 (rx3). nxtUartDevice → M575 in uart.g."
+    },
+    {
+      "id": "motor_relay",
+      "label": "Motor / VFD relay",
+      "kind": "gpout",
+      "gpOutIndex": 5,
+      "pin": "D.5",
+      "aliases": ["relay", "relayctr"],
+      "note": "gpOut P5 on PD_5 (M950). Arm via M80.9 / M42. Not a fan; do not assign coolant/aux."
     }
   ],
   "free": [
@@ -103,48 +128,52 @@
       "axis": "A",
       "pin": "D.13",
       "aliases": ["amax"],
-      "note": "Optional fourth axis. Firmware name amax (PD_13). Default M574 uses P\"amax\" (no invert); add ! only for active-low switches."
+      "note": "Optional fourth axis. Firmware name amax (PD_13)."
     },
     {
-      "id": "mist",
-      "label": "Mist",
+      "id": "aux0",
+      "label": "Aux 0",
       "kind": "gpout",
       "gpOutIndex": 0,
-      "pin": "A.7",
-      "aliases": ["mist", "mistpwm"]
+      "pin": "A.4",
+      "aliases": ["aux0", "aux0pwm"],
+      "note": "Preferred P0. 24V rail. Default tool fan (nxtBoardFanPins) at any motor voltage."
     },
     {
-      "id": "coolant",
-      "label": "Coolant",
+      "id": "aux1",
+      "label": "Aux 1",
       "kind": "gpout",
       "gpOutIndex": 1,
-      "pin": "C.4",
-      "aliases": ["coolant", "cool", "coolantpwm"]
-    },
-    {
-      "id": "relay",
-      "label": "Relay",
-      "kind": "gpout",
-      "gpOutIndex": 2,
-      "pin": "D.5",
-      "aliases": ["relay", "relayctr"]
+      "pin": "A.5",
+      "aliases": ["aux1", "aux1pwm"],
+      "note": "Preferred P1. 24V rail. May be created as fan instead via nxtBoardFanPins."
     },
     {
       "id": "aux2",
       "label": "Aux 2",
       "kind": "gpout",
-      "gpOutIndex": 3,
+      "gpOutIndex": 2,
       "pin": "A.6",
-      "aliases": ["aux2", "aux2pwm"]
+      "aliases": ["aux2", "aux2pwm"],
+      "note": "Preferred P2. 24V rail. May be created as fan instead via nxtBoardFanPins."
     },
     {
-      "id": "aux_spare",
-      "label": "Aux spare (Aux1 @24V / Aux0 @48V)",
+      "id": "coolant",
+      "label": "Coolant",
+      "kind": "gpout",
+      "gpOutIndex": 3,
+      "pin": "C.4",
+      "aliases": ["coolant", "cool", "coolantpwm"],
+      "note": "Preferred P3. May be created as fan instead via nxtBoardFanPins."
+    },
+    {
+      "id": "mist",
+      "label": "Mist",
       "kind": "gpout",
       "gpOutIndex": 4,
-      "pin": "A.5",
-      "aliases": ["aux1", "aux0", "aux1pwm", "aux0pwm"],
-      "note": "24 V pack: Aux1; 48 V pack: Aux0. Other aux is the tool fan."
+      "pin": "A.7",
+      "aliases": ["mist", "mistpwm"],
+      "note": "Preferred P4. May be created as fan instead via nxtBoardFanPins."
     },
     {
       "id": "probe",
@@ -153,11 +182,12 @@
       "probeIndex": 0,
       "pin": "E.15",
       "aliases": ["probe"],
-      "note": "Requires 0:/sys/touchprobe.g (M558 K0) to appear in OM"
+      "note": "K0 via pack touchprobe.g (PE_15); override with 0:/sys/touchprobe.g"
     }
   ],
-  "fanByVoltage": {
-    "24": { "id": "fan_aux0", "label": "Aux 0 (tool fan)", "pin": "A.4", "aliases": ["aux0"] },
-    "48": { "id": "fan_aux1", "label": "Aux 1 (tool fan)", "pin": "A.5", "aliases": ["aux1"] }
+  "namedOutputs": ["aux0", "aux1", "aux2", "coolant", "mist"],
+  "fanDefaultsByVoltage": {
+    "24": ["aux0"],
+    "48": ["aux0"]
   }
 }

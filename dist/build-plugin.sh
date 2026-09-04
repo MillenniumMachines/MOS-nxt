@@ -119,6 +119,24 @@ fi
 
 echo "Checking RRF macro line lengths (max 200)..."
 node "${ROOT}/dist/check-gcode-line-length.mjs" || exit 1
+echo "Checking M98 must not invoke numbered M####/G#### macros..."
+node "${ROOT}/dist/check-m98-numbered-meta.mjs" || exit 1
+echo "Checking M6520 axis flags must be X1/Y1/Z1/A1 (not bare X)..."
+node "${ROOT}/dist/check-m6520-axis-flags.mjs" || exit 1
+echo "Checking no dynamic G{/M{ command numbers (T{ only)..."
+node "${ROOT}/dist/check-no-dynamic-gm-codes.mjs" || exit 1
+echo "Checking no millis() in macros (use state.upTime*1000+state.msUpTime)..."
+node "${ROOT}/dist/check-no-millis.mjs" || exit 1
+echo "Checking RRF caret-as-power misuse..."
+node "${ROOT}/dist/check-rrf-caret-power.mjs" || exit 1
+echo "Checking G6512 single-axis call contract..."
+node "${ROOT}/dist/check-g6512-axis-contract.mjs" || exit 1
+echo "Checking G6512 deflection math..."
+node "${ROOT}/dist/check-g6512-deflection-math.mjs" || exit 1
+echo "Checking rotation / skew math..."
+node "${ROOT}/dist/check-rotation-skew-math.mjs" || exit 1
+echo "Checking calibration math..."
+node "${ROOT}/dist/check-calibration-math.mjs" || exit 1
 echo "Checking OM global size budget hygiene..."
 node "${ROOT}/dist/check-om-global-budget.mjs" || exit 1
 
@@ -133,11 +151,12 @@ else
   DIRTY_SUFFIX="-dirty"
 fi
 
-# Embedded %%NXT_VERSION%% uses release line (e.g. v0.7.0); zip basename includes ref+sha for uniqueness.
-# DWC Vite builder names the ZIP from resolved plugin.json version (%%NXT_VERSION%% → BUILD_VERSION).
-DWC_PLUGIN_ZIP="nxt-${BUILD_VERSION}.zip"
+# Embedded nxt.g / posts use release line with leading v (e.g. v0.7.0) for M4005.
+# plugin.json gets semver without leading v — DWC build-plugin prints/names as v${version}.
+PLUGIN_SEMVER="${BUILD_VERSION#v}"
+DWC_PLUGIN_ZIP="nxt-${PLUGIN_SEMVER}.zip"
 OUT_ZIP="nxt-$(sanitize_ref "${BUILD_REF}")-${BUILD_SHA}${DIRTY_SUFFIX}.zip"
-echo "nxt plugin build: embedded version ${BUILD_VERSION} (ref ${BUILD_REF}, zip ${OUT_ZIP})"
+echo "nxt plugin build: embedded version ${BUILD_VERSION} (plugin.json ${PLUGIN_SEMVER}, ref ${BUILD_REF}, zip ${OUT_ZIP})"
 BUILD_PLUGIN_JS="${DWC_REPO_PATH}/scripts/build-plugin.js"
 DWC_BUILDER="$(node "${ROOT}/dist/detect-dwc-plugin-builder.mjs" "${DWC_REPO_PATH}")"
 echo "DWC plugin builder: ${DWC_BUILDER}"
@@ -283,6 +302,13 @@ if [[ -d "${ROOT}/macros/nxt-config" ]]; then
   "${SYNC_CMD[@]}" "${ROOT}/macros/nxt-config/" "${TMP_DIR}/sd/sys/nxt-config/"
 fi
 
+# Ship daemon as daemon.install so DSF upgrade does not overwrite/delete the live
+# forever-loop 0:/sys/daemon.g (open while nxtDaemonEnabled). nxt.g applies the rename.
+if [[ -f "${TMP_DIR}/sd/sys/daemon.g" ]]; then
+  echo "Staging daemon.g as sd/sys/daemon.install (applied by nxt.g)..."
+  mv -f "${TMP_DIR}/sd/sys/daemon.g" "${TMP_DIR}/sd/sys/daemon.install"
+fi
+
 if [[ -f "${TMP_DIR}/sd/sys/nxt.g" ]]; then
   echo "Replacing %%NXT_VERSION%% in sd/sys/nxt.g with ${BUILD_VERSION}..."
   _tmp_nxt="${TMP_DIR}/sd/sys/nxt.g.bak"
@@ -294,9 +320,10 @@ node "${ROOT}/dist/generate-nxt-config-manifest.mjs" "${ROOT}"
 
 cp -a "${ROOT}/ui/." "${TMP_DIR}/"
 
-# Replace version placeholder (portable; avoids sed -i differences)
+# Replace version placeholder (portable; avoids sed -i differences).
+# plugin.json only: strip leading v so DWC does not display/name vv….
 _tmp_plugin="${TMP_DIR}/plugin.json.bak"
-sed "s/%%NXT_VERSION%%/${BUILD_VERSION}/g" "${TMP_DIR}/plugin.json" > "${_tmp_plugin}" && mv "${_tmp_plugin}" "${TMP_DIR}/plugin.json"
+sed "s/%%NXT_VERSION%%/${PLUGIN_SEMVER}/g" "${TMP_DIR}/plugin.json" > "${_tmp_plugin}" && mv "${_tmp_plugin}" "${TMP_DIR}/plugin.json"
 
 generate_nxt_plugin_dispatchers
 
@@ -356,11 +383,17 @@ fi
 
 # Vite writes ZIP next to the plugin staging dir; webpack wrote under DuetWebControl/dist/.
 BUILT_PLUGIN_ZIP=""
-if [[ -f "${TMP_DIR}/${DWC_PLUGIN_ZIP}" ]]; then
-  BUILT_PLUGIN_ZIP="${TMP_DIR}/${DWC_PLUGIN_ZIP}"
-elif [[ -f "${DWC_REPO_PATH}/dist/${DWC_PLUGIN_ZIP}" ]]; then
-  BUILT_PLUGIN_ZIP="${DWC_REPO_PATH}/dist/${DWC_PLUGIN_ZIP}"
-else
+_dwc_zip_names=("${DWC_PLUGIN_ZIP}" "nxt-${BUILD_VERSION}.zip")
+for _zip_name in "${_dwc_zip_names[@]}"; do
+  if [[ -f "${TMP_DIR}/${_zip_name}" ]]; then
+    BUILT_PLUGIN_ZIP="${TMP_DIR}/${_zip_name}"
+    break
+  elif [[ -f "${DWC_REPO_PATH}/dist/${_zip_name}" ]]; then
+    BUILT_PLUGIN_ZIP="${DWC_REPO_PATH}/dist/${_zip_name}"
+    break
+  fi
+done
+if [[ -z "${BUILT_PLUGIN_ZIP}" ]]; then
   # Fallback: any nxt-*.zip produced in staging (version placeholder edge cases).
   shopt -s nullglob
   _candidates=("${TMP_DIR}"/nxt-*.zip "${DWC_REPO_PATH}/dist"/nxt-*.zip)
@@ -397,7 +430,7 @@ DWC_REPO_PATH="${DWC_REPO_PATH}" node "${ROOT}/dist/inject-plugin-dwcfiles.cjs" 
 node "${ROOT}/dist/verify-plugin-zip.mjs" "${WORK_ZIP}"
 
 PLUGIN_DWC_NEED="$(unzip -p "${WORK_ZIP}" plugin.json | jq -r '.dwcVersion')"
-echo "Plugin ZIP requires host DWC version: ${PLUGIN_DWC_NEED} (exact match — see DWC Settings if load fails)"
+echo "Plugin ZIP requires host DWC version prefix: ${PLUGIN_DWC_NEED} (auto-minor — any ${PLUGIN_DWC_NEED}* host; see DWC Settings if load fails)"
 
 if [[ "${DWC_BUILDER}" == "webpack" ]]; then
   echo "Diagnosing plugin chunk host dependencies (webpack)..."

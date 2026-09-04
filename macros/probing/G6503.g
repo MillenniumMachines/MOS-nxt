@@ -1,20 +1,15 @@
-; G6503.g: RECTANGLE BLOCK PROBE
+; G6503.g: RECTANGLE BLOCK PROBE (3-pt perimeter)
 ;
-; Probes all four faces from *outside* the stock: retract to clearance, plunge, probe inward
-; past the nominal face (target = half-dimension ± overtravel *toward* the block interior).
-; First pair (+X/−X) fixes line of action; Y pair jogs to the X-midpoint so both Y touches
-; span the true width. Z retracts between faces to avoid dragging.
+; Probes each of 4 faces from outside with 3 points (near-corner, mid, far-corner).
+; Outside clearance C defaults to 5 mm; edge inset E (corner clearance) defaults to 10 mm.
+; Stay at dive Z along a face; raise to start Z only between faces. CCW from −Y/−X.
 ;
-; Four H-slots → skew + center same as pocket/bore cycles; result written to nxtProbeResults; M6520 if U.
+; Face means → nxtProbeHitXY H0..H3 → skew + center; nxtProbeResults; M6520 if U.
 ;
-; USAGE: G6503 P<index>|U<wcs> W<width> H<height> L<depth> [F<speed>] [R<retries>] [C<clearance>] [O<overtravel>] [T<maxSkewDeg>] [Q<6520mode>]
-;
-;   P: Result index — required if U omitted (measure-only)
-;   U: Target workplace 1..9; storage index = U-1; chain M6520 at end
-;   W,H,L: Width, height, depth — REQUIRED
-;   T,Q: Optional skew limit and M6520 Q rotation policy
+; USAGE: G6503 P|U W H L [F] [R] [C] [O] [E] [T] [Q]
+;   C: Outside face clearance (default 5)
+;   E: Edge inset from assumed corners / corner clearance (default 10)
 
-; Make sure this file is not executed by the secondary motion system
 if { !inputs[state.thisInput].active }
     M99
 
@@ -40,8 +35,12 @@ else
 if { var.pSlot < 0 || var.pSlot >= #global.nxtProbeResults }
     abort { "G6503: Result slot out of range" }
 
-if { !exists(param.W) || !exists(param.H) || !exists(param.L) }
-    abort { "G6503: Width (W), Height (H), and Depth (L) parameters are required" }
+if { !exists(param.W) || param.W == null || param.W <= 0 }
+    abort { "G6503: Width W is required and must be positive" }
+if { !exists(param.H) || param.H == null || param.H <= 0 }
+    abort { "G6503: Height H is required and must be positive" }
+if { !exists(param.L) || param.L == null || param.L <= 0 }
+    abort { "G6503: Depth L is required and must be positive" }
 
 var feedRate = { exists(param.F) ? param.F : null }
 var retries = { exists(param.R) ? param.R : global.nxtProbeInnerSampleCount }
@@ -50,67 +49,147 @@ var blockHeight = { param.H }
 var probeDepth = { param.L }
 var clearance = { exists(param.C) ? param.C : 5.0 }
 var overtravel = { exists(param.O) ? param.O : 2.0 }
+var edgeInset = { 10 }
+if { exists(param.E) && param.E != null && param.E > 0 }
+    set var.edgeInset = { param.E }
 var skewLimit = { exists(param.T) ? param.T : global.nxtProbeMaxSkewDeg }
+var probeId = { global.nxtTouchProbeID }
 
-echo "G6503: Starting rectangle block probe cycle"
+echo "G6503: Starting 3-pt perimeter rectangle block probe"
 
 M5000
 var centerX = { global.nxtAbsPos[0] }
 var centerY = { global.nxtAbsPos[1] }
 var startZ = { global.nxtAbsPos[2] }
+var probeZ = { var.startZ - var.probeDepth }
 
 var halfW = { var.blockWidth / 2 }
 var halfH = { var.blockHeight / 2 }
 
-echo "G6503: Probing rectangular block " ^ var.blockWidth ^ "x" ^ var.blockHeight ^ "mm"
+if { var.halfW <= var.edgeInset || var.halfH <= var.edgeInset }
+    abort { "G6503: Edge inset E must be < half width and half height" }
 
-; +X approach from +X: probe toward -X, target inside past the east face
-echo "G6503: Probing from +X direction"
-var xPlusStart = { var.centerX + var.halfW + var.clearance }
-var xPlusTarget = { var.centerX + var.halfW - var.overtravel }
+var xOutP = { var.centerX + var.halfW + var.clearance }
+var xOutN = { var.centerX - var.halfW - var.clearance }
+var yOutP = { var.centerY + var.halfH + var.clearance }
+var yOutN = { var.centerY - var.halfH - var.clearance }
+var xTgtP = { var.centerX + var.halfW - var.overtravel }
+var xTgtN = { var.centerX - var.halfW + var.overtravel }
+var yTgtP = { var.centerY + var.halfH - var.overtravel }
+var yTgtN = { var.centerY - var.halfH + var.overtravel }
+var xLow = { var.centerX - var.halfW + var.edgeInset }
+var xMid = { var.centerX }
+var xHigh = { var.centerX + var.halfW - var.edgeInset }
+var yLow = { var.centerY - var.halfH + var.edgeInset }
+var yMid = { var.centerY }
+var yHigh = { var.centerY + var.halfH - var.edgeInset }
 
-G6550 X{var.xPlusStart} Y{var.centerY}
-var probeZ = { var.startZ - var.probeDepth }
+echo { "G6503: Block " ^ var.blockWidth ^ "x" ^ var.blockHeight ^ " E=" ^ var.edgeInset }
+
+; Accumulators: face axis sum + along-axis sum (3 hits each)
+var sumYm = 0
+var sumYmAlongX = 0
+var sumXp = 0
+var sumXpAlongY = 0
+var sumYp = 0
+var sumYpAlongX = 0
+var sumXn = 0
+var sumXnAlongY = 0
+
+; --- Face −Y: 3 pts along +X at dive Z ---
+echo "G6503: Face -Y (3 pts along +X)"
+G6550 X{var.xLow} Y{var.yOutN}
 G6550 Z{var.probeZ}
+G6512 Y{var.yTgtN} I{var.probeId} F{var.feedRate} R{var.retries}
+set var.sumYm = { var.sumYm + global.nxtLastProbeResult }
+set var.sumYmAlongX = { var.sumYmAlongX + var.xLow }
+G6550 X{var.xMid} Y{var.yOutN}
+G6512 Y{var.yTgtN} I{var.probeId} F{var.feedRate} R{var.retries}
+set var.sumYm = { var.sumYm + global.nxtLastProbeResult }
+set var.sumYmAlongX = { var.sumYmAlongX + var.xMid }
+G6550 X{var.xHigh} Y{var.yOutN}
+G6512 Y{var.yTgtN} I{var.probeId} F{var.feedRate} R{var.retries}
+set var.sumYm = { var.sumYm + global.nxtLastProbeResult }
+set var.sumYmAlongX = { var.sumYmAlongX + var.xHigh }
 
-G6512 X{var.xPlusTarget} Y{var.centerY} Z{var.probeZ} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H0
+; --- Face +X: 3 pts along +Y ---
+echo "G6503: Face +X (3 pts along +Y)"
+G6550 Z{var.startZ}
+G6550 X{var.xOutP} Y{var.yLow}
+G6550 Z{var.probeZ}
+G6512 X{var.xTgtP} I{var.probeId} F{var.feedRate} R{var.retries}
+set var.sumXp = { var.sumXp + global.nxtLastProbeResult }
+set var.sumXpAlongY = { var.sumXpAlongY + var.yLow }
+G6550 X{var.xOutP} Y{var.yMid}
+G6512 X{var.xTgtP} I{var.probeId} F{var.feedRate} R{var.retries}
+set var.sumXp = { var.sumXp + global.nxtLastProbeResult }
+set var.sumXpAlongY = { var.sumXpAlongY + var.yMid }
+G6550 X{var.xOutP} Y{var.yHigh}
+G6512 X{var.xTgtP} I{var.probeId} F{var.feedRate} R{var.retries}
+set var.sumXp = { var.sumXp + global.nxtLastProbeResult }
+set var.sumXpAlongY = { var.sumXpAlongY + var.yHigh }
+
+; --- Face +Y: 3 pts along −X ---
+echo "G6503: Face +Y (3 pts along -X)"
+G6550 Z{var.startZ}
+G6550 X{var.xHigh} Y{var.yOutP}
+G6550 Z{var.probeZ}
+G6512 Y{var.yTgtP} I{var.probeId} F{var.feedRate} R{var.retries}
+set var.sumYp = { var.sumYp + global.nxtLastProbeResult }
+set var.sumYpAlongX = { var.sumYpAlongX + var.xHigh }
+G6550 X{var.xMid} Y{var.yOutP}
+G6512 Y{var.yTgtP} I{var.probeId} F{var.feedRate} R{var.retries}
+set var.sumYp = { var.sumYp + global.nxtLastProbeResult }
+set var.sumYpAlongX = { var.sumYpAlongX + var.xMid }
+G6550 X{var.xLow} Y{var.yOutP}
+G6512 Y{var.yTgtP} I{var.probeId} F{var.feedRate} R{var.retries}
+set var.sumYp = { var.sumYp + global.nxtLastProbeResult }
+set var.sumYpAlongX = { var.sumYpAlongX + var.xLow }
+
+; --- Face −X: 3 pts along −Y ---
+echo "G6503: Face -X (3 pts along -Y)"
+G6550 Z{var.startZ}
+G6550 X{var.xOutN} Y{var.yHigh}
+G6550 Z{var.probeZ}
+G6512 X{var.xTgtN} I{var.probeId} F{var.feedRate} R{var.retries}
+set var.sumXn = { var.sumXn + global.nxtLastProbeResult }
+set var.sumXnAlongY = { var.sumXnAlongY + var.yHigh }
+G6550 X{var.xOutN} Y{var.yMid}
+G6512 X{var.xTgtN} I{var.probeId} F{var.feedRate} R{var.retries}
+set var.sumXn = { var.sumXn + global.nxtLastProbeResult }
+set var.sumXnAlongY = { var.sumXnAlongY + var.yMid }
+G6550 X{var.xOutN} Y{var.yLow}
+G6512 X{var.xTgtN} I{var.probeId} F{var.feedRate} R{var.retries}
+set var.sumXn = { var.sumXn + global.nxtLastProbeResult }
+set var.sumXnAlongY = { var.sumXnAlongY + var.yLow }
+
 G6550 Z{var.startZ}
 
-; -X from left
-echo "G6503: Probing from -X direction"
-var xMinusStart = { var.centerX - var.halfW - var.clearance }
-var xMinusTarget = { var.centerX - var.halfW + var.overtravel }
+var faceXp = { var.sumXp / 3 }
+var faceXn = { var.sumXn / 3 }
+var faceYp = { var.sumYp / 3 }
+var faceYm = { var.sumYm / 3 }
+var alongYp = { var.sumXpAlongY / 3 }
+var alongYn = { var.sumXnAlongY / 3 }
+var alongXp = { var.sumYpAlongX / 3 }
+var alongXm = { var.sumYmAlongX / 3 }
 
-G6550 X{var.xMinusStart} Y{var.centerY}
-G6550 Z{var.probeZ}
+; Representative H0..H3 for existing chord / skew math
+if { !exists(global.nxtProbeHitXY) }
+    global nxtProbeHitXY = { vector(8, 0.0) }
+elif { global.nxtProbeHitXY == null }
+    set global.nxtProbeHitXY = { vector(8, 0.0) }
+elif { #global.nxtProbeHitXY < 8 }
+    set global.nxtProbeHitXY = { vector(8, 0.0) }
 
-G6512 X{var.xMinusTarget} Y{var.centerY} Z{var.probeZ} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H1
-G6550 Z{var.startZ}
-
-; X center from ±X chord only (Y probes then run at this X)
-var calculatedCenterX = { (global.nxtProbeHitXY[0] + global.nxtProbeHitXY[2]) / 2 }
-
-; +Y from +Y
-echo "G6503: Probing from +Y direction"
-var yPlusStart = { var.centerY + var.halfH + var.clearance }
-var yPlusTarget = { var.centerY + var.halfH - var.overtravel }
-
-G6550 X{var.calculatedCenterX} Y{var.yPlusStart}
-G6550 Z{var.probeZ}
-
-G6512 X{var.calculatedCenterX} Y{var.yPlusTarget} Z{var.probeZ} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H2
-G6550 Z{var.startZ}
-
-; -Y
-echo "G6503: Probing from -Y direction"
-var yMinusStart = { var.centerY - var.halfH - var.clearance }
-var yMinusTarget = { var.centerY - var.halfH + var.overtravel }
-
-G6550 X{var.calculatedCenterX} Y{var.yMinusStart}
-G6550 Z{var.probeZ}
-
-G6512 X{var.calculatedCenterX} Y{var.yMinusTarget} Z{var.probeZ} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H3
-G6550 Z{var.startZ}
+set global.nxtProbeHitXY[0] = { var.faceXp }
+set global.nxtProbeHitXY[1] = { var.alongYp }
+set global.nxtProbeHitXY[2] = { var.faceXn }
+set global.nxtProbeHitXY[3] = { var.alongYn }
+set global.nxtProbeHitXY[4] = { var.alongXp }
+set global.nxtProbeHitXY[5] = { var.faceYp }
+set global.nxtProbeHitXY[6] = { var.alongXm }
+set global.nxtProbeHitXY[7] = { var.faceYm }
 
 var xPx = { global.nxtProbeHitXY[0] }
 var xPy = { global.nxtProbeHitXY[1] }
@@ -128,6 +207,10 @@ var wy = { var.yPy - var.yMy }
 
 var thetaRad = { atan2(var.vy, var.vx) }
 var thetaDeg = { var.thetaRad * 180 / pi }
+if { var.thetaDeg > 90 }
+    set var.thetaDeg = { var.thetaDeg - 180 }
+elif { var.thetaDeg <= -90 }
+    set var.thetaDeg = { var.thetaDeg + 180 }
 
 if { abs(var.thetaDeg) > var.skewLimit }
     abort { "G6503: |skew| " ^ var.thetaDeg ^ " deg exceeds limit " ^ var.skewLimit }
@@ -136,12 +219,11 @@ var m1x = { (var.xPx + var.xMx) / 2 }
 var m1y = { (var.xPy + var.xMy) / 2 }
 var m2x = { (var.yPx + var.yMx) / 2 }
 var m2y = { (var.yPy + var.yMy) / 2 }
-; Intersection of the two chord midlines — robust when stock is slightly skewed vs machine
 var solvedCx = { (var.m1x + var.m2x) / 2 }
 var solvedCy = { (var.m1y + var.m2y) / 2 }
 
-var actualWidth = { abs(var.vx) }
-var actualHeight = { abs(var.wy) }
+var actualWidth = { sqrt(var.vx * var.vx + var.vy * var.vy) }
+var actualHeight = { sqrt(var.wx * var.wx + var.wy * var.wy) }
 
 if { global.nxtProbeResults[var.pSlot] == null || #global.nxtProbeResults[var.pSlot] < 3 }
     set global.nxtProbeResults[var.pSlot] = { vector(#move.axes + 1, 0.0) }
@@ -151,9 +233,8 @@ set global.nxtProbeResults[var.pSlot][1] = { var.solvedCy }
 set global.nxtProbeResults[var.pSlot][#move.axes] = { var.thetaDeg }
 
 G6550 X{var.solvedCx} Y{var.solvedCy}
-G27 Z1
 
-echo "G6503: Rectangle block probe completed"
+echo "G6503: Rectangle block probe completed (12 pts)"
 echo "G6503: Block center at X=" ^ var.solvedCx ^ " Y=" ^ var.solvedCy
 echo "G6503: Approx skew: " ^ var.thetaDeg ^ " deg"
 echo "G6503: Measured dimensions: " ^ var.actualWidth ^ "x" ^ var.actualHeight ^ "mm"
@@ -161,6 +242,6 @@ echo "G6503: Result logged to table index " ^ var.pSlot
 
 if { exists(param.U) && param.U != null }
     if { exists(param.Q) && param.Q != null }
-        M98 P"M6520.g" P{var.pSlot} W{param.U} X Y T{var.skewLimit} Q{param.Q}
+        M6520 P{var.pSlot} W{param.U} X1 Y1 T{var.skewLimit} Q{param.Q}
     else
-        M98 P"M6520.g" P{var.pSlot} W{param.U} X Y T{var.skewLimit}
+        M6520 P{var.pSlot} W{param.U} X1 Y1 T{var.skewLimit}

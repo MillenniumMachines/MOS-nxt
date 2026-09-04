@@ -13,3 +13,13 @@ dwc-build/
 
 # Local-only agent tooling (not part of the repository)
 ai-coding-cache/
+
+# Jarvis MCP (machine-local paths; keep product .cursor/rules/ tracked)
+.cursor/mcp.json
+.cursor/hooks.json
+.cursor/rules/jarvis-mcp-rl.mdc
+
+# Local agent plans / skills (keep product .cursor/rules/ tracked)
+.cursor/plans/
+.cursor/skills/
+
