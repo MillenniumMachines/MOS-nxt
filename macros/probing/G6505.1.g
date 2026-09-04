@@ -1,45 +1,31 @@
-; G6504.1.g: POCKET - EXECUTE
+; G6505.1.g: GUIDED POCKET PROBE
 ;
-; Probe the X or Y edges of a pocket (protruding feature). This works the same
-; as a rectangle block probe, but only probes the X or Y edges of the feature.
-
+; Meta macro to gather operator input, then run modern G6505
+; (two inward pocket probes → nxtProbeResults + M6520 via U).
 
 ; Make sure this file is not executed by the secondary motion system
 if { !inputs[state.thisInput].active }
     M99
 
-M98 P"nxt-wp-ensure.g"
+; Display description of pocket probe if not already displayed this session
+if { global.nxtTutorialMode && !global.nxtDialogDisplayed[6] }
+    var nxtM291Msg1 = "This probe cycle finds the X or Y co-ordinates of the midpoint of a pocket (recessed feature) on a workpiece by probing towards the pocket surfaces from the midpoint."
+    M291 P{var.nxtM291Msg1} R"nxt: Probe Pocket " T0 S2
+    M291 P"You will be asked to enter an approximate <b>width</b> and optionally <b>length</b> of the pocket, and a <b>clearance distance</b>." R"nxt: Probe Pocket" T0 S2
+    M291 P"These define how far the probe will move away from the center point before starting to probe towards the relevant surfaces." R"nxt: Probe Pocket" T0 S2
+    var nxtM291Msg2a = "You will then jog the tool over the approximate midpoint of the pocket.<br/>"
+    var nxtM291Msg2b = { var.nxtM291Msg2a ^ "<b>CAUTION</b>: Jogging in RRF does not watch the probe status, so you could cause damage if moving in the wrong direction!" }
+    M291 P{var.nxtM291Msg2b} R"nxt: Probe Pocket" T0 S2
+    M291 P"Finally, you will be asked for a <b>probe depth</b>. This is how far the probe will move downwards into the pocket before probing the surfaces." R"nxt: Probe Pocket" T0 S2
+    var nxtM291Msg3 = "If you are still unsure, you can <a target=""_blank"" href=""https://mos.diycnc.xyz/usage/pocket-xy"">View the Pocket Documentation</a> for more details."
+    M291 P{var.nxtM291Msg3} R"nxt: Probe Pocket" T0 S4 K{"Continue", "Cancel"} F0
+    if { input != 0 }
+        abort { "Pocket probe aborted!" }
+    set global.nxtDialogDisplayed[6] = true
 
-if { exists(param.W) && param.W != null && (param.W < 0 || param.W >= limits.workplaces) }
-    abort { "Work Offset (W..) must be between 0 and " ^ limits.workplaces-1 ^ "!" }
-
-if { !exists(param.J) || !exists(param.K) || !exists(param.L) }
-    abort { "Must provide a start position to probe from using J, K and L parameters!" }
-
-if { !exists(param.Z) }
-    abort { "Must provide a probe position using the Z parameter!" }
-
-if { !exists(param.N) || param.N == null || param.N < 0 || param.N > 1 }
-    abort { "Must provide an axis to probe (N...), X=0, Y=1" }
-
-if { !exists(param.H) }
-    abort { "Must provide an approximate pocket width using the H parameter!" }
-
-if { exists(param.T) && param.T != null && param.T <= 0 }
-    abort { "Surface clearance distance must be greater than 0!" }
-
-if { exists(param.O) && param.O != null && param.O <= 0 }
-    abort { "Overtravel distance must be greater than 0!" }
-
-; Probe mode defaults to (0=Full)
-var pFull = { exists(param.Q) ? param.Q == 0: false }
-
-if { var.pFull }
-    if { !exists(param.I) }
-        abort { "Must provide an approximate pocket length using the I parameter!" }
-
-    if { exists(param.C) && param.C != null && param.C <= 0 }
-        abort { "Edge clearance distance must be greater than 0!" }
+; Make sure probe tool is selected
+if { global.nxtProbeToolID != state.currentTool }
+    T T{global.nxtProbeToolID}
 
 ; Default workOffset to the current workplace number if not specified
 ; with the W parameter.
@@ -47,210 +33,127 @@ var workOffset = { move.motionSystems[0].workplaceNumber }
 if { exists(param.W) && param.W != null }
     set var.workOffset = { param.W }
 
+
 ; WCS Numbers and Offsets are confusing. Work Offset indicates the offset
 ; from the first work co-ordinate system, so is 0-indexed. WCS number indicates
 ; the number of the work co-ordinate system, so is 1-indexed.
 var wcsNumber = { var.workOffset + 1 }
 
-; Increment the probe surface and point totals for status reporting
-; If full mode is enabled, we probe at 2 points on each surface.
-set global.nxtProbeSurfaceTotal = { global.nxtProbeSurfaceTotal + 2 }
-set global.nxtProbePointTotal = { global.nxtProbePointTotal + (var.pFull ? 4 : 2) }
+var nxtM291Msg4 = {"Please select the probing mode to use.<br/><b>Full</b> will probe 2 points on each surface of the pocket, while <b>Quick</b> will probe only 1 point."}
+M291 P{var.nxtM291Msg4} R"nxt: Pocket" J2 T0 S4 K{"Full","Quick"} F0
+if { result != 0 }
+    abort { "Pocket probe aborted!" }
 
-var pID = { global.nxtFeatureTouchProbe ? global.nxtTouchProbeID : null }
+var mode = { input }
 
-; Make sure probe tool is selected
-if { global.nxtProbeToolID != state.currentTool }
-    abort { "Must run T" ^ global.nxtProbeToolID ^ " to select the probe tool before probing!" }
+var nxtPktOrientA = "Please select the orientation of the pocket.<br/><b>X</b> probes 2 surfaces forming the pocket perpendicular to the X axis, "
+var nxtPktOrientB = { var.nxtPktOrientA ^ "<b>Y</b> probes 2 surfaces perpendicular to the Y axis." }
+M291 P{var.nxtPktOrientB} R"nxt: Pocket" J2 T0 S4 K{"X","Y"}
+if { result != 0 }
+    abort { "Pocket probe aborted!" }
 
-; Reset stored values that we're going to overwrite -
-; center, dimensions and rotation
-M5010 W{var.workOffset} R49
+var axis = { input }
+var pocketLetter = { (var.axis == 0) ? "X" : "Y" }
+var lengthLetter = { (var.axis == 0) ? "Y" : "X" }
 
-; Store our own safe Z position as the given L parameter.
-var safeZ = { param.L }
+var bW = { 100 }
+if { exists(global.nxtWPDims) && global.nxtWPDims != null }
+    if { var.workOffset < #global.nxtWPDims }
+        if { global.nxtWPDims[var.workOffset] != null && global.nxtWPDims[var.workOffset][0] != null }
+            set var.bW = { global.nxtWPDims[var.workOffset][0] }
 
-; J = start position X
-; K = start position Y
-; L = start position Z
-; Z = our probe height (absolute)
-; H = approximate width of the pocket
-; I = approximate length of the pocket (in full mode)
+M291 P{"Please enter approximate <b>pocket width</b> in mm.<br/><b>NOTE</b>: <b>Width</b> is measured along the <b>" ^ var.pocketLetter ^ " axis."} R"nxt: Probe Pocket" J1 T0 S6 F{var.bW}
+if { result != 0 }
+    abort { "Pocket probe aborted!" }
 
-; Approximate center of pocket
-var sX   = { param.J }
-var sY   = { param.K }
+var pocketWidth = { input }
 
-; Pocket dimensions.
-var fW   = { param.H }
-var fL   = { (var.pFull) ? param.I : 0 }
+if { var.pocketWidth < 1 }
+    abort { "Pocket width too low!" }
 
-; Half of the dimension of the pocket
-var hW   = { var.fW/2 }
-var hL   = { var.fL/2 }
+var pocketLength = { null }
 
-; Tool Radius is the first entry for each value in
-; our extended tool table.
+; 0 = Full mode, 1 = Quick mode
+; Only prompt for length if in full mode
+if { var.mode == 0 }
+    var bL = { 100 }
+    if { exists(global.nxtWPDims) && global.nxtWPDims != null }
+        if { var.workOffset < #global.nxtWPDims }
+            if { global.nxtWPDims[var.workOffset] != null && global.nxtWPDims[var.workOffset][1] != null }
+                set var.bL = { global.nxtWPDims[var.workOffset][1] }
 
-; Apply tool radius to surface clearance. We want to
-; make sure the surface of the tool and the workpiece
-; are the clearance distance apart, rather than less
-; than that.
-var surfaceClearance = { ((!exists(param.T) || param.T == null) ? global.nxtClearance : param.T) + ((state.currentTool < #tools && state.currentTool >= 0) ? global.nxtTT[state.currentTool][0] : 0) }
+    M291 P{"Please enter approximate <b>pocket length</b> in mm.<br/><b>NOTE</b>: <b>Length</b> is measured along the <b>" ^ var.lengthLetter ^ "</b> axis."} R"nxt: Probe Pocket" J1 T0 S6 F{var.bL}
+    if { result != 0 }
+        abort { "Pocket probe aborted!" }
 
-; Default edge clearance to the normal clearance
-; distance, but allow it to be overridden if necessary.
-var edgeClearance = { var.pFull ? ((!exists(param.C) || param.C == null) ? ((!exists(param.T) || param.T == null) ? global.nxtClearance : param.T) : param.C): 0 }
+    set var.pocketLength = { input }
 
-; Apply tool radius to overtravel. We want to allow
-; less movement past the expected point of contact
-; with the surface based on the tool radius.
-; For big tools and low overtravel values, this value
-; might end up being negative. This is fine, as long
-; as the configured tool radius is accurate.
-var overtravel = { (exists(param.O) ? param.O : global.nxtOvertravel) - ((state.currentTool < #tools && state.currentTool >= 0) ? global.nxtTT[state.currentTool][0] : 0) }
+    if { var.pocketLength < 1 }
+        abort { "Pocket length too low!" }
 
-; Check that 2 times the clearance distance isn't
-; higher than the length of the pocket.
-if { var.pFull && var.edgeClearance >= var.hL }
-    abort { "Edge clearance distance is more than half of the length of the pocket! Cannot probe." }
+; Prompt for clearance distance
+var nxtM291Msg6 = "Please enter <b>clearance</b> distance in mm.<br/>This is how far away from the expected surfaces and corners we probe from, to account for any innaccuracy in the start position."
+M291 P{var.nxtM291Msg6} R"nxt: Probe Pocket" J1 T0 S6 F{global.nxtClearance}
+if { result != 0 }
+    abort { "Pocket probe aborted!" }
 
-; The overtravel distance does not have the same
-; requirement, as it is only used to adjust the
-; probe target towards or away from the target
-; surface rather.
+var surfaceClearance = { input }
 
-; Calculate the probe positions for the surfaces
-var points = { vector(2 - (var.pFull ? 0 : 1), {{null, null, param.Z}, {null, null, param.Z}}) }
+if { var.surfaceClearance <= 0.1 }
+    abort { "Clearance distance too low!" }
 
-var surface1 = { var.points }
-var surface2 = { var.points }
+var edgeClearance = null
 
-; var.edgeClearance and var.hL will be zero if quick mode
-; is enabled.
+; 0 = Full mode, 1 = Quick mode
+; Only check for edge clearance if in full mode
+if { var.mode == 0 }
+    ; Calculate the maximum clearance distance we can use before
+    ; the probe points will be flipped
+    var mC = { min(var.pocketWidth, var.pocketLength) / 2 }
 
-; Determine direction multipliers based on param.N
-var dirX = { (param.N == 0) ? 1 : -1 }
-var dirY = { (param.N == 0) ? -1 : 1 }
+    if { var.surfaceClearance >= var.mC }
+        var defCC = { max(1, var.mC-1) }
+        var nxtM291Msg7 = {"The <b>clearance</b> distance is more than half of the length of the pocket.<br/>Please enter an <b>edge clearance</b> distance less than <b>" ^ var.mC ^ "</b>."}
+        M291 P{var.nxtM291Msg7} R"nxt: Probe Pocket" J1 T0 S6 F{var.defCC}
+        set var.edgeClearance = { input }
+        if { var.edgeClearance >= var.mC }
+            abort { "Edge clearance distance too high!" }
 
-; Add initial probe points
-if { param.N == 0 }
-    ; sX = 266.393 sY = 77.755 hW = (76.2/2) hL = (50.8/2)
-    ; N = 0
-    set var.surface1[0][0][0] = { var.sX - var.dirX * (var.hW - var.surfaceClearance) }
-    set var.surface1[0][1][0] = { var.sX - var.dirX * (var.hW + var.overtravel) }
-    set var.surface1[0][0][1] = { var.sY + var.dirY * (var.hL - var.edgeClearance) }
-    set var.surface1[0][1][1] = { var.sY + var.dirY * (var.hL - var.edgeClearance) }
+; Prompt for overtravel distance
+var nxtM291Msg8 = "Please enter <b>overtravel</b> distance in mm.<br/>This is how far we move past the expected surfaces to account for any innaccuracy in the dimensions."
+M291 P{var.nxtM291Msg8} R"nxt: Probe Pocket" J1 T0 S6 F{global.nxtOvertravel}
+if { result != 0 }
+    abort { "Pocket probe aborted!" }
 
-    set var.surface2[0][0][0] = { var.sX + var.dirX * (var.hW - var.surfaceClearance) }
-    set var.surface2[0][1][0] = { var.sX + var.dirX * (var.hW + var.overtravel) }
-    set var.surface2[0][0][1] = { var.sY - var.dirY * (var.hL - var.edgeClearance) }
-    set var.surface2[0][1][1] = { var.sY - var.dirY * (var.hL - var.edgeClearance) }
-else
-    set var.surface1[0][0][0] = { var.sX - var.dirX * (var.hL - var.edgeClearance) }
-    set var.surface1[0][1][0] = { var.sX - var.dirX * (var.hL - var.edgeClearance) }
-    set var.surface1[0][0][1] = { var.sY - var.dirY * (var.hW - var.surfaceClearance) }
-    set var.surface1[0][1][1] = { var.sY - var.dirY * (var.hW + var.overtravel) }
+var overtravel = { input }
+if { var.overtravel < 0.1 }
+    abort { "Overtravel distance too low!" }
 
-    set var.surface2[0][0][0] = { var.sX + var.dirX * (var.hL - var.edgeClearance) }
-    set var.surface2[0][1][0] = { var.sX + var.dirX * (var.hL - var.edgeClearance) }
-    set var.surface2[0][0][1] = { var.sY + var.dirY * (var.hW - var.surfaceClearance) }
-    set var.surface2[0][1][1] = { var.sY + var.dirY * (var.hW + var.overtravel) }
+var nxtM291Msg9a = "Please jog the probe <b>OVER</b> the approximate midpoint of the pocket and press <b>OK</b>.<br/>"
+var nxtM291Msg9b = { var.nxtM291Msg9a ^ "<b>CAUTION</b>: The chosen height of the probe is assumed to be safe for horizontal moves!" }
+M291 P{var.nxtM291Msg9b} R"nxt: Probe Pocket" X1 Y1 Z1 J1 T0 S3
+if { result != 0 }
+    abort { "Pocket probe aborted!" }
 
-; Add secondary probe points if full mode is enabled
-if { var.pFull }
-    if { param.N == 0 }
-        set var.surface1[1][0][0] = { var.surface1[0][0][0] }
-        set var.surface1[1][1][0] = { var.surface1[0][1][0] }
-        set var.surface1[1][0][1] = { var.sY - var.dirY * (var.hL - var.edgeClearance) }
-        set var.surface1[1][1][1] = { var.sY - var.dirY * (var.hL - var.edgeClearance) }
+var nxtM291Msg10 = "Please enter the depth to probe at in mm, relative to the current location. A value of 10 will move the probe downwards 10mm before probing inwards."
+M291 P{var.nxtM291Msg10} R"nxt: Probe Pocket" J1 T0 S6 F{global.nxtOvertravel}
+if { result != 0 }
+    abort { "Pocket probe aborted!" }
 
-        set var.surface2[1][0][0] = { var.surface2[0][0][0] }
-        set var.surface2[1][1][0] = { var.surface2[0][1][0] }
-        set var.surface2[1][0][1] = { var.sY + var.dirY * (var.hL - var.edgeClearance) }
-        set var.surface2[1][1][1] = { var.sY + var.dirY * (var.hL - var.edgeClearance) }
-    else
-        set var.surface1[1][0][0] = { var.sX + var.dirX * (var.hL - var.edgeClearance) }
-        set var.surface1[1][1][0] = { var.sX + var.dirX * (var.hL - var.edgeClearance) }
-        set var.surface1[1][0][1] = { var.surface1[0][0][1] }
-        set var.surface1[1][1][1] = { var.surface1[0][1][1] }
+var probingDepth = { input }
 
-        set var.surface2[1][0][0] = { var.sX - var.dirX * (var.hL - var.edgeClearance) }
-        set var.surface2[1][1][0] = { var.sX - var.dirX * (var.hL - var.edgeClearance) }
-        set var.surface2[1][0][1] = { var.surface2[0][0][1] }
-        set var.surface2[1][1][1] = { var.surface2[0][1][1] }
+if { var.probingDepth < 0 }
+    abort { "Probing depth was negative!" }
 
-; Move down into the pocket
-G6550 I{var.pID} Z{param.Z}
+; Run the pocket probe cycle
+if { global.nxtTutorialMode }
+    M291 P{"Probe will now move outside each surface and down by " ^ var.probingDepth ^ "mm, before probing towards the midpoint."} R"nxt: Probe Pocket" T0 S4 K{"Continue", "Cancel"} F0
+    if { input != 0 }
+        abort { "Pocket probe aborted!" }
 
-; Probe the 2 surfaces
-; Do not retract between surfaces or individual points
-G6513 I{var.pID} D1 H1 P{var.surface1, var.surface2} S{var.safeZ}
+var nxtClr = { var.surfaceClearance }
+if { var.edgeClearance != null }
+    set var.nxtClr = { var.edgeClearance }
 
-var pSfc = { global.nxtAbsPos }
-
-; If running in quick mode, the pocket center is the midpoint
-; of the 2 points we probed.
-if { !var.pFull }
-    ; Set the midpoint on the relevant axis
-    set global.nxtWPCtrPos[var.workOffset][param.N] = { (var.pSfc[0][0][0][param.N] + var.pSfc[1][0][0][param.N]) / 2 }
-
-    ; Calculate the actual probed dimension of the pocket
-    set global.nxtWPDims[var.workOffset][param.N] = { abs(var.pSfc[0][0][0][param.N] - var.pSfc[1][0][0][param.N]) }
-
-else
-    ; Angle difference in radians
-    var rAngleDiff = { abs(mod(var.pSfc[0][2] - var.pSfc[1][2], pi)) }
-
-    ; Normalise the angle difference to be between 0 and 90 degrees
-    if { var.rAngleDiff > pi/2 }
-        set var.rAngleDiff = { pi - var.rAngleDiff }
-
-    ; Make sure surfaces are suitably parallel
-    if { degrees(var.rAngleDiff) > global.nxtProbeAngleTol }
-        abort { "Pocket surfaces are not parallel (" ^ degrees(var.rAngleDiff) ^ " > " ^ global.nxtProbeAngleTol ^ ") - this pocket does not appear to be parallel." }
-
-    set global.nxtWPCtrPos[var.workOffset][param.N] = { (var.pSfc[0][0][0][param.N] + var.pSfc[0][0][1][param.N] + var.pSfc[1][0][0][param.N] + var.pSfc[1][0][1][param.N]) / 4 }
-
-
-    ; We can now calculate the dimensions of the pocket
-    ; The dimensions are the difference between the average of each
-    ; pair of points of each line.
-    set global.nxtWPDims[var.workOffset][param.N] = { abs((var.pSfc[0][0][0][param.N] + var.pSfc[0][0][1][param.N]) / 2 - (var.pSfc[1][0][0][param.N] + var.pSfc[1][0][1][param.N]) / 2) }
-
-    ; Calculate the rotation of the pocket.
-    ; After the checks above, we know the pocket has parallel
-    ; surfaces, so we can assume that the angle of the first
-    ; surface is the angle of the pocket.
-    ; We need to normalise this to between 0 and 45 degrees.
-    var aR = { (param.N == 0) ? var.pSfc[0][2] - (pi/2) : var.pSfc[0][2] }
-
-    ; Reduce the angle to below +/- 45 degrees (pi/4 radians)
-    while { var.aR > pi/4 || var.aR < -pi/4 }
-        if { var.aR > pi/4 }
-            set var.aR = { var.aR - pi/2 }
-        elif { var.aR < -pi/4 }
-            set var.aR = { var.aR + pi/2 }
-
-    set global.nxtWPDeg[var.workOffset] = { degrees(var.aR) }
-
-; Move to the calculated center of the pocket, at the original
-; start position in the other axis.
-var cX = { (param.N == 0) ? global.nxtWPCtrPos[var.workOffset][0] : var.sX }
-var cY = { (param.N == 1) ? global.nxtWPCtrPos[var.workOffset][1] : var.sY }
-
-G6550 I{var.pID} X{(param.N == 0) ? var.cX : var.sX} Y{(param.N == 1) ? var.cY : var.sY}
-
-; Retract to the save Z height.
-G6550 I{var.pID} Z{var.safeZ}
-
-; Report probe results if requested
-if { !exists(param.R) || param.R != 0 }
-    M7601 W{var.workOffset}
-    echo { "nxt: Setting WCS " ^ var.wcsNumber ^ " " ^ (param.N == 0 ? "X" : "Y") ^ " origin to pocket center." }
-
-; Set WCS origin to the probed center
-if { param.N == 0 }
-    G10 L2 P{var.wcsNumber} X{ var.cX }
-elif { param.N == 1 }
-    G10 L2 P{var.wcsNumber} Y{ var.cY }
+; Operator is already at approx midpoint — G6505 uses current pose
+G6505 U{var.wcsNumber} N{var.axis} W{var.pocketWidth} L{var.probingDepth} C{var.nxtClr} O{var.overtravel}

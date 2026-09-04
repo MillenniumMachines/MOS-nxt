@@ -1,39 +1,40 @@
-; G6508.1.g: OUTSIDE CORNER PROBE - EXECUTE
+; G6508.1.g: GUIDED OUTSIDE CORNER PROBE
 ;
-; Probe an outside corner of a workpiece, set target WCS X and Y
-; co-ordinates to the probed corner, if requested.
+; Meta macro to gather operator input, then run modern G6508
+; (adaptive corner faces → nxtProbeResults + M6520 via U).
 
 ; Make sure this file is not executed by the secondary motion system
 if { !inputs[state.thisInput].active }
     M99
 
-M98 P"nxt-wp-ensure.g"
-M98 P"nxt-wp-ensure-cnr.g"
+; Display description of rectangle block probe if not already displayed this session
+if { global.nxtTutorialMode && !global.nxtDialogDisplayed[10] }
+    M291 P"This probe cycle finds the X and Y co-ordinates of the corner of a rectangular workpiece by probing along the 2 edges that form the corner." R"nxt: Probe Outside Corner " T0 S2
+    var nxtM291Msg1 = "In <b>Full</b> mode, this cycle will take 2 probe points on each edge, allowing us to calculate the position and angle of the corner and the rotation of the workpiece."
+    M291 P{var.nxtM291Msg1} R"nxt: Probe Outside Corner" T0 S2
+    M291 P"You will be asked to enter an approximate <b>surface length</b> for the surfaces forming the corner, to calculate the 4 probe locations." R"nxt: Probe Outside Corner" T0 S2
+    var nxtM291Msg2a = "In <b>Quick</b> mode, this cycle will take 1 probe point on each edge, assuming the corner is square and the workpiece is aligned with the table, "
+    var nxtM291Msg2b = { var.nxtM291Msg2a ^ "and will return the extrapolated position of the corner." }
+    M291 P{var.nxtM291Msg2b} R"nxt: Probe Outside Corner" T0 S2
+    M291 P"For both modes, you will be asked to enter a <b>clearance distance</b> and an <b>overtravel distance</b>." R"nxt: Probe Outside Corner" T0 S2
+    var nxtM291Msg3a = "These define how far the probe will move along the surfaces from the corner location before probing, "
+    var nxtM291Msg3b = { var.nxtM291Msg3a ^ "and how far past the expected surface the probe can move before erroring when not triggered." }
+    M291 P{var.nxtM291Msg3b} R"nxt: Probe Outside Corner" T0 S2
+    var nxtM291Msg4a = "You will then jog the tool over the corner to be probed.<br/>"
+    var nxtM291Msg4b = { var.nxtM291Msg4a ^ "<b>CAUTION</b>: Jogging in RRF does not watch the probe status, so you could cause damage if moving in the wrong direction!" }
+    M291 P{var.nxtM291Msg4b} R"nxt: Probe Outside Corner" T0 S2
+    M291 P"Finally, you will be asked to select the corner that is being probed, and the depth below the top surface to probe the corner surfaces at, in mm." R"nxt: Probe Outside Corner" S2
+    var nxtM291Msg5 = "If you are still unsure, you can <a target=""_blank"" href=""https://mos.diycnc.xyz/usage/outside-corner"">View the Outside Corner Documentation</a> for more details."
+    M291 P{var.nxtM291Msg5} R"nxt: Probe Outside Corner" T0 S4 K{"Continue", "Cancel"} F0
+    if { input != 0 }
+        abort { "Outside corner probe aborted!" }
+    set global.nxtDialogDisplayed[10] = true
 
-if { exists(param.W) && param.W != null && (param.W < 0 || param.W >= limits.workplaces) }
-    abort { "Work Offset (W..) must be between 0 and " ^ limits.workplaces-1 ^ "!" }
+; Make sure probe tool is selected
+if { global.nxtProbeToolID != state.currentTool }
+    T T{global.nxtProbeToolID}
 
-if { !exists(param.J) || !exists(param.K) || !exists(param.L) }
-    abort { "Must provide a start position to probe from using J, K and L parameters!" }
-
-if { !exists(param.Z) }
-    abort { "Must provide a probe position using the Z parameter!" }
-
-if { (!exists(param.Q) || param.Q == 0) && (!exists(param.H) || !exists(param.I) || param.H == null || param.I == null) }
-    abort { "Must provide an approximate X length and Y length using H and I parameters when using full probe, Q0!" }
-
-; Maximum of 4 corners (0..3)
-if { !exists(param.N) || param.N == null || param.N < 0 || param.N > 3 }
-    abort { "Must provide a valid corner index (N..)!" }
-
-if { exists(param.T) && param.T != null && param.T <= 0 }
-    abort { "Surface clearance distance must be greater than 0!" }
-
-if { exists(param.C) && param.C != null && param.C <= 0 }
-    abort { "Corner clearance distance must be greater than 0!" }
-
-if { exists(param.O) && param.O != null && param.O <= 0 }
-    abort { "Overtravel distance must be greater than 0!" }
+var tR = { global.nxtTT[state.currentTool][0]}
 
 ; Default workOffset to the current workplace number if not specified
 ; with the W parameter.
@@ -41,333 +42,131 @@ var workOffset = { move.motionSystems[0].workplaceNumber }
 if { exists(param.W) && param.W != null }
     set var.workOffset = { param.W }
 
+
 ; WCS Numbers and Offsets are confusing. Work Offset indicates the offset
 ; from the first work co-ordinate system, so is 0-indexed. WCS number indicates
 ; the number of the work co-ordinate system, so is 1-indexed.
 var wcsNumber = { var.workOffset + 1 }
 
-; Probe ID
-var pID = { global.nxtFeatureTouchProbe ? global.nxtTouchProbeID : null }
-
-; Probe mode defaults to (0=Full)
-var pFull = { exists(param.Q) ? param.Q == 0: false }
-
-; Increment the probe surface and point totals for status reporting
-set global.nxtProbeSurfaceTotal = { global.nxtProbeSurfaceTotal + (var.pFull ? 2 : 1) }
-set global.nxtProbePointTotal = { global.nxtProbePointTotal + (var.pFull ? 4 : 2) }
-
-; Make sure probe tool is selected
-if { global.nxtProbeToolID != state.currentTool }
-    abort { "Must run T" ^ global.nxtProbeToolID ^ " to select the probe tool before probing!" }
-
-; Reset stored values that we're going to overwrite
-; Reset corner, dimensions and rotation
-M5010 W{var.workOffset} R50
-
-; Store our own safe Z position as the current position. We return to
-; this position where necessary to make moves across the workpiece to
-; the next probe point.
-; We do this _after_ any switch to the touch probe, because while the
-; original position may have been safe with a different tool installed,
-; the touch probe may be longer. After a tool change the spindle
-; will be parked, so essentially our safeZ is at the parking location.
-var safeZ = { param.L }
-
-; Above the corner to be probed
-; J = start position X
-; K = start position Y
-; L = start position Z
-; Z = our probe height (absolute)
-
-var sX   = { param.J }
-var sY   = { param.K }
-
-
-; Length of surfaces on X and Y forming the corner
-; These are null when in quick mode, as using 0 could
-; lead to unintended maths consequences. It is invalid
-; to use these values in quick mode so we should always
-; error out if they are used.
-var fX   = { (var.pFull) ? param.H : null }
-var fY   = { (var.pFull) ? param.I : null }
-
-; Tool Radius is the first entry for each value in
-; our extended tool table.
-
-; Apply tool radius to surface clearance. We want to
-; make sure the surface of the tool and the workpiece
-; are the clearance distance apart, rather than less
-; than that.
-var surfaceClearance = { ((!exists(param.T) || param.T == null) ? global.nxtClearance : param.T) + ((state.currentTool < #tools && state.currentTool >= 0) ? global.nxtTT[state.currentTool][0] : 0) }
-
-; Default corner clearance to the normal clearance
-; distance, but allow it to be overridden if necessary.
-var cornerClearance = { (!exists(param.C) || param.C == null) ? ((!exists(param.T) || param.T == null) ? global.nxtClearance : param.T) : param.C }
-
-; Apply tool radius to overtravel. We want to allow
-; less movement past the expected point of contact
-; with the surface based on the tool radius.
-; For big tools and low overtravel values, this value
-; might end up being negative. This is fine, as long
-; as the configured tool radius is accurate.
-var overtravel = { (exists(param.O) ? param.O : global.nxtOvertravel) - ((state.currentTool < #tools && state.currentTool >= 0) ? global.nxtTT[state.currentTool][0] : 0) }
-
-; Check that the clearance distance isn't
-; higher than the width or height of the block if
-; in full mode.
-; Since we use the clearance distance to choose
-; how far along each surface we should probe from
-; the expected corners, a clearance higher than
-; the width or height would mean we would try to
-; probe off the edge of the block.
-if { var.pFull }
-    if { (var.cornerClearance >= (var.fX/2) || var.cornerClearance >= (var.fY/2)) }
-        abort { "Corner clearance distance is more than half of the length of one or more surfaces forming the corner! Cannot probe." }
-
-; The overtravel distance does not have the same
-; requirement, as it is only used to adjust the
-; probe target towards or away from the target
-; surface rather.
-
-; Y start location (K) direction is dependent on the chosen corner.
-; If this is the front left corner, then our first probe is at
-; var.sY + var.cornerClearance. If it is the back left corner, then our
-; first probe is at var.sY - var.cornerClearance.
-
-; Our second probe is always at the other end of the surface (away
-; from the chosen corner), so we either add or subtract var.fY from
-; the Y start location to get the second probe location.
-; For each probe point: {start x, start y, start z}, {target x, target y, target z}
-; In full mode we have 2 points per surface, otherwise 1.
-var points = { vector(2 - (var.pFull ? 0 : 1), {{null, null, param.Z}, {null, null, param.Z}}) }
-
-var surface1 = { var.points }
-var surface2 = { var.points }
-
-; Assign start and target positions based on direction
-var dirX = { (param.N == 0 || param.N == 3) ? -1 : 1 }
-var dirY = { (param.N == 0 || param.N == 1) ? 1 : -1 }
-
-var startX = { var.sX + var.dirX * var.surfaceClearance }
-var targetX = { var.sX - var.dirX * var.overtravel }
-
-var startY = { var.sY + var.dirY * var.cornerClearance }
-var targetY = { var.sY - var.dirY * var.overtravel }
-
-; Surface 1, Point 1
-set var.surface1[0][0][0] = { var.startX }
-set var.surface1[0][1][0] = { var.targetX }
-set var.surface1[0][0][1] = { var.startY }
-set var.surface1[0][1][1] = { var.startY }
-
-; Surface 1, Point 2
-; Only probe the second X point if we're in full mode
-if { var.pFull }
-    set var.startY = { var.sY + var.dirY * (var.fY - var.cornerClearance) }
-    set var.surface1[1][0][0] = { var.startX }
-    set var.surface1[1][1][0] = { var.targetX }
-    set var.surface1[1][0][1] = { var.startY }
-    set var.surface1[1][1][1] = { var.startY }
-
-; Reverse directions for the second surface
-set var.dirX = { -var.dirX }
-set var.dirY = { -var.dirY }
-
-set var.startX = { var.sX + var.dirX * var.cornerClearance }
-set var.targetX = { var.sX - var.dirX * var.overtravel }
-
-set var.startY = { var.sY + var.dirY * var.surfaceClearance }
-set var.targetY = { var.sY - var.dirY * var.overtravel }
-
-; Surface 2, Point 1
-set var.surface2[0][0][0] = { var.startX }
-set var.surface2[0][1][0] = { var.startX }
-set var.surface2[0][0][1] = { var.startY }
-set var.surface2[0][1][1] = { var.targetY }
-
-; Surface 2, Point 2
-; Only probe the second Y point if we're in full mode
-if { var.pFull }
-    set var.startX = { var.sX + var.dirX * (var.fX - var.cornerClearance) }
-    set var.surface2[1][0][0] = { var.startX }
-    set var.surface2[1][1][0] = { var.startX }
-    set var.surface2[1][0][1] = { var.startY }
-    set var.surface2[1][1][1] = { var.targetY }
-
-; Probe the 2 corner surfaces
-; Retract between each surface but
-; not between each point
-G6513 I{var.pID} D1 H0 P{var.surface1, var.surface2} S{var.safeZ}
-
-var pSfc = { global.nxtAbsPos }
-
-; pSfc contains a vector of surfaces which each have a
-; vector of probe points, and possibly a surface angle.
-
-; Since we probed 2 surfaces forming the corner, we need to
-; calculate the corner position based on the intersection of
-; the surfaces.
-
-; If we're in quick mode, we just take the X value from the first
-; probe point and the Y value from the second probe point.
-
-; {
-;   { # Surface 1
-;       {
-;           {235.5858,54.69131,-18.4560032}, # Point 1
-;           {242.8524,110.8920,-18.4560032}  # Point 2
-;       },
-;       7.367285 # Angle
-;   },
-;   { # Surface 2
-;       {
-;           {246.9653,39.21858,-18.4560032}, # Point 1
-;           {277.7650,35.21777,-18.4560032}  # Point 2
-;       },
-;       97.40112 # Angle
-;   }
-; }
-
-
-; Corner position in quick mode
-var cX = { var.pSfc[0][0][0][0] }
-var cY = { var.pSfc[1][0][0][1] }
-
-; Full mode (P=0) or unset
-if { var.pFull }
-
-    ; Surface points
-    var pSfc1 = { var.pSfc[0][0] }
-    var pSfc2 = { var.pSfc[1][0] }
-
-    ; Surface angles
-    var rSfc1 = { var.pSfc[0][2] }
-    var rSfc2 = { var.pSfc[1][2] }
-
-    ; Angle difference. This will be different depending on which corner
-    ; is being probed. We add 2pi and take the modulo of pi to make sure
-    ; this stays a positive value less than pi
-    set global.nxtWPCnrDeg[var.workOffset] = { degrees(mod(abs(var.rSfc1 - var.rSfc2) + 2 * pi, pi)) }
-
-    ; Calculate the rotation based on the length of the surface.
-    ; Longer surfaces are more likely to be accurate due to the
-    ; distance between the probe points.
-    ; If the Y surface is longer, no adjustment is necessary.
-    ; If the X surface is longer, we need to subtract 90 degrees
-    ; from the angle.
-
-    ; Example values:
-    ;  Back Left: var.aX: -89.9213333 var.aY: 0.0450074
-    ;  Front Left: var.aX: 90.08427 var.aY: 0.0553877
-    ;  Front Right: var.aX: 90.08710 var.aY: -179.9480591
-    ;  Back Right: var.aX: -89.9101028 var.aY: -179.9532471
-
-    var aR = { (var.fX > var.fY) ? var.rSfc1 - (pi/2) : var.rSfc2 }
-
-    ; Reduce the angle to below +/- 45 degrees (pi/4 radians)
-    while { var.aR > pi/4 || var.aR < -pi/4 }
-        if { var.aR > pi/4 }
-            set var.aR = { var.aR - pi/2 }
-        elif { var.aR < -pi/4 }
-            set var.aR = { var.aR + pi/2 }
-
-    set global.nxtWPDeg[var.workOffset] = { degrees(var.aR) }
-
-    ; Extract the coordinates
-    var x1 = { var.pSfc1[0][0] }
-    var y1 = { var.pSfc1[0][1] }
-    var x2 = { var.pSfc1[1][0] }
-    var y2 = { var.pSfc1[1][1] }
-
-    var x3 = { var.pSfc2[0][0] }
-    var y3 = { var.pSfc2[0][1] }
-    var x4 = { var.pSfc2[1][0] }
-    var y4 = { var.pSfc2[1][1] }
-
-    ; Calculate the gradients (slopes) of the lines
-    var m1 = { (var.y2 - var.y1) / (var.x2 - var.x1) }
-    var m2 = { (var.y4 - var.y3) / (var.x4 - var.x3) }
-
-    ; Calculate the y-intercepts of the lines
-    var c1 = { !isnan(var.m1) ? var.y1 - (var.m1 * var.x1) : 0 }
-    var c2 = { !isnan(var.m2) ? var.y3 - (var.m2 * var.x3) : 0 }
-
-    var xIntersect = { null }
-    var yIntersect = { null }
-
-    ; Calculate the intersection point (x, y)
-    if { isnan(var.m1) || isnan(var.m2) }
-        ; One of the lines is vertical
-        set var.xIntersect = { isnan(var.m1) ? var.x1 : var.x3 }
-        set var.yIntersect = { isnan(var.m1) ? (var.m2 * var.xIntersect + var.c2) : (var.m1 * var.xIntersect + var.c1) }
-    elif { var.m1 == 0 || var.m2 == 0 }
-        ; One of the lines is horizontal
-        set var.yIntersect = { var.m1 == 0 ? var.y1 : var.y3 }
-        set var.xIntersect = { var.m1 == 0 ? ((var.yIntersect - var.c2) / var.m2) : ((var.yIntersect - var.c1) / var.m1) }
-    else
-        ; General case
-        set var.xIntersect = { (var.c2 - var.c1) / (var.m1 - var.m2) }
-        set var.yIntersect = { (var.m1 * var.xIntersect) + var.c1 }
-
-    ; RRF does weird things when given NaN values.
-    if { isnan(var.xIntersect) || isnan(var.yIntersect) || var.xIntersect == null || var.yIntersect == null }
-        abort { "Could not calculate intersection point!" }
-
-    ; Set the corner position
-    set var.cX = { var.xIntersect }
-    set var.cY = { var.yIntersect }
-
-    ; Calculate the center of the workpiece based on the corner position,
-    ; the width and height of the workpiece and the rotation.
-
-    var cDistX = { (var.fX/2) * cos(-var.aR) - (var.fY/2) * sin(-var.aR) }
-    var cDistY = { (var.fX/2) * sin(-var.aR) + (var.fY/2) * cos(-var.aR) }
-
-    var ctrX = { var.cX }
-    var ctrY = { var.cY }
-
-    if { param.N == 0 }
-        set var.ctrX = { var.ctrX + var.cDistX }
-        set var.ctrY = { var.ctrY + var.cDistY }
-    elif { param.N == 1 }
-        set var.ctrX = { var.ctrX - var.cDistX }
-        set var.ctrY = { var.ctrY + var.cDistY }
-    elif { param.N == 2 }
-        set var.ctrX = { var.ctrX - var.cDistX }
-        set var.ctrY = { var.ctrY - var.cDistY }
-    elif { param.N == 3 }
-        set var.ctrX = { var.ctrX + var.cDistX }
-        set var.ctrY = { var.ctrY - var.cDistY }
-
-    set global.nxtWPCtrPos[var.workOffset] = { var.ctrX, var.ctrY }
-
-    ; If running in full mode, operator provided approximate width and
-    ; height values of the workpiece. Assign these to the global
-    ; variables for the workpiece width and height.
-    ; This assumes that the workpiece is rectangular.
-    set global.nxtWPDims[var.workOffset] = { var.fX, var.fY }
-
-else
-    ; Assume corner angle is 90 if we only probed one point
-    ; per surface.
-    set global.nxtWPCnrDeg[var.workOffset] = { 90 }
-
-; Set corner position
-set global.nxtWPCnrPos[var.workOffset] = { var.cX, var.cY }
-
-; Set corner number
-set global.nxtWPCnrNum[var.workOffset] = { param.N }
-
-; Make sure we're at the safeZ height
-G6550 I{var.pID} Z{var.safeZ}
-
-; Move above the corner position
-G6550 I{var.pID} X{var.cX} Y{var.cY}
-
-; Report probe results if requested
-if { !exists(param.R) || param.R != 0 }
-    M7601 W{var.workOffset}
-    echo { "nxt: Setting WCS " ^ var.wcsNumber ^ " X,Y origin to corner " ^ param.N }
-
-; Set WCS origin to the probed corner
-G10 L2 P{var.wcsNumber} X{var.cX} Y{var.cY}
+var nxtM291Msg6 = {"Please select the probing mode to use.<br/><b>Full</b> will probe 2 points on each horizontal surface, while <b>Quick</b> will probe only 1 point."}
+M291 P{var.nxtM291Msg6} R"nxt: Probe Outside Corner" T0 S4 K{"Full","Quick"} F0
+if { result != 0 }
+    abort { "Outside corner probe aborted!" }
+
+var mode = { input }
+
+var xSL  = null
+var ySL  = null
+
+; 0 = Full mode, 1 = Quick mode
+if { var.mode == 0 }
+    var sW = { 100 }
+    if { exists(global.nxtWPDims) && global.nxtWPDims != null }
+        if { var.workOffset < #global.nxtWPDims }
+            if { global.nxtWPDims[var.workOffset] != null && global.nxtWPDims[var.workOffset][0] != null }
+                set var.sW = { global.nxtWPDims[var.workOffset][0] }
+    var nxtM291Msg7 = {"Please enter approximate <b>surface length</b> along the X axis in mm.<br/><b>NOTE</b>: Along the X axis means the surface facing towards or directly away from the operator."}
+    M291 P{var.nxtM291Msg7} R"nxt: Probe Outside Corner" J1 T0 S6 F{var.sW}
+    if { result != 0 }
+        abort { "Outside corner probe aborted!" }
+
+    set var.xSL = { input }
+
+    if { var.xSL < var.tR }
+        abort { "X surface length too low. Cannot probe distances smaller than the tool radius (" ^ var.tR ^ ")!"}
+
+    var sL = { 100 }
+    if { exists(global.nxtWPDims) && global.nxtWPDims != null }
+        if { var.workOffset < #global.nxtWPDims }
+            if { global.nxtWPDims[var.workOffset] != null && global.nxtWPDims[var.workOffset][1] != null }
+                set var.sL = { global.nxtWPDims[var.workOffset][1] }
+    var nxtM291Msg8 = {"Please enter approximate <b>surface length</b> along the Y axis in mm.<br/><b>NOTE</b>: Along the Y axis means the surface to the left or the right of the operator."}
+    M291 P{var.nxtM291Msg8} R"nxt: Probe Outside Corner" J1 T0 S6 F{var.sL}
+    if { result != 0 }
+        abort { "Outside corner probe aborted!" }
+
+    set var.ySL = { input }
+
+    if { var.ySL < var.tR }
+        abort { "Y surface length too low. Cannot probe distances smaller than the tool radius (" ^ var.tR ^ ")!"}
+
+; Prompt for clearance distance
+var nxtM291Msg9 = "Please enter <b>clearance</b> distance in mm.<br/>This is how far away from the expected surfaces and corners we probe from, to account for any innaccuracy in the start position."
+M291 P{var.nxtM291Msg9} R"nxt: Probe Outside Corner" J1 T0 S6 F{global.nxtClearance}
+if { result != 0 }
+    abort { "Outside corner probe aborted!" }
+
+var surfaceClearance = { input }
+
+if { var.surfaceClearance <= 0.1 }
+    abort { "Clearance distance too low!" }
+
+var cornerClearance = null
+
+; 0 = Full mode, 1 = Quick mode
+if { var.mode == 0 }
+    ; Calculate the maximum clearance distance we can use before
+    ; the probe points will be flipped
+    var mC = { min(var.xSL, var.ySL) / 2 }
+
+    if { var.surfaceClearance >= var.mC }
+        var defCC = { max(1, var.mC-1) }
+        var nxtCcMsgA = "The <b>clearance</b> distance is more than half of the length of one of the corner surfaces.<br/>"
+        var nxtCcMsgB = { var.nxtCcMsgA ^ "Please enter a <b>corner clearance</b> distance less than <b>" ^ var.mC ^ "</b>." }
+        M291 P{var.nxtCcMsgB} R"nxt: Probe Outside Corner" J1 T0 S6 F{var.defCC}
+        set var.cornerClearance = { input }
+        if { var.cornerClearance >= var.mC }
+            abort { "Corner clearance distance too high!" }
+
+; Prompt for overtravel distance
+var nxtM291Msg11 = "Please enter <b>overtravel</b> distance in mm.<br/>This is how far we move past the expected surface to account for any innaccuracy in the dimensions."
+M291 P{var.nxtM291Msg11} R"nxt: Probe Outside Corner" J1 T0 S6 F{global.nxtOvertravel}
+if { result != 0 }
+    abort { "Outside corner probe aborted!" }
+
+var overtravel = { input }
+if { var.overtravel < 0 }
+    abort { "Overtravel distance must not be negative!" }
+
+var nxtM291Msg12 = "Please jog the probe <b>OVER</b> the corner and press <b>OK</b>.<br/><b>CAUTION</b>: The chosen height of the probe is assumed to be safe for horizontal moves!"
+M291 P{var.nxtM291Msg12} R"nxt: Probe Outside Corner" X1 Y1 Z1 J1 T0 S3
+if { result != 0 }
+    abort { "Outside corner probe aborted!" }
+
+M98 P"nxt-m291-corners.g" R"nxt: Probe Outside Corner"
+if { result != 0 }
+    abort { "Outside corner probe aborted!" }
+
+var cnr = { input }
+
+var nxtM291Msg14 = "Please enter the depth to probe at in mm, relative to the current location. A value of 10 will move the probe downwards 10mm before probing inwards."
+M291 P{var.nxtM291Msg14} R"nxt: Probe Outside Corner" J1 T0 S6 F{global.nxtOvertravel}
+if { result != 0 }
+    abort { "Outside corner probe aborted!" }
+
+var probingDepth = { input }
+
+if { var.probingDepth < 0 }
+    abort { "Probing depth must not be negative!" }
+
+; Run the block probe cycle
+if { global.nxtTutorialMode }
+    var nxtCnr = { "Front Left", "Front Right", "Back Right", "Back Left" }
+    var cN = { var.nxtCnr[var.cnr] }
+    var nxtM291Msg15 = {"We will now move outside the <b>" ^ var.cN ^ "</b> corner, down by " ^ var.probingDepth ^ "mm and probe each surface forming the corner." }
+    M291 P{var.nxtM291Msg15} R"nxt: Probe Outside Corner" T0 S4 K{"Continue", "Cancel"} F0
+    if { input != 0 }
+        abort { "Outside corner probe aborted!" }
+
+var nxtHx = { var.xSL }
+var nxtIy = { var.ySL }
+if { var.nxtHx == null }
+    set var.nxtHx = { 100 }
+if { var.nxtIy == null }
+    set var.nxtIy = { 100 }
+var nxtE = { var.cornerClearance }
+if { var.nxtE == null }
+    set var.nxtE = { global.nxtCornerOffset }
+
+; Operator is already over the corner — G6508 uses current XY as corner air position
+G6508 U{var.wcsNumber} N{var.cnr} L{var.probingDepth} H{var.nxtHx} I{var.nxtIy} C{var.surfaceClearance} O{var.overtravel} E{var.nxtE}

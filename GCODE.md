@@ -21,6 +21,8 @@ This document provides reference documentation for custom G-codes and M-codes im
 
 ## G-codes
 
+**Probe cycle entry points:** **`G65xx.1`** macros are **guided** (M291 tutorials, jog prompts) and call the modern **`G65xx`** execute cycle with **`U`** (WCS 1–9). **`G65xx`** without **`.1`** is the **silent/CAM** path: pass **`U`** and geometry params directly (no dialogs). Legacy **`.1`** execute bodies (absolute **J/K/L**, **W** as 0-based offset) are retired.
+
 ### G27: Parking
 
 Moves the machine to a safe, known parking position. Echoes the table XY target. **`stop.g`** calls **`G27`** at CAM job end but **skips** it after numbered probe cycles (`nxtSkipJobPark` / no `job.file.fileName`) so leftover **G38** cannot be combined with a park toward machine 0,0.
@@ -50,7 +52,7 @@ Measures the active tool on the configured toolsetter (single **G6512** Z probe 
 
 ### G6500: Bore Probe
 
-Uses **three triangulated** inward touches at **0° / 120° / 240°** via **`G6513`** (same geometry family as **`G6500.1`**). Native vector circumcenter uses **A = P2−P1**, **B = P3−P1** (not **P3−P2**, which parks at a contact). Echoes the three radii and aborts if they disagree vs **`D`**. Stays at dive Z between touches (`D1 H1` — no raise to start Z while triangulating). Repositioning during triangulation uses **`G6550`** protected moves; each radial contact uses **`G6512.1`**. No approach clearance (start inside the bore) — use accurate **`D`** + **`O`**. After the fit: **`M400`**, then raise to jog **`startZ`** with **XY pinned** (`G53 G1` current XY), **then** **`G53 G1`** to fitted circumcenter XY at that Z (not a combined diagonal, not XY at dive Z, not **`G6550`/`G38.3`**, not post-apply **`G0 X0 Y0`**). Stores the **fit** in **`nxtProbeResults`** (does **not** overwrite with post-park **`machinePosition`**). With **`U`**, applies WCS via **`M98 P"nxt-wcs-apply.g"`** from those fit XY → **work X0 Y0** at **startZ**.
+Uses **three triangulated** inward touches at **0° / 120° / 240°** via **`G6513`** (same geometry family as guided **`G6500.1`** → this execute). Native vector circumcenter uses **A = P2−P1**, **B = P3−P1** (not **P3−P2**, which parks at a contact). Echoes the three radii and aborts if they disagree vs **`D`**. Stays at dive Z between touches (`D1 H1` — no raise to start Z while triangulating). Repositioning during triangulation uses **`G6550`** protected moves; each radial contact uses **`G6512.1`**. No approach clearance (start inside the bore) — use accurate **`D`** + **`O`**. After the fit: **`M400`**, then raise to jog **`startZ`** with **XY pinned** (`G53 G1` current XY), **then** **`G53 G1`** to fitted circumcenter XY at that Z (not a combined diagonal, not XY at dive Z, not **`G6550`/`G38.3`**, not post-apply **`G0 X0 Y0`**). Stores the **fit** in **`nxtProbeResults`** (does **not** overwrite with post-park **`machinePosition`**). With **`U`**, applies WCS via **`M98 P"nxt-wcs-apply.g"`** from those fit XY → **work X0 Y0** at **startZ**.
 
 **Usage:** `G6500 P|U D<diameter> L<depth> [F<speed>] [R<retries>] [O<overtravel>] [Q]`
 
@@ -285,7 +287,7 @@ Mill **paper-touch** Z from Phase 0 / `M5016` V1 is geometry for `nxtDeltaMachin
 
 Temporarily zeros Z deflection during hits, then restores.
 
-**Results (R1 or first run with virtual unset):** Sets `global.nxtRefSurfaceProbed`, `global.nxtLastProbeResult`, **`global.nxtProbeVirtualTsZ`** (`meanZ − nxtDeltaMachine`), session mill cache under the probe index, and rewrites **`0:/sys/nxt-probe-virtual.g`**. Clears `nxtCalDefZ`. Successful **`M5016`** writes platen virtual and **`nxt-probe-virtual-sync.g`** (does not null it). Geometry Save rewrites virtual from the new setter Z; missing live OM is not a change. Explicit invalidate: **`nxt-probe-virtual-clear.g`**.
+**Results (R1 or first run with virtual unset):** Sets `global.nxtRefSurfaceProbed`, `global.nxtLastProbeResult`, **`global.nxtProbeVirtualTsZ`** (`meanZ − nxtDeltaMachine`), session mill cache under the probe index, and rewrites **`0:/sys/nxt-probe-virtual.g`**. Successful **`M5016`** writes platen virtual and **`nxt-probe-virtual-sync.g`** (does not null it). Geometry Save rewrites virtual from the new setter Z; missing live OM is not a change. Explicit invalidate: **`nxt-probe-virtual-clear.g`**.
 
 ---
 
@@ -548,7 +550,7 @@ Phase 1 probe-mode assist: dive by `D`, **3-point CCW perimeter** on a 1-2-3 blo
 
 **Behavior:** Operator jogs to approx **XY center at safe Z**. Starts at −Y/−X outside corner, probes 3 points along each face (stay at dive Z along the face), raises only when changing faces. Spans from **means** of the three hits per face (~76.2 mm X / ~50.8 mm Y). Echoes tip radius, current deflection, shortfalls, and proposed Dx/Dy; warns if proposed D > 0.5 mm or tip R ≥ 2.
 
-**Results:** `global.nxtCalDefSpanX`, `global.nxtCalDefSpanY`; `nxtCalDefSpan` = X for compat. Calibration UI applies XY deflection math (Z channel stays 0).
+**Results:** `global.nxtCalDefSpanX`, `global.nxtCalDefSpanY`. Calibration UI applies XY deflection math (Z channel stays 0).
 
 ---
 
@@ -587,9 +589,9 @@ Validates that target coordinates are within machine limits.
 
 ### M6520: Set WCS Offset from Probe Result
 
-Sets a Work Coordinate System (WCS) origin from the probe results table. **`G10 L2`** uses the stored **feature machine coordinates** (same frame as legacy **G650x.1** / **M5000** / **G6513**). Does **not** subtract `tools[].offsets`. Does **not** use **`G10 L20`**. After **G10** and WCS select, **`G53 G1`s flagged X/Y** to those stored millimetres (**Z/A pinned** from the current pose — **never work `G0 X0 Y0`**, which nested **G53/G38** treat as **machine home**). **Never `G0 Z0`**. Callers raise to jog **startZ** first. **`M400`** before **G10** and before the park. Aborts if applied XY origin is **0,0** while the mill is not near machine origin (empty table vs real origin at home).
+Sets a Work Coordinate System (WCS) origin from the probe results table. **`G10 L2`**: **X/Y** use stored tip **M5000** coordinates; **Z** uses **tool-normalized** work-surface machine coords (**G6512** stores `hit − L1` at capture). Does **not** subtract `tools[].offsets` again at apply. Does **not** use **`G10 L20`**. After **G10** and WCS select, **`G53 G1`s flagged X/Y** to those stored millimetres (**Z/A pinned** from the current pose — **never work `G0 X0 Y0`**, which nested **G53/G38** treat as **machine home**). **Never `G0 Z0`**. Callers raise to jog **startZ** first. **`M400`** before **G10** and before the park. Aborts if applied XY origin is **0,0** while the mill is not near machine origin (empty table vs real origin at home).
 
-**Z:** Results are the **raw trigger** from G6512 (no deflection, no tip radius). **`M6520 … Z1`** sets that height as work **Z0** via **G10 L2** only — no **`G0 Z0`**. Cycles (**G6510** / **G6520**) return to jog **startZ**.
+**Z:** **G6512** writes **`hitZ − tools[].offsets[2]`** into the results table (legacy MOS **G6510.1** / **G37.1** used raw **`mosMI`** with **L1 = 0** by convention). No Z deflection / tip radius. **`M6520 … Z1`** sets that value as work **Z0** via **G10 L2** only — no **`G0 Z0`**. Cycles (**G6510** / **G6520**) return to jog **startZ**.
 
 **A:** **`M6520 … A1`** touches off the **current homed machine A** (`move.axes[3].machinePosition`), not probe-table slot 3 (XY/Z cycles leave that slot **0**). **`G10 L2 A{current}`** so work A reads **0**; A is **not** G53-parked. Aborts if A is unmapped or not homed.
 
@@ -613,7 +615,7 @@ Sets a Work Coordinate System (WCS) origin from the probe results table. **`G10 
 
 ### nxt-wcs-apply.g: Apply WCS from probe result (no travel)
 
-Shared helper used by **G6500** / **G6501** / **G6508** / **G6509** / **G6520** after **G53** air park at the fit. Same **G10 L2** (feature machine coords from the stored **fit**, no tool-offset subtract; never **L20**), **`nxt-select-wcs.g`** (skipped when **W** is already active), **Q** arming, and **G69** as **M6520**. **`A1`** is current-pose A touch-off, same as **M6520**. **`M400`** before **G10**. Does **not** travel (already **G53**-parked at the fit). Echoes **machinePosition**, **userPosition**, and origin-vs-machine deltas after apply (user XY should be ≈ 0; Z remains jog **startZ**). Aborts a **0,0** XY origin if the mill is not near machine origin.
+Shared helper used by **G6500** / **G6501** / **G6508** / **G6509** / **G6520** after **G53** air park at the fit. Same **G10 L2** as **M6520** (**X/Y** tip M5000; **Z** tool-normalized at **G6512** capture; never **L20**), **`nxt-select-wcs.g`** (skipped when **W** is already active), **Q** arming, and **G69** as **M6520**. **`A1`** is current-pose A touch-off, same as **M6520**. **`M400`** before **G10**. Does **not** travel (already **G53**-parked at the fit). Echoes **machinePosition**, **userPosition**, and origin-vs-machine deltas after apply (user XY should be ≈ 0; Z remains jog **startZ**). Aborts a **0,0** XY origin if the mill is not near machine origin.
 
 **Usage:** `M98 P"nxt-wcs-apply.g" I<resultIndex> W<wcsNumber> [X1] [Y1] [Z1] [A1] [Q] [T]`
 

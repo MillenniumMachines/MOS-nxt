@@ -24,7 +24,7 @@ In nxt, **“skew” means in-plane workpiece rotation vs machine +X**, not mach
 
 **G68 polarity:** RRF **≥ 3.6.1** rotates **anticlockwise** for positive **R**. nxt passes measured θ through unchanged into **`G68 X0 Y0 R{θ}`** so a stock edge at +α from machine +X aligns programmed +X with that edge. Offline checks: `node dist/check-rotation-skew-math.mjs`.
 
-**`M6520`:** After **`G10 L2`** of stored feature machine coords (same as **G650x.1**; not `machine − toolOffset`; never **L20**), stores θ in **`nxtWPDeg[W−1]`** when both **X** and **Y** are updated. **Does not issue `G68`**. Then **`G53 G1`** flagged **XY** to those stored millimetres (**Z/A pinned**; **never work `G0 X0 Y0`**, **never `G0 Z0`**). **`A1`** touches off the **current homed machine A** (not `resultVector[3]`, which XY cycles leave **0**). Callers raise to jog **startZ** first. **`M400`** before **G10** and before the park. Aborts a **0,0** XY origin if the mill is not near machine origin. **`Q`** arms job-start policy on **`nxtG68Policy`**: **0** = prompt at **M5011** (**default if omitted**); **1** = always at **M5011**; **2** = translation only. Always **G69** after the XY park so post-probe jogging is unrotated.
+**`M6520`:** After **`G10 L2`** (**X/Y** tip M5000 from table; **Z** = tool-normalized surface from **G6512** `hit − L1`; never **L20**), stores θ in **`nxtWPDeg[W−1]`** when both **X** and **Y** are updated. **Does not issue `G68`**. Then **`G53 G1`** flagged **XY** to those stored millimetres (**Z/A pinned**; **never work `G0 X0 Y0`**, **never `G0 Z0`**). **`A1`** touches off the **current homed machine A** (not `resultVector[3]`, which XY cycles leave **0**). Callers raise to jog **startZ** first. **`M400`** before **G10** and before the park. Aborts a **0,0** XY origin if the mill is not near machine origin. **`Q`** arms job-start policy on **`nxtG68Policy`**: **0** = prompt at **M5011** (**default if omitted**); **1** = always at **M5011**; **2** = translation only. Always **G69** after the XY park so post-probe jogging is unrotated.
 
 **`M5011`:** CAM posts call this on WCS change / job start. Applies **`G68 X0 Y0 R{θ}`** from **`nxtWPDeg`** according to **`nxtG68Policy`**. Successful **G68** arms **`nxtJobG68Deg`** / **`nxtJobG68Wcs`** (not saved to `nxt-user-vars.g`).
 
@@ -584,7 +584,11 @@ In nxt, **“skew” means in-plane workpiece rotation vs machine +X**, not mach
     *   Sets the tool's Z offset using `G10 P{state.currentTool} X0 Y0 Z{var.toolOffset}`.
     *   Saves the updated settings to the restore point file using `M500.1`.
 
-### G6500.1: BORE - EXECUTE
+> **nxt note (v0.7):** Cycle **`G65xx.1`** macros are **guided** entry (prompts → modern **`G65xx`**). They are **not** the old MOS silent execute bodies. Prefer **`GCODE.md`** for current contracts. Sections below that still say “EXECUTE” / absolute `J/K/L` describe **legacy MOS** behavior and may be stale.
+
+**WCS Z save (nxt vs legacy MOS):** Legacy **`G6510.1`** / **`G37.1`** applied raw **`mosMI[2]`** (M5000 tip hit) to **`G10 L2 Z`**, relying on probe **`L1 = 0`** or **`G37`** zeroing L1 before touch. nxt **`G6512`** stores **`hitZ − tools[].offsets[2]`** in **`nxtProbeResults`** via **`nxt-wcs-z-from-hit.g`** (shorter tool → negative L1 vs **`nxtProbeVirtualTsZ`** / probe reference). **`mosMI` ↔ `nxtAbsPos`**, **`mosTSAP` ↔ `nxtProbeVirtualTsZ`**. Regression: **`node dist/check-wcs-z-math.mjs`**.
+
+### G6500.1: BORE - GUIDED (was MOS execute)
 
 *   **Code:** `G6500.1`
 *   **Description:** Probes the inside surface of a circular bore to accurately determine its X and Y center coordinates. It uses multiple probe points around the bore's circumference and geometric calculations to find the center.

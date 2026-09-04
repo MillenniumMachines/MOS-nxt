@@ -806,7 +806,7 @@ export default defineNxtComponent({
 
       if (this.guidedJogMode && this.jogCapableCycles.includes(this.selectedCycle)) {
         const wcs = this.targetWcs - 1
-        return `M5012\n${this.selectedCycle}-jog W${wcs}`
+        return `M5012\n${this.selectedCycle}.1 W${wcs}`
       }
 
       let gcode = `${this.selectedCycle} U${this.targetWcs}`

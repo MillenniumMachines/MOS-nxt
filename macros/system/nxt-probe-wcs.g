@@ -33,7 +33,7 @@ if { !exists(global.nxtManualProbeDistances) }
 if { !exists(global.nxtManualProbeSlowIdx) }
     global nxtManualProbeSlowIdx = 3
 
-; Tutorial / cycle dialog shown flags (G6500-jog … G6520-jog, G37.1).
+; Tutorial / cycle dialog shown flags (G6500.1 … G6520.1, G37.1).
 if { !exists(global.nxtDialogDisplayed) }
     global nxtDialogDisplayed = { vector(14, false) }
 

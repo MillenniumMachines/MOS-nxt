@@ -1,36 +1,32 @@
-; G6502.1.g: RECTANGLE POCKET - EXECUTE
+; G6502.1.g: GUIDED RECTANGLE POCKET PROBE
 ;
-; Probe the X and Y edges of a rectangular pocket.
-; Calculate the dimensions of the pocket and set the
-; WCS origin to the probed center of the pocket, if requested.
+; Meta macro to gather operator input, then run modern G6502
+; (4-edge pocket → nxtProbeResults + M6520 via U).
 
 ; Make sure this file is not executed by the secondary motion system
 if { !inputs[state.thisInput].active }
     M99
 
-M98 P"nxt-wp-ensure.g"
-M98 P"nxt-wp-ensure-cnr.g"
+; Display description of rectangle pocket probe if not already displayed this session
+if { global.nxtTutorialMode && !global.nxtDialogDisplayed[6] }
+    var nxtM291Msg1a = "This probe cycle finds the X and Y co-ordinates of the center of a rectangular pocket (recessed feature) on a workpiece "
+    var nxtM291Msg1b = { var.nxtM291Msg1a ^ "by moving into the pocket and probing towards each surface." }
+    M291 P{var.nxtM291Msg1b} R"nxt: Probe Rect. Pocket " T0 S2
+    M291 P"You will be asked to enter an approximate <b>width</b> and <b>length</b> of the pocket, and a <b>clearance distance</b>." R"nxt: Probe Rect. Pocket" T0 S2
+    M291 P"These define how far the probe will move away from the center point before starting to probe towards the relevant surfaces." R"nxt: Probe Rect. Pocket" T0 S2
+    var nxtM291Msg2a = "You will then jog the tool over the approximate center of the pocket.<br/>"
+    var nxtM291Msg2b = { var.nxtM291Msg2a ^ "<b>CAUTION</b>: Jogging in RRF does not watch the probe status, so you could cause damage if moving in the wrong direction!" }
+    M291 P{var.nxtM291Msg2b} R"nxt: Probe Rect. Pocket" T0 S2
+    M291 P"You will then be asked for a <b>probe depth</b>. This is how far the probe will move downwards into the pocket before probing towards the edges." R"nxt: Probe Rect. Pocket" T0 S2
+    var nxtM291Msg3 = "If you are still unsure, you can <a target=""_blank"" href=""https://mos.diycnc.xyz/usage/rectangle-pocket"">View the Rectangle Pocket Documentation</a> for more details."
+    M291 P{var.nxtM291Msg3} R"nxt: Probe Rect. Pocket" T0 S4 K{"Continue", "Cancel"} F0
+    if { input != 0 }
+        abort { "Rectangle pocket probe aborted!" }
+    set global.nxtDialogDisplayed[6] = true
 
-if { exists(param.W) && param.W != null && (param.W < 0 || param.W >= limits.workplaces) }
-    abort { "Work Offset (W..) must be between 0 and " ^ limits.workplaces-1 ^ "!" }
-
-if { !exists(param.J) || !exists(param.K) || !exists(param.L) }
-    abort { "Must provide a start position to probe from using J, K and L parameters!" }
-
-if { !exists(param.Z) }
-    abort { "Must provide a probe position using the Z parameter!" }
-
-if { !exists(param.H) || !exists(param.I) }
-    abort { "Must provide an approximate width and length using H and I parameters!" }
-
-if { exists(param.T) && param.T != null && param.T <= 0 }
-    abort { "Surface clearance distance must be greater than 0!" }
-
-if { exists(param.C) && param.C != null && param.C <= 0 }
-    abort { "Corner clearance distance must be greater than 0!" }
-
-if { exists(param.O) && param.O != null && param.O <= 0 }
-    abort { "Overtravel distance must be greater than 0!" }
+; Make sure probe tool is selected
+if { global.nxtProbeToolID != state.currentTool }
+    T T{global.nxtProbeToolID}
 
 ; Default workOffset to the current workplace number if not specified
 ; with the W parameter.
@@ -38,270 +34,103 @@ var workOffset = { move.motionSystems[0].workplaceNumber }
 if { exists(param.W) && param.W != null }
     set var.workOffset = { param.W }
 
+
 ; WCS Numbers and Offsets are confusing. Work Offset indicates the offset
 ; from the first work co-ordinate system, so is 0-indexed. WCS number indicates
 ; the number of the work co-ordinate system, so is 1-indexed.
 var wcsNumber = { var.workOffset + 1 }
 
-; Increment the probe surface and point totals for status reporting
-set global.nxtProbeSurfaceTotal = { global.nxtProbeSurfaceTotal + 4 }
-set global.nxtProbePointTotal = { global.nxtProbePointTotal + 8 }
+var bW = { 100 }
+if { exists(global.nxtWPDims) && global.nxtWPDims != null }
+    if { var.workOffset < #global.nxtWPDims }
+        if { global.nxtWPDims[var.workOffset] != null && global.nxtWPDims[var.workOffset][0] != null }
+            set var.bW = { global.nxtWPDims[var.workOffset][0] }
 
-var pID = { global.nxtFeatureTouchProbe ? global.nxtTouchProbeID : null }
+M291 P{"Please enter approximate <b>pocket width</b> in mm.<br/><b>NOTE</b>: <b>Width</b> is measured along the <b>X</b> axis."} R"nxt: Probe Rect. Pocket" J1 T0 S6 F{var.bW}
+if { result != 0 }
+    abort { "Rectangle pocket probe aborted!" }
 
-; Make sure probe tool is selected
-if { global.nxtProbeToolID != state.currentTool }
-    abort { "Must run T" ^ global.nxtProbeToolID ^ " to select the probe tool before probing!" }
+var pocketWidth = { input }
 
-; Reset stored values that we're going to overwrite -
-; center, dimensions and rotation
-M5010 W{var.workOffset} R49
+if { var.pocketWidth < 1 }
+    abort { "Pocket width too low!" }
 
-; Get current machine position on Z
-M5000 P1 I2
+var bL = { 100 }
+if { exists(global.nxtWPDims) && global.nxtWPDims != null }
+    if { var.workOffset < #global.nxtWPDims }
+        if { global.nxtWPDims[var.workOffset] != null && global.nxtWPDims[var.workOffset][1] != null }
+            set var.bL = { global.nxtWPDims[var.workOffset][1] }
 
-; Store our own safe Z position as the current position. We return to
-; this position where necessary to make moves across the workpiece to
-; the next probe point.
-; We do this _after_ any switch to the touch probe, because while the
-; original position may have been safe with a different tool installed,
-; the touch probe may be longer. After a tool change the spindle
-; will be parked, so essentially our safeZ is at the parking location.
-var safeZ = { param.L }
+M291 P{"Please enter approximate <b>pocket length</b> in mm.<br/><b>NOTE</b>: <b>Length</b> is measured along the <b>Y</b> axis."} R"nxt: Probe Rect. Pocket" J1 T0 S6 F{var.bL}
+if { result != 0 }
+    abort { "Rectangle pocket probe aborted!" }
 
-; J = start position X
-; K = start position Y
-; L = start position Z
-; Z = our probe height (absolute)
-; H = approximate width of pocket in X
-; I = approximate length of pocket in Y
+var pocketLength = { input }
 
-; Approximate center of pocket
-var sX   = { param.J }
-var sY   = { param.K }
+if { var.pocketLength < 1 }
+    abort { "Pocket length too low!" }
 
-; Width and Height of pocket
-var fW   = { param.H }
-var fL   = { param.I }
+; Prompt for clearance distance
+var nxtM291Msg4 = "Please enter <b>clearance</b> distance in mm.<br/>This is how far away from the expected surfaces and corners we probe from, to account for any innaccuracy in the start position."
+M291 P{var.nxtM291Msg4} R"nxt: Probe Rect. Pocket" J1 T0 S6 F{global.nxtClearance}
+if { result != 0 }
+    abort { "Rectangle pocket probe aborted!" }
 
-; Half of width and height of pocket, used in
-; lots of calculations so stored here.
-var hW   = { var.fW/2 }
-var hL   = { var.fL/2 }
+var surfaceClearance = { input }
 
-; Tool Radius is the first entry for each value in
-; our extended tool table.
+if { var.surfaceClearance <= 0.1 }
+    abort { "Clearance distance too low!" }
 
-; Apply tool radius to surface clearance. We want to
-; make sure the surface of the tool and the workpiece
-; are the clearance distance apart, rather than less
-; than that.
-var surfaceClearance = { ((!exists(param.T) || param.T == null) ? global.nxtClearance : param.T) + ((state.currentTool < #tools && state.currentTool >= 0) ? global.nxtTT[state.currentTool][0] : 0) }
+; Calculate the maximum clearance distance we can use before
+; the probe points will be flipped
+var mC = { min(var.pocketWidth, var.pocketLength) / 2 }
 
-; Default corner clearance to the normal clearance
-; distance, but allow it to be overridden if necessary.
-var cornerClearance = { (!exists(param.C) || param.C == null) ? ((!exists(param.T) || param.T == null) ? global.nxtClearance : param.T) : param.C }
+var cornerClearance = null
 
-; Apply tool radius to overtravel. We want to allow
-; less movement past the expected point of contact
-; with the surface based on the tool radius.
-; For big tools and low overtravel values, this value
-; might end up being negative. This is fine, as long
-; as the configured tool radius is accurate.
-var overtravel = { (exists(param.O) ? param.O : global.nxtOvertravel) - ((state.currentTool < #tools && state.currentTool >= 0) ? global.nxtTT[state.currentTool][0] : 0) }
-
-; Check that 2 times the clearance distance isn't
-; higher than the width or height of the pocket.
-; Since we use the clearance distance to choose
-; how far along each surface we should probe from
-; the expected corners, a clearance higher than
-; the width or height would mean we would try to
-; probe off the edge of the pocket.
-if { var.cornerClearance >= var.hW || var.cornerClearance >= var.hL }
-    abort { "Corner clearance distance is more than half of the width or height of the pocket! Cannot probe." }
-
-; The overtravel distance does not have the same
-; requirement, as it is only used to adjust the
-; probe target towards or away from the target
-; surface rather.
-
-; We can calculate the squareness of the pocket by probing inwards
-; from each edge and calculating an angle.
-; Our start position is then inwards by the clearance distance from
-; both ends of the face.
-; We need 8 probes to calculate the squareness of the pocket (2 for each edge).
-
-; Quick mode not implemented yet
-var pFull = { true }
-
-; Calculate the probe positions for the surfaces
-var points = { vector(2 - (var.pFull ? 0 : 1), {{null, null, param.Z}, {null, null, param.Z}}) }
-
-var surface1 = { var.points }
-var surface2 = { var.points }
-
-; Surface 1, Point 1
-set var.surface1[0][0][0] = { var.sX - var.hW + var.surfaceClearance }
-set var.surface1[0][1][0] = { var.sX - var.hW - var.overtravel }
-set var.surface1[0][0][1] = { var.sY - var.hL + var.cornerClearance }
-set var.surface1[0][1][1] = { var.sY - var.hL + var.cornerClearance }
-
-; Surface 1, Point 2
-set var.surface1[1][0][0] = { var.sX - var.hW + var.surfaceClearance }
-set var.surface1[1][1][0] = { var.sX - var.hW - var.overtravel }
-set var.surface1[1][0][1] = { var.sY + var.hL - var.cornerClearance }
-set var.surface1[1][1][1] = { var.sY + var.hL - var.cornerClearance }
-
-; Surface 2, Point 1
-set var.surface2[0][0][0] = { var.sX + var.hW - var.surfaceClearance }
-set var.surface2[0][1][0] = { var.sX + var.hW + var.overtravel }
-set var.surface2[0][0][1] = { var.sY + var.hL - var.cornerClearance }
-set var.surface2[0][1][1] = { var.sY + var.hL - var.cornerClearance }
-
-; Surface 2, Point 2
-set var.surface2[1][0][0] = { var.sX + var.hW - var.surfaceClearance }
-set var.surface2[1][1][0] = { var.sX + var.hW + var.overtravel }
-set var.surface2[1][0][1] = { var.sY - var.hL + var.cornerClearance }
-set var.surface2[1][1][1] = { var.sY - var.hL + var.cornerClearance }
-
-; Probe the 2 X surfaces
-; Do not retract between probe points
-G6513 I{var.pID} D1 H1 P{var.surface1, var.surface2} S{var.safeZ}
-
-var pSfcX = { global.nxtAbsPos }
-
-; Surface angles
-var dXAngleDiff = { degrees(abs(mod(var.pSfcX[0][2] - var.pSfcX[1][2], pi))) }
-
-; Normalise the angle difference to be between 0 and 90 degrees
-if { var.dXAngleDiff > pi/2 }
-    set var.dXAngleDiff = { pi - var.dXAngleDiff }
-
-; Make sure X surfaces are suitably parallel
-if { var.dXAngleDiff > global.nxtProbeAngleTol }
-    abort { "Rectangular pocket surfaces on X axis are not parallel (" ^ var.dXAngleDiff ^ " > " ^ global.nxtProbeAngleTol ^ ") - this pocket does not appear to be square." }
-
-; Now we have validated that the pocket is square in X, we need to calculate
-; the real center position of the pocket so we can probe the Y surfaces.
-
-; Our midpoint for each line is the average of the 2 points, so
-; we can just add all of the points together and divide by 4.
-
-set var.sX = { (var.pSfcX[0][0][0][0] + var.pSfcX[0][0][1][0] + var.pSfcX[1][0][0][0] + var.pSfcX[1][0][1][0]) / 4 }
-
-; Use the recalculated center of the pocket to probe Y surfaces.
-
-; Surface 1, Point 1
-set var.surface1[0][0][0] = { var.sX + var.hW - var.cornerClearance }
-set var.surface1[0][1][0] = { var.sX + var.hW - var.cornerClearance }
-set var.surface1[0][0][1] = { var.sY - var.hL + var.surfaceClearance }
-set var.surface1[0][1][1] = { var.sY - var.hL - var.overtravel }
-
-; Surface 1, Point 2
-set var.surface1[1][0][0] = { var.sX - var.hW + var.cornerClearance }
-set var.surface1[1][1][0] = { var.sX - var.hW + var.cornerClearance }
-set var.surface1[1][0][1] = { var.sY - var.hL + var.surfaceClearance }
-set var.surface1[1][1][1] = { var.sY - var.hL - var.overtravel }
-
-; Surface 2, Point 1
-set var.surface2[0][0][0] = { var.sX - var.hW + var.cornerClearance }
-set var.surface2[0][1][0] = { var.sX - var.hW + var.cornerClearance }
-set var.surface2[0][0][1] = { var.sY + var.hL - var.surfaceClearance }
-set var.surface2[0][1][1] = { var.sY + var.hL + var.overtravel }
-
-; Surface 2, Point 2
-set var.surface2[1][0][0] = { var.sX + var.hW - var.cornerClearance }
-set var.surface2[1][1][0] = { var.sX + var.hW - var.cornerClearance }
-set var.surface2[1][0][1] = { var.sY + var.hL - var.surfaceClearance }
-set var.surface2[1][1][1] = { var.sY + var.hL + var.overtravel }
-
-; Probe the 2 Y surfaces
-G6513 I{var.pID} D1 H0 P{var.surface1, var.surface2} S{var.safeZ}
-
-var pSfcY = { global.nxtAbsPos }
-
-; Surface angles
-var dYAngleDiff = { degrees(abs(mod(var.pSfcY[0][2] - var.pSfcY[1][2], pi))) }
-
-; Normalise the angle difference to be between 0 and 90 degrees
-if { var.dYAngleDiff > pi/2 }
-    set var.dYAngleDiff = { pi - var.dYAngleDiff }
-
-; Make sure X surfaces are suitably parallel
-if { var.dYAngleDiff > global.nxtProbeAngleTol }
-    abort { "Rectangular pocket surfaces on Y axis are not parallel (" ^ var.dYAngleDiff ^ " > " ^ global.nxtProbeAngleTol ^ ") - this pocket does not appear to be square." }
-
-; Okay, we have now validated that the pocket surfaces are square in both X and Y.
-; But this does not mean they are square to each other, so we need to calculate
-; the angle of one corner between 2 lines and check it meets our threshold.
-; If one of the corners is square, then the other corners must also be square -
-; because the probed surfaces are sufficiently parallel.
-
-; Calculate the angle of the corner between X line 1 and Y line 1.
-; This is the angle of the front-left corner of the pocket.
-; The angles are between the line and their respective axis, so
-; a perfect 90 degree corner with completely squared machine axes
-; would report an error of 0 degrees.
-
-var cornerAngleError = { abs(90 - degrees(abs(mod(var.pSfcX[0][2] - var.pSfcY[0][2], pi)))) }
-
-; Make sure the corner angle is suitably perpendicular
-if { var.cornerAngleError > global.nxtProbeAngleTol }
-    abort { "Rectangular pocket corner angle is not perpendicular (" ^ var.cornerAngleError ^ " > " ^ global.nxtProbeAngleTol ^ ") - this pocket does not appear to be square." }
-
-; We report the corner angle around 90 degrees
-set global.nxtWPCnrDeg[var.workOffset] = { 90 + var.cornerAngleError }
-
-; Abort if the corner angle is greater than a certain threshold.
-if { (var.cornerAngleError > global.nxtProbeAngleTol) }
-    abort { "Rectangular pocket corner angle is not perpendicular (" ^ var.cornerAngleError ^ " > " ^ global.nxtProbeAngleTol ^ ") - this pocket does not appear to be square." }
-
-; Calculate Y centerpoint
-set var.sY = { (var.pSfcY[0][0][0][1] + var.pSfcY[0][0][1][1] + var.pSfcY[1][0][0][1] + var.pSfcY[1][0][1][1]) / 4 }
-
-; Set the centre of the pocket
-set global.nxtWPCtrPos[var.workOffset] = { var.sX, var.sY }
+if { var.surfaceClearance >= var.mC }
+    var defCC = { max(1, var.mC-1) }
+    var nxtM291Msg5 = {"The <b>clearance</b> distance is more than half of the length or width of the pocket.<br/>Please enter a <b>corner clearance</b> distance less than <b>" ^ var.mC ^ "</b>."}
+    M291 P{var.nxtM291Msg5} R"nxt: Probe Rect. Pocket" J1 T0 S6 F{var.defCC}
+    set var.cornerClearance = { input }
+    if { var.cornerClearance >= var.mC }
+        abort { "Corner clearance distance too high!" }
 
 
-; We can now calculate the actual dimensions of the pocket.
-; The dimensions are the difference between the average of each
-; pair of points of each line.
-set global.nxtWPDims[var.workOffset][0] = { ((var.pSfcX[0][0][0][0] + var.pSfcX[0][0][1][0]) / 2) - ((var.pSfcX[1][0][0][0] + var.pSfcX[1][0][1][0]) / 2) }
-set global.nxtWPDims[var.workOffset][1] = { ((var.pSfcY[0][0][0][1] + var.pSfcY[0][0][1][1]) / 2) - ((var.pSfcY[1][0][0][1] + var.pSfcY[1][0][1][1]) / 2) }
+; Prompt for overtravel distance
+var nxtM291Msg6 = "Please enter <b>overtravel</b> distance in mm.<br/>This is how far we move past the expected surfaces to account for any innaccuracy in the dimensions."
+M291 P{var.nxtM291Msg6} R"nxt: Probe Rect. Pocket" J1 T0 S6 F{global.nxtOvertravel}
+if { result != 0 }
+    abort { "Rectangle pocket probe aborted!" }
 
-; Set the global error in dimensions
-; This can be used by other macros to configure the touch probe deflection.
-set global.nxtWPDimsErr[var.workOffset] = { abs(var.fW - global.nxtWPDims[var.workOffset][0]), abs(var.fL - global.nxtWPDims[var.workOffset][1]) }
+var overtravel = { input }
+if { var.overtravel < 0.1 }
+    abort { "Overtravel distance too low!" }
 
-; Make sure we're at the safeZ height
-G6550 I{var.pID} Z{var.safeZ}
+var nxtM291Msg7a = "Please jog the probe <b>OVER</b> the center of the rectangle pocket and press <b>OK</b>.<br/>"
+var nxtM291Msg7b = { var.nxtM291Msg7a ^ "<b>CAUTION</b>: The chosen height of the probe is assumed to be safe for horizontal moves!" }
+M291 P{var.nxtM291Msg7b} R"nxt: Probe Rect. Pocket" X1 Y1 Z1 J1 T0 S3
+if { result != 0 }
+    abort { "Rectangle pocket probe aborted!" }
 
-; Move to the calculated center of the pocket
-G6550 I{var.pID} X{var.sX} Y{var.sY}
+var nxtM291Msg8 = "Please enter the depth to probe at in mm, relative to the current location. A value of 10 will move the probe downwards 10mm before probing inwards."
+M291 P{var.nxtM291Msg8} R"nxt: Probe Rect. Pocket" J1 T0 S6 F{global.nxtOvertravel}
+if { result != 0 }
+    abort { "Rectangle pocket probe aborted!" }
 
-; Calculate the rotation of the pocket against the X axis.
-; After the checks above, we know the pocket is rectangular,
-; within our threshold for squareness, but it might still be
-; rotated in relation to our axes. At this point, the angle
-; of the entire pocket's rotation can be assumed to be the angle
-; of the first surface on the longest edge of the pocket.
-; We need to normalise the rotation to be within +- 45 degrees
+var probingDepth = { input }
 
-var aR = { var.pSfcX[0][2] }
+if { var.probingDepth < 0 }
+    abort { "Probing depth was negative!" }
 
-; Reduce the angle to below +/- 45 degrees (pi/4 radians)
-while { var.aR > pi/4 || var.aR < -pi/4 }
-    if { var.aR > pi/4 }
-        set var.aR = { var.aR - pi/2 }
-    elif { var.aR < -pi/4 }
-        set var.aR = { var.aR + pi/2 }
+; Run the pocket probe cycle
+if { global.nxtTutorialMode }
+    M291 P{"Probe will now move down by " ^ var.probingDepth ^ "mm, before probing towards each of the pocket surfaces at 2 locations."} R"nxt: Probe Rect. Pocket" T0 S4 K{"Continue", "Cancel"} F0
+    if { input != 0 }
+        abort { "Rectangle pocket probe aborted!" }
 
-set global.nxtWPDeg[var.workOffset] = { degrees(var.aR) }
+var nxtClr = { var.surfaceClearance }
+if { var.cornerClearance != null }
+    set var.nxtClr = { var.cornerClearance }
 
-; Report probe results if requested
-if { !exists(param.R) || param.R != 0 }
-    M7601 W{var.workOffset}
-    echo { "nxt: Setting WCS " ^ var.wcsNumber ^ " X,Y origin to the center of the rectangle pocket." }
-
-; Set WCS origin to the probed center
-G10 L2 P{var.wcsNumber} X{var.sX} Y{var.sY}
+; Operator is already at approx center — G6502 uses current XY as assumed center
+G6502 U{var.wcsNumber} W{var.pocketWidth} H{var.pocketLength} L{var.probingDepth} C{var.nxtClr} O{var.overtravel}
