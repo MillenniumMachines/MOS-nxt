@@ -23,6 +23,7 @@ Targets the **nxt v0.7.0** line.
 | `machines/*.fcm` | — | machine definitions, see below |
 | `tools/compare_gcode.py` | — | semantic diff between the two posts' output |
 | `tools/post_cli.py` | — | post a job to G-code headlessly, without the GUI |
+| `tests/` | — | fixtures and golden G-code for the CI check |
 
 ### Included machine definitions
 
@@ -403,6 +404,44 @@ FreeCAD is located in this order: `$FREECADCMD`, then the newest
 `~/Downloads/FreeCAD_weekly-*.AppImage`, then `freecadcmd` on `PATH`. The
 machine flow needs a weekly from 2026.09.02 onward, so a 1.1 stable
 `freecadcmd` on `PATH` will not work — it has no `Machine` module.
+
+---
+
+## The G-code regression check
+
+`.github/workflows/freecad-post.yml` posts a set of fixture jobs and compares
+the result against committed golden G-code.
+
+```sh
+./dist/ci-fetch-freecad.sh        # pinned weekly -> ./freecad-build
+./dist/check-freecad-post.sh      # post every case, diff against goldens
+./dist/check-freecad-post.sh --update   # after an intentional change
+```
+
+Cases are listed in `tests/cases.tsv`, one tab-separated line per case:
+
+```
+<fixture.FCStd>  <job label>  <machine .fcm>  <golden .gcode>
+```
+
+Comparison uses `tools/compare_gcode.py` rather than `diff`, because the header
+carries an absolute project path and a wall-clock timestamp that differ between
+a developer's machine and the runner. Dropping comments removes both while
+still checking every motion command.
+
+The FreeCAD build is pinned in `ci/freecad-build-ref`. Two jobs use it
+differently:
+
+- **on push and PR**, against the pin — a regression gate. Output is
+  deterministic, so any difference is something the post did.
+- **weekly, against the newest FreeCAD release** — an early warning for
+  upstream drift, marked `continue-on-error` so it reports without blocking.
+  This is the case that has bitten this port before: `_optimize_gcode()` lost
+  its only caller upstream and leaked a sentinel comment into every posted file
+  for three weeklies before anyone noticed.
+
+Bumping the pin means updating `ci/freecad-build-ref` and, if the output moved,
+regenerating goldens with `--update` and reviewing the diff.
 
 ---
 

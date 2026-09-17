@@ -1,0 +1,109 @@
+name: FreeCAD post
+
+# Two jobs with the same body but opposite intent:
+#
+#   post-gcode        pinned FreeCAD, on push/PR. A regression gate: the post
+#                     changed and the G-code moved with it.
+#   post-gcode-latest weekly, against whatever FreeCAD ships newest. An early
+#                     warning: the post did not change but upstream did. This
+#                     is the case that has bitten this port before (see
+#                     "Upstream FreeCAD issues" in the FreeCAD README), so it
+#                     is allowed to fail without blocking anything.
+
+on:
+  push:
+    branches:
+      - main
+      - 'v*.*.*'
+      - 'v*.*.*-beta.*'
+    paths:
+      - 'post-processors/freecad/**'
+      - 'dist/ci-fetch-freecad.sh'
+      - 'dist/check-freecad-post.sh'
+      - 'ci/freecad-build-ref'
+      - '.github/workflows/freecad-post.yml'
+  pull_request:
+    branches:
+      - main
+      - 'v*.*.*'
+      - 'v*.*.*-beta.*'
+    paths:
+      - 'post-processors/freecad/**'
+      - 'dist/ci-fetch-freecad.sh'
+      - 'dist/check-freecad-post.sh'
+      - 'ci/freecad-build-ref'
+      - '.github/workflows/freecad-post.yml'
+  schedule:
+    # Mondays 06:00 UTC, a few hours after the FreeCAD weekly is published.
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+    inputs:
+      freecad_ref:
+        description: 'FreeCAD release tag, or "latest"'
+        required: false
+        default: ''
+
+jobs:
+  post-gcode:
+    name: Posted G-code matches goldens (pinned FreeCAD)
+    # The scheduled run only needs the drift job below.
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve pinned FreeCAD ref
+        id: ref
+        run: echo "value=$(tr -d '[:space:]' < ci/freecad-build-ref)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache FreeCAD AppImage
+        uses: actions/cache@v4
+        with:
+          path: .freecad-cache
+          key: freecad-${{ steps.ref.outputs.value }}
+
+      - name: Fetch FreeCAD
+        run: ./dist/ci-fetch-freecad.sh "${{ github.event.inputs.freecad_ref || steps.ref.outputs.value }}"
+
+      - name: Check posted G-code
+        run: ./dist/check-freecad-post.sh
+
+      - name: Upload differing output
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: freecad-post-actual
+          path: freecad-post-actual/
+          retention-days: 7
+          if-no-files-found: ignore
+
+  post-gcode-latest:
+    name: Posted G-code against newest FreeCAD weekly (advisory)
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    # Upstream breaking us is worth knowing about, not worth a red main.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch newest FreeCAD weekly
+        id: fetch
+        run: |
+          REF="$(./dist/ci-fetch-freecad.sh latest)"
+          echo "ref=${REF}" >> "$GITHUB_OUTPUT"
+
+      - name: Check posted G-code
+        run: ./dist/check-freecad-post.sh
+
+      - name: Note the version that was tested
+        if: always()
+        run: echo "Tested against FreeCAD ${{ steps.fetch.outputs.ref }} (pin is $(tr -d '[:space:]' < ci/freecad-build-ref))" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload differing output
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: freecad-post-actual-latest
+          path: freecad-post-actual/
+          retention-days: 7
+          if-no-files-found: ignore

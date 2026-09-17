@@ -1,0 +1,2 @@
+# fixture	job	machine	golden
+tests/fixtures/z-tram-plate-v1.FCStd	Job	machines/Milo_V1.6.fcm	tests/golden/z-tram-plate-v1.gcode

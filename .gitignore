@@ -27,3 +27,6 @@ ai-coding-cache/
 # FreeCAD post CLI (post-processors/freecad/tools/post_cli.py)
 __pycache__/
 *.pyc
+freecad-build/
+.freecad-cache/
+freecad-post-actual/
