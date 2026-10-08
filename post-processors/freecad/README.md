@@ -424,6 +424,26 @@ Cases are listed in `tests/cases.tsv`, one tab-separated line per case:
 <fixture.FCStd>  <job label>  <machine .fcm>  <golden .gcode>
 ```
 
+Two cases ship:
+
+| Fixture | Job | Covers |
+|---|---|---|
+| `z-tram-plate-v1.FCStd` | `Job` | 3-axis: 8 operations, 5 tools, drilling, adaptive, 50 arcs |
+| `die-rotary.FCStd` | `Rotary_Sides` | indexed 4-axis: 10 operations across A0/A90/A180/A270 |
+
+The rotary case is the only coverage of the rotary path — the positioning moves, the
+`pre_rotary_move` retract and the end-of-program reset. It needs the rotary postables
+upstream added in `426d03d1` (2026-09-30), which is why **the pin cannot go below
+`weekly-2026.10.01`**.
+
+> **The z-tram golden encodes a known upstream change.** It was regenerated on `26.3rc1`,
+> which carries `426d03d1` ("Operations respect workplane frame"). `MillFacing001` has a
+> `Placement` of `(0, 0, -0.2)` that the post pipeline now composes into the output, so
+> the file reads `G0 Z4.8` where the operation's `ClearanceHeight` is `5.0`. Both posts
+> are faithfully emitting what FreeCAD hands them — the legacy post shifts identically —
+> and it is being tracked upstream. It is baked into the golden so the check stays useful
+> for *other* drift; do not treat it as this post's behaviour, and do not "fix" it here.
+
 Comparison uses `tools/compare_gcode.py` rather than `diff`, because the header
 carries an absolute project path and a wall-clock timestamp that differ between
 a developer's machine and the runner. Dropping comments removes both while

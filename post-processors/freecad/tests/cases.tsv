@@ -1,2 +1,16 @@
 # fixture	job	machine	golden
+#
+# z-tram-plate-v1 is a 3-axis job: 8 operations, 5 tools, drilling and adaptive.
+# NOTE: its golden was regenerated on 26.3rc1 and so encodes the operation-Placement
+# change that landed upstream in 426d03d1 ("Operations respect workplane frame",
+# 2026-09-30). MillFacing001 carries a Placement of (0,0,-0.2) which the post pipeline
+# now composes into the output, so clearance reads Z4.8 where ClearanceHeight is 5.0.
+# That is a known upstream behaviour change being tracked separately, NOT something
+# this post does. Do not "fix" it here.
+#
+# die-rotary is the indexed 4-axis case: 10 operations across A0/A90/A180/A270,
+# exercising the rotary positioning moves, the pre_rotary_move retract and the
+# end-of-program reset. It needs the rotary postables from 426d03d1, which is why
+# the pin cannot go below weekly-2026.10.01.
 tests/fixtures/z-tram-plate-v1.FCStd	Job	machines/Milo_V1.6.fcm	tests/golden/z-tram-plate-v1.gcode
+tests/fixtures/die-rotary.FCStd	Rotary_Sides	machines/Milo_V1.5_Rotary.fcm	tests/golden/die-rotary.gcode
