@@ -79,6 +79,14 @@ function main() {
 	assertClose("center X", (m1x + m2x) / 2, 0, 1e-12);
 	assertClose("center Y", (m1y + m2y) / 2, 0, 1e-12);
 
+	// G6510 X face (A0): line runs along +Y, so skew is measured from +Y (−90°).
+	// Issue #33: hits X 125.2750 → 125.3490 over 15 mm of Y reported 89.717° without it.
+	const g6510X = (x0, y0, x1, y1) => wrapSkewDeg(atan2Deg(y1 - y0, x1 - x0) - 90);
+	assertClose("G6510 X face #33", g6510X(125.275, 0, 125.349, 15), -atan2Deg(0.074, 15), 1e-9);
+	// Part rotated +α CCW: X face direction (−sinα, cosα) → +α, same sign as Y face / G68 R.
+	assertClose("G6510 X face +α", g6510X(0, 0, -20 * Math.sin(aRad), 20 * Math.cos(aRad)), alpha, 1e-6);
+	assertClose("G6510 Y face +α", wrapSkewDeg(atan2Deg(20 * Math.sin(aRad), 20 * Math.cos(aRad))), alpha, 1e-6);
+
 	// Circular mean (M6522): 179° and −179° → ~±180, not ~0.
 	const r1 = (179 * Math.PI) / 180;
 	const r2 = (-179 * Math.PI) / 180;
