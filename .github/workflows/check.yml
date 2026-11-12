@@ -64,6 +64,15 @@ jobs:
       - name: Check G6512 deflection compensation math
         run: node dist/check-g6512-deflection-math.mjs
 
+  probe-result-slot-axes:
+    name: Probe result slot axes
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check single-axis cycles write only the probed axis
+        run: node dist/check-probe-result-slot-axes.mjs
+
   calibration-math:
     name: Calibration math regression
     runs-on: ubuntu-latest
