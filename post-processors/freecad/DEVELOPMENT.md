@@ -19,6 +19,7 @@ The FreeCAD `PostProcessor` base class handles these features through the machin
 ## Post overrides
 
 - `_expand_prefix` builds the job-specific M4005 version check, M4000 tool table, G6511 reference probe, G6600 WCS probing, and M7000 VSSC. It also appends the legacy closing sequence: `M9`, `G27`, `M7001`, `M9`, `M5.9`.
+  - Each M4000 line carries `P` (tool number), `R` (diameter / 2), `S` (the tool controller label, cut to 32 characters), and `F` (flute count) and `L` (`CuttingEdgeHeight`, in mm) when the tool bit has them. A word is left out when the shape lacks it or it is 0, as with a drill's flute length, so M4000 keeps whatever the firmware already holds. nxt only shows `F` and `L` in the DWC status panel. The Fusion post doesn't emit them.
 - `_convert_tool_change` emits a bare `T` word because firmware services tool changes; `M6` is suppressed.
 - `_convert_spindle_command` adds the `.9` wait suffix so RRF blocks until the spindle reaches speed.
 - `_convert_fixture` parks before a WCS change, then optionally probes and emits M5011.

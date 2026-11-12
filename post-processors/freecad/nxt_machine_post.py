@@ -27,6 +27,7 @@
 
 from typing import Any, Dict, List
 import inspect
+import math
 import re
 
 from Path.Post.Processor import PostProcessor
@@ -155,6 +156,11 @@ NXT_EXTRA_COMMANDS = [
 def rrf_safe_string(s):
     """RRF strings disallow some characters; quotes must be doubled."""
     return re.sub(r'([^"0-9a-z\.:,=_\-\s])', "", s, flags=re.IGNORECASE).replace('"', '""')
+
+
+def fmt_mm(value):
+    """A length in mm at 3 decimals without trailing zeros, e.g. 1.5875 -> 1.588, 19.05 -> 19.05."""
+    return f"{value:.3f}".rstrip("0").rstrip(".")
 
 
 class NxtMachine(PostProcessor):
@@ -422,10 +428,40 @@ class NxtMachine(PostProcessor):
     # Preamble construction
     # ------------------------------------------------------------------
 
+    @staticmethod
+    def _tool_flutes(tool):
+        """Flute count for M4000 F, or None when the shape has none or it is unset (0)."""
+        value = getattr(tool, "Flutes", None)
+        if isinstance(value, bool):
+            return None
+        try:
+            flutes = int(value)
+        except (TypeError, ValueError):
+            return None
+        if flutes != value or flutes <= 0:
+            return None
+        return flutes
+
+    @staticmethod
+    def _tool_flute_length_mm(tool):
+        """Flute length (CuttingEdgeHeight) in mm for M4000 L, or None when absent or 0."""
+        value = getattr(tool, "CuttingEdgeHeight", None)
+        if value is None:
+            return None
+        try:
+            length = float(value.getValueAs("mm"))
+        except (AttributeError, TypeError, ValueError):
+            return None
+        if not math.isfinite(length) or length <= 0:
+            return None
+        return length
+
     def _collect_tools(self, postables):
         """Walk the postable list and gather tool definitions for M4000.
 
-        Returns an ordered dict of tool_number -> {name, radius}.
+        Returns an ordered dict of tool_number -> {name, radius, flutes,
+        flute_length}. flutes and flute_length are None when the tool bit's
+        shape lacks them or they are left at 0 (drills have no flute length).
         """
         tools: Dict[int, Dict[str, Any]] = {}
 
@@ -451,7 +487,12 @@ class NxtMachine(PostProcessor):
                         f"Duplicate tool index {number} with different descriptions"
                     )
 
-                tools[number] = {"name": name, "radius": radius}
+                tools[number] = {
+                    "name": name,
+                    "radius": radius,
+                    "flutes": self._tool_flutes(tool),
+                    "flute_length": self._tool_flute_length_mm(tool),
+                }
 
         return tools
 
@@ -515,10 +556,15 @@ class NxtMachine(PostProcessor):
                 lines.append("(Pass tool details to firmware)")
                 for number, tool in tools.items():
                     name = rrf_safe_string(tool["name"][:32])
-                    radius = f'{tool["radius"]:.3f}'.rstrip("0").rstrip(".")
-                    lines.append(
-                        f'{MCODES.ADD_TOOL} P{int(number)} R{radius} S"{name}"'
-                    )
+                    words = [f'{MCODES.ADD_TOOL} P{int(number)} R{fmt_mm(tool["radius"])}']
+                    # F/L feed the DWC status panel. M4000 keeps any stored
+                    # value when a word is omitted, so leave out what FreeCAD lacks.
+                    if tool["flutes"] is not None:
+                        words.append(f'F{tool["flutes"]}')
+                    if tool["flute_length"] is not None:
+                        words.append(f'L{fmt_mm(tool["flute_length"])}')
+                    words.append(f'S"{name}"')
+                    lines.append(" ".join(words))
 
         if self.values.get("OUTPUT_JOB_SETUP"):
             if self.values.get("HOME_BEFORE_START"):
