@@ -3,6 +3,8 @@
 ; Two inward probes along the pocket width (N=0 → ±X, N=1 → ±Y) from a centered start.
 ; Unlike G6502/G6503, this does *not* populate nxtProbeHitXY — it uses global.nxtLastProbeResult
 ; (scalar along the probe axis) for each edge, then midpoint = (pos + neg) / 2.
+; Only the probed axis goes into the result slot; the other axis keeps its value
+; (0 in a new slot), so the Probe Results panel and M6522 treat it as not probed.
 ;
 ; No skew/rotation from this cycle; rotation slot forced to 0. U still runs M6520 for translation,
 ; on the probed axis only (X1 or Y1) so a previously probed orthogonal origin is kept.
@@ -108,8 +110,7 @@ else
 if { global.nxtProbeResults[var.pSlot] == null || #global.nxtProbeResults[var.pSlot] < 3 }
     set global.nxtProbeResults[var.pSlot] = { vector(#move.axes + 1, 0.0) }
 
-set global.nxtProbeResults[var.pSlot][0] = { var.resultX }
-set global.nxtProbeResults[var.pSlot][1] = { var.resultY }
+set global.nxtProbeResults[var.pSlot][var.probeAxis] = { var.calculatedCenter }
 set global.nxtProbeResults[var.pSlot][#move.axes] = 0.0
 
 G6550 X{var.resultX} Y{var.resultY}
