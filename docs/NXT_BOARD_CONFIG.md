@@ -160,7 +160,7 @@ For machines with a **Universal Electronics Box** contact relay on the Scylla **
 
 Configuration reserves coolant/aux when `nxtRelayID` is set. Save may persist `nxtRelayID=5`; gpio-role-defaults fills 5 when still null.
 
-**Fans:** `global.nxtBoardFanPins` lists aliases created as `M950 F` instead of `M950 P`. Default when null: always **`aux0`** (any motor voltage). Persist as a CSV string (`"aux0"` / `"mist,aux1"`); explicit none is `""`. Legacy single-pin vectors still work at boot. Hold-to-test uses `M106` for fan-mode pins and `M42` for gpOut roles — **not** the motor relay.
+**Fans:** `global.nxtBoardFanPins` lists aliases created as `M950 F` instead of `M950 P`. Default when null: always **`aux1`** (PA_5, any motor voltage — matches the UEB wiring guide; change to `aux0` in Configuration if your fan is on PA_4). Persist as a CSV string (`"aux0"` / `"mist,aux1"`); explicit none is `""`. Legacy single-pin vectors still work at boot. Hold-to-test uses `M106` for fan-mode pins and `M42` for gpOut roles — **not** the motor relay.
 
 ### Scylla RS485 (PA9 / PA10)
 

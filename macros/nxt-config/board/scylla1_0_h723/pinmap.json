@@ -137,7 +137,7 @@
       "gpOutIndex": 0,
       "pin": "A.4",
       "aliases": ["aux0", "aux0pwm"],
-      "note": "Preferred P0. 24V rail. Default tool fan (nxtBoardFanPins) at any motor voltage."
+      "note": "Preferred P0. 24V rail. May be created as fan instead via nxtBoardFanPins."
     },
     {
       "id": "aux1",
@@ -146,7 +146,7 @@
       "gpOutIndex": 1,
       "pin": "A.5",
       "aliases": ["aux1", "aux1pwm"],
-      "note": "Preferred P1. 24V rail. May be created as fan instead via nxtBoardFanPins."
+      "note": "Preferred P1. 24V rail. Default tool fan (nxtBoardFanPins) at any motor voltage (UEB wiring)."
     },
     {
       "id": "aux2",
@@ -187,7 +187,7 @@
   ],
   "namedOutputs": ["aux0", "aux1", "aux2", "coolant", "mist"],
   "fanDefaultsByVoltage": {
-    "24": ["aux0"],
-    "48": ["aux0"]
+    "24": ["aux1"],
+    "48": ["aux1"]
   }
 }

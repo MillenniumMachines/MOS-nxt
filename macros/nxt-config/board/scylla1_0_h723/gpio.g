@@ -5,16 +5,16 @@
 ; Motor/VFD relay is gpOut P5 — not a fan, not RRF ATX.
 ; Aux0–2 are 24V rails (independent of motor pack voltage).
 ; Pins listed in global.nxtBoardFanPins are created as M950 F (not P).
-; Default when null/missing: always "aux0".
+; Default when null/missing: always "aux1" (PA_5 — UEB wiring / build manual).
 ; Explicit none: "" or "none". Persist form: CSV string ("aux0" / "mist,aux1").
 ; Legacy single-pin vectors { "aux0" } still recognized. No array indexing.
 ; Local vars mist/coolant/aux* mean "create this alias as M950 F".
 
-; --- Normalize missing/null → default aux0 (CSV string) ---
+; --- Normalize missing/null → default aux1 (CSV string) ---
 if { !exists(global.nxtBoardFanPins) }
-    global nxtBoardFanPins = "aux0"
+    global nxtBoardFanPins = "aux1"
 elif { global.nxtBoardFanPins == null }
-    set global.nxtBoardFanPins = "aux0"
+    set global.nxtBoardFanPins = "aux1"
 
 ; --- Fan membership (CSV / scalar / legacy single-element vectors only) ---
 var mist = false

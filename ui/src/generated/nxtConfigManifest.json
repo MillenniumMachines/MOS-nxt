@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-29T02:12:20.499Z",
+  "generatedAt": "2026-11-12T18:31:14.659Z",
   "boards": [
     {
       "shortName": "scylla1_0_h723",
@@ -197,7 +197,7 @@
               "aux0",
               "aux0pwm"
             ],
-            "note": "Preferred P0. 24V rail. Default tool fan (nxtBoardFanPins) at any motor voltage."
+            "note": "Preferred P0. 24V rail. May be created as fan instead via nxtBoardFanPins."
           },
           {
             "id": "aux1",
@@ -209,7 +209,7 @@
               "aux1",
               "aux1pwm"
             ],
-            "note": "Preferred P1. 24V rail. May be created as fan instead via nxtBoardFanPins."
+            "note": "Preferred P1. 24V rail. Default tool fan (nxtBoardFanPins) at any motor voltage (UEB wiring)."
           },
           {
             "id": "aux2",
@@ -269,10 +269,10 @@
         ],
         "fanDefaultsByVoltage": {
           "24": [
-            "aux0"
+            "aux1"
           ],
           "48": [
-            "aux0"
+            "aux1"
           ]
         }
       },
