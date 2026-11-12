@@ -83,7 +83,7 @@ global nxtToolSetterRefDir = 0     ; V2 ref pad side of platen: 0=+X 1=-X 2=+Y 3
 global nxtToolSetterProbeTravelMm = 80.0 ; Downward travel from known Z (mill tpost platen; G6511 mill-touch)
 global nxtToolSetterRadius = null ; Toolsetter platen radius for large-tool multi-point G37 (mm)
 global nxtToolChangeState = null   ; Tracks the current tool change state (1=tfree, 2=tfree done, 3=tpre done, 4=tpost, null=complete)
-global nxtToolChangeCancelled = false ; Operator Cancel in tfree/tpre: tpost skips measure (no T from firmware)
+global nxtToolChangeCancelled = false ; Operator Cancel: tpost skips measure; pause.g stops an active job after the T stack
 global nxtUserToolsFilePresent = false     ; set at boot by nxt.g: nxt-user-tools.g exists on SD
 global nxtUserToolsDaemonReload = false      ; if true, daemon reloads library when 0:/sys/nxt-user-tools.reload.requested exists (see TOOLCHANGING.md)
 global nxtTTLocked = false                   ; Tool Library edit-lock (persisted via nxt-user-tools-sync.g)
