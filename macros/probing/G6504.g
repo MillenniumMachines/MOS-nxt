@@ -4,7 +4,8 @@
 ; Uses H0/H1 in nxtProbeHitXY; center along the web = midpoint of the two contacts;
 ; orthogonal coordinate copies the start position (assumes operator started on centerline).
 ;
-; No single rotation estimate from two points — nxtProbeResults[][axes] = 0; M6520 is translation only.
+; No single rotation estimate from two points — nxtProbeResults[][axes] = 0; M6520 is translation only,
+; on the probed axis only (X1 or Y1) so a previously probed orthogonal origin is kept.
 ;
 ; USAGE: G6504 P<index>|U<wcs> N<axis> W<width> L<depth> [F<speed>] [R<retries>] [C<clearance>] [O<overtravel>] [Q<6520mode>]
 
@@ -148,8 +149,15 @@ echo "G6504: Web center along " ^ var.axisName ^ " axis: " ^ var.calculatedCente
 echo "G6504: Measured width: " ^ var.actualWidth ^ "mm"
 echo "G6504: Result logged to table index " ^ var.pSlot
 
+; WCS only the probed axis — the orthogonal coordinate is just the start pose
 if { exists(param.U) && param.U != null }
-    if { exists(param.Q) && param.Q != null }
-        M6520 P{var.pSlot} W{param.U} X1 Y1 Q{param.Q}
+    if { var.probeAxis == 0 }
+        if { exists(param.Q) && param.Q != null }
+            M6520 P{var.pSlot} W{param.U} X1 Q{param.Q}
+        else
+            M6520 P{var.pSlot} W{param.U} X1
     else
-        M6520 P{var.pSlot} W{param.U} X1 Y1
+        if { exists(param.Q) && param.Q != null }
+            M6520 P{var.pSlot} W{param.U} Y1 Q{param.Q}
+        else
+            M6520 P{var.pSlot} W{param.U} Y1

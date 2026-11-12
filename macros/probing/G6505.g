@@ -4,7 +4,8 @@
 ; Unlike G6502/G6503, this does *not* populate nxtProbeHitXY — it uses global.nxtLastProbeResult
 ; (scalar along the probe axis) for each edge, then midpoint = (pos + neg) / 2.
 ;
-; No skew/rotation from this cycle; rotation slot forced to 0. U still runs M6520 for translation.
+; No skew/rotation from this cycle; rotation slot forced to 0. U still runs M6520 for translation,
+; on the probed axis only (X1 or Y1) so a previously probed orthogonal origin is kept.
 ;
 ; USAGE: G6505 P|U N<axis> W<width> L<depth> [F] [R] [C] [O] [Q]
 
@@ -117,8 +118,15 @@ G6550 Z{var.startZ}
 echo "G6505: Done center=" ^ var.calculatedCenter ^ " width=" ^ var.actualWidth
 echo "G6505: Index " ^ var.pSlot
 
+; WCS only the probed axis — the orthogonal coordinate is just the start pose
 if { exists(param.U) && param.U != null }
-    if { exists(param.Q) && param.Q != null }
-        M6520 P{var.pSlot} W{param.U} X1 Y1 Q{param.Q}
+    if { var.probeAxis == 0 }
+        if { exists(param.Q) && param.Q != null }
+            M6520 P{var.pSlot} W{param.U} X1 Q{param.Q}
+        else
+            M6520 P{var.pSlot} W{param.U} X1
     else
-        M6520 P{var.pSlot} W{param.U} X1 Y1
+        if { exists(param.Q) && param.Q != null }
+            M6520 P{var.pSlot} W{param.U} Y1 Q{param.Q}
+        else
+            M6520 P{var.pSlot} W{param.U} Y1
