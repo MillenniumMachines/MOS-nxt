@@ -96,7 +96,7 @@
       "outputRoleConflict": "{role} already uses this pin — clear that role first, or pick another pin.",
       "outputTestHint": "Hold to turn the output on (M42 for gpOut, M106 for fan-mode pins); release to turn it off. Pointer is captured so leaving the button does not drop the OFF command.",
       "boardFanPins": "Board pins as fans",
-      "boardFanPinsHint": "Selected pins are created as M950 F (not gpOut). Default: Aux 0 (any motor voltage). Save + reboot/board pack reload required to recreate hardware.",
+      "boardFanPinsHint": "Selected pins are created as M950 F (not gpOut). Default: Aux 1 (any motor voltage). Save + reboot/board pack reload required to recreate hardware.",
       "boardFanPinsSaved": "Fan pin list updated in OM — Save Configuration, then reboot (or reload board pack) for M950 to apply.",
       "uartSection": "UART accessory",
       "uartDevice": "UART accessory (PD8/PD9)",

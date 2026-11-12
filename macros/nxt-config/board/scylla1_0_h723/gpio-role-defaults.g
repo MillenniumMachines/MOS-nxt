@@ -2,7 +2,7 @@
 ; Only fills missing/null roles. Skips pins that were created as fans (nxtBoardFanPins).
 ; Preferred: aux0=0 aux1=1 aux2=2 coolant=3 mist=4 relay=5
 ; UI maps: Aux0→nxtAux1ID, Aux1→nxtAux2ID, Aux2→nxtAux3ID
-; Aux0–2 are 24V rails; default tool fan is aux0 (any motor voltage).
+; Aux0–2 are 24V rails; default tool fan is aux1 (any motor voltage).
 ; Motor/VFD relay is gpOut P5 (PD_5) — nxtRelayID when still null.
 ;
 ; Fan membership must match gpio.g (CSV / scalar / legacy single-pin vectors; no []).

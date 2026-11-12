@@ -163,7 +163,7 @@ global nxtAux2ID = null
 global nxtAux3ID = null
 
 ; Named board pins created as fans (M950 F) instead of gpOut (M950 P).
-; Default filled by Scylla gpio.g when null: always aux0 (aux/relay are 24V rails).
+; Default filled by Scylla gpio.g when null: always aux1 (aux/relay are 24V rails).
 ; Idempotent: gpio.g may declare this before nxt-vars on some boot paths.
 if { !exists(global.nxtBoardFanPins) }
     global nxtBoardFanPins = null
