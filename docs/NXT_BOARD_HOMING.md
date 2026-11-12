@@ -52,7 +52,7 @@ A runs **before** XY so the rotary is at a known/safe position before the table 
 | **v2.0-miley** | Z | Toward **max** (top) | `M574 Z2` via `endstops.g` | `M569 P2 S1`, `M92 Z800` | `G92 Z{move.axes[2].max}` |
 | **custom** | X/Y/Z (+A optional) | Direction from `nxtCustom*HomeAt` (1=min→neg, 2=max→pos) | `nxtCustom*` → `M208` / `M574` / overlay in `0:/sys/nxt-user-custom/` | `M92` / `M584` / `M569` / `M906` via overlay | `G92` to min or max per axis; `homea.g` when A configured; **homeall** calls A **before** XY |
 
-**Endstop polarity (v2.0-milo / v2.0-miley):** the packs invert all three pins (`!PD_11`, `!PD_14`, `!PD_12`) for the BOM LJ8A3-2-Z/AY normally-closed inductive sensors. Without the `!` they read triggered at rest, and `G1 H1` stops immediately, so homing appears to succeed at the wrong position. If you fit a D2F microswitch on Y, you may need to remove the `!` from the Y pin.
+**Endstop polarity (v2.0-milo / v2.0-miley):** the packs invert all three pins (`!PD_11`, `!PD_14`, `!PD_12`) for the BOM LJ8A3-2-Z/AY normally-closed inductive sensors. Without the `!` they read triggered at rest, and `G1 H1` stops immediately, so homing appears to succeed at the wrong position. If you fitted LJ8A3-2-Z/**AX** sensors instead, they don't need inverting: remove the `!` from all three pins. If you fit a D2F microswitch on Y, you may need to remove the `!` from the Y pin.
 
 Source files:
 
