@@ -235,11 +235,14 @@ export const NXT_NAMED_OUTPUT_ALIASES = [
 
 export type NxtNamedOutputAlias = (typeof NXT_NAMED_OUTPUT_ALIASES)[number]
 
-/** Default tool fan pin; aux outputs are 24V regardless of motor pack voltage. */
+/**
+ * Default tool fan pin (aux1 / PA_5, per UEB wiring); aux outputs are 24V
+ * regardless of motor pack voltage. Must match gpio.g and pinmap fanDefaultsByVoltage.
+ */
 export function defaultBoardFanPinsForVoltage(
   _voltage: number | null | undefined
 ): string[] {
-  return ['aux0']
+  return ['aux1']
 }
 
 /** True when the board pinmap assigns a fixed motor/VFD relay (hide picker, no hold-to-test). */

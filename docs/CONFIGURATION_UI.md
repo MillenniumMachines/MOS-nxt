@@ -114,7 +114,7 @@ Configure GPIO outputs from **named board pins** (Mist, Coolant, Aux, …). On S
 | Air Blast | Any free named gpOut | — |
 | Mist Coolant | Prefer Mist pin | Mist P4 (`A.7`) |
 | Flood / Coolant | Prefer Coolant pin | Coolant P3 (`C.4`) |
-| Board pins as fans | Multi-select → `M950 F` instead of gpOut | Default Aux0 (any motor voltage) |
+| Board pins as fans | Multi-select → `M950 F` instead of gpOut | Default Aux1 (PA_5, UEB wiring; any motor voltage) |
 | UART accessory | Single device on PD8/PD9 | Off / PanelDue / TFT / Pendant |
 
 **Usage Notes:**

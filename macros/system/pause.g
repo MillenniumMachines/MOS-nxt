@@ -1,5 +1,12 @@
 ; pause.g - PAUSE CURRENT JOB
 
+; A cancelled tool change requests M25 from tpost.g so RRF can finish the T
+; stack. M25 is deferred until then; cancel the now-paused job via normal stop.g.
+if { exists(global.nxtToolChangeCancelled) && global.nxtToolChangeCancelled }
+    set global.nxtToolChangeCancelled = false
+    echo "pause.g: cancelling job after tool change cancellation"
+    M0
+
 ; Save pre-pause state of general purpose output pins (allocate snapshot on demand).
 if { !exists(global.nxtPinStates) || global.nxtPinStates == null }
     if { !exists(global.nxtPinStates) }

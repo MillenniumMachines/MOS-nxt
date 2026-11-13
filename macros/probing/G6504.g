@@ -1,10 +1,12 @@
 ; G6504.g: WEB PROBE (BLOCK IN X OR Y)
 ;
 ; One-axis feature: two opposing outer probes only (N=0 → ±X, N=1 → ±Y).
-; Uses H0/H1 in nxtProbeHitXY; center along the web = midpoint of the two contacts;
-; orthogonal coordinate copies the start position (assumes operator started on centerline).
+; Uses H0/H1 in nxtProbeHitXY; center along the web = midpoint of the two contacts.
+; Only the probed axis goes into the result slot; the other axis keeps its value
+; (0 in a new slot), so the Probe Results panel and M6522 treat it as not probed.
 ;
-; No single rotation estimate from two points — nxtProbeResults[][axes] = 0; M6520 is translation only.
+; No single rotation estimate from two points — nxtProbeResults[][axes] = 0; M6520 is translation only,
+; on the probed axis only (X1 or Y1) so a previously probed orthogonal origin is kept.
 ;
 ; USAGE: G6504 P<index>|U<wcs> N<axis> W<width> L<depth> [F<speed>] [R<retries>] [C<clearance>] [O<overtravel>] [Q<6520mode>]
 
@@ -137,8 +139,7 @@ else
 if { global.nxtProbeResults[var.pSlot] == null || #global.nxtProbeResults[var.pSlot] < 3 }
     set global.nxtProbeResults[var.pSlot] = { vector(#move.axes + 1, 0.0) }
 
-set global.nxtProbeResults[var.pSlot][0] = { var.resultX }
-set global.nxtProbeResults[var.pSlot][1] = { var.resultY }
+set global.nxtProbeResults[var.pSlot][var.probeAxis] = { var.calculatedCenter }
 set global.nxtProbeResults[var.pSlot][#move.axes] = 0.0
 
 G6550 X{var.resultX} Y{var.resultY}
@@ -148,8 +149,15 @@ echo "G6504: Web center along " ^ var.axisName ^ " axis: " ^ var.calculatedCente
 echo "G6504: Measured width: " ^ var.actualWidth ^ "mm"
 echo "G6504: Result logged to table index " ^ var.pSlot
 
+; WCS only the probed axis — the orthogonal coordinate is just the start pose
 if { exists(param.U) && param.U != null }
-    if { exists(param.Q) && param.Q != null }
-        M6520 P{var.pSlot} W{param.U} X1 Y1 Q{param.Q}
+    if { var.probeAxis == 0 }
+        if { exists(param.Q) && param.Q != null }
+            M6520 P{var.pSlot} W{param.U} X1 Q{param.Q}
+        else
+            M6520 P{var.pSlot} W{param.U} X1
     else
-        M6520 P{var.pSlot} W{param.U} X1 Y1
+        if { exists(param.Q) && param.Q != null }
+            M6520 P{var.pSlot} W{param.U} Y1 Q{param.Q}
+        else
+            M6520 P{var.pSlot} W{param.U} Y1
