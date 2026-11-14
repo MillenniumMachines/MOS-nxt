@@ -35,7 +35,8 @@ function sampleSurface(opts) {
 	const { touches, limitMm, outerRetries, fineCount } = opts;
 	const tolOn = limitMm > 0;
 	const n = tolOn ? 3 : Math.max(1, fineCount);
-	const maxAttempts = tolOn ? outerRetries + 1 : 1;
+	// The macro raises outerLimit to at least 1 for a negative outerRetries
+	const maxAttempts = tolOn ? Math.max(1, outerRetries + 1) : 1;
 	let used = 0;
 	let failedPair = null;
 	let deltaMm = null;
@@ -121,6 +122,9 @@ function mirrorCases() {
 	r = sampleSurface({ ...base, outerRetries: 0, touches: [pt(5.0), pt(5.08), pt(5.08)] });
 	expect("diagonal pair uses 3D distance", !r.ok && r.failedPair === "1-2", JSON.stringify(r));
 
+	r = sampleSurface({ ...base, outerRetries: -1, touches: [tx(10.0), tx(10.004), tx(10.002)] });
+	expect("negative retries still sample once", r.ok && r.attempts === 1, JSON.stringify(r));
+
 	const ta = { pos: [10, 0, -5, 33.3], triggered: true };
 	r = sampleSurface({ ...base, touches: [ta, ta, ta] });
 	expect("keeps A", r.ok && r.result.length === 4 && r.result[3] === 33.3, JSON.stringify(r));
@@ -178,6 +182,50 @@ function macroAssertions() {
 
 	if (!/var\.sP\[0\] != var\.cP\[0\]/.test(text)) {
 		failures.push("(f) G6512.1.g no longer matches /var.sP[0] != var.cP[0]/");
+	}
+
+	// (g) every fine-touch sum accumulation sits inside an `if { !var.isFast }` block
+	const indentOf = (l) => l.match(/^\s*/)[0].replace(/	/g, "    ").length;
+	const sumIdx = lines
+		.map((l, i) => (/^\s*set\s+var\.sum[XYZ]\s*=\s*\{\s*var\.sum[XYZ]\s*\+/.test(l) ? i : -1))
+		.filter((i) => i >= 0);
+	if (sumIdx.length === 0) {
+		failures.push("(g) no fine-touch sum accumulator lines found");
+	}
+	for (const i of sumIdx) {
+		let ok = false;
+		for (let j = i - 1; j >= 0; j--) {
+			if (lines[j].trim() === "" || indentOf(lines[j]) >= indentOf(lines[i])) continue;
+			if (/^\s*if\s*\{\s*!\s*var\.isFast\s*\}\s*$/.test(lines[j])) {
+				ok = true;
+				break;
+			}
+			if (indentOf(lines[j]) === 0) break;
+			// keep climbing: an enclosing block may be the isFast guard
+			if (!/^\s*(if|while|elif|else)/.test(lines[j])) break;
+		}
+		if (!ok) failures.push(`(g) line ${i + 1} adds to a sum accumulator outside an "if { !var.isFast }" block`);
+	}
+
+	// (h) the pair-distance expression uses all three axes in one sqrt( expression
+	const pairLine = lines.find((l) => /var\s+pairDeltaMm\s*=/.test(l) || /set\s+var\.pairDeltaMm\s*=/.test(l));
+	if (!pairLine || !/sqrt\(/.test(pairLine) || ![0, 1, 2].every((k) => pairLine.includes(`var.cP[${k}]`))) {
+		failures.push("(h) pair-distance expression does not use var.cP[0], [1] and [2] in one sqrt( expression");
+	}
+
+	// (i) the not-triggered flag check in the touch loop is followed by a break
+	const ntIdx = lines.findIndex((l) => /^\s*if\s*\{\s*var\.notTriggered\s*\}\s*$/.test(l));
+	if (ntIdx < 0 || !(lines[ntIdx + 1] || "").trim().startsWith("break")) {
+		failures.push('(i) "if { var.notTriggered }" is missing or not followed by break');
+	}
+
+	// (j) every G27 Z1 is immediately followed by the G38 cancel
+	const parkIdx = lines.map((l, i) => (/^\s*G27 Z1\s*$/.test(l) ? i : -1)).filter((i) => i >= 0);
+	if (parkIdx.length === 0) failures.push("(j) no G27 Z1 lines found");
+	for (const i of parkIdx) {
+		if (!/^\s*M98 P"nxt-g38-cancel\.g"\s*$/.test(lines[i + 1] || "")) {
+			failures.push(`(j) G27 Z1 at line ${i + 1} is not immediately followed by M98 P"nxt-g38-cancel.g"`);
+		}
 	}
 }
 

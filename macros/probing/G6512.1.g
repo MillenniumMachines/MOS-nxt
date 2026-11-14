@@ -17,9 +17,6 @@ if { !exists(param.I) || param.I == null || sensors.probes[param.I].type < 5 || 
 if { !exists(param.X) && !exists(param.Y) && !exists(param.Z) }
     abort { "G6512.1: Must provide a valid target position in one or more axes (X.. Y.. Z..)!" }
 
-if { !exists(global.nxtAbsPos) }
-    global nxtAbsPos = { null }
-
 ; Sampling follows G6512's consecutive-pair rule, on fine touches only.
 ; Defaults: macros/system/nxt-vars.g (Probe repeatability).
 ; The first touch is a fast touch at the rough feed. It finds the surface
@@ -79,11 +76,9 @@ var fineSpeed    = { sensors.probes[param.I].speeds[1] }
 
 var roughDivider = 5
 
-if { var.roughSpeed == var.fineSpeed }
+var singleFeed = { var.roughSpeed == var.fineSpeed }
+if { var.singleFeed }
     set var.fineSpeed = { var.roughSpeed / var.roughDivider }
-    if { !global.nxtExpertMode }
-        echo { "nxt: Probe " ^ param.I ^ " is configured with a single feed rate, which will be used for the initial probe. Subsequent probes will run at " ^ var.fineSpeed ^ "mm/min." }
-        echo { "nxt: Please use M558 K" ^ param.I ^ " F" ^ var.roughSpeed ^ ":" ^ var.fineSpeed ^ " in your config to silence this warning." }
 
 ; Touch probe: clamp to <=200 / <=50 mm/min (reliable trigger; matches G6512 and G6511)
 var isTouchProbe = false
@@ -95,6 +90,11 @@ if { var.isTouchProbe }
         set var.roughSpeed = 200
     if { var.fineSpeed > 50 || var.fineSpeed <= 0 }
         set var.fineSpeed = 50
+
+; Warn after the caps, so the message shows the feed that is actually used
+if { var.singleFeed && !global.nxtExpertMode }
+    echo { "nxt: Probe " ^ param.I ^ " is configured with a single feed rate, which will be used for the initial probe. Subsequent probes will run at " ^ var.fineSpeed ^ "mm/min." }
+    echo { "nxt: Please use M558 K" ^ param.I ^ " F" ^ var.roughSpeed ^ ":" ^ var.fineSpeed ^ " in your config to silence this warning." }
 
 ; Feed for the current touch: rough for the fast touch, fine after that
 var curSpeed = { var.roughSpeed }
@@ -155,6 +155,7 @@ while { var.attempt < var.outerLimit && !var.passed && !var.notTriggered }
                 ; This is a safety precaution to prevent subsequent X/Y moves from
                 ; crashing the probe.
                 G27 Z1
+                M98 P"nxt-g38-cancel.g"
 
                 abort { "G6512.1: Probe " ^ param.I ^ " experienced an error, aborting!" }
         else
@@ -262,13 +263,11 @@ while { var.attempt < var.outerLimit && !var.passed && !var.notTriggered }
 ; than average inconsistent touches into the result.
 if { !var.passed && !var.notTriggered }
     G27 Z1
+    M98 P"nxt-g38-cancel.g"
     var failMsg = { "G6512.1: Repeatability failed: pair " ^ var.lastPairLabel }
     set var.failMsg = { var.failMsg ^ " delta " ^ var.lastPairDeltaMm ^ " mm > " ^ var.limitMm }
     set var.failMsg = { var.failMsg ^ " mm (over by " ^ var.lastPairOverMm ^ " mm) after " ^ var.outerLimit ^ " cycle(s)" }
     abort { var.failMsg }
-
-if { !exists(global.nxtAbsPos) }
-    global nxtAbsPos = { null }
 
 ; global.nxtAbsPos still holds the latest touch (M5000 P0 runs after each
 ; probe move, not after the back-off), so the result keeps every axis it
