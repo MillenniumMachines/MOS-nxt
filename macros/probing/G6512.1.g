@@ -27,12 +27,12 @@ if { !exists(param.X) && !exists(param.Y) && !exists(param.Z) }
 ; R (or nxtProbeInnerSampleCount) fine touches are averaged, no pair checks.
 var limitMm = { global.nxtProbeMaxSampleSpreadMm }
 var tolOn = { var.limitMm > 0 }
-var fineCount = { (exists(param.R) && param.R != null) ? param.R : global.nxtProbeInnerSampleCount }
+var fineCount = { (exists(param.R) && param.R != null) ? floor(param.R) : floor(global.nxtProbeInnerSampleCount) }
 if { var.tolOn }
     set var.fineCount = 3
 elif { var.fineCount < 1 }
     set var.fineCount = 1
-var outerLimit = { var.tolOn ? global.nxtProbeSampleOuterRetries + 1 : 1 }
+var outerLimit = { var.tolOn ? floor(global.nxtProbeSampleOuterRetries) + 1 : 1 }
 if { var.outerLimit < 1 }
     set var.outerLimit = 1
 
@@ -80,7 +80,8 @@ var singleFeed = { var.roughSpeed == var.fineSpeed }
 if { var.singleFeed }
     set var.fineSpeed = { var.roughSpeed / var.roughDivider }
 
-; Touch probe: clamp to <=200 / <=50 mm/min (reliable trigger; matches G6512 and G6511)
+; Touch probe: clamp to <=200 / <=50 mm/min (reliable trigger; matches G6512 and G6511).
+; Keep this block in sync with the caps in G6512.g.
 var isTouchProbe = false
 if { exists(global.nxtTouchProbeID) && global.nxtTouchProbeID != null }
     if { param.I == global.nxtTouchProbeID }
@@ -154,6 +155,16 @@ while { var.attempt < var.outerLimit && !var.passed && !var.notTriggered }
                 ; Park at Z max.
                 ; This is a safety precaution to prevent subsequent X/Y moves from
                 ; crashing the probe.
+                ; Retrace along the probe line to the start point first: a Z-only
+                ; move right after a triggered G38 can run on toward the wall.
+                M400
+                var peHasA = { #move.axes > 3 }
+                if { var.peHasA }
+                    var peA = { move.axes[3].machinePosition }
+                    G53 G0 X{var.sP[0]} Y{var.sP[1]} Z{var.sP[2]} A{var.peA}
+                else
+                    G53 G0 X{var.sP[0]} Y{var.sP[1]} Z{var.sP[2]}
+                M400
                 G27 Z1
                 M98 P"nxt-g38-cancel.g"
 
@@ -262,6 +273,15 @@ while { var.attempt < var.outerLimit && !var.passed && !var.notTriggered }
 ; Every set failed: park Z, as the probe error path does, and abort rather
 ; than average inconsistent touches into the result.
 if { !var.passed && !var.notTriggered }
+    ; Retrace to the start point before the Z park (see the probe error path)
+    M400
+    var rfHasA = { #move.axes > 3 }
+    if { var.rfHasA }
+        var rfA = { move.axes[3].machinePosition }
+        G53 G0 X{var.sP[0]} Y{var.sP[1]} Z{var.sP[2]} A{var.rfA}
+    else
+        G53 G0 X{var.sP[0]} Y{var.sP[1]} Z{var.sP[2]}
+    M400
     G27 Z1
     M98 P"nxt-g38-cancel.g"
     var failMsg = { "G6512.1: Repeatability failed: pair " ^ var.lastPairLabel }

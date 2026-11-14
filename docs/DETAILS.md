@@ -1076,13 +1076,13 @@ In nxt, **“skew” means in-plane workpiece rotation vs machine +X**, not mach
         *   `sensors.probes[I].maxProbeCount` (`M558 A`) is not used, and `tolerance` (`M558 S`) no longer stops sampling early.
     *   Each touch:
         *   Executes a protected probe move using `G53 G38.2` (with error if `E0` is not present) or `G53 G38.3` (without error) towards the target position.
-        *   If an error occurs during `G38.2`, it parks the spindle in Z (`G27 Z1`), clears the leftover G38 move (`nxt-g38-cancel.g`) and aborts.
+        *   If an error occurs during `G38.2`, it returns to the start point, parks the spindle in Z (`G27 Z1`), clears the leftover G38 move (`nxt-g38-cancel.g`) and aborts.
         *   Retrieves the current machine position (`M5000 P0`) after the probe.
         *   The first touch of the first set is a fast touch at the rough feed: it finds the surface, backs off by `diveHeights[0]` and is not counted. Every other touch is a fine touch at the fine feed and backs off by `diveHeights[1]`. The back-off is a `G53 G0` toward the start position (A pinned), clamped to the distance travelled.
         *   With `E0`, a touch that ends within `sensors.probes[I].tolerance` of the target on every moved axis did not trigger: that position is returned at once and sampling stops.
         *   Each fine touch is echoed (`G6512.1: touch k/n X=… Y=… Z=…`) and, when the limit is on, compared with the previous fine touch of the same set. A pair over the limit is echoed with its delta and over-limit amount, and the set fails.
         *   If configured, pauses for `sensors.probes[I].recoveryTime` to allow the machine to settle.
-    *   A failed set is repeated with fine touches only. If every set fails, it parks Z (`G27 Z1`), clears the leftover G38 move (`nxt-g38-cancel.g`) and aborts with `G6512.1: Repeatability failed: pair <label> delta <d> mm > <limit> mm (over by <o> mm) after <n> cycle(s)`.
+    *   A failed set is repeated with fine touches only. If every set fails, it returns to the start point, parks Z (`G27 Z1`), clears the leftover G38 move (`nxt-g38-cancel.g`) and aborts with `G6512.1: Repeatability failed: pair <label> delta <d> mm > <limit> mm (over by <o> mm) after <n> cycle(s)`.
     *   On success, X/Y/Z of the latest touch are replaced by the mean of the passing set's fine touches (other axes such as A are kept) and the result is stored in `global.nxtAbsPos`.
 
 ### G6512.2: SINGLE SURFACE PROBE - EXECUTE MANUALLY
