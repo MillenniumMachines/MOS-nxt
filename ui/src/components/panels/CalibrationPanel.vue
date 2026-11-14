@@ -454,6 +454,15 @@
               >
                 {{ $t('plugins.nxt.panels.calibration.implausibleDeflectionHint') }}
               </v-alert>
+              <v-alert
+                v-if="xyDeflectionWarnings.length"
+                type="warning"
+                density="compact"
+                variant="outlined"
+                class="mt-2"
+              >
+                <div v-for="(w, i) in xyDeflectionWarnings" :key="i">{{ w }}</div>
+              </v-alert>
             </template>
 
             <!-- Manual mode: single-axis entry (advanced) -->
@@ -503,6 +512,15 @@
                   </v-btn>
                 </v-col>
               </v-row>
+              <v-alert
+                v-if="defWarnings.length"
+                type="warning"
+                density="compact"
+                variant="outlined"
+                class="mt-2"
+              >
+                <div v-for="(w, i) in defWarnings" :key="i">{{ w }}</div>
+              </v-alert>
             </template>
           </v-expansion-panel-text>
         </v-expansion-panel>
@@ -929,6 +947,7 @@ import {
   travelCommandedLegs,
   externalSpanShortfall,
   implausibleExternalDeflection,
+  negativeDeflectionHint,
   suspectTipDiameterAsRadius,
   probeTipDiameterMm,
   NXT_123_FACE_PAIRS,
@@ -1315,6 +1334,39 @@ export default defineNxtComponent({
       const dyBad =
         this.defProposedY != null && implausibleExternalDeflection(this.defProposedY)
       return tipSuspect || dxBad || dyBad
+    },
+    xyDeflectionWarnings(): string[] {
+      const out: string[] = []
+      const cur = this.currentDeflection
+      if (this.defMeasuredX != null) {
+        const curX = cur != null && cur.length >= 1 ? cur[0] : 0
+        out.push(...deflectionFromSpan(this.defMeasuredX, NXT_123_BLOCK_MM.inch3, curX).warnings)
+      }
+      if (this.defMeasuredY != null) {
+        const curY = cur != null && cur.length >= 2 ? cur[1] : 0
+        out.push(...deflectionFromSpan(this.defMeasuredY, NXT_123_BLOCK_MM.inch2, curY).warnings)
+      }
+      const hint = negativeDeflectionHint(this.defProposedX, this.defProposedY)
+      if (hint) out.push(hint)
+      return Array.from(new Set(out))
+    },
+    defWarnings(): string[] {
+      if (this.defActual == null || this.defMeasured == null) return []
+      if (this.selectedAxis === 'A') return []
+      const out: string[] = [
+        ...deflectionFromSpan(this.defMeasured, this.defActual, this.currentAxisDeflection).warnings
+      ]
+      const d = this.defProposed
+      if (d != null) {
+        const hint =
+          this.selectedAxis === 'X'
+            ? negativeDeflectionHint(d, null)
+            : this.selectedAxis === 'Y'
+              ? negativeDeflectionHint(null, d)
+              : null
+        if (hint) out.push(hint)
+      }
+      return Array.from(new Set(out))
     },
     canApplyXyDeflection(): boolean {
       return (
@@ -1779,7 +1831,15 @@ export default defineNxtComponent({
       if (axis === 'X') next[0] = this.defProposed
       else if (axis === 'Y') next[1] = this.defProposed
       const label = `{${next[0].toFixed(4)}, ${next[1].toFixed(4)}, 0}`
-      if (!window.confirm(`Set nxtProbeDeflection = ${label}?`)) return
+      let confirmMsg = `Set nxtProbeDeflection = ${label}?`
+      const negHint =
+        axis === 'X'
+          ? negativeDeflectionHint(this.defProposed, null)
+          : negativeDeflectionHint(null, this.defProposed)
+      if (negHint) confirmMsg = `${negHint}
+
+${confirmMsg}`
+      if (!window.confirm(confirmMsg)) return
       this.prevDeflection = cur
       try {
         await ensureSetFirmwareGlobal('nxtProbeDeflection', formatOmRhs(next), (c) => this.sendCode(c))
@@ -2062,6 +2122,10 @@ export default defineNxtComponent({
           `Proposed deflection looks implausible (check tip RADIUS, not diameter). ` +
           `Still set nxtProbeDeflection = ${label}?`
       }
+      const negHint = negativeDeflectionHint(this.defProposedX, this.defProposedY)
+      if (negHint) confirmMsg = `${negHint}
+
+${confirmMsg}`
       if (!window.confirm(confirmMsg)) return
       this.prevDeflection = cur
       try {

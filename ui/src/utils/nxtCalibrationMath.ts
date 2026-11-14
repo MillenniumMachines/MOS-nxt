@@ -220,6 +220,36 @@ export function implausibleExternalDeflection(
   return Number.isFinite(proposedD) && Math.abs(proposedD) > limitMm
 }
 
+/**
+ * Advice for a negative proposed deflection (probe measured larger than nominal).
+ * Pass null for an axis that is not being evaluated (manual single-axis path).
+ * Returns null when neither value is negative.
+ */
+export function negativeDeflectionHint(dx: number | null, dy: number | null): string | null {
+  const xNeg = dx != null && Number.isFinite(dx) && dx < 0
+  const yNeg = dy != null && Number.isFinite(dy) && dy < 0
+  if (!xNeg && !yNeg) return null
+  if (xNeg && yNeg) {
+    return (
+      'Both axes probed larger than nominal (negative deflection). ' +
+      'Check the configured tip radius first.'
+    )
+  }
+  const axis = xNeg ? 'X' : 'Y'
+  const other = xNeg ? dy : dx
+  if (other == null) {
+    return (
+      `${axis} probed larger than nominal (negative deflection). ` +
+      `Check the tip radius, then M425 and M92 for ${axis}, before applying.`
+    )
+  }
+  return (
+    `${axis} probed larger than nominal (negative deflection) while the other axis probed short. ` +
+    `The tip radius cannot cause one short axis and one long axis. ` +
+    `Check M425 and M92 for ${axis} before applying.`
+  )
+}
+
 export function suspectTipDiameterAsRadius(
   tipRadiusMm: number,
   thresholdMm: number = SUSPECT_TIP_DIAMETER_AS_RADIUS_MM
@@ -535,6 +565,29 @@ export function runNxtCalibrationMathSelfTest(): void {
   const deflBad = deflectionFromSpan(76.3, 76.2, 0)
   if (!deflBad.result || deflBad.result >= 0 || deflBad.warnings.length === 0) {
     throw new Error('deflectionFromSpan should warn on negative result')
+  }
+  const hintY = negativeDeflectionHint(0.1017, -0.2625)
+  if (!hintY || !hintY.includes('Y') || !hintY.includes('M425') || !hintY.includes('M92')) {
+    throw new Error('negativeDeflectionHint should flag Y with M425/M92')
+  }
+  const hintX = negativeDeflectionHint(-0.2625, 0.1017)
+  if (!hintX || !hintX.includes('X')) {
+    throw new Error('negativeDeflectionHint should flag X')
+  }
+  const hintBoth = negativeDeflectionHint(-0.05, -0.04)
+  if (!hintBoth || !hintBoth.includes('tip radius')) {
+    throw new Error('negativeDeflectionHint both negative should mention tip radius')
+  }
+  if (negativeDeflectionHint(0.02, 0.03) !== null || negativeDeflectionHint(null, null) !== null) {
+    throw new Error('negativeDeflectionHint should be null without a negative value')
+  }
+  const hintXOnly = negativeDeflectionHint(-0.01, null)
+  if (!hintXOnly || !hintXOnly.includes('X') || !hintXOnly.includes('M425')) {
+    throw new Error('negativeDeflectionHint manual X failed')
+  }
+  const hintYOnly = negativeDeflectionHint(null, -0.01)
+  if (!hintYOnly || !hintYOnly.includes('Y')) {
+    throw new Error('negativeDeflectionHint manual Y failed')
   }
   // Confirmed diameter-as-radius case: R=2, R_true=1, spans 73.466 / 48.265
   const dxRun = externalSpanShortfall(73.466, NXT_123_BLOCK_MM.inch3)
