@@ -64,6 +64,9 @@ jobs:
       - name: Check G6512 deflection compensation math
         run: node dist/check-g6512-deflection-math.mjs
 
+      - name: Check G6512.1 touch sampling
+        run: node dist/check-g6512-1-sampling.mjs
+
   probe-result-slot-axes:
     name: Probe result slot axes
     runs-on: ubuntu-latest

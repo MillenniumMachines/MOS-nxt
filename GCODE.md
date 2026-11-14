@@ -308,6 +308,8 @@ Low-level single-axis probe move with compensation and averaging. Used by all pr
 
 **Repeatability:** Defaults are **`macros/system/nxt-vars.g`** (`nxtProbeInnerSampleCount`, **`nxtProbeMaxSampleSpreadMm`** default **0.0075** mm, **`nxtProbeSampleOuterRetries`**). Override via **`0:/sys/nxt-user-overrides.g`** (loaded **last** in **`nxt.g`**; see **`nxt-user-overrides.g.example`**). When **`nxtProbeMaxSampleSpreadMm` > 0**, **`G6512`** runs **3** touches ( **`R`** is ignored), **`echo`s** each compensated value, and requires **both** consecutive pairs (1–2 and 2–3) to be within the limit. On failure it **`echo`s** the pair delta and over-limit amount, then repeats the whole 3-touch block up to **`1 + nxtProbeSampleOuterRetries`** cycles. On success it averages the three values into **`nxtLastProbeResult`**. Set **`nxtProbeMaxSampleSpreadMm`** to **0** to disable (honors **`R`** / **`nxtProbeInnerSampleCount`**, no pair checks).
 
+**`G6512.1`** (used by **`G6513`** for **`G6500`**/**`G6501`**) applies the same pair rule to fine touches only: a fast touch finds the surface and is discarded, then **3** fine touches are compared pair by pair (3D distance) with the same retries, and on failure it parks Z (**`G27 Z1`**) and aborts. **`M558 A`**/**`S`** no longer set the touch count or stop sampling early (`S` only marks an **`E0`** touch that reached the target as not triggered).
+
 **Usage:** `G6512 [X<pos>|Y<pos>|Z<pos>|A<pos>] I<probeID> [F<speed>] [R<retries>] [H<hit>]`
 
 **Parameters:**
