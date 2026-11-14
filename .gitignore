@@ -23,3 +23,7 @@ ai-coding-cache/
 .cursor/plans/
 .cursor/skills/
 
+
+# FreeCAD post CLI (post-processors/freecad/tools/post_cli.py)
+__pycache__/
+*.pyc
