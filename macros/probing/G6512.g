@@ -100,7 +100,8 @@ if { var.isTouchProbe }
         set var.fineSpeed = 50
 
 ; A fast touch exists only when the first touch really runs faster, so this is worked out after the caps.
-var fastFirst = { var.roughSpeed != var.fineSpeed }
+; A slower first touch (fine feed set above rough) is counted like the rest and adds no touch.
+var fastFirst = { var.roughSpeed > var.fineSpeed }
 ; With F every touch counts, as before. The caps can still run the first touch faster with F
 ; (G6511's R1 L0 quick find runs at 200, fine is capped to 50); that call stays one touch.
 if { exists(param.F) }
@@ -158,7 +159,8 @@ var finalHitN = 0
 var finalV1Mm = 0.0
 var finalV2Mm = 0.0
 var finalV3Mm = 0.0
-; True until the fast touch has run (first set only)
+; True only while a fast touch is still to run: during the first set when fastFirst is true.
+; False from the start when there is no faster first touch (F given, or equal or slower rough feed).
 var fastLeft = { var.fastFirst }
 
 while { var.attempt < var.outerLimit && var.toleranceOk == false }

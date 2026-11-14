@@ -28,6 +28,17 @@ const EPS = 1e-9;
 const TAG = "check-g6512-sampling";
 
 /**
+ * Mirror of when G6512 has a fast first touch: only without F, and only when
+ * the rough feed is above the fine feed after the touch-probe caps. A slower
+ * first touch (misconfigured probe) or any call with F counts every touch.
+ * @param {{roughSpeed: number, fineSpeed: number, fGiven: boolean}} opts feeds after the caps
+ */
+function fastFirstOf(opts) {
+	const { roughSpeed, fineSpeed, fGiven } = opts;
+	return !fGiven && roughSpeed > fineSpeed;
+}
+
+/**
  * Mirror of the G6512 sampling rule. A faster first touch only locates the
  * surface: it is dropped from the pair check and the average.
  * @param {{touches: number[], fastFirst: boolean, limitMm: number, outerRetries: number, count: number}} opts
@@ -95,6 +106,12 @@ function mirrorCases() {
 
 	r = sampleG6512({ ...base, limitMm: 0, count: 2, touches: [9.9, 10.0, 10.2] });
 	expect("limit 0 with fast", r.ok && near(r.result, 10.1) && r.touchesUsed === 3, JSON.stringify(r));
+
+	expect("no F, faster first touch", fastFirstOf({ roughSpeed: 200, fineSpeed: 50, fGiven: false }) === true, "want true");
+	expect("no F, slower first touch", fastFirstOf({ roughSpeed: 40, fineSpeed: 50, fGiven: false }) === false, "want false");
+	expect("no F, equal feeds", fastFirstOf({ roughSpeed: 50, fineSpeed: 50, fGiven: false }) === false, "want false");
+	// G6511 quick find: F200 on the touch probe, fine capped to 50 — still one counted touch
+	expect("F given, caps run touch 1 faster", fastFirstOf({ roughSpeed: 200, fineSpeed: 50, fGiven: true }) === false, "want false");
 }
 
 function macroAssertions() {
@@ -107,11 +124,12 @@ function macroAssertions() {
 	const indentOf = (l) => l.match(/^\s*/)[0].replace(/\t/g, "    ").length;
 	const idxOf = (re) => lines.findIndex((l) => re.test(l));
 
-	// (a) fastFirst is defined after the touch-probe cap block
+	// (a) fastFirst is defined after the touch-probe cap block, and only for a faster first
+	// touch (a slower first touch on a misconfigured probe must not add a touch)
 	const capIdx = idxOf(/^\s*set\s+var\.fineSpeed\s*=\s*50\s*$/);
-	const ffIdx = idxOf(/^\s*var\s+fastFirst\s*=\s*\{\s*var\.roughSpeed\s*!=\s*var\.fineSpeed\s*\}\s*$/);
+	const ffIdx = idxOf(/^\s*var\s+fastFirst\s*=\s*\{\s*var\.roughSpeed\s*>\s*var\.fineSpeed\s*\}\s*$/);
 	if (ffIdx < 0) {
-		failures.push("(a) missing line: var fastFirst = { var.roughSpeed != var.fineSpeed }");
+		failures.push("(a) missing line: var fastFirst = { var.roughSpeed > var.fineSpeed }");
 	} else if (capIdx < 0 || ffIdx < capIdx) {
 		failures.push("(a) var fastFirst is not defined after the touch-probe cap block (set var.fineSpeed = 50)");
 	}
@@ -147,13 +165,11 @@ function macroAssertions() {
 	const pairUses = lines.some((l) => /^\s*(if|elif)\b.*var\.toleranceEnabled.*var\.sampleIdx/.test(l));
 	if (!pairUses) failures.push("(d) no pair-check condition references var.sampleIdx");
 
-	// (e) fastLeft cleared in the attempt loop body, after the inner touch loop
+	// The attempt loop, its body indent and the inner touch loop, shared by (e), (h), (i) and (j)
 	const attemptIdx = idxOf(/^\s*while\s*\{\s*var\.attempt\s*</);
-	if (attemptIdx < 0) {
-		failures.push("(e) attempt loop not found");
-	} else {
-		const bodyIndent = indentOf(lines[attemptIdx]) + 4;
-		let innerIdx = -1;
+	const bodyIndent = attemptIdx < 0 ? -1 : indentOf(lines[attemptIdx]) + 4;
+	let innerIdx = -1;
+	if (attemptIdx >= 0) {
 		for (let i = attemptIdx + 1; i < lines.length; i++) {
 			if (lines[i].trim() === "") continue;
 			if (indentOf(lines[i]) <= indentOf(lines[attemptIdx])) break;
@@ -162,6 +178,31 @@ function macroAssertions() {
 				break;
 			}
 		}
+	}
+	// First line after the inner loop body (next non-blank line at or below the attempt body indent)
+	let innerEnd = lines.length;
+	if (innerIdx >= 0) {
+		for (let i = innerIdx + 1; i < lines.length; i++) {
+			if (lines[i].trim() !== "" && indentOf(lines[i]) <= bodyIndent) {
+				innerEnd = i;
+				break;
+			}
+		}
+	}
+	const isCode = (l) => l.trim() !== "" && !l.trim().startsWith(";");
+	// Nearest enclosing line (lower indent), skipping blank and comment lines
+	const parentOf = (i) => {
+		for (let j = i - 1; j >= 0; j--) {
+			if (isCode(lines[j]) && indentOf(lines[j]) < indentOf(lines[i])) return j;
+		}
+		return -1;
+	};
+	const fGuardRe = /^\s*if\s*\{\s*exists\s*\(\s*param\.F\s*\)\s*\}\s*$/;
+
+	// (e) fastLeft cleared in the attempt loop body, after the inner touch loop
+	if (attemptIdx < 0) {
+		failures.push("(e) attempt loop not found");
+	} else {
 		let found = false;
 		if (innerIdx >= 0) {
 			for (let i = innerIdx + 1; i < lines.length; i++) {
@@ -179,6 +220,73 @@ function macroAssertions() {
 	// (f) speed selection
 	if (!/^\s*var\s+speed\s*=\s*\{\s*var\.fastLeft\s*\?\s*var\.roughSpeed\s*:\s*var\.fineSpeed\s*\}\s*$/m.test(text)) {
 		failures.push("(f) missing line: var speed = { var.fastLeft ? var.roughSpeed : var.fineSpeed }");
+	}
+
+	// (g) with F there is no fast touch: an unconditional `if { exists(param.F) }` that sets
+	// fastFirst false, between `var fastFirst` and `var fastLeft` (keeps G6511's F200 R1 L0
+	// quick find, where the caps lower fine to 50, at one touch)
+	const fastLeftIdx = idxOf(/^\s*var\s+fastLeft\s*=\s*\{\s*var\.fastFirst\s*\}\s*$/);
+	if (fastLeftIdx < 0) {
+		failures.push("(g) missing line: var fastLeft = { var.fastFirst }");
+	} else {
+		const ok = lines.some((l, i) => {
+			if (!/^\s*set\s+var\.fastFirst\s*=\s*false\s*$/.test(l)) return false;
+			const p = parentOf(i);
+			return (
+				p >= 0 &&
+				fGuardRe.test(lines[p]) &&
+				indentOf(lines[p]) === 0 &&
+				ffIdx >= 0 &&
+				ffIdx < p &&
+				i < fastLeftIdx
+			);
+		});
+		if (!ok) {
+			failures.push(
+				"(g) no top-level if { exists(param.F) } / set var.fastFirst = false between var fastFirst and var fastLeft"
+			);
+		}
+	}
+
+	// (h) with F, the first touch of every set runs at roughSpeed, as before: in the attempt body,
+	// after `var speed = …` and before the inner loop, `set var.speed = { var.roughSpeed }`
+	// nested under `if { exists(param.F) }`
+	if (attemptIdx < 0 || innerIdx < 0) {
+		failures.push("(h) attempt loop or inner touch loop not found");
+	} else {
+		const speedIdx = lines.findIndex(
+			(l, i) => i > attemptIdx && i < innerIdx && indentOf(l) === bodyIndent && /^\s*var\s+speed\s*=/.test(l)
+		);
+		const ok = lines.some((l, i) => {
+			if (!/^\s*set\s+var\.speed\s*=\s*\{\s*var\.roughSpeed\s*\}\s*$/.test(l)) return false;
+			const p = parentOf(i);
+			return (
+				p >= 0 &&
+				fGuardRe.test(lines[p]) &&
+				indentOf(lines[p]) === bodyIndent &&
+				speedIdx >= 0 &&
+				speedIdx < p &&
+				i < innerIdx
+			);
+		});
+		if (!ok) {
+			failures.push(
+				"(h) no if { exists(param.F) } / set var.speed = { var.roughSpeed } in the attempt body between var speed and the inner loop"
+			);
+		}
+	}
+
+	// (i) the first set runs one extra touch while the fast touch is left
+	const boundRe = /^\s*while\s*\{\s*var\.touchIdx\s*<\s*var\.retries\s*\+\s*\(\s*var\.fastLeft\s*\?\s*1\s*:\s*0\s*\)\s*\}\s*$/;
+	if (innerIdx < 0 || !boundRe.test(lines[innerIdx])) {
+		failures.push("(i) inner touch loop is not: while { var.touchIdx < var.retries + (var.fastLeft ? 1 : 0) }");
+	}
+
+	// (j) kept touches are numbered from 0 after the fast touch, inside the inner loop body
+	const sampleRe = /^\s*var\s+sampleIdx\s*=\s*\{\s*var\.fastLeft\s*\?\s*var\.touchIdx\s*-\s*1\s*:\s*var\.touchIdx\s*\}\s*$/;
+	const sampleOk = innerIdx >= 0 && lines.some((l, i) => sampleRe.test(l) && i > innerIdx && i < innerEnd);
+	if (!sampleOk) {
+		failures.push("(j) missing in the inner loop: var sampleIdx = { var.fastLeft ? var.touchIdx - 1 : var.touchIdx }");
 	}
 }
 
