@@ -101,11 +101,12 @@ if { var.isTouchProbe }
 
 ; A fast touch exists only when the first touch really runs faster, so this is worked out after the caps.
 ; A slower first touch (fine feed set above rough) is counted like the rest and adds no touch.
-var fastFirst = { var.roughSpeed > var.fineSpeed }
+var fastFirst = false
 ; With F every touch counts, as before. The caps can still run the first touch faster with F
 ; (G6511's R1 L0 quick find runs at 200, fine is capped to 50); that call stays one touch.
-if { exists(param.F) }
-    set var.fastFirst = false
+; The feeds are compared only without F, so an F{null} binding never reaches the comparison.
+if { !exists(param.F) }
+    set var.fastFirst = { var.roughSpeed > var.fineSpeed }
 
 ; Resolve touch-probe deflection (µm). nxtProbeDeflection is {X,Y,Z}; Z unused for now.
 ; Legacy: scalar, {x}, or {x,y}. Toolsetter must NOT apply stylus defl.
@@ -168,8 +169,9 @@ while { var.attempt < var.outerLimit && var.toleranceOk == false }
 
     var sum = 0.0
     var count = 0
-    ; Feed for the first touch of the set: rough for the fast touch, else fine
-    var speed = { var.fastLeft ? var.roughSpeed : var.fineSpeed }
+    ; Feed for the first touch of the set: rough for the fast touch, and as before whenever there is
+    ; no faster first touch (F given, equal feeds, rough below fine); fine only in a retry set after a fast touch
+    var speed = { (var.fastLeft || !var.fastFirst) ? var.roughSpeed : var.fineSpeed }
     ; With F, the first touch of every set runs at roughSpeed, as before
     if { exists(param.F) }
         set var.speed = { var.roughSpeed }
