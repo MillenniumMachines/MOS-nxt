@@ -135,6 +135,8 @@ echo "Checking G6512 deflection math..."
 node "${ROOT}/dist/check-g6512-deflection-math.mjs" || exit 1
 echo "Checking G6512.1 touch sampling..."
 node "${ROOT}/dist/check-g6512-1-sampling.mjs" || exit 1
+echo "Checking G6512 touch sampling..."
+node "${ROOT}/dist/check-g6512-sampling.mjs" || exit 1
 echo "Checking rotation / skew math..."
 node "${ROOT}/dist/check-rotation-skew-math.mjs" || exit 1
 echo "Checking calibration math..."
