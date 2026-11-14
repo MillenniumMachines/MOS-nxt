@@ -1836,9 +1836,7 @@ export default defineNxtComponent({
         axis === 'X'
           ? negativeDeflectionHint(this.defProposed, null)
           : negativeDeflectionHint(null, this.defProposed)
-      if (negHint) confirmMsg = `${negHint}
-
-${confirmMsg}`
+      if (negHint) confirmMsg = negHint + '\n\n' + confirmMsg
       if (!window.confirm(confirmMsg)) return
       this.prevDeflection = cur
       try {
@@ -2123,9 +2121,7 @@ ${confirmMsg}`
           `Still set nxtProbeDeflection = ${label}?`
       }
       const negHint = negativeDeflectionHint(this.defProposedX, this.defProposedY)
-      if (negHint) confirmMsg = `${negHint}
-
-${confirmMsg}`
+      if (negHint) confirmMsg = negHint + '\n\n' + confirmMsg
       if (!window.confirm(confirmMsg)) return
       this.prevDeflection = cur
       try {
