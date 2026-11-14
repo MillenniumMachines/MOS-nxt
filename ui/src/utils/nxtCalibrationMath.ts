@@ -245,7 +245,7 @@ export function negativeDeflectionHint(dx: number | null, dy: number | null): st
   }
   return (
     `${axis} probed larger than nominal (negative deflection) while the other axis probed short. ` +
-    `The tip radius cannot cause one short axis and one long axis. ` +
+    `A tip radius error moves both axes the same way, so it alone does not explain one short and one long axis. ` +
     `Check M425 and M92 for ${axis} before applying.`
   )
 }
