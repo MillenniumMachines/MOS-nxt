@@ -7,7 +7,9 @@
  * 2. Asserts on the text of macros/probing/G6512.1.g so the macro keeps to that rule.
  *
  * Usage (from repo root):
- *   node dist/check-g6512-1-sampling.mjs
+ *   node dist/check-g6512-1-sampling.mjs [macro-path]
+ *
+ * The optional path checks another copy of the macro (default macros/probing/G6512.1.g).
  *
  * Exit 0 = pass, 1 = failures.
  */
@@ -19,7 +21,9 @@ import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
-const MACRO = path.join(ROOT, "macros", "probing", "G6512.1.g");
+const MACRO = process.argv[2]
+	? path.resolve(process.argv[2])
+	: path.join(ROOT, "macros", "probing", "G6512.1.g");
 const EPS = 1e-9;
 const TAG = "check-g6512-1-sampling";
 
@@ -202,7 +206,7 @@ function macroAssertions() {
 			}
 			if (indentOf(lines[j]) === 0) break;
 			// keep climbing: an enclosing block may be the isFast guard
-			if (!/^\s*(if|while|elif|else)/.test(lines[j])) break;
+			if (!/^\s*(if|while|elif|else)\b/.test(lines[j])) break;
 		}
 		if (!ok) failures.push(`(g) line ${i + 1} adds to a sum accumulator outside an "if { !var.isFast }" block`);
 	}
@@ -227,6 +231,49 @@ function macroAssertions() {
 			failures.push(`(j) G27 Z1 at line ${i + 1} is not immediately followed by M98 P"nxt-g38-cancel.g"`);
 		}
 	}
+	// (k) the pair-limit comparison is directly followed by the line that fails the set
+	const pairCmp = lines.findIndex((l) => /^\s*if\s*\{\s*var\.pairDeltaMm\s*>\s*var\.limitMm\s*\}\s*$/.test(l));
+	if (pairCmp < 0 || !/^\s*set\s+var\.pairsOk\s*=\s*false\s*$/.test(lines[pairCmp + 1] || "")) {
+		failures.push("(k) pair-limit comparison is missing or not directly followed by set var.pairsOk = false");
+	}
+
+	// (l) exactly one line sets the pass flag, directly under the pass condition
+	const passIdx = lines.map((l, i) => (/^\s*set\s+var\.passed\s*=\s*true\s*$/.test(l) ? i : -1)).filter((i) => i >= 0);
+	if (passIdx.length !== 1) {
+		failures.push(`(l) expected exactly one "set var.passed = true" line, found ${passIdx.length}`);
+	} else if (!/^\s*if\s*\{\s*!var\.tolOn\s*\|\|\s*var\.pairsOk\s*\}\s*$/.test(lines[passIdx[0] - 1] || "")) {
+		failures.push("(l) set var.passed = true is not directly under if { !var.tolOn || var.pairsOk }");
+	}
+
+	// (m) the three result lines divide by the fine-touch count
+	for (const [k, ax] of [[0, "X"], [1, "Y"], [2, "Z"]]) {
+		const re = new RegExp(String.raw`^\s*set\s+var\.result\[${k}\]\s*=\s*\{\s*var\.sum${ax}\s*/\s*var\.fineN\s*\}\s*$`);
+		if (!lines.some((l) => re.test(l))) {
+			failures.push(`(m) result[${k}] is not var.sum${ax} / var.fineN`);
+		}
+	}
+
+	// (n) the probe feed is selected by the fast/fine flag
+	if (!/set\s+var\.curSpeed\s*=\s*\{\s*var\.isFast\s*\?\s*var\.roughSpeed\s*:\s*var\.fineSpeed\s*\}/.test(text)) {
+		failures.push("(n) curSpeed is not selected by var.isFast ? var.roughSpeed : var.fineSpeed");
+	}
+
+	// (o) every abort after the first G38 line has a G27 Z1 within the 8 lines before it
+	const firstG38 = lines.findIndex((l) => /^\s*G53\s+G38\./.test(l));
+	if (firstG38 < 0) failures.push("(o) no G53 G38 line found");
+	lines.forEach((l, i) => {
+		if (firstG38 >= 0 && i > firstG38 && /^\s*abort\b/.test(l)) {
+			if (!lines.slice(Math.max(0, i - 8), i).some((x) => /^\s*G27 Z1\s*$/.test(x))) {
+				failures.push(`(o) abort at line ${i + 1} has no G27 Z1 within the 8 lines before it`);
+			}
+		}
+	});
+
+	// (p) the repeatability failure abort is present
+	if (!lines.some((l) => /^\s*abort\s*\{\s*var\.failMsg\s*\}\s*$/.test(l))) {
+		failures.push("(p) abort { var.failMsg } is missing");
+	}
+
 }
 
 mirrorCases();
