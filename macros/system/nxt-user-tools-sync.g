@@ -1,8 +1,9 @@
 ; nxt-user-tools-sync.g — Rewrite 0:/sys/nxt-user-tools.g from live tools[] + global.nxtTT.
-; Invoked from M4000.g / M4001.g when auto-persistence is enabled (see global nxtAutoPersistTools).
+; Invoked from M4000.g / M4001.g / tpost.g when auto-persistence is enabled
+; (see global nxtAutoPersistTools).
 ;
 ; While nxtUserToolsLoadDepth > 0 (this file or a copy is being M98-loaded line-by-line),
-; M4000/M4001 skip calling this macro so one tool at a time does not truncate the file.
+; M4000/M4001/tpost skip calling this macro so one tool at a time does not truncate the file.
 
 if { !inputs[state.thisInput].active }
     M99
@@ -20,7 +21,7 @@ if { exists(global.nxtSpindleID) && global.nxtSpindleID != null }
     set var.defS = { global.nxtSpindleID }
 
 echo >{var.TP} {"; nxt user tool library (persisted)"}
-echo >>{var.TP} {"; Maintained by nxt-user-tools-sync.g after M4000/M4001 (and DWC Tool Library save)."}
+echo >>{var.TP} {"; Maintained by nxt-user-tools-sync.g after M4000/M4001/tpost (and DWC Tool Library save)."}
 echo >>{var.TP} {"; When M98-loading this file, nxtUserToolsLoadDepth prevents re-entrant sync."}
 echo >>{var.TP} {""}
 echo >>{var.TP} {"if { !exists(global.nxtUserToolsLoadDepth) }"}
