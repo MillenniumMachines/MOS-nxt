@@ -164,7 +164,7 @@ Configuration reserves coolant/aux when `nxtRelayID` is set. Save may persist `n
 
 ### Scylla RS485 (PA9 / PA10)
 
-Onboard RS485 A/B is USART1: TX=`PA_9` (`tx1`, `rs485a`), RX=`PA_10` (`rx1`, `rs485b`). This is **`serial.aux`**, not the screen header. On RRF 3.7.x the first UART is **P2** (P0/P1 are USB CDC). ArborCTL Apply issues `M575 P2 … S7` for VFD Modbus.
+Onboard RS485 A/B is USART1: TX=`PA_9` (`tx1`, `rs485a`), RX=`PA_10` (`rx1`, `rs485b`). This is **`serial.aux`**, not the screen header. On RRF 3.7.x the first UART is **P2** (P0/P1 are USB CDC). ArborCTL Apply issues `M575 P2 … S7` for VFD Modbus. Keep `arborctlDaemonEnabled` true and prefer `M3.9`/`M5.9` for spindle start/stop; Huanyang needs keypad `PD001=2` / `PD002=2` then a VFD power-cycle after Apply.
 
 Firmware must assign `serial.aux.rxTxPins={A.10, A.9}` (Team Gloomy `{RX, TX}` order) in `rrfboot.txt` / SD **`0:/sys/board.txt`**. Pin names already exist in the board pin table; without that assignment `M260.1` reports Modbus not set. Do **not** retarget [`uart.g`](../macros/nxt-config/board/scylla1_0_h723/uart.g) — that file is the accessory UART only.
 

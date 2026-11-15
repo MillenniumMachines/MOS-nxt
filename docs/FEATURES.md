@@ -43,7 +43,7 @@ These features form the core of the new nxt system and must be implemented for t
     - [x] Bore (`G6500`) - Three triangulated inward touches at 120° via `G6513` (`D1 H1` stay at dive Z); circumcenter fit
     - [x] Boss (`G6501`) - Three triangulated OD touches at 120° via `G6513` with approach clearance `C`; raise between touches; circumcenter fit
     - [x] Rectangle Pocket (`G6502`) - Probe all 4 edges of the pocket in X and Y, and find the centre point (4 probe points total)
-    - [x] Rectangle Block (`G6503`) - Probe 3 points on each of 4 outside faces (12 total, CCW perimeter) and find the centre
+    - [x] Rectangle Block (`G6503`) - Probe N points on each of 4 outside faces (default 2 per face inset from corners, max 5; CCW perimeter) and find the centre
     - [x] Web (X/Y) (`G6504`) - Probe a block (web) in either X OR Y, and find the centre point on that axis (2 probe points total)
     - [x] Pocket (X/Y) (`G6505`) - Probe a pocket in either X OR Y, and find the centre point on that axis (2 probe points total)
     - [x] Rotation (`G6506`) - Probe 2 points along a single surface in X or Y to find the rotation of that surface against the relevant axis (2 probe points total)
@@ -65,7 +65,7 @@ These features form the core of the new nxt system and must be implemented for t
 - [x] **UI-Driven Probing:** All probing cycles will be initiated and configured through the DWC UI. Probing tab **Work offsets** lists live G54–G59.3 (`workplaceOffsets`), with edit / activate / probe / clear.
 
 #### **Machine Control**
-- [x] **Spindle Control:** Core macros for safe spindle start/stop with acceleration waits (`M3.9`, `M4.9`, `M5.9`). Full accel/decel seconds (floor **10 s** if unset); with ArborCTL, early-exit on VFD stable/stopped else continue after timeout. VFD Apply persists the ramp into `nxtSpindleAccelSec` / `nxtSpindleDecelSec` and the drive (`J`/`K`).
+- [x] **Spindle Control:** Core macros for safe spindle start/stop with acceleration waits (`M3.9`, `M4.9`, `M5.9`). Full accel/decel seconds (floor **10 s** if unset); with ArborCTL, early-exit on VFD stable/stopped else continue after timeout. VFD Apply persists the ramp into `nxtSpindleAccelSec` / `nxtSpindleDecelSec` and the drive (`J`/`K`). Prefer these wrappers over plain `M3`/`M5` when ArborCTL is live (`arborctlDaemonEnabled` must stay true). Huanyang: `PD001=2` / `PD002=2` + power-cycle after Apply.
 - [x] **Coolant Control:** Core macros for coolant control (`M7`, `M8`, `M9`, and `M7.1`).
 - [x] **Coolant pulse:** Optional per-type pulsing for mist (`M7`) and flood (`M8`); defaults 5 s ON / 25 s OFF; configured in DWC Configuration.
 - [x] **Parking (`G27`):** A critical macro for moving the machine to a safe, known position.

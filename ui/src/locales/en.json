@@ -422,7 +422,9 @@
       "faceLengthYHint": "Approximate length of the Y-normal face along X, away from the corner.",
       "faceLengthS": "Face length (S)",
       "faceLengthSHint": "Approximate length along the face (perpendicular to the probe direction). Uses 3 points when long enough; 1 when shorter than 2× tip diameter.",
-      "faceLengthZDeferred": "Z multi-point averaging is not implemented yet — one contact only."
+      "faceLengthZDeferred": "Z multi-point averaging is not implemented yet — one contact only.",
+      "pointsPerFace": "Points per face (N)",
+      "pointsPerFaceHint": "Samples per outside face (2–5). Default 2 is near/far inset from corners; higher values space evenly between those ends."
     },
     "workplaceOrigins": {
       "title": "Work offsets",
@@ -470,7 +472,7 @@
     },
     "vfd": {
       "caption": "VFD",
-      "intro": "Select a VFD model and Apply to write arborctl-user-vars.g and run that driver’s config macro (enables Modbus control when CommReady is OK). Advanced Manual Modbus / Test Modbus tools stay in the ArborCTL plugin.",
+      "intro": "Select a VFD model and Apply to write arborctl-user-vars.g and run that driver’s config macro (enables Modbus/RS485 control when CommReady is OK). Keep arborctlDaemonEnabled true so the daemon polls the drive. Prefer M3.9/M4.9/M5.9 (not plain M3/M5) so nxt kicks a control tick and waits on VFD status. Huanyang: after Apply confirm PD001=2 and PD002=2 on the keypad, then power-cycle the VFD. Advanced Manual Modbus / Test Modbus tools stay in the ArborCTL plugin.",
       "notInstalled": "ArborCTL is not installed or loaded. Install the ArborCTL DWC plugin ZIP to configure VFDs here.",
       "model": "VFD model",
       "spindle": "Spindle",
@@ -485,13 +487,13 @@
       "motorR": "Rated RPM",
       "commReady": "Comm",
       "apply": "Apply VFD config",
-      "applyOk": "Apply finished — check Comm chip and telemetry. Daemon will poll this driver when CommReady is OK.",
+      "applyOk": "Apply finished — check Comm chip and telemetry. Daemon must stay enabled (arborctlDaemonEnabled); use M3.9/M5.9 for start/stop with VFD wait. Huanyang: verify PD001=2 PD002=2 then power-cycle.",
       "openAdvanced": "Open ArborCTL (advanced)"
     },
     "toolManagement": {
       "caption": "Tool Library",
       "libraryIntro": "Tools defined in the RepRapFirmware object model (configured slots, the tool in the spindle, and the configured touch probe). Magazine, job sequence, and ATC controls belong in the mos-atc plugin when installed.",
-      "persistenceHint": "Save to board writes /sys/nxt-user-tools.g (M4000 + G10 L1). After each successful M4000 or M4001, the board also runs nxt-user-tools-sync.g to refresh that file unless you set global nxtAutoPersistTools = false in nxt-user-vars.g. Use Reload from SD after a manual SD edit. Boot loads this file after nxt-user-vars.g.",
+      "persistenceHint": "Save to board writes /sys/nxt-user-tools.g (M4000 + G10 L1). After each successful M4000 or M4001, and after a successful toolsetter measure in tpost, the board also runs nxt-user-tools-sync.g to refresh that file unless you set global nxtAutoPersistTools = false in nxt-user-vars.g. Use Reload from SD after a manual SD edit. Boot loads this file after nxt-user-vars.g.",
       "saveToBoard": "Save to board",
       "reloadFromSd": "Reload from SD",
       "saveToBoardSuccess": "Tool library saved to {path}. Restart the machine or tap Reload from SD to apply immediately.",
