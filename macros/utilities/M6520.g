@@ -2,9 +2,10 @@
 ;
 ; Sets a Work Coordinate System origin from the probe results table.
 ; G10 L2: X/Y = tip M5000; Z slot = tool-normalized surface (G6512 hit − L1).
-; Never G10 L20. After G10 + WCS select, G53 G1 flagged X/Y to stored L2 machine coords
-; (Z/A pinned from current pose). A1 touches off live rotary pose (G10 L2 A
-; = current machine A so work A reads 0). Never work G0 X0 Y0.
+; Never G10 L20. After G10 + WCS select, G53 G1 parks only when both X and Y
+; were flagged (corner/center; Z/A pinned). Single-face X1/Y1 does not travel.
+; A1 touches off live rotary pose (G10 L2 A = current machine A so work A
+; reads 0). Never work G0 X0 Y0.
 ; Does not apply G68 — that is M5011 at job start. Q only arms policy.
 ;
 ; USAGE: M6520 P<resultIndex> W<wcsNumber> [X1] [Y1] [Z1] [A1] [Q<mode>] [T<maxSkew>]
@@ -113,14 +114,13 @@ if { var.offsetA != null }
 
 M98 P"nxt-select-wcs.g" W{var.wcsNumber}
 
-var nxtQPol = { 0 }
-if { exists(param.Q) && param.Q != null }
-    set var.nxtQPol = { param.Q }
 if { !exists(global.nxtG68Policy) }
-    global nxtG68Policy = { var.nxtQPol }
+    global nxtG68Policy = 0
 else
-    set global.nxtG68Policy = { var.nxtQPol }
-echo "M6520: Armed job rotation policy Q" ^ var.nxtQPol
+    set global.nxtG68Policy = 0
+if { exists(param.Q) && param.Q != null }
+    set global.nxtG68Policy = { param.Q }
+echo "M6520: Armed job rotation policy Q" ^ global.nxtG68Policy
 
 var workOffset = { var.wcsNumber - 1 }
 var storeDeg = { exists(param.X) && exists(param.Y) }
@@ -131,7 +131,8 @@ if { var.storeDeg && exists(global.nxtWPDeg) }
     else
         set global.nxtWPDeg[var.workOffset] = { global.nxtDfltWPDeg }
 
-; G53 G1 to stored L2 XY (never work G0 — G53 leak → machine 0,0)
+; G53 G1 to stored L2 XY only when both X and Y were applied (corner/center).
+; Single-face X1 or Y1 must not park into the wall — callers self-park first.
 G90
 M400
 var parkFeed = { 3000 }
@@ -147,7 +148,8 @@ if { var.parkHasA }
     set var.pinA = { move.axes[3].machinePosition }
 var parkX = { var.offsetX != null ? var.offsetX : var.pinX }
 var parkY = { var.offsetY != null ? var.offsetY : var.pinY }
-if { var.offsetX != null || var.offsetY != null }
+var parkBothXY = { var.offsetX != null && var.offsetY != null }
+if { var.parkBothXY }
     if { var.parkHasA }
         G53 G1 F{var.parkFeed} X{var.parkX} Y{var.parkY} Z{var.pinZ} A{var.pinA}
     else

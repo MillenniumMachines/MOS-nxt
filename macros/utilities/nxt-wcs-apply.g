@@ -114,14 +114,13 @@ var nxtWpSel = { var.nxtWpIdx + 1 }
 if { var.nxtWpSel != var.wcsNumber }
     M98 P"nxt-select-wcs.g" W{var.wcsNumber}
 
-var nxtQPol = { 0 }
-if { exists(param.Q) && param.Q != null }
-    set var.nxtQPol = { param.Q }
 if { !exists(global.nxtG68Policy) }
-    global nxtG68Policy = { var.nxtQPol }
+    global nxtG68Policy = 0
 else
-    set global.nxtG68Policy = { var.nxtQPol }
-echo "nxt-wcs-apply: Armed job rotation policy Q" ^ var.nxtQPol
+    set global.nxtG68Policy = 0
+if { exists(param.Q) && param.Q != null }
+    set global.nxtG68Policy = { param.Q }
+echo "nxt-wcs-apply: Armed job rotation policy Q" ^ global.nxtG68Policy
 
 var workOffset = { var.wcsNumber - 1 }
 var storeDeg = { exists(param.X) && exists(param.Y) }
