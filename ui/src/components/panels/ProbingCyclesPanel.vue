@@ -418,6 +418,7 @@
                             :label="$t('plugins.nxt.panels.probingCycles.pointsPerFace')"
                             :hint="$t('plugins.nxt.panels.probingCycles.pointsPerFaceHint')"
                             type="number"
+                            step="1"
                             variant="outlined"
                             density="compact"
                             persistent-hint
@@ -426,6 +427,8 @@
                             :rules="[
                               (v: number | null) =>
                                 (v != null && !Number.isNaN(Number(v))) || 'Required',
+                              (v: number | null) =>
+                                Number.isInteger(Number(v)) || 'Must be a whole number',
                               (v: number | null) =>
                                 (Number(v) >= 2 && Number(v) <= 5) || 'Must be 2-5'
                             ]"
@@ -855,9 +858,15 @@ export default defineNxtComponent({
         }
         gcode += ` N${this.params.corner}`
       } else if (this.selectedCycle === 'G6503') {
+        // Blank keeps the macro default (2). Anything else must be a whole
+        // number 2-5: G6503 spaces points by (N - 1), so 2.5 lands past the corner.
         const nPts = this.params.pointsPerFace
-        if (nPts != null && nPts >= 2 && nPts <= 5) {
-          gcode += ` N${nPts}`
+        if (nPts != null && String(nPts) !== '') {
+          const n = Number(nPts)
+          if (!Number.isInteger(n) || n < 2 || n > 5) {
+            throw new Error(this.$t('plugins.nxt.panels.probingCycles.pointsPerFaceInvalid').toString())
+          }
+          gcode += ` N${n}`
         }
       } else if (this.params.axis != null) {
         gcode += ` N${this.params.axis}`
