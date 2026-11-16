@@ -1082,6 +1082,7 @@ In nxt, **“skew” means in-plane workpiece rotation vs machine +X**, not mach
         *   With `E0`, a touch that ends within `sensors.probes[I].tolerance` of the target on every moved axis did not trigger: that position is returned at once and sampling stops.
         *   Each fine touch is echoed (`G6512.1: touch k/n X=… Y=… Z=…`) and, when the limit is on, compared with the previous fine touch of the same set. A pair over the limit is echoed with its delta and over-limit amount, and the set fails.
         *   If configured, pauses for `sensors.probes[I].recoveryTime` to allow the machine to settle.
+    *   Each set keeps a running mean and variance (Welford) of its fine touches. After a set of 2 or more fine touches, the mean and sample standard deviation (n - 1) of each probed axis are echoed (`G6512.1: set a/b (n touches) X mean=… sd=… mm`). They are for information only and do not affect pass or fail.
     *   A failed set is repeated with fine touches only. If every set fails, it returns to the start point, parks Z (`G27 Z1`), clears the leftover G38 move (`nxt-g38-cancel.g`) and aborts with `G6512.1: Repeatability failed: pair <label> delta <d> mm > <limit> mm (over by <o> mm) after <n> cycle(s)`.
     *   On success, X/Y/Z of the latest touch are replaced by the mean of the passing set's fine touches (other axes such as A are kept) and the result is stored in `global.nxtAbsPos`.
 

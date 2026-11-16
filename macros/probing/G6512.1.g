@@ -25,6 +25,8 @@ if { !exists(param.X) && !exists(param.Y) && !exists(param.Z) }
 ; limit (3D distance). A failed set of fine touches is repeated, up to
 ; 1 + nxtProbeSampleOuterRetries sets in all. When the limit is 0,
 ; R (or nxtProbeInnerSampleCount) fine touches are averaged, no pair checks.
+; Each set echoes the mean and standard deviation of its fine touches on
+; the probed axes. These are for information and don't change pass or fail.
 var limitMm = { global.nxtProbeMaxSampleSpreadMm }
 var tolOn = { var.limitMm > 0 }
 var fineCount = { (exists(param.R) && param.R != null) ? floor(param.R) : floor(global.nxtProbeInnerSampleCount) }
@@ -110,9 +112,15 @@ var passed = false
 var notTriggered = false
 var touchesDone = 0
 var fineN = 0
-var sumX = 0.0
-var sumY = 0.0
-var sumZ = 0.0
+; Running mean and sum of squared deviations from the mean (Welford) of
+; the fine touches in the current set, per axis. The mean is the result;
+; the variance (ss / (n - 1)) is only reported.
+var meanX = 0.0
+var meanY = 0.0
+var meanZ = 0.0
+var ssX = 0.0
+var ssY = 0.0
+var ssZ = 0.0
 var lastPairLabel = ""
 var lastPairDeltaMm = 0.0
 var lastPairOverMm = 0.0
@@ -123,9 +131,12 @@ var lastPairOverMm = 0.0
 while { var.attempt < var.outerLimit && !var.passed && !var.notTriggered }
     set var.attempt = { var.attempt + 1 }
     set var.fineN = 0
-    set var.sumX = 0.0
-    set var.sumY = 0.0
-    set var.sumZ = 0.0
+    set var.meanX = 0.0
+    set var.meanY = 0.0
+    set var.meanZ = 0.0
+    set var.ssX = 0.0
+    set var.ssY = 0.0
+    set var.ssZ = 0.0
     var pairsOk = true
     var prevX = 0.0
     var prevY = 0.0
@@ -240,9 +251,19 @@ while { var.attempt < var.outerLimit && !var.passed && !var.notTriggered }
         ; The fast touch only finds the surface and is not counted.
         if { !var.isFast }
             set var.fineN = { var.fineN + 1 }
-            set var.sumX = { var.sumX + var.cP[0] }
-            set var.sumY = { var.sumY + var.cP[1] }
-            set var.sumZ = { var.sumZ + var.cP[2] }
+
+            ; Welford update, weighted by the fine-touch count. The mean starts
+            ; at 0, so the first fine touch sets it and adds 0 to ss.
+            var deltaX = { var.cP[0] - var.meanX }
+            var deltaY = { var.cP[1] - var.meanY }
+            var deltaZ = { var.cP[2] - var.meanZ }
+            set var.meanX = { var.meanX + var.deltaX / var.fineN }
+            set var.meanY = { var.meanY + var.deltaY / var.fineN }
+            set var.meanZ = { var.meanZ + var.deltaZ / var.fineN }
+            set var.ssX = { var.ssX + var.deltaX * (var.cP[0] - var.meanX) }
+            set var.ssY = { var.ssY + var.deltaY * (var.cP[1] - var.meanY) }
+            set var.ssZ = { var.ssZ + var.deltaZ * (var.cP[2] - var.meanZ) }
+
             echo { "G6512.1: touch " ^ var.fineN ^ "/" ^ var.fineCount ^ " X=" ^ var.cP[0] ^ " Y=" ^ var.cP[1] ^ " Z=" ^ var.cP[2] }
 
             ; Compare with the previous fine touch of this attempt (3D distance)
@@ -262,6 +283,20 @@ while { var.attempt < var.outerLimit && !var.passed && !var.notTriggered }
         ; Dwell so machine can settle, if necessary
         if { sensors.probes[param.I].recoveryTime > 0.0 }
             G4 P{ ceil(sensors.probes[param.I].recoveryTime * 1000) }
+
+    ; Report this set's mean and sample standard deviation (the square root
+    ; of the variance, n - 1) on each probed axis, in mm. Information only:
+    ; the pair rule decides pass or fail. Needs 2 or more fine touches.
+    if { !var.notTriggered && var.fineN > 1 }
+        var statAxes = ""
+        if { var.tP[0] != var.sP[0] }
+            set var.statAxes = { var.statAxes ^ " X mean=" ^ var.meanX ^ " sd=" ^ sqrt(max(0.0, var.ssX) / (var.fineN - 1)) }
+        if { var.tP[1] != var.sP[1] }
+            set var.statAxes = { var.statAxes ^ " Y mean=" ^ var.meanY ^ " sd=" ^ sqrt(max(0.0, var.ssY) / (var.fineN - 1)) }
+        if { var.tP[2] != var.sP[2] }
+            set var.statAxes = { var.statAxes ^ " Z mean=" ^ var.meanZ ^ " sd=" ^ sqrt(max(0.0, var.ssZ) / (var.fineN - 1)) }
+        if { var.statAxes != "" }
+            echo { "G6512.1: set " ^ var.attempt ^ "/" ^ var.outerLimit ^ " (" ^ var.fineN ^ " touches)" ^ var.statAxes ^ " mm" }
 
     ; A set passes when pair checks are off or every consecutive pair agreed
     if { !var.notTriggered }
@@ -295,9 +330,9 @@ if { !var.passed && !var.notTriggered }
 ; fine touches; an E0 touch that did not trigger is returned as it is.
 var result = { global.nxtAbsPos }
 if { var.passed }
-    set var.result[0] = { var.sumX / var.fineN }
-    set var.result[1] = { var.sumY / var.fineN }
-    set var.result[2] = { var.sumZ / var.fineN }
+    set var.result[0] = { var.meanX }
+    set var.result[1] = { var.meanY }
+    set var.result[2] = { var.meanZ }
 
 ; Save output variable.
 set global.nxtAbsPos = { var.result }
