@@ -465,6 +465,13 @@ Registers a tool in RRF (`M563`) and stores CAM metadata in `global.mosTT` (radi
 
 When `global.nxtAutoPersistTools` is true, rewrites `0:/sys/nxt-user-tools.g` via `nxt-user-tools-sync.g`.
 
+**Redefining the loaded tool:** if `P` is the tool in the spindle and the definition differs, `M4000` asks before changing it. CAM numbers tools per job, so the number may now mean a different cutter, and RRF runs no tool-change macros when the loaded tool is selected again.
+- **Change cutter** runs `T-1` (tfree parks and asks for the tool to be removed). The job's next `T` for that number is then a full tool change, with an install prompt and a measure.
+- **Same cutter** renames it and keeps its measured length.
+- **Cancel** aborts.
+
+Library loads (`nxt-user-tools.g`) and `K1` probe-slot writes don't prompt; they leave the loaded tool unchanged, as before.
+
 ---
 
 ### M4001: Remove Tool
