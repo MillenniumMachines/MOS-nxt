@@ -15,7 +15,7 @@ Targets the **nxt v0.7.0** line. Implementation details and upstream FreeCAD beh
 | `machines/*.fcm` | — | machine definitions, see below |
 | `tools/compare_gcode.py` | — | semantic diff between the two posts' output |
 | `tools/post_cli.py` | — | post a job to G-code headlessly, without the GUI |
-| `test_mqtt_helpers.py` | — | tests for the machine post's MQTT telemetry, runs without FreeCAD |
+| `test_nxt_machine.py` | — | tests for the machine post's MQTT telemetry and tool-number check, runs without FreeCAD |
 
 ### Included machine definitions
 
@@ -165,6 +165,14 @@ FreeCAD expects post processors to follow the `<prefix>_post.py` naming conventi
 
 ---
 
+## Tool numbers
+
+nxt can only use tool numbers 0 to 48. RRF has 50 tool slots, and nxt keeps T49 for the touch probe. FreeCAD numbers tool controllers per job, so a job can end up with a higher number, especially when it draws on several tool libraries.
+
+The machine post checks this. The sanity report on the post dialog warns about any tool controller outside 0–48, and posting is refused with an error naming each one to renumber. Without the check, the job would stop at its first `M4000` line on the machine.
+
+---
+
 ## MQTT tool telemetry (optional)
 
 The machine post can publish each tool change to an MQTT broker, for a collector that logs tool use. It is off by default. It uses RRF's own MQTT client (`M586.4`, `M586 P4`, `M118 P6`), so the board's firmware must support MQTT.
@@ -203,7 +211,7 @@ M118 P6 S"{""event"":""change"",""tool_number"":48,""previous_tool"":3,""job_fil
 - **`job_file`** is the name of the file FreeCAD writes, worked out the same way FreeCAD names it. If that name is only a program number, such as `8910.gcode`, the document name is used instead. Set `mqtt_job_file` if you save under a different name or FreeCAD renames the file to avoid a clash.
 - The topic and payload match the Fusion 360 post's MQTT option. The legacy FreeCAD post does not support MQTT.
 
-`python3 post-processors/freecad/test_mqtt_helpers.py` tests the payload helpers and the event logic without FreeCAD.
+`python3 post-processors/freecad/test_nxt_machine.py` tests the payload helpers and the event logic without FreeCAD.
 
 ---
 

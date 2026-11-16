@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
-"""Tests for the MQTT tool telemetry in nxt_machine_post.py, without FreeCAD.
+"""Tests for nxt_machine_post.py that run without FreeCAD.
 
 FreeCAD's modules are replaced with small stubs so the post imports under plain
-python3. That covers the payload helpers and the tool-change and per-file event
-logic. Run: python3 post-processors/freecad/test_mqtt_helpers.py
+python3. Covers the MQTT tool telemetry (payload helpers, tool-change and
+per-file event logic) and the tool-number check.
+Run: python3 post-processors/freecad/test_nxt_machine.py
+
+Do not name this file *_post.py: FreeCAD imports every such file on its post
+search path as a post processor, and these stubs would replace FreeCAD's modules.
 """
 from __future__ import annotations
 
@@ -22,7 +26,14 @@ _HERE = FsPath(__file__).resolve().parent
 class _StubPostProcessor:
     def __init__(self, job=None, **_kwargs):
         self._job = job
+        self._machine = None
         self.values = {}
+
+    def get_sanity_checks(self, job):
+        return []
+
+    def _create_squawk(self, squawk_type, note):
+        return {"squawkType": squawk_type, "Note": note}
 
     def _convert_start_section(self, section_name, sublist):
         pass
@@ -241,6 +252,66 @@ class TestToolChange(unittest.TestCase):
                 pp = _make_post(**{missing: ""})
                 with self.assertRaises(ValueError):
                     pp._mqtt_settings()
+
+
+# ----------------------------------------------------------------------
+# Tool numbers
+# ----------------------------------------------------------------------
+def _tc_item(number, label):
+    return types.SimpleNamespace(
+        item_type="tool_controller", data={"tool_number": number}, label=f"TC: {label}"
+    )
+
+
+def _op(number, label, active=True):
+    tc = types.SimpleNamespace(ToolNumber=number, Label=label)
+    return types.SimpleNamespace(Active=active, ToolController=tc)
+
+
+class TestToolNumbers(unittest.TestCase):
+    def test_problem(self):
+        for number in (0, 1, 48):
+            with self.subTest(number=number):
+                self.assertIsNone(post.nxt_tool_number_problem(number))
+        self.assertIn("touch probe", post.nxt_tool_number_problem(49))
+        for number in (50, 101, -1):
+            with self.subTest(number=number):
+                self.assertIn("outside", post.nxt_tool_number_problem(number))
+
+    def test_message_lists_only_bad_tools(self):
+        self.assertEqual(post.nxt_tool_number_message([(1, "a"), (48, "b")]), "")
+        message = post.nxt_tool_number_message([(52, "Facemill"), (3, "Drill"), (49, "Probe")])
+        self.assertIn("0 to 48", message)
+        self.assertIn("Probe (T49), Facemill (T52)", message)
+        self.assertNotIn("Drill", message)
+
+    def test_posting_refuses_bad_number(self):
+        pp = _make_post(MQTT_TELEMETRY=False)
+        postables = [("allitems", [_tc_item(5, "6mm Endmill"), _tc_item(52, "Facemill")])]
+        with self.assertRaisesRegex(ValueError, r"Facemill \(T52\)"):
+            pp._check_tool_numbers(postables)
+
+    def test_posting_accepts_good_numbers(self):
+        pp = _make_post(MQTT_TELEMETRY=False)
+        pp._check_tool_numbers([("allitems", [_tc_item(0, "a"), _tc_item(48, "b")])])
+
+    def test_sanity_check_warns(self):
+        pp = _make_post(MQTT_TELEMETRY=False)
+        job = types.SimpleNamespace(
+            Operations=types.SimpleNamespace(
+                Group=[_op(5, "6mm Endmill"), _op(52, "Facemill"), _op(60, "Unused", active=False)]
+            )
+        )
+        issues = pp.get_sanity_checks(job)
+        self.assertEqual(len(issues), 1)
+        self.assertEqual(issues[0]["squawkType"], "WARNING")
+        self.assertIn("Facemill (T52)", issues[0]["Note"])
+        self.assertNotIn("Unused", issues[0]["Note"])
+
+    def test_sanity_check_quiet_when_fine(self):
+        pp = _make_post(MQTT_TELEMETRY=False)
+        job = types.SimpleNamespace(Operations=types.SimpleNamespace(Group=[_op(5, "6mm")]))
+        self.assertEqual(pp.get_sanity_checks(job), [])
 
 
 if __name__ == "__main__":

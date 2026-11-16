@@ -166,6 +166,40 @@ def fmt_mm(value):
 
 
 # ----------------------------------------------------------------------
+# Tool numbers
+# ----------------------------------------------------------------------
+# RRF has a fixed number of tool slots (MaxTools in RRF's Configuration.h), and
+# nxt keeps the last one for the touch probe (nxt-boot.g forces nxtProbeToolID
+# to 49). M4000 aborts on any other number, so a job using one stops at its
+# first line. FreeCAD numbers tools per job, so a job can easily pick T50+.
+
+RRF_TOOL_SLOTS = 50
+NXT_PROBE_TOOL = RRF_TOOL_SLOTS - 1
+
+
+def nxt_tool_number_problem(number):
+    """Why nxt cannot use this tool number, or None if it can."""
+    if number == NXT_PROBE_TOOL:
+        return f"T{number} is reserved for the nxt touch probe"
+    if number < 0 or number >= RRF_TOOL_SLOTS:
+        return f"T{number} is outside RRF's {RRF_TOOL_SLOTS} tool slots"
+    return None
+
+
+def nxt_tool_number_message(tools):
+    """Error text for (number, label) pairs nxt cannot use, or "" if all are fine."""
+    bad = [(n, label) for n, label in tools if nxt_tool_number_problem(n)]
+    if not bad:
+        return ""
+    names = ", ".join(f"{label} (T{n})" for n, label in sorted(bad))
+    return (
+        f"nxt tool numbers must be 0 to {NXT_PROBE_TOOL - 1}: RRF has "
+        f"{RRF_TOOL_SLOTS} tool slots and T{NXT_PROBE_TOOL} is the touch probe. "
+        f"Renumber these tool controllers in the job: {names}."
+    )
+
+
+# ----------------------------------------------------------------------
 # MQTT tool telemetry (optional, off by default)
 # ----------------------------------------------------------------------
 # With mqtt_telemetry on, the preamble connects RRF's MQTT client to the broker
@@ -175,7 +209,7 @@ def fmt_mm(value):
 #   {"event":"start"|"change","tool_number":5,"previous_tool":3,"job_file":"part.gcode"}
 #
 # "start" is the first tool of each output file; previous_tool is omitted then.
-# These helpers do not touch FreeCAD, so test_mqtt_helpers.py runs them without it.
+# These helpers do not touch FreeCAD, so test_nxt_machine.py runs them without it.
 
 #: DSF rejects serialised codes over ~256 characters; stay well under.
 MQTT_M118_MAX = 240
@@ -631,6 +665,52 @@ class NxtMachine(PostProcessor):
             return None
         return length
 
+    def _check_tool_numbers(self, postables):
+        """Refuse to post a tool number nxt cannot use, see nxt_tool_number_problem().
+
+        Checked whether or not M4000 lines are emitted: RRF rejects the T word too.
+        """
+        tools: Dict[int, str] = {}
+        for _section_name, sublist in postables:
+            for item in sublist:
+                if item.item_type != "tool_controller":
+                    continue
+                number = item.data.get("tool_number")
+                if number is not None:
+                    tools.setdefault(int(number), item.label.replace("TC: ", "").strip())
+
+        message = nxt_tool_number_message(tools.items())
+        if message:
+            raise ValueError(message)
+
+    @staticmethod
+    def _job_tool_numbers(job):
+        """(number, label) for the tool controller of each active operation in the job.
+
+        A dressup has no tool controller of its own; FreeCAD's helpers follow
+        its Base down to the operation it wraps.
+        """
+        try:
+            from Path.Base.Util import activeForOp, toolControllerForOp
+        except ImportError:  # outside FreeCAD (tests): plain attributes only
+            def activeForOp(op):
+                return getattr(op, "Active", True)
+
+            def toolControllerForOp(op):
+                return getattr(op, "ToolController", None)
+
+        tools: Dict[int, str] = {}
+        operations = getattr(getattr(job, "Operations", None), "Group", None) or []
+        for op in operations:
+            if not activeForOp(op):
+                continue
+            tc = toolControllerForOp(op)
+            number = getattr(tc, "ToolNumber", None)
+            if number is not None:
+                label = str(getattr(tc, "Label", "")).replace("TC: ", "").strip()
+                tools.setdefault(int(number), label or f"T{number}")
+        return list(tools.items())
+
     def _collect_tools(self, postables):
         """Walk the postable list and gather tool definitions for M4000.
 
@@ -706,6 +786,7 @@ class NxtMachine(PostProcessor):
         ]
 
         self._used_wcs = self._collect_used_wcs(postables)
+        self._check_tool_numbers(postables)
 
         lines: List[str] = []
 
@@ -1259,6 +1340,12 @@ class NxtMachine(PostProcessor):
         upstream's included, and the dialog reports "No issues found".
         """
         issues = super().get_sanity_checks(job)
+
+        # Posting refuses these too (_check_tool_numbers); warning here shows it
+        # before the operator presses Post.
+        message = nxt_tool_number_message(self._job_tool_numbers(job))
+        if message:
+            issues.append(self._create_squawk("WARNING", message))
 
         machine = self._machine
         if machine is None:
