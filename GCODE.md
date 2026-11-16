@@ -60,8 +60,8 @@ Uses **three triangulated** inward touches at **0° / 120° / 240°** via **`G65
 - `P` or `U`: Result row **`P`** (0–9) **or** target workplace **`U`** (1–9) — **REQUIRED** (one of)
 - `D`: Bore diameter for move planning (mm) - **REQUIRED**
 - `L`: Depth to **drop** into bore before probing (mm), relative to **current machine Z at execute time**. Cycles do not park/raise before the dive — jog to start height first. - **REQUIRED**
-- `F`: Optional speed override (mm/min; reserved — radial probes use probe `M558` speeds via **`G6512.1`**)
-- `R`: Retry / sample budget passed through to **`G6513`** / **`G6512.1`** (default: `global.nxtProbeInnerSampleCount`)
+- `F`: Optional speed override (mm/min; reserved — radial probes use the probe's `M558` speeds via **`G6512.1`**, capped at 200 / 50 mm/min (rough / fine) for the touch probe)
+- `R`: Fine-touch count passed through to **`G6513`** / **`G6512.1`** (default: `global.nxtProbeInnerSampleCount`). Ignored while `global.nxtProbeMaxSampleSpreadMm` > 0 (the default): **`G6512.1`** then takes **3** fine touches that must agree pairwise
 - `O`: Overtravel distance beyond expected surface (default: 2mm; reduced by tool radius when available)
 - `Q`: Rotation policy for **`nxt-wcs-apply.g`** when **`U`** is used (translation only — circle has no skew)
 
@@ -82,7 +82,7 @@ Probes a circular boss from the outside with **three triangulated** OD touches a
 - `D`: Boss diameter for move planning (mm) - **REQUIRED**
 - `L`: Depth to move down before probing (mm) - **REQUIRED**
 - `F`: Optional speed override (mm/min; reserved — see **`G6500`**)
-- `R`: Retry / sample budget passed through to **`G6513`** / **`G6512.1`** (default: `global.nxtProbeInnerSampleCount`)
+- `R`: Fine-touch count passed through to **`G6513`** / **`G6512.1`** (default: `global.nxtProbeInnerSampleCount`). Ignored while `global.nxtProbeMaxSampleSpreadMm` > 0 (the default): **`G6512.1`** then takes **3** fine touches that must agree pairwise
 - `C`: **Approach clearance** — outside air gap before OD touch (default: **5** mm; same role as **G6503** outside clearance; tool radius is added when available)
 - `O`: Overtravel distance beyond expected surface (default: 2mm; reduced by tool radius when available)
 - `Q`: Rotation policy for **`nxt-wcs-apply.g`** when **`U`** is used (translation only — circle has no skew)
@@ -307,6 +307,8 @@ Low-level single-axis probe move with compensation and averaging. Used by all pr
 **Speeds (touch probe):** Fast/slow clamped to **≤200 / ≤50** mm/min (same caps as G6511), regardless of M558 or `F` override. Toolsetter IDs are not clamped here.
 
 **Repeatability:** Defaults are **`macros/system/nxt-vars.g`** (`nxtProbeInnerSampleCount`, **`nxtProbeMaxSampleSpreadMm`** default **0.0075** mm, **`nxtProbeSampleOuterRetries`**). Override via **`0:/sys/nxt-user-overrides.g`** (loaded **last** in **`nxt.g`**; see **`nxt-user-overrides.g.example`**). When **`nxtProbeMaxSampleSpreadMm` > 0**, **`G6512`** runs **3** touches ( **`R`** is ignored), **`echo`s** each compensated value, and requires **both** consecutive pairs (1–2 and 2–3) to be within the limit. On failure it **`echo`s** the pair delta and over-limit amount, then repeats the whole 3-touch block up to **`1 + nxtProbeSampleOuterRetries`** cycles. On success it averages the three values into **`nxtLastProbeResult`**. Set **`nxtProbeMaxSampleSpreadMm`** to **0** to disable (honors **`R`** / **`nxtProbeInnerSampleCount`**, no pair checks).
+
+**`G6512.1`** (used by **`G6513`** for **`G6500`**/**`G6501`**) applies the same pair rule to fine touches only: a fast touch finds the surface and is discarded, then **3** fine touches are compared pair by pair (3D distance) with the same retries, and on failure it returns to the start point, parks Z (**`G27 Z1`**), clears the leftover G38 move (**`nxt-g38-cancel.g`**) and aborts. Each set also **`echo`s** the mean and standard deviation of its fine touches on the probed axes, for information only. **`M558 A`**/**`S`** no longer set the touch count or stop sampling early (`S` only marks an **`E0`** touch that reached the target as not triggered).
 
 **Usage:** `G6512 [X<pos>|Y<pos>|Z<pos>|A<pos>] I<probeID> [F<speed>] [R<retries>] [H<hit>]`
 
