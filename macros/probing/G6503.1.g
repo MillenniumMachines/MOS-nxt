@@ -85,12 +85,12 @@ if { var.edgeInset <= 0 || var.edgeInset >= var.mC }
     abort { "Edge inset invalid (must be > 0 and < half min side)!" }
 
 var nxtM291MsgPts = "Points per face (2-5). Default 2 is near/far inset from corners."
-M291 P{var.nxtM291MsgPts} R"nxt: Probe Rect. Block" J1 T0 S6 F{2}
+M291 P{var.nxtM291MsgPts} R"nxt: Probe Rect. Block" J1 T0 S5 L2 H5 F{2}
 if { result != 0 }
     abort { "Rectangle block probe aborted!" }
 var nPts = { input }
-if { var.nPts < 2 || var.nPts > 5 }
-    abort { "Points per face must be 2-5!" }
+if { var.nPts < 2 || var.nPts > 5 || floor(var.nPts) != var.nPts }
+    abort { "Points per face must be a whole number from 2 to 5!" }
 
 var nxtM291Msg6 = "Please enter <b>overtravel</b> distance in mm (past expected face into the block)."
 M291 P{var.nxtM291Msg6} R"nxt: Probe Rect. Block" J1 T0 S6 F{global.nxtOvertravel}

@@ -424,7 +424,8 @@
       "faceLengthSHint": "Approximate length along the face (perpendicular to the probe direction). Uses 3 points when long enough; 1 when shorter than 2× tip diameter.",
       "faceLengthZDeferred": "Z multi-point averaging is not implemented yet — one contact only.",
       "pointsPerFace": "Points per face (N)",
-      "pointsPerFaceHint": "Samples per outside face (2–5). Default 2 is near/far inset from corners; higher values space evenly between those ends."
+      "pointsPerFaceHint": "Samples per outside face (2–5). Default 2 is near/far inset from corners; higher values space evenly between those ends.",
+      "pointsPerFaceInvalid": "Points per face must be a whole number from 2 to 5."
     },
     "workplaceOrigins": {
       "title": "Work offsets",

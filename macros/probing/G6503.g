@@ -56,8 +56,8 @@ if { exists(param.E) && param.E != null && param.E > 0 }
 var nPts = { 2 }
 if { exists(param.N) && param.N != null }
     set var.nPts = { param.N }
-if { var.nPts < 2 || var.nPts > 5 }
-    abort { "G6503: Points per face N must be 2-5" }
+if { var.nPts < 2 || var.nPts > 5 || floor(var.nPts) != var.nPts }
+    abort { "G6503: Points per face N must be a whole number from 2 to 5" }
 var skewLimit = { exists(param.T) ? param.T : global.nxtProbeMaxSkewDeg }
 var probeId = { global.nxtTouchProbeID }
 
