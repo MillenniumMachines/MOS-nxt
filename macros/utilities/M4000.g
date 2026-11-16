@@ -106,10 +106,40 @@ if { var.rowLen > 5 }
 if { var.toolSame }
     M99
 
-; Same tool already selected (e.g. T1 active, job preamble M4000 P1 on re-run).
-; M563 clears probed Z offsets — skip it entirely.
-if { state.currentTool == param.P && #tools > param.P && tools[param.P] != null }
+; The active tool's definition differs from this one. CAM numbers tools per job
+; (FreeCAD especially), so the number may now mean a different cutter. Selecting
+; the active tool again runs no tool-change macros: no swap prompt, no measure.
+; Ask the operator. Library loads and K1 system writes keep the old behaviour of
+; leaving the active tool alone (no prompt from boot, reload or daemon).
+var nxtActiveRedef = { state.currentTool == param.P && #tools > param.P && tools[param.P] != null }
+var nxtNoPrompt = { exists(param.K) && param.K == 1 }
+if { exists(global.nxtUserToolsLoadDepth) && global.nxtUserToolsLoadDepth >= 1 }
+    set var.nxtNoPrompt = true
+if { var.nxtActiveRedef && var.nxtNoPrompt }
     M99
+if { var.nxtActiveRedef }
+    var nxtMsgA = { "T" ^ param.P ^ " in the spindle is <b>" ^ tools[param.P].name ^ "</b>.<br/>" }
+    var nxtMsgB = { var.nxtMsgA ^ "This defines T" ^ param.P ^ " as <b>" ^ param.S ^ "</b>.<br/>" }
+    var nxtMsgC = { var.nxtMsgB ^ "Change the cutter, or keep it if it is the same one?" }
+    M291 P{var.nxtMsgC} R"Loaded tool redefined" S4 K{"Change cutter","Same cutter","Cancel"} F0
+    if { input == 2 }
+        abort { "M4000: T" ^ param.P ^ " is loaded as " ^ tools[param.P].name ^ " — cancelled" }
+    if { input == 0 }
+        ; Unload it: tfree parks and asks for it to be removed. The next T for this
+        ; number is then a full tool change, with an install prompt and a measure.
+        T-1
+        ; A cancelled removal leaves nxtToolChangeCancelled set, which would make
+        ; that later tool change skip its install and measure. Stop here instead.
+        if { (exists(global.nxtToolChangeCancelled) && global.nxtToolChangeCancelled) || state.currentTool == param.P }
+            set global.nxtToolChangeCancelled = false
+            abort { "M4000: T" ^ param.P ^ " was not removed — stopped" }
+    else
+        ; Same cutter: rename it, keeping its measured length and its selection.
+        ; M563 deletes and recreates the tool, which deselects it and clears offsets.
+        var nxtKeepZ = { (#tools[param.P].offsets > 2) ? tools[param.P].offsets[2] : 0 }
+        M563 P{param.P} S{param.S} R{var.spinId}
+        G10 L1 P{param.P} Z{var.nxtKeepZ}
+        T{param.P} P0
 
 ; Persist full tool library to SD unless loading library, auto-persist off, or K1 system write.
 var nxtDoToolsSync = true
@@ -120,7 +150,8 @@ if { exists(global.nxtAutoPersistTools) && !global.nxtAutoPersistTools }
 if { exists(param.K) && param.K == 1 }
     set var.nxtDoToolsSync = false
 
-; Tool exists in RRF but is not the active tool — refresh nxtTT metadata only.
+; Tool exists in RRF — refresh nxtTT metadata. The active tool only gets here after
+; the prompt above, already renamed (same cutter) or unloaded (change cutter).
 if { #tools > param.P && tools[param.P] != null }
     ; RRF tool name only changes via M563, which RESETS offsets. Rename only when description
     ; changed and tool is not currently loaded; capture Z length first and re-apply afterwards.
