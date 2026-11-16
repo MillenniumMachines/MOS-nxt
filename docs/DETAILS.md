@@ -1052,35 +1052,39 @@ In nxt, **“skew” means in-plane workpiece rotation vs machine +X**, not mach
 ### G6512.1: SINGLE SURFACE PROBE - EXECUTE WITH PROBE
 
 *   **Code:** `G6512.1`
-*   **Description:** Performs a repeatable, automated single surface probe in any direction using a configured probe. This macro is designed to be called by higher-level macros that handle parameter validation. It includes logic for multiple retries and statistical analysis of probed points to improve accuracy.
+*   **Description:** Performs a repeatable, automated single surface probe in any direction using a configured probe. This macro is designed to be called by higher-level macros that handle parameter validation. It discards a fast first touch, then requires three fine touches to agree pairwise within `global.nxtProbeMaxSampleSpreadMm` (3D distance), retrying failed sets, and averages the set that passes.
 *   **Arguments:**
     *   `I<probe-id>`: The ID of the probe to use for the operation.
     *   `X<target-x>`: The target X position for the probe move.
     *   `Y<target-y>`: The target Y position for the probe move.
     *   `Z<target-z>`: The target Z position for the probe move.
-    *   `R<retries>`: (Optional) The maximum number of times to retry the probe. Defaults to `sensors.probes[I].maxProbeCount + 1`.
+    *   `R<retries>`: (Optional) The number of fine touches to average when `global.nxtProbeMaxSampleSpreadMm` is 0. Defaults to `global.nxtProbeInnerSampleCount`. Ignored when the pair rule is on (3 fine touches).
     *   `E0`: (Optional) If present, disables error reporting if the probe does not activate by the time it reaches the target position. This is useful for operations where non-activation is expected or handled externally.
 *   **How it works:**
     *   Validates the `I` parameter (probe ID) and ensures it's a valid probe type (5 or 8). Also validates that at least one target position (`X`, `Y`, or `Z`) is provided.
     *   Sets absolute positioning (`G90`), millimeters as units (`G21`), and feed rate mode (`G94`).
     *   Cancels rotation compensation (`G69`) to avoid interference with `G53` moves.
-    *   Initializes `global.mosPRRT` (probe retries total) and `global.mosPRRS` (probe retries remaining).
+    *   Initializes `global.nxtProbeRetryTotal` (planned touches) and `global.nxtProbeRetryStep` (touches done); these replace `global.mosPRRT` / `global.mosPRRS`.
     *   Retrieves the current machine position using `M5000 P0`.
     *   Sets `sP` (start position) and `tP` (target position), using current position for unset target coordinates.
     *   Checks if target positions are within machine limits using `M6515`.
     *   Retrieves `roughSpeed` and `fineSpeed` from the probe's configuration. If only one speed is configured, `fineSpeed` is derived.
-    *   Initializes variables (`cP`, `oM`, `oS`, `nD`, `nM`, `nS`, `pV`) for calculating average positions and variances of probed points.
-    *   Enters a loop that runs for the specified number of `retries` or until the probed position is within tolerance:
+    *   Sampling follows `G6512`'s consecutive-pair rule, on fine touches only (defaults in `macros/system/nxt-vars.g`):
+        *   When `global.nxtProbeMaxSampleSpreadMm` > 0, each set is **3** fine touches (`R` is ignored) and each consecutive pair (1–2, 2–3) must be within that limit, measured as 3D distance. Up to `1 + global.nxtProbeSampleOuterRetries` sets are tried.
+        *   When the limit is 0, one set of `R` (or `global.nxtProbeInnerSampleCount`, minimum 1) fine touches is averaged with no pair checks.
+        *   For the touch probe (`I == global.nxtTouchProbeID`), the rough and fine feeds are capped at 200 and 50 mm/min, as in `G6512`.
+        *   `sensors.probes[I].maxProbeCount` (`M558 A`) is not used, and `tolerance` (`M558 S`) no longer stops sampling early.
+    *   Each touch:
         *   Executes a protected probe move using `G53 G38.2` (with error if `E0` is not present) or `G53 G38.3` (without error) towards the target position.
-        *   If an error occurs during `G38.2`, it parks the spindle in Z (`G27 Z1`) and aborts.
+        *   If an error occurs during `G38.2`, it returns to the start point, parks the spindle in Z (`G27 Z1`), clears the leftover G38 move (`nxt-g38-cancel.g`) and aborts.
         *   Retrieves the current machine position (`M5000 P0`) after the probe.
-        *   Updates `cP` (current position).
-        *   Calculates the mean and cumulative variance for each axis based on the current and previous probed points.
-        *   Switches to `fineSpeed` after the first probe.
-        *   If the probe moved, it backs off from the probed point by `sensors.probes[I].diveHeights` using `G6550`.
-        *   Checks if all moved axes are within the probe's `tolerance`. If so, the loop breaks early.
+        *   The first touch of the first set is a fast touch at the rough feed: it finds the surface, backs off by `diveHeights[0]` and is not counted. Every other touch is a fine touch at the fine feed and backs off by `diveHeights[1]`. The back-off is a `G53 G0` toward the start position (A pinned), clamped to the distance travelled.
+        *   With `E0`, a touch that ends within `sensors.probes[I].tolerance` of the target on every moved axis did not trigger: that position is returned at once and sampling stops.
+        *   Each fine touch is echoed (`G6512.1: touch k/n X=… Y=… Z=…`) and, when the limit is on, compared with the previous fine touch of the same set. A pair over the limit is echoed with its delta and over-limit amount, and the set fails.
         *   If configured, pauses for `sensors.probes[I].recoveryTime` to allow the machine to settle.
-    *   The final calculated average position (`var.nM`) is stored in `global.mosMI`.
+    *   Each set keeps a running mean and variance (Welford) of its fine touches. After a set of 2 or more fine touches, the mean and sample standard deviation (n - 1) of each probed axis are echoed (`G6512.1: set a/b (n touches) X mean=… sd=… mm`). They are for information only and do not affect pass or fail.
+    *   A failed set is repeated with fine touches only. If every set fails, it returns to the start point, parks Z (`G27 Z1`), clears the leftover G38 move (`nxt-g38-cancel.g`) and aborts with `G6512.1: Repeatability failed: pair <label> delta <d> mm > <limit> mm (over by <o> mm) after <n> cycle(s)`.
+    *   On success, X/Y/Z of the latest touch are replaced by the mean of the passing set's fine touches (other axes such as A are kept) and the result is stored in `global.nxtAbsPos`.
 
 ### G6512.2: SINGLE SURFACE PROBE - EXECUTE MANUALLY
 
@@ -1123,8 +1127,9 @@ In nxt, **“skew” means in-plane workpiece rotation vs machine +X**, not mach
     *   `K<optional-start-coord-y>`: (Optional) The Y coordinate for the starting position. Defaults to the current machine Y position if omitted.
     *   `S<safe-z>`: (Optional) A safe absolute Z position to return to after probing. Defaults to the current machine Z position if omitted.
     *   `D1`: (Optional) If present, the machine will *not* move to the `safeZ` height after the probe operation; it will stay at the probed height.
-    *   `R<retries>`: (Optional) Number of retries for automated probing (passed to `G6512.1`).
+    *   `R<retries>`: (Optional) Fine-touch count (passed to `G6512.1`). Ignored while `global.nxtProbeMaxSampleSpreadMm` > 0 (the default): `G6512.1` then takes 3 fine touches that must agree pairwise.
     *   `E0`: (Optional) Disables error reporting for automated probing (passed to `G6512.1`).
+*   **Touch sampling (`macros/probing/G6512.g`):** Without `F`, when the first touch runs faster than the rest (rough feed above the fine feed after the touch-probe caps of 200 / 50 mm/min), it only finds the surface. It is echoed as `G6512: locate axis <letter> = <value> mm (not averaged)` and is not pair-checked, averaged or recorded as an `H` hit. Then 3 fine touches are checked pair by pair (1–2, 2–3) against the pair limit (`global.nxtProbeMaxSampleSpreadMm`, or G6512.g's `L` pair-limit override when given; the argument list above predates G6512.g, see GCODE.md) and averaged; with the limit at 0, `R` fine touches are averaged. A failed set is retried with fine touches only, up to `1 + global.nxtProbeSampleOuterRetries` sets. With `F`, every touch counts as before, so touch-probe calls with an explicit `F` above 50 mm/min still average a faster first touch (the caps lower the fine feed to 50). Re-run Calibration Phase 1 after updating: deflection measured with the fast touch in the average is biased.
 *   **How it works:**
     *   Validates that all axes are homed.
     *   Validates the `I` parameter, ensuring it's a valid probe ID if provided.
@@ -1156,7 +1161,7 @@ In nxt, **“skew” means in-plane workpiece rotation vs machine +X**, not mach
     *   `S<safe-z>`: The absolute Z position to return to between individual probe points (if `D1` is not present) and between surfaces (if `H1` is not present).
     *   `D1`: (Optional) If present, the machine will *not* move to the `safeZ` height after each individual probe point.
     *   `H1`: (Optional) If present, the machine will *not* move to the `safeZ` height after each complete surface has been probed.
-    *   `R<retries>`: (Optional) Number of retries for automated probing (passed to `G6512.1`).
+    *   `R<retries>`: (Optional) Fine-touch count (passed to `G6512.1`). Ignored while `global.nxtProbeMaxSampleSpreadMm` > 0 (the default): `G6512.1` then takes 3 fine touches that must agree pairwise.
     *   `E0`: (Optional) Disables error reporting for automated probing (passed to `G6512.1`).
 *   **How it works:**
     *   If `global.mosDebug` is enabled, it echoes debug information about the macro's start and parameters.

@@ -53,6 +53,12 @@ jobs:
       - name: Check G6512 deflection compensation math
         run: node dist/check-g6512-deflection-math.mjs
 
+      - name: Check G6512.1 touch sampling
+        run: node dist/check-g6512-1-sampling.mjs
+
+      - name: Check G6512 touch sampling
+        run: node dist/check-g6512-sampling.mjs
+
       - name: Check OM global size budget
         run: node dist/check-om-global-budget.mjs
 
