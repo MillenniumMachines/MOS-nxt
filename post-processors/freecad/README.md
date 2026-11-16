@@ -15,6 +15,7 @@ Targets the **nxt v0.7.0** line. Implementation details and upstream FreeCAD beh
 | `machines/*.fcm` | — | machine definitions, see below |
 | `tools/compare_gcode.py` | — | semantic diff between the two posts' output |
 | `tools/post_cli.py` | — | post a job to G-code headlessly, without the GUI |
+| `test_nxt_machine.py` | — | tests for the machine post's MQTT telemetry and tool-number check, runs without FreeCAD |
 
 ### Included machine definitions
 
@@ -110,7 +111,7 @@ To read the firmware values, send `M208` and `M203` with no parameters in the nx
 
 ### Workflow preferences, not machine facts
 
-These sit in `postprocessor.properties` and are yours to set: `probe_mode` (`AT_START`, `ON_CHANGE`, `NONE`), `home_before_start`, `vssc` with `vssc_period` and `vssc_variance`, `output_tools`, `output_job_setup`, and `allow_zero_rpm`. The shipped values are `ON_CHANGE` probing, homing on, VSSC on at 4000 ms / 200 rpm. Change these to match your needs!
+These sit in `postprocessor.properties` and are yours to set: `probe_mode` (`AT_START`, `ON_CHANGE`, `NONE`), `home_before_start`, `vssc` with `vssc_period` and `vssc_variance`, `output_tools`, `output_job_setup`, and `allow_zero_rpm`. The shipped values are `ON_CHANGE` probing, homing on, VSSC on at 4000 ms / 200 rpm. Change these to match your needs! The optional MQTT settings are covered in [MQTT tool telemetry](#mqtt-tool-telemetry-optional).
 
 One field is deliberately zero and worth understanding before changing: `toolheads[0].toolhead_wait` is `0.0` because this post emits `M3.9`, which already blocks until the spindle reaches speed. Setting it non-zero adds a `G4` dwell on top, so you would wait twice. Raise it only if your spindle genuinely does not reach speed by the time `M3.9` returns (if you have run the nxt config wizard, this should not be the case).
 
@@ -161,6 +162,56 @@ FreeCAD expects post processors to follow the `<prefix>_post.py` naming conventi
 4. **In the CAM Job**, set Machine to the entry matching your machine, e.g. `Miley V2.0`. The postprocessor comes from the machine definition, not from the job. It can be set in the Job settings panel on the General tab, or in the job properties view.
 
 5. **Check `nxt_version`** in the machine definition matches your firmware line. The machine post reads it from there, not from `RELEASE.VERSION`. Since v0.7.0, `M4005` compares **major.minor only** (`macros/utilities/M4005.g`), so the shipped `v0.7.0` value covers `v0.7.0-beta.N`, `v0.7.0-rcN` and `v0.7.x` firmware without re-exporting — but crossing a line (0.6 → 0.7) still aborts. The post refuses to post at all if the value is still the `%%NXT_VERSION%%` build placeholder, rather than emitting a bad `M4005`.
+
+---
+
+## Tool numbers
+
+nxt can only use tool numbers 0 to 48. RRF has 50 tool slots, and nxt keeps T49 for the touch probe. FreeCAD numbers tool controllers per job, so a job can end up with a higher number, especially when it draws on several tool libraries.
+
+The machine post checks this. The sanity report on the post dialog warns about any tool controller outside 0–48, and posting is refused with an error naming each one to renumber. Without the check, the job would stop at its first `M4000` line on the machine.
+
+---
+
+## MQTT tool telemetry (optional)
+
+The machine post can publish each tool change to an MQTT broker, for a collector that logs tool use. It is off by default. It uses RRF's own MQTT client (`M586.4`, `M586 P4`, `M118 P6`), so the board's firmware must support MQTT.
+
+Set these in the Machine editor. They are stored in the `.fcm`:
+
+| Property | Default | Purpose |
+|---|---|---|
+| `mqtt_telemetry` | off | Turns it on. Can also be changed for one export on the post dialog's Options tab. |
+| `mqtt_device_id` | empty | Device segment of the `duet/<device>/tool` topic, also the RRF MQTT client ID. Must match your collector. |
+| `mqtt_broker_host` | empty | Broker hostname or IP address, without `mqtt://`. |
+| `mqtt_broker_port` | `1883` | Broker TCP port. |
+| `mqtt_job_file` | empty | Set per export on the post dialog's Overview tab, never saved to the `.fcm`. Overrides `job_file`, below. |
+
+Posting fails with an error if `mqtt_telemetry` is on and the device ID or broker host is empty.
+
+The preamble connects the client before the first tool change:
+
+```gcode
+(MQTT: connect the RRF client to the broker)
+G4 S2
+M586.4 C"milo"
+M586 P4 H"mqtt.lan" R1883 S1
+G4 S3
+```
+
+Each tool change then publishes one payload after its `T` word:
+
+```gcode
+T48
+(MQTT: publish tool change)
+M118 P6 S"{""event"":""change"",""tool_number"":48,""previous_tool"":3,""job_file"":""Bracket.gcode""}" T"duet/milo/tool"
+```
+
+- **`event`** is `start` for the first tool of each output file, without `previous_tool`, and `change` after that. A repeated `T` with the same number publishes nothing, because RRF ignores it.
+- **`job_file`** is the name of the file FreeCAD writes, worked out the same way FreeCAD names it. If that name is only a program number, such as `8910.gcode`, the document name is used instead. Set `mqtt_job_file` if you save under a different name or FreeCAD renames the file to avoid a clash.
+- The topic and payload match the Fusion 360 post's MQTT option. The legacy FreeCAD post does not support MQTT.
+
+`python3 post-processors/freecad/test_nxt_machine.py` tests the payload helpers and the event logic without FreeCAD.
 
 ---
 
