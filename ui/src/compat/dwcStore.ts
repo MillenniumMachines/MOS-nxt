@@ -35,7 +35,9 @@ function uiStore() {
 /**
  * DWC 3.6's `machine/settings` Vuex module held `displayedAxes` (indices into `move.axes`) and
  * `spindleRPM` / `moveSteps` presets. In 3.7 the axis-visibility presets moved to per-component
- * settings (`useComponentSettings`) and the remaining presets live on the settings Pinia store.
+ * settings (`useComponentSettings`) and `spindleRPM` lives on the settings Pinia store. DWC 3.7.0
+ * also moved `moveSteps` to per-component settings and dropped it from the settings store, so the
+ * shim no longer offers it (nxt never read it).
  * nxt only ever reads `displayedAxes` to count/enumerate *visible* axes, so that's reconstructed
  * here directly from the object model's own `axis.visible` flag instead of a settings preset -
  * behaviourally equivalent for nxt's use (it never lets a user hide/reorder axes independently).
@@ -44,9 +46,6 @@ function buildMachineSettingsShim() {
 	return {
 		get spindleRPM(): Array<number> {
 			return settingsStore().spindleRPM;
-		},
-		get moveSteps(): Record<string, Array<number>> {
-			return settingsStore().moveSteps;
 		},
 		get displayedAxes(): Array<number> {
 			const axes = machineStore().model.move.axes;

@@ -105,11 +105,11 @@ Add a new entry when integrating an external plugin into the main nxt build: `id
 ### Firmware and nxt baseline
 
 - Printer or dev board with nxt loaded (`M98 P"nxt.g"` in `config.g`). See [README.md](../README.md) installation steps.
-- Reference RRF for development/review: **3.7.0-beta.1** (3.7.x line) — [RRF_REFERENCE.md](RRF_REFERENCE.md), [VERSIONING.md](VERSIONING.md).
+- Reference RRF for development/review: **3.7.0** (3.7.x line) — [RRF_REFERENCE.md](RRF_REFERENCE.md), [VERSIONING.md](VERSIONING.md).
 
 ### Reference DWC version
 
-- Pin: [ci/dwc-build-ref](../ci/dwc-build-ref) (currently `v3.7.0-beta.1` on branch `v0.7.0`).
+- Pin: [ci/dwc-build-ref](../ci/dwc-build-ref) (currently `v3.7.0` on branch `v0.7.0`).
 - Catalog / nxt-compatible plugins ship `dwcVersion: "auto-minor"` (patch prefix at build, e.g. `3.7.0`) and typically `rrfVersion: "auto-major"`. Host DWC must share the stamped major.minor.patch; rebuild when moving to a new patch or major line.
 
 ### Tools
@@ -268,7 +268,7 @@ Plugin ZIPs stage the forever-loop daemon as `sd/sys/daemon.install` (applied by
 
 ### Manual sign-off
 
-Before tagging or publishing a plugin ZIP, confirm it **loads and runs** on a printer whose DWC version **shares the patch prefix** stamped in `plugin.json` `dwcVersion` (e.g. ZIP `3.7.0` on host `3.7.0-beta.1`). CI success alone is not sufficient (see release rules in the repo).
+Before tagging or publishing a plugin ZIP, confirm it **loads and runs** on a printer whose DWC version **shares the patch prefix** stamped in `plugin.json` `dwcVersion` (e.g. ZIP `3.7.0` on host `3.7.0`). CI success alone is not sufficient (see release rules in the repo).
 
 ### Live hardware
 
