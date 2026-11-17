@@ -46,9 +46,9 @@ The information contained here is for advanced users who want to understand furt
 
 ### Notes
 
-- You _must_ be using RRF **3.7.x** on branch **`v0.7.0`** (minimum **3.7.0-beta.1** while upstream is in beta). nxt uses meta G-code features that do not exist in earlier versions. For **3.6.x** machines, stay on nxt **`v0.6.0`** releases.
+- You _must_ be using RRF **3.7.x** on branch **`v0.7.0`** (minimum **3.7.0**). The 3.7.0 betas are not supported: on the Scylla, spindle speed control does not work on 3.7.0-beta.1 ([#29](https://github.com/MillenniumMachines/MOS-nxt/issues/29)). nxt uses meta G-code features that do not exist in earlier versions. For **3.6.x** machines, stay on nxt **`v0.6.0`** releases.
 
-**Reference firmware for development:** When reviewing or extending nxt on branch **`v0.7.0`**, treat **[RepRapFirmware 3.7.0-beta.1](docs/RRF_REFERENCE.md)** as the evaluation baseline. See [`docs/RRF_REFERENCE.md`](docs/RRF_REFERENCE.md) and [`docs/VERSIONING.md`](docs/VERSIONING.md).
+**Reference firmware for development:** When reviewing or extending nxt on branch **`v0.7.0`**, treat **[RepRapFirmware 3.7.0](docs/RRF_REFERENCE.md)** as the evaluation baseline. See [`docs/RRF_REFERENCE.md`](docs/RRF_REFERENCE.md) and [`docs/VERSIONING.md`](docs/VERSIONING.md).
 - nxt includes a background daemon loop (source [`macros/system/daemon.g`](macros/system/daemon.g)). Plugin ZIPs ship it as `sd/sys/daemon.install`; [`nxt.g`](macros/system/nxt.g) renames it to `0:/sys/daemon.g` so DSF upgrades do not overwrite an open forever-loop file. If an older install still lists `daemon.g` in the plugin file list, use **Prepare for plugin update** in the UI (or `M6525`) once before upgrading — see [docs/PLUGIN_LOAD_TROUBLESHOOTING.md](docs/PLUGIN_LOAD_TROUBLESHOOTING.md). For custom background tasks, create `user-daemon.g` in `/sys` (nxt runs it each daemon tick). Do not use long-running loops inside `user-daemon.g`.
 
 ### RRF Config
@@ -135,7 +135,7 @@ For building and testing **additional** nxt-compatible plugins (sibling repos, c
 
 ### Quick Start
 
-**Prerequisites:** A local clone of [DuetWebControl](https://github.com/Duet3D/DuetWebControl) matching [`ci/dwc-build-ref`](ci/dwc-build-ref) (currently **`v3.7.0-beta.1`**) with `npm install` completed. Run `./dist/ci-fetch-dwc.sh` to fetch the pinned tree.
+**Prerequisites:** A local clone of [DuetWebControl](https://github.com/Duet3D/DuetWebControl) matching [`ci/dwc-build-ref`](ci/dwc-build-ref) (currently **`v3.7.0`**) with `npm install` completed. Run `./dist/ci-fetch-dwc.sh` to fetch the pinned tree.
 
 ```powershell
 # 1. Create a directory junction (Windows) — folder name MUST match plugin.json "id"

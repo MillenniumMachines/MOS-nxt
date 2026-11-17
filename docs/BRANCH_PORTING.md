@@ -36,7 +36,7 @@ Never copy these from the other line:
 | Build pin | `ci/dwc-build-ref`, `docs/RRF_REFERENCE.md` generation values |
 | 3.7-only docs | `docs/RRF_3.7_MIGRATION.md` → v0.7.0 only |
 | Vue 3 shim | `ui/src/compat/*`, `.cursor/rules/ui-plugin-typecheck.mdc` |
-| Version strings | `v0.7.0`, `3.7.0-beta.1`, `dist/post-processors/v0.7.x/*` |
+| Version strings | `v0.7.0`, `3.7.0`, `dist/post-processors/v0.7.x/*` |
 | CDYv3 removal | Do not delete `board/cdy3_f4/` on v0.6.0 |
 | 3.7 build gates | `dist/check-node-for-dwc-build.sh`, Vite-only ZIP paths |
 

@@ -139,7 +139,7 @@ Later updates normally do **not** need a pause. See [`GCODE.md`](../GCODE.md) **
 
 **Cause:** The nxt chunk expects **~45 webpack modules** from host `app.js`. If the ZIP was built with a different DWC than the printer serves (e.g. plugin built on **3.6.2** but host is **3.7.x**, or a different **patch** webpack layout such as `3.7.0` vs `3.7.1`), a module is `undefined` → `.call` error.
 
-**DWC version gate (first line of defence):** Shipped ZIPs set `plugin.json` **`dwcVersion` via `auto-minor`** to the major.minor.patch prefix (e.g. `"3.7.0"` from pin `3.7.0-beta.1`), not the full prerelease string and not just `"3.7"`. Catalog siblings (MosAtc, ArborCTL, MosFourthAxis) use the same policy. DWC should refuse load when the host does not share that prefix:
+**DWC version gate (first line of defence):** Shipped ZIPs set `plugin.json` **`dwcVersion` via `auto-minor`** to the major.minor.patch prefix (e.g. `"3.7.0"` from pin `v3.7.0`), not the full prerelease string and not just `"3.7"`. Catalog siblings (MosAtc, ArborCTL, MosFourthAxis) use the same policy. DWC should refuse load when the host does not share that prefix:
 
 `Plugin nxt requires incompatible DWC version (need 3.7.0, got 3.6.2)`
 
@@ -147,21 +147,21 @@ Same-patch prereleases (e.g. host `3.7.0-beta.1` with ZIP `3.7.0`) pass the gate
 
 **Steps:**
 
-1. Note host DWC version (footer / about / `package.json` if you have the tree), e.g. **3.7.0-beta.1** or **3.6.2** (on nxt `v0.6.0` line).  
+1. Note host DWC version (footer / about / `package.json` if you have the tree), e.g. **3.7.0** or **3.6.2** (on nxt `v0.6.0` line).  
 2. Inspect the ZIP you installed:
 
    ```bash
    unzip -p dist/nxt-*.zip plugin.json | jq '.dwcVersion'
    ```
 
-   Host must share this **major.minor.patch** prefix (e.g. ZIP `3.7.0` ↔ host `3.7.0-beta.1`).
+   Host must share this **major.minor.patch** prefix (e.g. ZIP `3.7.0` ↔ host `3.7.0`).
 
 3. Build against the pinned reference (or the same patch line as your printer):
 
    ```bash
    ./dist/ci-fetch-dwc.sh                    # optional: fetch ci/dwc-build-ref → dwc-build/
-   ./dist/verify-dwc-build-alignment.sh /path/to/DuetWebControl-3.7.0-beta.1
-   ./dist/build-plugin.sh /path/to/DuetWebControl-3.7.0-beta.1
+   ./dist/verify-dwc-build-alignment.sh /path/to/DuetWebControl-3.7.0
+   ./dist/build-plugin.sh /path/to/DuetWebControl-3.7.0
    ```
 
    Build output prints: `Plugin ZIP requires host DWC version prefix: 3.7.0` (on branch `v0.7.0`).

@@ -187,6 +187,7 @@ Pre-releases on **`v0.7.0`** (`v0.7.0-beta.1` …). Targets **RRF / DWC 3.7.x** 
 | Theme | Status |
 |-------|--------|
 | RRF 3.7 migration docs + pin bump (`ci/dwc-build-ref` → v3.7.0-beta.1) | ✅ |
+| Pin bump to stable RRF / DWC 3.7.0 (`ci/dwc-build-ref` → v3.7.0) | ✅ |
 | Strict consecutive-pair probe tolerance (`G6512`, 3 touches, default 0.0075 mm) | ✅ (from v0.6 line) |
 | MOS → nxt configuration migration (`nxt-mos-import.g`, auto-detect on boot) | ✅ |
 | `auto-major` DWC/RRF compatibility in built `plugin.json` | ✅ |

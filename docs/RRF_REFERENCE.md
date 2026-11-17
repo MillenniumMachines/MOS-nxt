@@ -5,8 +5,8 @@ When **evaluating macros, meta G-code, object-model assumptions, or G/M-code beh
 | | |
 |---|---|
 | **Branch** | `v0.7.0` |
-| **Reference RRF** | **3.7.0-beta.1** (3.7.x line) |
-| **DWC build pin** | [`ci/dwc-build-ref`](../ci/dwc-build-ref) → `v3.7.0-beta.1` |
+| **Reference RRF** | **3.7.0** (3.7.x line) |
+| **DWC build pin** | [`ci/dwc-build-ref`](../ci/dwc-build-ref) → `v3.7.0` |
 | **Purpose** | Default version to check against release notes, G-code dictionary, and OM fields when reviewing or implementing nxt changes on this line |
 
 This is the **evaluation target**: PR review, macro design, and docs on branch **`v0.7.0`** should be checked for compatibility with **RRF 3.7.x** unless a change explicitly documents a different floor or ceiling.
@@ -24,6 +24,6 @@ This is the **evaluation target**: PR review, macro design, and docs on branch *
 - [Duet3D G-code dictionary](https://docs.duet3d.com/User_manual/Reference/Gcodes) (select documentation matching the reference RRF generation)
 - [RepRapFirmware releases](https://github.com/Duet3D/RepRapFirmware/releases)
 - [Object model documentation](https://github.com/Duet3D/RepRapFirmware/wiki/Object-Model-Documentation)
-- [RRF 3.6.3 → 3.7.0-beta.1 changelog](https://github.com/Duet3D/RepRapFirmware/wiki/Changelog-RRF-3.x-Beta#reprapfirmware-changes-from-363-to-370-beta1)
+- [RRF 3.7.0 release notes (changes since 3.6.3)](https://github.com/Duet3D/RepRapFirmware/wiki/Changelog-RRF-3.x#reprapfirmware-370)
 
 **Note:** nxt applies **`G68`** for XY workpiece rotation at **job start** (**M5011**), not immediately after probing. **G68** rotation direction was fixed in **RRF 3.6.1** (anticlockwise **R**, matching CNC convention); **G68** per motion system landed in **3.6.2**. The **3.7** line inherits those fixes. nxt arms session **`nxtJobG68Deg`** when **M5011** applies rotation and clears it at job end and after probe apply — see [DETAILS.md](DETAILS.md) (native probing / job-scoped G68).

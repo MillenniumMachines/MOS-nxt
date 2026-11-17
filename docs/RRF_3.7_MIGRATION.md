@@ -4,15 +4,15 @@ Guide for operators and maintainers moving from **RRF 3.6.x + nxt v0.6.x** to **
 
 **Status:** Active on branch **`v0.7.0`**. See [VERSIONING.md](VERSIONING.md) for branch ↔ firmware alignment.
 
-**Upstream changelog:** [RepRapFirmware changes from 3.6.3 to 3.7.0-beta.1](https://github.com/Duet3D/RepRapFirmware/wiki/Changelog-RRF-3.x-Beta#reprapfirmware-changes-from-363-to-370-beta1)
+**Upstream changelog:** [RepRapFirmware 3.7.0 (changes since 3.6.3)](https://github.com/Duet3D/RepRapFirmware/wiki/Changelog-RRF-3.x#reprapfirmware-370)
 
-**Reference pins (this branch):** RRF/DWC evaluation **3.7.0-beta.1** — [`ci/dwc-build-ref`](../ci/dwc-build-ref), [RRF_REFERENCE.md](RRF_REFERENCE.md).
+**Reference pins (this branch):** RRF/DWC evaluation **3.7.0** — [`ci/dwc-build-ref`](../ci/dwc-build-ref), [RRF_REFERENCE.md](RRF_REFERENCE.md).
 
 ---
 
 ## Upgrade checklist
 
-1. Flash **RRF 3.7.x** on the main board.
+1. Flash **RRF 3.7.0** or a later 3.7.x on the main board. The 3.7.0 betas are not supported.
 2. Upload new **IAP** files to SD (`Duet3_SDiap32_*.bin` for your board). New IAP works with 3.6.x too; required for future 3.7 upgrades.
 3. **Verify HTTP** is enabled (see [Network configuration](#network-configuration-m586) below). RRF 3.7 disables HTTP by default.
 4. If you use **PanelDue** on the first serial port, update **M575** (see [Serial / PanelDue](#serial--paneldue-m575)).
@@ -117,14 +117,14 @@ Cross-reference: [CODE.md](CODE.md), [RRF_META.txt](RRF_META.txt), [RRF_LINE_LEN
 
 ### Expression semantics (3.7)
 
-RRF 3.7 returns `false`/`null` instead of errors in some cases:
+RRF 3.7 returns a value instead of an error in some cases (wording from the 3.7.0 release notes; the beta.1 notes described this differently, but variable handling in the expression parser is the same in beta.1 and 3.7.0):
 
-- `exists(E[n])` when `E` is not an array → `false`
-- `exists(#E)` when `E` is not an array → `false`
-- `exists(E.f)` when `E` is not an object → `false`
-- `E[n]`, `#E`, `E.f` when `E` is `null` → `null`
+- `exists(E[n])` when `E` is a variable or parameter that is not an array → `true`
+- `exists(#E)` → `false` if `E` does not exist or is `null`; `true` for any variable or parameter, and for an object model array, string or bitmap
+- `E[n]` and `E.f` when `E` is an **object model** value that is `null` → `null`
+- Indexing a **variable or parameter** whose value is `null` still reports an error
 
-**nxt impact:** Low. Macros use `exists(global.*)` with `&& … != null` guards. Do **not** rely on expression errors as control flow.
+**nxt impact:** Low. Macros use `exists(global.*)` with `&& … != null` guards, and no macro uses `exists()` on an indexed variable. Keep checking `== null` before indexing a variable that may be `null`. Do **not** rely on expression errors as control flow.
 
 **Applied in nxt v0.7.0 macros:** Probe cycles (`G650x`/`G6520`) initialize `nxtProbeResults` slots with `== null || #…` before `#` on a possibly-null row. Callable user M/G macros received `inputs[state.thisInput].active` checks where missing (`G6512`, `M80.9`, `M81.9`). **Do not** add this guard to `tpre`/`tfree`/`tpost` — RRF runs those for tool changes and they must always execute.
 
@@ -141,6 +141,12 @@ In 3.7, `e1 ^ e2` concatenates **arrays** when both operands are arrays (3.6 coe
 RRF 3.7 prefers `[a, b, c]`; `{ }` still works.
 
 **nxt policy:** Stay on `{ }` and `{ vector(...) }` per [RRF_META.txt](RRF_META.txt) for compatibility within the 3.7 line. Do not mass-convert macros to `[ ]`.
+
+### Relative moves past the axis limits (`M564 R`)
+
+Since 3.7.0-beta.2, a relative `G0`/`G1` move that would go past the `M208` limits is clamped to the limits by default (`M564 R1`). In CNC mode, earlier firmware rejected such a move with an error. `M564 R0` restores the error. nxt does not set `M564 R`.
+
+**nxt impact:** A jog or back-off move past a limit now stops at the limit instead of failing. The backlash cycles `M5014` and `G9000` move a fixed distance (8/16/24 mm) away and back without checking the limits, so near a limit the move is now shortened without an error and the result is wrong. Start them well inside the travel.
 
 ### Other macro notes
 
@@ -178,7 +184,7 @@ Shipped ZIPs set **`dwcVersion` via `auto-minor`** at build (`ui/plugin.json` �
 
 **UI port status:** nxt UI on `v0.7.0` uses Vue 3 / Pinia via `ui/src/compat/dwcStore.ts` and `@/plugins` registration (`registerRoute`, `registerPluginMessages`). Treat remaining Options-API / Vuetify polish as follow-ups, not a blocker for ZIP packaging.
 
-Host DWC must share the ZIP’s `plugin.json` `dwcVersion` **major.minor.patch** prefix (e.g. ZIP `3.7.0` ↔ host `3.7.0-beta.1`). Rebuild when moving to a new patch (`3.7.1`).
+Host DWC must share the ZIP’s `plugin.json` `dwcVersion` **major.minor.patch** prefix (e.g. ZIP `3.7.0` ↔ host `3.7.0`). Rebuild when moving to a new patch (`3.7.1`).
 
 `rrfVersion: "auto-major"` accepts **3.7.*** RRF once the plugin matches DWC.
 
@@ -192,7 +198,7 @@ ArborCTL is listed in [`dist/plugins.catalog.json`](../dist/plugins.catalog.json
 
 | Item | Status / notes |
 |------|----------------|
-| `ci/dwc-build-ref` → 3.7.x | `v3.7.0-beta.1` until stable 3.7.0 ships |
+| `ci/dwc-build-ref` → 3.7.x | ✅ `v3.7.0` |
 | [VERSIONING.md](VERSIONING.md) | Branch ↔ RRF policy |
 | [RRF_REFERENCE.md](RRF_REFERENCE.md) | Evaluation RRF 3.7.x |
 | Probe result null guards + motion-system `M99` | ✅ in macros (see Meta G-code section above) |
@@ -212,7 +218,7 @@ Use this when a local build fails or before tagging:
 - [ ] Sibling DWC (or `./dwc-build`) matches `ci/dwc-build-ref` (`verify-dwc-build-alignment.sh`)
 - [ ] `node dist/check-gcode-line-length.mjs` exits 0
 - [ ] `./dist/build-plugin.sh ../DuetWebControl` exits 0 **without** `NXT_SKIP_DWC_TYPECHECK` (unless debugging packaging only)
-- [ ] ZIP `plugin.json` `dwcVersion` is patch prefix matching host (e.g. `3.7.0` for host `3.7.0-beta.1`)
+- [ ] ZIP `plugin.json` `dwcVersion` is patch prefix matching host (e.g. `3.7.0` for host `3.7.0`)
 - [ ] Install ZIP → Start plugin → **Control → nxt** routes appear (Vue 3 registration)
 - [ ] Smoke: Tool Library / guided probing / RGB Save / Maintenance as applicable
 - [ ] Printer RRF is **3.7.x** with HTTP enabled

@@ -110,7 +110,7 @@ function main() {
 
   console.log('\n=== Version skew (auto-minor DWC prefix) ===\n')
   const pinPath = path.join(__dirname, '..', 'ci', 'dwc-build-ref')
-  let pin = 'v3.7.0-beta.1'
+  let pin = 'v3.7.0'
   try {
     pin = fs.readFileSync(pinPath, 'utf8').trim()
   } catch {

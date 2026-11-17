@@ -22,12 +22,12 @@ The **minor** digit in nxt semver (`0.M.0`) matches the **minor** digit in RRF/D
 
 | Pin | Location | Current value |
 |-----|----------|---------------|
-| DWC build ref | [`ci/dwc-build-ref`](../ci/dwc-build-ref) | `v3.7.0-beta.1` |
-| RRF evaluation target | [`RRF_REFERENCE.md`](RRF_REFERENCE.md) | **3.7.0-beta.1** (3.7.x line) |
+| DWC build ref | [`ci/dwc-build-ref`](../ci/dwc-build-ref) | `v3.7.0` |
+| RRF evaluation target | [`RRF_REFERENCE.md`](RRF_REFERENCE.md) | **3.7.0** (3.7.x line) |
 | Plugin manifest | [`ui/plugin.json`](../ui/plugin.json) | `rrfVersion: "auto-major"` → `3.7.*`; `dwcVersion: "auto-minor"` → patch prefix (e.g. `3.7.0`) |
 | OM budget | [OM_GLOBAL_SIZE.md](OM_GLOBAL_SIZE.md) | **~8 KiB** serialized `global` (CDYv3 dropped on this line) |
 
-When upstream ships a stable **3.7.0** (or newer 3.7.x patch), bump `ci/dwc-build-ref` and [`RRF_REFERENCE.md`](RRF_REFERENCE.md) together on branch `v0.7.0`. Rebuild plugin ZIPs against the matching DWC tree.
+When upstream ships a newer **3.7.x** patch, bump `ci/dwc-build-ref` and [`RRF_REFERENCE.md`](RRF_REFERENCE.md) together on branch `v0.7.0`. Rebuild plugin ZIPs against the matching DWC tree.
 
 ## Release workflow
 
