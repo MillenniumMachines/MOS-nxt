@@ -146,7 +146,7 @@ RRF 3.7 prefers `[a, b, c]`; `{ }` still works.
 
 Since 3.7.0-beta.2, a relative `G0`/`G1` move that would go past the `M208` limits is clamped to the limits by default (`M564 R1`). In CNC mode, earlier firmware rejected such a move with an error. `M564 R0` restores the error. nxt does not set `M564 R`.
 
-**nxt impact:** A jog or back-off move past a limit now stops at the limit instead of failing. The backlash cycles `M5014` and `G9000` move a fixed distance (8/16/24 mm) away and back without checking the limits, so near a limit the move is now shortened without an error and the result is wrong. Start them well inside the travel.
+**nxt impact:** A jog or back-off move past a limit now stops at the limit instead of failing. The backlash cycles `M5014` and `G9000` move a fixed distance (8/16/24 mm) away and back, so near a limit the move would be shortened without an error and the result would be wrong. Both now check the target against the limits before moving and stop with an error if it's outside them.
 
 ### Other macro notes
 
