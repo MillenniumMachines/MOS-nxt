@@ -2,10 +2,10 @@
 ; Called via M98 from canned cycle macros only.
 
 var zi = 0
-while { zi < #move.axes }
-    if { move.axes[zi].letter == "Z" }
-        set global.nxtCannedZi = { zi }
+while { var.zi < #move.axes }
+    if { move.axes[var.zi].letter == "Z" }
+        set global.nxtCannedZi = { var.zi }
         M99
-    set zi = { zi + 1 }
+    set var.zi = { var.zi + 1 }
 
 abort { "nxt-canned: no Z axis in machine configuration" }

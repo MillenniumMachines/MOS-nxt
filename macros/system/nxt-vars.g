@@ -220,10 +220,15 @@ global nxtVSPT = 0          ; Last phase timestamp (state.upTime*1000+state.msUp
 
 ; --- Canned drilling cycles (G81, G73, G83, …) ---
 ; When non-null, nxtCannedCycle is a vector:
-; [0]=kind (81,73,83,82,85,89), [1]=Z, [2]=R, [3]=Q or null, [4]=F, [5]=seriesInitZ (G98), [6]=retractMode (98|99), [7]=P dwell s or null
+; [0]=kind (81,73,83,82,85,89), [1]=Z, [2]=R, [3]=Q or null, [4]=F, [5]=seriesInitZ (G98), [6]=retractMode (98|99), [7]=P dwell s or null,
+; [8]=Z of the last final retract (a different Z at the next cycle starts a new series)
 global nxtCannedCycle = null
 global nxtCannedRetractMode = 98   ; G98 initial plane / G99 R plane — set by G98.g / G99.g
 global nxtCannedZi = 0              ; scratch: Z axis index (set by nxt-canned-zindex.g)
+global nxtCannedPreR = null         ; scratch: R plane passed to nxt-canned-preliminary.g
+global nxtCannedPreX = null         ; scratch: hole X for nxt-canned-preliminary.g (null = stay)
+global nxtCannedPreY = null         ; scratch: hole Y for nxt-canned-preliminary.g (null = stay)
+global nxtCannedRetR = null         ; scratch: R plane passed to nxt-canned-finish-retract.g
 
 ; --- Board / platform selection (UI + pack loader) ---
 ; Custom-platform keys: nxt-custom-globals.g when Custom is active (sentinel / overlays).
