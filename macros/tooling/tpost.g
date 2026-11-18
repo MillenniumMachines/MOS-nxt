@@ -215,12 +215,15 @@ elif { global.nxtFeatureToolSetter && global.nxtToolSetterPos != null }
     set global.nxtToolCacheIdx = { state.currentTool }
     set global.nxtToolCacheZ = { var.newToolMeasurement }
 
+    ; Final measured L1 only — never sync the temporary Z0 above.
+    var nxtDidL1 = false
     if { var.nxtHaveVirt }
         ; MOS G37 with touch probe: L1 = -(Z_act - TSAP); probe stays Z0
         var nxtVirt = { global.nxtProbeVirtualTsZ }
         var lengthDiff = { var.newToolMeasurement - var.nxtVirt }
         var newOffset = { 0 - var.lengthDiff }
         G10 L1 P{state.currentTool} Z{var.newOffset}
+        set var.nxtDidL1 = true
         echo "tpost.g: Z_act=" ^ var.newToolMeasurement ^ " virtual=" ^ var.nxtVirt
         echo "tpost.g: Offset=" ^ var.newOffset ^ " mm"
     elif { var.nxtHasCacheZ }
@@ -238,6 +241,7 @@ elif { global.nxtFeatureToolSetter && global.nxtToolSetterPos != null }
         var lengthDiff = { var.newToolMeasurement - var.oldToolMeasurement }
         var newOffset = { var.oldToolOffset - var.lengthDiff }
         G10 L1 P{state.currentTool} Z{var.newOffset}
+        set var.nxtDidL1 = true
         echo "tpost.g: Relative offset calculated - Tool " ^ var.oldToolIndex ^ " to Tool " ^ state.currentTool
         echo "tpost.g: Length difference: " ^ var.lengthDiff ^ "mm, Offset=" ^ var.newOffset ^ " mm"
     else
@@ -245,6 +249,14 @@ elif { global.nxtFeatureToolSetter && global.nxtToolSetterPos != null }
         var nxtNeedTs = "Run M5016 (datum on platen) to set mill length datum."
         M291 P{var.nxtNeedTs} R"tpost" S2
         echo "tpost.g: measure incomplete — soft complete (no abort)"
+
+    ; Persist measured G10 L1 to SD (opt-out: nxtAutoPersistTools = false)
+    var nxtDoToolsSync = false
+    if { var.nxtDidL1 }
+        if { !exists(global.nxtUserToolsLoadDepth) || global.nxtUserToolsLoadDepth < 1 }
+            set var.nxtDoToolsSync = true
+    if { var.nxtDoToolsSync }
+        M98 P"nxt-user-tools-sync.g"
 else
     ; No toolsetter — re-zero Z origin in current WCS with the installed tool.
     echo "tpost.g: Toolsetter unavailable — running G37.1 to set Z origin"

@@ -149,6 +149,7 @@ export const NXT_GLOBAL_MANIFEST: NxtGlobalManifestEntry[] = [
   { key: 'nxtBoardBootstrapMode', description: 'Pack load preference (off|auto); SD sentinel enables load' },
   { key: 'nxtUserToolsFilePresent', description: 'True if 0:/sys/nxt-user-tools.g existed at last nxt.g boot load' },
   { key: 'nxtUserToolsDaemonReload', description: 'If true, daemon reloads nxt-user-tools.g when reload sentinel exists' },
+  { key: 'nxtAutoPersistTools', description: 'If true, M4000 / M4001 / tpost measured G10 L1 rewrite 0:/sys/nxt-user-tools.g' },
   { key: 'nxtAutoPersistWcs', description: 'If true, M6520 / nxt-wcs-apply / nxt-wcs-set / nxt-wcs-clear rewrite 0:/sys/nxt-user-wcs.g (G10 L2)' },
   { key: 'nxtSkipJobPark', description: 'Session: probe cycle asks stop.g not to G27 XY (numbered G65xx / HTTP)' }
 ]

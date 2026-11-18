@@ -87,6 +87,8 @@ global nxtToolChangeCancelled = false ; Operator Cancel: tpost skips measure; pa
 global nxtUserToolsFilePresent = false     ; set at boot by nxt.g: nxt-user-tools.g exists on SD
 global nxtUserToolsDaemonReload = false      ; if true, daemon reloads library when 0:/sys/nxt-user-tools.reload.requested exists (see TOOLCHANGING.md)
 global nxtTTLocked = false                   ; Tool Library edit-lock (persisted via nxt-user-tools-sync.g)
+; After M4000 / M4001 / tpost measure, rewrite 0:/sys/nxt-user-tools.g (M4000 + G10 L1).
+global nxtAutoPersistTools = true
 ; After M6520 / nxt-wcs-apply, rewrite 0:/sys/nxt-user-wcs.g (G10 L2 + select).
 global nxtAutoPersistWcs = true
 ; Probe cycles set true so stop.g skips XY G27 after numbered G65xx.

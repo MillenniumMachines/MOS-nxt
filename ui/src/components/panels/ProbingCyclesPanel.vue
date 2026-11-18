@@ -412,6 +412,28 @@
                             hide-details
                           />
                         </v-col>
+                        <v-col cols="12" sm="6" md="4" v-if="selectedCycle === 'G6503'">
+                          <v-text-field
+                            v-model.number="params.pointsPerFace"
+                            :label="$t('plugins.nxt.panels.probingCycles.pointsPerFace')"
+                            :hint="$t('plugins.nxt.panels.probingCycles.pointsPerFaceHint')"
+                            type="number"
+                            step="1"
+                            variant="outlined"
+                            density="compact"
+                            persistent-hint
+                            :min="2"
+                            :max="5"
+                            :rules="[
+                              (v: number | null) =>
+                                (v != null && !Number.isNaN(Number(v))) || 'Required',
+                              (v: number | null) =>
+                                Number.isInteger(Number(v)) || 'Must be a whole number',
+                              (v: number | null) =>
+                                (Number(v) >= 2 && Number(v) <= 5) || 'Must be 2-5'
+                            ]"
+                          />
+                        </v-col>
                       </v-row>
                     </v-expansion-panel-text>
                   </v-expansion-panel>
@@ -493,11 +515,14 @@ interface CycleParams {
   /** Face length (S) for G6510 X/Y multi-point */
   faceLengthS: number | null
   retries: number | null
+  /** Points per face (N) for G6503 rectangle block; default 2 */
+  pointsPerFace: number | null
 }
 
 const DEFAULT_SURFACE_TRAVEL_MM = 5
 const DEFAULT_CORNER_OFFSET_MM = 5
 const DEFAULT_CLEARANCE_MM = 5
+const DEFAULT_POINTS_PER_FACE = 2
 
 function emptyCycleParams(): CycleParams {
   return {
@@ -518,7 +543,8 @@ function emptyCycleParams(): CycleParams {
     faceLengthX: null,
     faceLengthY: null,
     faceLengthS: null,
-    retries: null
+    retries: null,
+    pointsPerFace: DEFAULT_POINTS_PER_FACE
   }
 }
 
@@ -575,7 +601,7 @@ export default defineNxtComponent({
           gcode: 'G6503',
           name: 'Rectangle Block',
           description:
-            'Probes outside faces of a rectangular block to find the center. Jog over the approximate center first.',
+            'Probes outside faces of a rectangular block to find the center (default 2 points per face, inset from corners). Jog over the approximate center first. Raise points per face under Optional Parameters if needed.',
           icon: 'mdi-rectangle',
           params: ['W', 'H', 'L', 'C']
         },
@@ -779,11 +805,7 @@ export default defineNxtComponent({
         if (!this.guidedJogMode) {
           if (this.selectedCycle === 'G6510') {
             const faceName = this.surfaceFaceName(this.params.face)
-            if (this.params.face === 4) {
-              wcsNote = ` — WCS${this.targetWcs} applied (${faceName}; returned to start Z)`
-            } else {
-              wcsNote = ` — WCS${this.targetWcs} applied (${faceName})`
-            }
+            wcsNote = ` — WCS${this.targetWcs} applied (${faceName}; returned to start)`
           } else {
             wcsNote = ` — WCS${this.targetWcs} applied (parked at feature)`
           }
@@ -835,6 +857,17 @@ export default defineNxtComponent({
           throw new Error(this.$t('plugins.nxt.panels.probingCycles.cornerRequired').toString())
         }
         gcode += ` N${this.params.corner}`
+      } else if (this.selectedCycle === 'G6503') {
+        // Blank keeps the macro default (2). Anything else must be a whole
+        // number 2-5: G6503 spaces points by (N - 1), so 2.5 lands past the corner.
+        const nPts = this.params.pointsPerFace
+        if (nPts != null && String(nPts) !== '') {
+          const n = Number(nPts)
+          if (!Number.isInteger(n) || n < 2 || n > 5) {
+            throw new Error(this.$t('plugins.nxt.panels.probingCycles.pointsPerFaceInvalid').toString())
+          }
+          gcode += ` N${n}`
+        }
       } else if (this.params.axis != null) {
         gcode += ` N${this.params.axis}`
       }

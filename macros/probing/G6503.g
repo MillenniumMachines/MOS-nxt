@@ -1,14 +1,15 @@
-; G6503.g: RECTANGLE BLOCK PROBE (3-pt perimeter)
+; G6503.g: RECTANGLE BLOCK PROBE (N-pt perimeter)
 ;
-; Probes each of 4 faces from outside with 3 points (near-corner, mid, far-corner).
+; Probes each of 4 faces from outside with N points (default 2: near/far inset).
 ; Outside clearance C defaults to 5 mm; edge inset E (corner clearance) defaults to 10 mm.
 ; Stay at dive Z along a face; raise to start Z only between faces. CCW from −Y/−X.
 ;
 ; Face means → nxtProbeHitXY H0..H3 → skew + center; nxtProbeResults; M6520 if U.
 ;
-; USAGE: G6503 P|U W H L [F] [R] [C] [O] [E] [T] [Q]
+; USAGE: G6503 P|U W H L [F] [R] [C] [O] [E] [N] [T] [Q]
 ;   C: Outside face clearance (default 5)
 ;   E: Edge inset from assumed corners / corner clearance (default 10)
+;   N: Points per face (default 2, max 5); evenly spaced between inset ends
 
 if { !inputs[state.thisInput].active }
     M99
@@ -52,10 +53,15 @@ var overtravel = { exists(param.O) ? param.O : 2.0 }
 var edgeInset = { 10 }
 if { exists(param.E) && param.E != null && param.E > 0 }
     set var.edgeInset = { param.E }
+var nPts = { 2 }
+if { exists(param.N) && param.N != null }
+    set var.nPts = { param.N }
+if { var.nPts < 2 || var.nPts > 5 || floor(var.nPts) != var.nPts }
+    abort { "G6503: Points per face N must be a whole number from 2 to 5" }
 var skewLimit = { exists(param.T) ? param.T : global.nxtProbeMaxSkewDeg }
 var probeId = { global.nxtTouchProbeID }
 
-echo "G6503: Starting 3-pt perimeter rectangle block probe"
+echo { "G6503: Starting " ^ var.nPts ^ "-pt perimeter rectangle block probe" }
 
 M5000
 var centerX = { global.nxtAbsPos[0] }
@@ -78,15 +84,16 @@ var xTgtN = { var.centerX - var.halfW + var.overtravel }
 var yTgtP = { var.centerY + var.halfH - var.overtravel }
 var yTgtN = { var.centerY - var.halfH + var.overtravel }
 var xLow = { var.centerX - var.halfW + var.edgeInset }
-var xMid = { var.centerX }
 var xHigh = { var.centerX + var.halfW - var.edgeInset }
 var yLow = { var.centerY - var.halfH + var.edgeInset }
-var yMid = { var.centerY }
 var yHigh = { var.centerY + var.halfH - var.edgeInset }
+var spanX = { var.xHigh - var.xLow }
+var spanY = { var.yHigh - var.yLow }
+var denom = { var.nPts - 1 }
 
-echo { "G6503: Block " ^ var.blockWidth ^ "x" ^ var.blockHeight ^ " E=" ^ var.edgeInset }
+echo { "G6503: Block " ^ var.blockWidth ^ "x" ^ var.blockHeight ^ " E=" ^ var.edgeInset ^ " N=" ^ var.nPts }
 
-; Accumulators: face axis sum + along-axis sum (3 hits each)
+; Accumulators: face axis sum + along-axis sum (N hits each)
 var sumYm = 0
 var sumYmAlongX = 0
 var sumXp = 0
@@ -95,84 +102,74 @@ var sumYp = 0
 var sumYpAlongX = 0
 var sumXn = 0
 var sumXnAlongY = 0
+var fi = 0
+var along = 0
 
-; --- Face −Y: 3 pts along +X at dive Z ---
-echo "G6503: Face -Y (3 pts along +X)"
+; --- Face −Y: N pts along +X at dive Z ---
+echo { "G6503: Face -Y (" ^ var.nPts ^ " pts along +X)" }
 G6550 X{var.xLow} Y{var.yOutN}
 G6550 Z{var.probeZ}
-G6512 Y{var.yTgtN} I{var.probeId} F{var.feedRate} R{var.retries}
-set var.sumYm = { var.sumYm + global.nxtLastProbeResult }
-set var.sumYmAlongX = { var.sumYmAlongX + var.xLow }
-G6550 X{var.xMid} Y{var.yOutN}
-G6512 Y{var.yTgtN} I{var.probeId} F{var.feedRate} R{var.retries}
-set var.sumYm = { var.sumYm + global.nxtLastProbeResult }
-set var.sumYmAlongX = { var.sumYmAlongX + var.xMid }
-G6550 X{var.xHigh} Y{var.yOutN}
-G6512 Y{var.yTgtN} I{var.probeId} F{var.feedRate} R{var.retries}
-set var.sumYm = { var.sumYm + global.nxtLastProbeResult }
-set var.sumYmAlongX = { var.sumYmAlongX + var.xHigh }
+set var.fi = 0
+while { var.fi < var.nPts }
+    set var.along = { var.xLow + var.fi * var.spanX / var.denom }
+    G6550 X{var.along} Y{var.yOutN}
+    G6512 Y{var.yTgtN} I{var.probeId} F{var.feedRate} R{var.retries}
+    set var.sumYm = { var.sumYm + global.nxtLastProbeResult }
+    set var.sumYmAlongX = { var.sumYmAlongX + var.along }
+    set var.fi = { var.fi + 1 }
 
-; --- Face +X: 3 pts along +Y ---
-echo "G6503: Face +X (3 pts along +Y)"
+; --- Face +X: N pts along +Y ---
+echo { "G6503: Face +X (" ^ var.nPts ^ " pts along +Y)" }
 G6550 Z{var.startZ}
 G6550 X{var.xOutP} Y{var.yLow}
 G6550 Z{var.probeZ}
-G6512 X{var.xTgtP} I{var.probeId} F{var.feedRate} R{var.retries}
-set var.sumXp = { var.sumXp + global.nxtLastProbeResult }
-set var.sumXpAlongY = { var.sumXpAlongY + var.yLow }
-G6550 X{var.xOutP} Y{var.yMid}
-G6512 X{var.xTgtP} I{var.probeId} F{var.feedRate} R{var.retries}
-set var.sumXp = { var.sumXp + global.nxtLastProbeResult }
-set var.sumXpAlongY = { var.sumXpAlongY + var.yMid }
-G6550 X{var.xOutP} Y{var.yHigh}
-G6512 X{var.xTgtP} I{var.probeId} F{var.feedRate} R{var.retries}
-set var.sumXp = { var.sumXp + global.nxtLastProbeResult }
-set var.sumXpAlongY = { var.sumXpAlongY + var.yHigh }
+set var.fi = 0
+while { var.fi < var.nPts }
+    set var.along = { var.yLow + var.fi * var.spanY / var.denom }
+    G6550 X{var.xOutP} Y{var.along}
+    G6512 X{var.xTgtP} I{var.probeId} F{var.feedRate} R{var.retries}
+    set var.sumXp = { var.sumXp + global.nxtLastProbeResult }
+    set var.sumXpAlongY = { var.sumXpAlongY + var.along }
+    set var.fi = { var.fi + 1 }
 
-; --- Face +Y: 3 pts along −X ---
-echo "G6503: Face +Y (3 pts along -X)"
+; --- Face +Y: N pts along −X ---
+echo { "G6503: Face +Y (" ^ var.nPts ^ " pts along -X)" }
 G6550 Z{var.startZ}
 G6550 X{var.xHigh} Y{var.yOutP}
 G6550 Z{var.probeZ}
-G6512 Y{var.yTgtP} I{var.probeId} F{var.feedRate} R{var.retries}
-set var.sumYp = { var.sumYp + global.nxtLastProbeResult }
-set var.sumYpAlongX = { var.sumYpAlongX + var.xHigh }
-G6550 X{var.xMid} Y{var.yOutP}
-G6512 Y{var.yTgtP} I{var.probeId} F{var.feedRate} R{var.retries}
-set var.sumYp = { var.sumYp + global.nxtLastProbeResult }
-set var.sumYpAlongX = { var.sumYpAlongX + var.xMid }
-G6550 X{var.xLow} Y{var.yOutP}
-G6512 Y{var.yTgtP} I{var.probeId} F{var.feedRate} R{var.retries}
-set var.sumYp = { var.sumYp + global.nxtLastProbeResult }
-set var.sumYpAlongX = { var.sumYpAlongX + var.xLow }
+set var.fi = 0
+while { var.fi < var.nPts }
+    set var.along = { var.xHigh - var.fi * var.spanX / var.denom }
+    G6550 X{var.along} Y{var.yOutP}
+    G6512 Y{var.yTgtP} I{var.probeId} F{var.feedRate} R{var.retries}
+    set var.sumYp = { var.sumYp + global.nxtLastProbeResult }
+    set var.sumYpAlongX = { var.sumYpAlongX + var.along }
+    set var.fi = { var.fi + 1 }
 
-; --- Face −X: 3 pts along −Y ---
-echo "G6503: Face -X (3 pts along -Y)"
+; --- Face −X: N pts along −Y ---
+echo { "G6503: Face -X (" ^ var.nPts ^ " pts along -Y)" }
 G6550 Z{var.startZ}
 G6550 X{var.xOutN} Y{var.yHigh}
 G6550 Z{var.probeZ}
-G6512 X{var.xTgtN} I{var.probeId} F{var.feedRate} R{var.retries}
-set var.sumXn = { var.sumXn + global.nxtLastProbeResult }
-set var.sumXnAlongY = { var.sumXnAlongY + var.yHigh }
-G6550 X{var.xOutN} Y{var.yMid}
-G6512 X{var.xTgtN} I{var.probeId} F{var.feedRate} R{var.retries}
-set var.sumXn = { var.sumXn + global.nxtLastProbeResult }
-set var.sumXnAlongY = { var.sumXnAlongY + var.yMid }
-G6550 X{var.xOutN} Y{var.yLow}
-G6512 X{var.xTgtN} I{var.probeId} F{var.feedRate} R{var.retries}
-set var.sumXn = { var.sumXn + global.nxtLastProbeResult }
-set var.sumXnAlongY = { var.sumXnAlongY + var.yLow }
+set var.fi = 0
+while { var.fi < var.nPts }
+    set var.along = { var.yHigh - var.fi * var.spanY / var.denom }
+    G6550 X{var.xOutN} Y{var.along}
+    G6512 X{var.xTgtN} I{var.probeId} F{var.feedRate} R{var.retries}
+    set var.sumXn = { var.sumXn + global.nxtLastProbeResult }
+    set var.sumXnAlongY = { var.sumXnAlongY + var.along }
+    set var.fi = { var.fi + 1 }
 
 G6550 Z{var.startZ}
 
-var faceXp = { var.sumXp / 3 }
-var faceXn = { var.sumXn / 3 }
-var faceYp = { var.sumYp / 3 }
-var faceYm = { var.sumYm / 3 }
-var alongYp = { var.sumXpAlongY / 3 }
-var alongYn = { var.sumXnAlongY / 3 }
-var alongXp = { var.sumYpAlongX / 3 }
-var alongXm = { var.sumYmAlongX / 3 }
+var faceXp = { var.sumXp / var.nPts }
+var faceXn = { var.sumXn / var.nPts }
+var faceYp = { var.sumYp / var.nPts }
+var faceYm = { var.sumYm / var.nPts }
+var alongYp = { var.sumXpAlongY / var.nPts }
+var alongYn = { var.sumXnAlongY / var.nPts }
+var alongXp = { var.sumYpAlongX / var.nPts }
+var alongXm = { var.sumYmAlongX / var.nPts }
 
 ; Representative H0..H3 for existing chord / skew math
 if { !exists(global.nxtProbeHitXY) }
@@ -234,7 +231,8 @@ set global.nxtProbeResults[var.pSlot][#move.axes] = { var.thetaDeg }
 
 G6550 X{var.solvedCx} Y{var.solvedCy}
 
-echo "G6503: Rectangle block probe completed (12 pts)"
+var totalPts = { 4 * var.nPts }
+echo { "G6503: Rectangle block probe completed (" ^ var.totalPts ^ " pts)" }
 echo "G6503: Block center at X=" ^ var.solvedCx ^ " Y=" ^ var.solvedCy
 echo "G6503: Approx skew: " ^ var.thetaDeg ^ " deg"
 echo "G6503: Measured dimensions: " ^ var.actualWidth ^ "x" ^ var.actualHeight ^ "mm"

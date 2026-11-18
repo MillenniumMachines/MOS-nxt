@@ -4,6 +4,7 @@
 ; Z/Top: one G6512 (multi-point Z deferred).
 ; X/Y: optional S = face length along the face; adaptive 1/3-pt about jog station.
 ; Optional L dives XY from jog Z before the face probe.
+; Finish: return to jog start (X/Y: G6550; Top/A: startZ), then nxt-wcs-apply if U.
 ;
 ; USAGE: G6510 P|U N[0-4] [O] [S] [E] [L] [F] [R] [Q]
 ;   N: 0 Left +X, 1 Right -X, 2 Front +Y, 3 Back -Y, 4 Top -Z
@@ -195,13 +196,28 @@ if { var.probeAxis != 2 }
 echo "G6510: Index " ^ var.pSlot ^ " " ^ move.axes[var.probeAxis].letter ^ "=" ^ var.surfVal
 
 ; X/Y: return to jog start like MOS G6513 — protected XY at probe Z, then up.
-; Before the WCS write, and no-travel apply: M6520 would G53 G1 the tip onto the face.
+; Top/A: raise to startZ before apply. Never M6520 here — its XY park hits a single face.
 if { var.probeAxis == 0 || var.probeAxis == 1 }
     G6550 X{var.startX} Y{var.startY}
     if { var.hasL }
         G6550 Z{var.startZ}
     echo "G6510: Returned to start X=" ^ var.startX ^ " Y=" ^ var.startY ^ " Z=" ^ var.startZ
+elif { var.probeAxis == 2 || var.probeAxis == 3 }
+    var nxtParkFeed = { sensors.probes[global.nxtTouchProbeID].travelSpeed }
+    var nxtPinX = { move.axes[0].machinePosition }
+    var nxtPinY = { move.axes[1].machinePosition }
+    var nxtPinA = 0
+    var parkHasA = { #move.axes > 3 }
+    if { var.parkHasA }
+        set var.nxtPinA = { move.axes[3].machinePosition }
+    if { var.parkHasA }
+        G53 G1 F{var.nxtParkFeed} X{var.nxtPinX} Y{var.nxtPinY} Z{var.startZ} A{var.nxtPinA}
+    else
+        G53 G1 F{var.nxtParkFeed} X{var.nxtPinX} Y{var.nxtPinY} Z{var.startZ}
+    M400
+    echo "G6510: Returned to start Z=" ^ var.startZ
 
+; Apply-only after self-park
 if { exists(param.U) && param.U != null }
     if { var.probeAxis == 0 }
         if { exists(param.Q) && param.Q != null }
@@ -215,26 +231,13 @@ if { exists(param.U) && param.U != null }
             M98 P"nxt-wcs-apply.g" I{var.pSlot} W{param.U} Y1
     elif { var.probeAxis == 2 }
         if { exists(param.Q) && param.Q != null }
-            M6520 P{var.pSlot} W{param.U} Z1 Q{param.Q}
+            M98 P"nxt-wcs-apply.g" I{var.pSlot} W{param.U} Z1 Q{param.Q}
         else
-            M6520 P{var.pSlot} W{param.U} Z1
+            M98 P"nxt-wcs-apply.g" I{var.pSlot} W{param.U} Z1
     ; Axis 3 = A surface; do not fall through to Z1
     elif { var.probeAxis == 3 }
         if { exists(param.Q) && param.Q != null }
-            M6520 P{var.pSlot} W{param.U} A1 Q{param.Q}
+            M98 P"nxt-wcs-apply.g" I{var.pSlot} W{param.U} A1 Q{param.Q}
         else
-            M6520 P{var.pSlot} W{param.U} A1
-
-var nxtParkFeed = { sensors.probes[global.nxtTouchProbeID].travelSpeed }
-var nxtPinX = { move.axes[0].machinePosition }
-var nxtPinY = { move.axes[1].machinePosition }
-var nxtPinA = 0
-if { #move.axes > 3 }
-    set var.nxtPinA = { move.axes[3].machinePosition }
-if { var.probeAxis == 2 }
-    if { #move.axes > 3 }
-        G53 G1 F{var.nxtParkFeed} X{var.nxtPinX} Y{var.nxtPinY} Z{var.startZ} A{var.nxtPinA}
-    else
-        G53 G1 F{var.nxtParkFeed} X{var.nxtPinX} Y{var.nxtPinY} Z{var.startZ}
-    echo "G6510: Returned to start Z=" ^ var.startZ
+            M98 P"nxt-wcs-apply.g" I{var.pSlot} W{param.U} A1
 M98 P"nxt-g38-cancel.g"

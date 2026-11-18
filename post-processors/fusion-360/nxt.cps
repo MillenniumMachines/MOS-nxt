@@ -111,8 +111,19 @@ groupDefinitions = {
     description: "Spindle configuration",
     collapsed: false,
     order: 20
+  },
+  mqttTelemetry: {
+    title: "MQTT telemetry",
+    description: "Optional RRF MQTT publishes for Jarvis / tap-testing collectors (duet/{device}/tool). Does not replace Pi tap-spindle ADXL streams.",
+    collapsed: true,
+    order: 30
   }
 };
+
+// Opt-in MQTT tool publishes (M118 P6). DSF serialize limit ~256; keep under 240.
+var MQTT_M118_MAX = 240;
+// Counts publishes in this post invocation (multi-setup single-file may re-enter).
+var mqttToolEventCount = 0;
 
 // Properties configurable by the user
 properties = {
@@ -212,6 +223,46 @@ properties = {
     scope: "post",
     type: "boolean",
     value: true
+  },
+  mqttTelemetryEnabled: {
+    title: "Enable MQTT telemetry",
+    description: "When enabled, emit M586 reconnect + M118 P6 tool publishes to duet/{device}/tool for Jarvis tap-collector. Requires Device ID and Broker Host. Does not mint tap/ or cam/ sessions.",
+    group: "mqttTelemetry",
+    scope: "post",
+    type: "boolean",
+    value: false
+  },
+  mqttDeviceId: {
+    title: "MQTT device ID",
+    description: "Device segment for duet/{device}/tool (must match your collector). Leave blank until you enable MQTT telemetry.",
+    group: "mqttTelemetry",
+    scope: "post",
+    type: "string",
+    value: ""
+  },
+  mqttBrokerHost: {
+    title: "MQTT broker host",
+    description: "Broker hostname for M586 P4 (no mqtt:// prefix). Leave blank until you enable MQTT telemetry.",
+    group: "mqttTelemetry",
+    scope: "post",
+    type: "string",
+    value: ""
+  },
+  mqttBrokerPort: {
+    title: "MQTT broker port",
+    description: "Broker TCP port for M586 P4.",
+    group: "mqttTelemetry",
+    scope: "post",
+    type: "integer",
+    value: 1883
+  },
+  mqttJobFile: {
+    title: "MQTT job file name",
+    description: "Optional override for duet/{device}/tool job_file (e.g. '01 Putter - Op1.gcode'). Use when Fusion's NC output name is only a program number like 8910.gcode. Leave blank to use a non-numeric output basename.",
+    group: "mqttTelemetry",
+    scope: "post",
+    type: "string",
+    value: ""
   }
 };
 
@@ -444,6 +495,280 @@ function writeBlock() {
   writeWords(text);
 }
 
+function mqttTrimString(s) {
+  if (s === undefined || s === null) {
+    return "";
+  }
+  return String(s).replace(/^\s+|\s+$/g, "");
+}
+
+function mqttSanitizeSegment(s) {
+  return mqttTrimString(s).replace(/[^0-9a-zA-Z._-]/g, "");
+}
+
+function mqttSanitizeJobFile(name) {
+  return mqttTrimString(name).replace(/[^0-9a-zA-Z._\- \/]/gi, "").substring(0, 64);
+}
+
+/** True if s looks like a usable gcode basename (not a bare Fusion program number). */
+function mqttLooksLikeJobFileName(s) {
+  var t = mqttTrimString(s);
+  if (!t) {
+    return false;
+  }
+  // Reject pure program numbers (e.g. "8910") — Jarvis CAM resolve needs a real basename.
+  if (/^[0-9]+$/.test(t)) {
+    return false;
+  }
+  // Fusion often writes NC output as "<programNumber>.gcode" (e.g. "8910.gcode").
+  if (/^[0-9]+\.(gcode|g|gc|nc|tap|cnc)$/i.test(t)) {
+    return false;
+  }
+  return true;
+}
+
+function mqttBasenameFromPath(path) {
+  var p = mqttTrimString(path);
+  if (!p) {
+    return "";
+  }
+  try {
+    if (typeof FileSystem !== "undefined" && FileSystem.getFilename) {
+      var fromFs = FileSystem.getFilename(p);
+      if (fromFs) {
+        return String(fromFs);
+      }
+    }
+  } catch (eFs) {
+    // fall through
+  }
+  var normalized = p.replace(/\\/g, "/");
+  var slash = normalized.lastIndexOf("/");
+  return slash >= 0 ? normalized.substring(slash + 1) : normalized;
+}
+
+/**
+ * job_file for duet/.../tool — prefer NC output basename so Jarvis can resolve CAM.
+ * Do not use Fusion programName / "<number>.gcode" output names.
+ */
+function mqttJobFileName() {
+  var name = "";
+  try {
+    var override = mqttTrimString(getProperty("mqttJobFile"));
+    if (override) {
+      name = mqttBasenameFromPath(override);
+      if (!name) {
+        name = override;
+      }
+    }
+  } catch (eOv) {
+    name = "";
+  }
+  if (!mqttLooksLikeJobFileName(name)) {
+    name = "";
+  }
+  if (!name) {
+    try {
+      if (typeof getOutputPath === "function") {
+        name = mqttBasenameFromPath(getOutputPath());
+      }
+    } catch (eOut) {
+      name = "";
+    }
+  }
+  if (!mqttLooksLikeJobFileName(name)) {
+    name = "";
+  }
+  if (!name) {
+    try {
+      if (typeof programName !== "undefined" && programName && mqttLooksLikeJobFileName(programName)) {
+        name = String(programName);
+      }
+    } catch (eProg) {
+      name = "";
+    }
+  }
+  if (!name) {
+    try {
+      if (typeof programComment !== "undefined" && programComment && mqttLooksLikeJobFileName(programComment)) {
+        name = String(programComment);
+      }
+    } catch (eCom) {
+      name = "";
+    }
+  }
+  if (!name) {
+    name = "job.gcode";
+  }
+  return mqttSanitizeJobFile(name) || "job.gcode";
+}
+
+function mqttTelemetryActive() {
+  if (!getProperty("mqttTelemetryEnabled")) {
+    return false;
+  }
+  var deviceId = mqttSanitizeSegment(getProperty("mqttDeviceId"));
+  var host = mqttTrimString(getProperty("mqttBrokerHost"));
+  if (!deviceId || !host) {
+    error("MQTT telemetry is enabled but Device ID and Broker Host must both be set for the collector.");
+    return false;
+  }
+  return true;
+}
+
+function writeMqttConnectPreamble() {
+  if (!mqttTelemetryActive()) {
+    return;
+  }
+  var deviceId = mqttSanitizeSegment(getProperty("mqttDeviceId"));
+  var host = mqttTrimString(getProperty("mqttBrokerHost")).replace(/"/g, "");
+  var port = getProperty("mqttBrokerPort");
+  if (port === undefined || port === null || port === "") {
+    port = 1883;
+  }
+  // Use writeln (not writeBlock) so multi-setup re-entry cannot modal-suppress M586.
+  writeComment("MQTT: ensure RRF client connected (SBC)");
+  writeln("G4 P2");
+  writeln('M586.4 C"' + deviceId + '"');
+  writeln('M586 P4 H"' + host + '" R' + port + " S1");
+  writeln("G4 P3");
+  writeln("");
+}
+
+function mqttRenderToolLine(eventName, toolNumber, previousTool, jobFile) {
+  var deviceId = mqttSanitizeSegment(getProperty("mqttDeviceId"));
+  var topic = "duet/" + deviceId + "/tool";
+  var payload = {
+    event: eventName,
+    tool_number: toolNumber
+  };
+  if (previousTool !== undefined && previousTool !== null && previousTool >= 0) {
+    payload.previous_tool = previousTool;
+  }
+  if (jobFile) {
+    payload.job_file = jobFile;
+  }
+
+  function render(obj) {
+    var parts = [];
+    if (obj.event !== undefined) {
+      parts.push('"event":"' + obj.event + '"');
+    }
+    if (obj.tool_number !== undefined) {
+      parts.push('"tool_number":' + obj.tool_number);
+    }
+    if (obj.previous_tool !== undefined) {
+      parts.push('"previous_tool":' + obj.previous_tool);
+    }
+    if (obj.job_file !== undefined) {
+      parts.push('"job_file":"' + String(obj.job_file).replace(/"/g, "") + '"');
+    }
+    var body = "{" + parts.join(",") + "}";
+    var escaped = body.replace(/"/g, '""');
+    return 'M118 P6 S"' + escaped + '" T"' + topic + '"';
+  }
+
+  var line = render(payload);
+  while (line.length > MQTT_M118_MAX) {
+    if (payload.job_file && String(payload.job_file).length > 12) {
+      var jf = String(payload.job_file);
+      payload.job_file = jf.substring(0, Math.max(8, jf.length - 16)).replace(/\s+$/g, "") + "~";
+      line = render(payload);
+      continue;
+    }
+    if (payload.previous_tool !== undefined) {
+      delete payload.previous_tool;
+      line = render(payload);
+      continue;
+    }
+    if (payload.job_file !== undefined) {
+      delete payload.job_file;
+      line = render(payload);
+      continue;
+    }
+    error("MQTT M118 line exceeds 240 characters after compacting.");
+    return "";
+  }
+  return line;
+}
+
+/** Sidecar next to NC output so multi-setup concatenations keep event start/change. */
+function mqttEventStatePath() {
+  try {
+    if (typeof getOutputPath !== "function") {
+      return "";
+    }
+    var out = getOutputPath();
+    if (!out) {
+      return "";
+    }
+    return String(out) + ".nxt-mqtt-events";
+  } catch (e) {
+    return "";
+  }
+}
+
+function mqttLoadEventCount() {
+  var count = mqttToolEventCount;
+  var path = mqttEventStatePath();
+  if (!path || typeof FileSystem === "undefined") {
+    return count;
+  }
+  try {
+    if (FileSystem.isFile && FileSystem.isFile(path) && FileSystem.openTextFile) {
+      var f = FileSystem.openTextFile(path, false);
+      var line = f.readln ? f.readln() : "";
+      if (f.close) {
+        f.close();
+      }
+      var n = parseInt(mqttTrimString(line), 10);
+      if (!isNaN(n) && n > count) {
+        count = n;
+      }
+    }
+  } catch (eLoad) {
+    // ignore — fall back to in-memory count
+  }
+  return count;
+}
+
+function mqttSaveEventCount(count) {
+  var path = mqttEventStatePath();
+  if (!path || typeof FileSystem === "undefined" || !FileSystem.openTextFile) {
+    return;
+  }
+  try {
+    var f = FileSystem.openTextFile(path, true);
+    if (f.writeln) {
+      f.writeln(String(count));
+    } else if (f.write) {
+      f.write(String(count));
+    }
+    if (f.close) {
+      f.close();
+    }
+  } catch (eSave) {
+    // ignore
+  }
+}
+
+function writeMqttToolPublish(toolNumber, previousTool) {
+  if (!mqttTelemetryActive()) {
+    return;
+  }
+  // Prefer previousTool when known; otherwise fall back to publish count in this
+  // invocation (and sidecar across multi-setup concatenations).
+  mqttToolEventCount = mqttLoadEventCount();
+  var hasPrev = previousTool !== undefined && previousTool !== null && previousTool >= 0;
+  var eventName = (mqttToolEventCount === 0 && !hasPrev) ? "start" : "change";
+  mqttToolEventCount++;
+  mqttSaveEventCount(mqttToolEventCount);
+  writeComment("MQTT: duet tool change (active session)");
+  // writeln so tool MQTT is not dropped if writeBlock/formatWords is empty.
+  writeln(mqttRenderToolLine(eventName, toolNumber, previousTool, mqttJobFileName()));
+  writeln("");
+}
+
 // Function onOpen. Called at start of each CAM operation
 function onOpen() {
   var seenWCS = [];
@@ -550,6 +875,8 @@ function onOpen() {
   writeBlock(gCodes.format(94));
 
   writeln("");
+
+  writeMqttConnectPreamble();
 };
 
 // Track parameter values required for the current operation.
@@ -704,6 +1031,18 @@ function onSection() {
     writeBlock(tCmd.format(tool.number));
 
     writeln("");
+
+    var mqttPrevTool = null;
+    if (!isFirstSection()) {
+      try {
+        mqttPrevTool = getPreviousSection().getTool().number;
+      } catch (ePrev) {
+        mqttPrevTool = null;
+      }
+    }
+    // If Fusion cleared section linkage but we already published in this run,
+    // still emit "change" via mqttToolEventCount inside writeMqttToolPublish.
+    writeMqttToolPublish(tool.number, mqttPrevTool);
   }
 
   var s = sVar.format(curTool['rpm']);

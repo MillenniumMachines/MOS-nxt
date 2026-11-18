@@ -1,14 +1,14 @@
 ; G6503.1.g: GUIDED RECTANGLE BLOCK PROBE
 ;
 ; Meta macro to gather operator input, then run modern G6503
-; (3-pt perimeter external block → nxtProbeResults + M6520 via U).
+; (N-pt perimeter external block → nxtProbeResults + M6520 via U).
 
 if { !inputs[state.thisInput].active }
     M99
 
 if { global.nxtTutorialMode && !global.nxtDialogDisplayed[5] }
     var nxtM291Msg1a = "This probe cycle finds the X and Y co-ordinates of the center of a rectangular block "
-    var nxtM291Msg1b = { var.nxtM291Msg1a ^ "by probing 3 points on each of 4 faces (CCW perimeter)." }
+    var nxtM291Msg1b = { var.nxtM291Msg1a ^ "by probing N points on each of 4 faces (default 2, CCW perimeter)." }
     M291 P{var.nxtM291Msg1b} R"nxt: Probe Rect. Block " T0 S2
     M291 P"You will enter approximate <b>width</b>, <b>length</b>, <b>clearance</b>, and edge inset." R"nxt: Probe Rect. Block" T0 S2
     M291 P"Clearance is how far outside the faces we start (default 5). Edge inset is corner clearance for outer points (default 10)." R"nxt: Probe Rect. Block" T0 S2
@@ -84,6 +84,14 @@ set var.edgeInset = { input }
 if { var.edgeInset <= 0 || var.edgeInset >= var.mC }
     abort { "Edge inset invalid (must be > 0 and < half min side)!" }
 
+var nxtM291MsgPts = "Points per face (2-5). Default 2 is near/far inset from corners."
+M291 P{var.nxtM291MsgPts} R"nxt: Probe Rect. Block" J1 T0 S5 L2 H5 F{2}
+if { result != 0 }
+    abort { "Rectangle block probe aborted!" }
+var nPts = { input }
+if { var.nPts < 2 || var.nPts > 5 || floor(var.nPts) != var.nPts }
+    abort { "Points per face must be a whole number from 2 to 5!" }
+
 var nxtM291Msg6 = "Please enter <b>overtravel</b> distance in mm (past expected face into the block)."
 M291 P{var.nxtM291Msg6} R"nxt: Probe Rect. Block" J1 T0 S6 F{global.nxtOvertravel}
 if { result != 0 }
@@ -110,11 +118,11 @@ if { var.probingDepth < 0 }
     abort { "Probing depth was negative!" }
 
 if { global.nxtTutorialMode }
-    var tutA = "Probe will run a 3-pt CCW perimeter, dive "
-    var tutB = { var.tutA ^ var.probingDepth ^ "mm per face, raise only between faces." }
+    var tutA = "Probe will run an N-pt CCW perimeter (N="
+    var tutB = { var.tutA ^ var.nPts ^ "), dive " ^ var.probingDepth ^ "mm per face, raise only between faces." }
     M291 P{var.tutB} R"nxt: Probe Rect. Block" T0 S4 K{"Continue", "Cancel"} F0
     if { input != 0 }
         abort { "Rectangle block probe aborted!" }
 
 ; Operator is already at approx center — G6503 uses current XY as assumed center
-G6503 U{var.wcsNumber} W{var.blockWidth} H{var.blockLength} L{var.probingDepth} C{var.surfaceClearance} O{var.overtravel} E{var.edgeInset}
+G6503 U{var.wcsNumber} W{var.blockWidth} H{var.blockLength} L{var.probingDepth} C{var.surfaceClearance} O{var.overtravel} E{var.edgeInset} N{var.nPts}
