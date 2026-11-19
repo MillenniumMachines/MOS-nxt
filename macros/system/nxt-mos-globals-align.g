@@ -69,19 +69,19 @@ if { exists(global.mosWPSfcPos) && exists(global.nxtWPSfcPos) }
 if { exists(global.mosWPSfcAxis) && exists(global.nxtWPSfcAxis) }
     set global.nxtWPSfcAxis = { global.mosWPSfcAxis }
 
-; --- Probe progress counters (session; allocated in nxt-probe-wcs.g) ---
+; --- Probe progress counters (declare here if import runs before nxt-probe-wcs.g) ---
 if { exists(global.mosPRRS) && !exists(global.nxtProbeRetryStep) }
-    set global.nxtProbeRetryStep = { global.mosPRRS }
+    global nxtProbeRetryStep = { global.mosPRRS }
 if { exists(global.mosPRRT) && !exists(global.nxtProbeRetryTotal) }
-    set global.nxtProbeRetryTotal = { global.mosPRRT }
+    global nxtProbeRetryTotal = { global.mosPRRT }
 if { exists(global.mosPRPS) && !exists(global.nxtProbePointStep) }
-    set global.nxtProbePointStep = { global.mosPRPS }
+    global nxtProbePointStep = { global.mosPRPS }
 if { exists(global.mosPRSS) && !exists(global.nxtProbeSurfaceStep) }
-    set global.nxtProbeSurfaceStep = { global.mosPRSS }
+    global nxtProbeSurfaceStep = { global.mosPRSS }
 if { exists(global.mosPRPT) && !exists(global.nxtProbePointTotal) }
-    set global.nxtProbePointTotal = { global.mosPRPT }
+    global nxtProbePointTotal = { global.mosPRPT }
 if { exists(global.mosPRST) && !exists(global.nxtProbeSurfaceTotal) }
-    set global.nxtProbeSurfaceTotal = { global.mosPRST }
+    global nxtProbeSurfaceTotal = { global.mosPRST }
 
 ; --- Tutorial dialog flags (allocated in nxt-probe-wcs.g) ---
 if { exists(global.mosDD) && !exists(global.nxtDialogDisplayed) }
