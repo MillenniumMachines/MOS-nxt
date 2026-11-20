@@ -8,28 +8,32 @@ M98 P"nxt-canned-spindle.g"
 M98 P"nxt-canned-zindex.g"
 
 var zi = { global.nxtCannedZi }
-var startSeriesZ = { move.axes[zi].userPosition }
+var startSeriesZ = { move.axes[var.zi].userPosition }
 
 if { global.nxtCannedCycle != null && global.nxtCannedCycle[0] != 73 }
     set global.nxtCannedCycle = { null }
 
 var prev = { global.nxtCannedCycle }
-var tZ = { exists(param.Z) ? param.Z : (prev != null ? prev[1] : null) }
-var tR = { exists(param.R) ? param.R : (prev != null ? prev[2] : null) }
-var tQ = { exists(param.Q) ? param.Q : (prev != null ? prev[3] : null) }
-var tF = { exists(param.F) ? param.F : (prev != null ? prev[4] : null) }
+var tZ = { exists(param.Z) ? param.Z : (var.prev != null ? var.prev[1] : null) }
+var tR = { exists(param.R) ? param.R : (var.prev != null ? var.prev[2] : null) }
+var tQ = { exists(param.Q) ? param.Q : (var.prev != null ? var.prev[3] : null) }
+var tF = { exists(param.F) ? param.F : (var.prev != null ? var.prev[4] : null) }
 var tX = { exists(param.X) ? param.X : null }
 var tY = { exists(param.Y) ? param.Y : null }
 
-if { prev == null }
+if { var.prev == null }
     if { var.tZ == null || var.tR == null || var.tQ == null || var.tF == null }
         abort { "G73: Z, R, Q, and F required on first use after G80 or other cycle" }
     if { var.tQ <= 0 }
         abort { "G73: Q (peck increment) must be positive" }
-    set global.nxtCannedCycle = { vector(8, null) }
+    set global.nxtCannedCycle = { vector(9, null) }
     set global.nxtCannedCycle[0] = { 73 }
-    set global.nxtCannedCycle[5] = { var.startSeriesZ }
     set global.nxtCannedCycle[7] = { null }
+
+; G98 initial Z: taken at the start of a series, i.e. the first cycle after G80 or another
+; cycle, or when Z has moved since the last final retract ([8]), e.g. a CAM G0 between operations.
+if { global.nxtCannedCycle[8] == null || abs(var.startSeriesZ - global.nxtCannedCycle[8]) > 0.001 }
+    set global.nxtCannedCycle[5] = { var.startSeriesZ }
 
 set global.nxtCannedCycle[1] = { var.tZ }
 set global.nxtCannedCycle[2] = { var.tR }
@@ -57,12 +61,18 @@ var chipClear = 0.254
 var curBottom = { var.tR }
 var eps = 0.0005
 
+; Each pass feeds one peck deeper; the last peck lands exactly on Z and ends the loop.
 while { var.curBottom > var.tZ + var.eps }
-    var nextZ = { max(var.tZ, var.curBottom - var.tQ) }
+    var nextZ = { (var.curBottom - var.tQ <= var.tZ + var.eps) ? var.tZ : var.curBottom - var.tQ }
     G90 G1 Z{var.nextZ} F{var.tF}
+    set var.curBottom = { var.nextZ }
     if { var.nextZ > var.tZ + var.eps }
         G90 G0 Z{var.nextZ + var.chipClear}
-        set var.curBottom = { var.nextZ }
 
 set global.nxtCannedRetR = { var.tR }
 M98 P"nxt-canned-finish-retract.g"
+
+; Wait for the hole's moves before returning. RRF holds a pause until the cycle macro
+; returns, so it lands between holes. Without this the macro returns as soon as the moves
+; are queued, a pause can land mid-hole, and the job resumes after the cycle (#78).
+M400

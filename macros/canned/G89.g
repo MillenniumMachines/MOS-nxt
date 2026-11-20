@@ -8,27 +8,31 @@ M98 P"nxt-canned-spindle.g"
 M98 P"nxt-canned-zindex.g"
 
 var zi = { global.nxtCannedZi }
-var startSeriesZ = { move.axes[zi].userPosition }
+var startSeriesZ = { move.axes[var.zi].userPosition }
 
 if { global.nxtCannedCycle != null && global.nxtCannedCycle[0] != 89 }
     set global.nxtCannedCycle = { null }
 
 var prev = { global.nxtCannedCycle }
-var tZ = { exists(param.Z) ? param.Z : (prev != null ? prev[1] : null) }
-var tR = { exists(param.R) ? param.R : (prev != null ? prev[2] : null) }
-var tF = { exists(param.F) ? param.F : (prev != null ? prev[4] : null) }
-var tP = { exists(param.P) ? param.P : (prev != null ? prev[7] : null) }
+var tZ = { exists(param.Z) ? param.Z : (var.prev != null ? var.prev[1] : null) }
+var tR = { exists(param.R) ? param.R : (var.prev != null ? var.prev[2] : null) }
+var tF = { exists(param.F) ? param.F : (var.prev != null ? var.prev[4] : null) }
+var tP = { exists(param.P) ? param.P : (var.prev != null ? var.prev[7] : null) }
 var tX = { exists(param.X) ? param.X : null }
 var tY = { exists(param.Y) ? param.Y : null }
 
-if { prev == null }
+if { var.prev == null }
     if { var.tZ == null || var.tR == null || var.tF == null || var.tP == null }
         abort { "G89: Z, R, F, and P required on first use" }
     if { var.tP < 0 }
         abort { "G89: P (dwell) must be non-negative" }
-    set global.nxtCannedCycle = { vector(8, null) }
+    set global.nxtCannedCycle = { vector(9, null) }
     set global.nxtCannedCycle[0] = { 89 }
     set global.nxtCannedCycle[3] = { null }
+
+; G98 initial Z: taken at the start of a series, i.e. the first cycle after G80 or another
+; cycle, or when Z has moved since the last final retract ([8]), e.g. a CAM G0 between operations.
+if { global.nxtCannedCycle[8] == null || abs(var.startSeriesZ - global.nxtCannedCycle[8]) > 0.001 }
     set global.nxtCannedCycle[5] = { var.startSeriesZ }
 
 set global.nxtCannedCycle[1] = { var.tZ }
@@ -52,8 +56,14 @@ M98 P"nxt-canned-preliminary.g"
 
 var seriesZ = { global.nxtCannedCycle[5] }
 var mode = { global.nxtCannedCycle[6] }
-var endZ = { mode == 99 ? var.tR : (var.seriesZ > var.tR ? var.seriesZ : var.tR) }
+var endZ = { var.mode == 99 ? var.tR : (var.seriesZ > var.tR ? var.seriesZ : var.tR) }
 
 G90 G1 Z{var.tZ} F{var.tF}
 G4 S{var.tP}
 G90 G1 Z{var.endZ} F{var.tF}
+set global.nxtCannedCycle[8] = { var.endZ }
+
+; Wait for the hole's moves before returning. RRF holds a pause until the cycle macro
+; returns, so it lands between holes. Without this the macro returns as soon as the moves
+; are queued, a pause can land mid-hole, and the job resumes after the cycle (#78).
+M400
