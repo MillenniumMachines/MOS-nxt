@@ -59,7 +59,7 @@ if { exists(job.file.fileName) && job.file.fileName != null }
 var applyG68 = false
 
 if { !var.hasTheta }
-    echo "M5011: No probed rotation for G" ^ (53 + var.wcsNumber)
+    echo { "M5011: No probed rotation for G" ^ (53 + var.wcsNumber) }
 elif { !var.nxtHaveJob }
     echo "M5011: No job file - G69 (setup). Stored skew " ^ var.nxtSkewTxt
 elif { var.qPolicy == 2 }
@@ -75,7 +75,7 @@ else
 
 if { var.applyG68 }
     M98 P"nxt-job-g68-apply.g" R{var.thetaDeg} W{var.wcsNumber}
-    echo "M5011: G68 applied " ^ var.nxtSkewTxt ^ " on G" ^ (53 + var.wcsNumber)
+    echo { "M5011: G68 applied " ^ var.nxtSkewTxt ^ " on G" ^ (53 + var.wcsNumber) }
     M99
 
 M98 P"nxt-job-g68-clear.g"

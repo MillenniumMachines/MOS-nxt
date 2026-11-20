@@ -92,7 +92,7 @@ set global.nxtWcsG10Z = { var.offsetZ }
 set global.nxtWcsG10A = { var.offsetA }
 M98 P"nxt-wcs-g10-apply.g" W{var.wcsNumber}
 
-echo "nxt-wcs-apply: Set WCS G" ^ (53 + var.wcsNumber) ^ " from result " ^ param.I
+echo { "nxt-wcs-apply: Set WCS G" ^ (53 + var.wcsNumber) ^ " from result " ^ param.I }
 if { var.offsetX != null }
     echo "nxt-wcs-apply:   X origin = " ^ var.offsetX
 if { var.offsetY != null }

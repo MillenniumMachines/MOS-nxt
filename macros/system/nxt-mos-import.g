@@ -175,7 +175,10 @@ if { exists(global.mosTM) }
 if { exists(global.mosWS) }
     set global.nxtWS = { global.mosWS }
 if { exists(global.mosAutoPersistTools) }
-    set global.nxtAutoPersistTools = { global.mosAutoPersistTools }
+    if { !exists(global.nxtAutoPersistTools) }
+        global nxtAutoPersistTools = { global.mosAutoPersistTools }
+    else
+        set global.nxtAutoPersistTools = { global.mosAutoPersistTools }
 if { exists(global.mosTTLocked) }
     if { !exists(global.nxtTTLocked) }
         global nxtTTLocked = false
@@ -275,15 +278,17 @@ if { global.nxtBoardShortNameOverride == null }
     echo >>{var.UV} {"set global.nxtBoardShortNameOverride = null"}
 else
     echo >>{var.UV} {"set global.nxtBoardShortNameOverride = "" ^ global.nxtBoardShortNameOverride ^ """}
-if { global.nxtBoardKitKey == null }
-    echo >>{var.UV} {"set global.nxtBoardKitKey = null"}
-else
+; nxtBoardKitKey / nxtScyllaMotorVoltage are deprecated and not declared in nxt-vars.g.
+; Guard reads with exists(); persist KitKey only when set, as ensure-set (matches UI).
+if { exists(global.nxtBoardKitKey) && global.nxtBoardKitKey != null }
+    echo >>{var.UV} {"if { !exists(global.nxtBoardKitKey) }"}
+    echo >>{var.UV} {"    global nxtBoardKitKey = "" ^ global.nxtBoardKitKey ^ """}
     echo >>{var.UV} {"set global.nxtBoardKitKey = "" ^ global.nxtBoardKitKey ^ """}
 if { global.nxtBoardMotorVoltage == null }
-    if { global.nxtScyllaMotorVoltage == null }
-        echo >>{var.UV} {"set global.nxtBoardMotorVoltage = null"}
-    else
+    if { exists(global.nxtScyllaMotorVoltage) && global.nxtScyllaMotorVoltage != null }
         echo >>{var.UV} {"set global.nxtBoardMotorVoltage = " ^ global.nxtScyllaMotorVoltage}
+    else
+        echo >>{var.UV} {"set global.nxtBoardMotorVoltage = null"}
 else
     echo >>{var.UV} {"set global.nxtBoardMotorVoltage = " ^ global.nxtBoardMotorVoltage}
 if { global.nxtBoardBootstrapMode == "auto" }
@@ -292,9 +297,10 @@ else
     echo >>{var.UV} {"set global.nxtBoardBootstrapMode = ""off"""}
 if { exists(global.nxtBoardPackExpectedEntry) && global.nxtBoardPackExpectedEntry != null }
     echo >>{var.UV} {"; Expected pack entry: " ^ global.nxtBoardPackExpectedEntry}
-if { global.nxtBoardSysDeployPlatform == null }
-    echo >>{var.UV} {"set global.nxtBoardSysDeployPlatform = null"}
-else
+; Lazy key (UI declares on deploy) — omit when unset; ensure-set so next boot can't fail.
+if { exists(global.nxtBoardSysDeployPlatform) && global.nxtBoardSysDeployPlatform != null }
+    echo >>{var.UV} {"if { !exists(global.nxtBoardSysDeployPlatform) }"}
+    echo >>{var.UV} {"    global nxtBoardSysDeployPlatform = "" ^ global.nxtBoardSysDeployPlatform ^ """}
     echo >>{var.UV} {"set global.nxtBoardSysDeployPlatform = "" ^ global.nxtBoardSysDeployPlatform ^ """}
 ; Custom platform keys — only when Custom is in play (OM ~8KB). Never echo set=null.
 ; Reading undeclared nxtCustom* (e.g. Scylla MOS import) → unknown variable.

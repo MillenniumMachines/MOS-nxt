@@ -79,10 +79,12 @@ elif { var.probeAxisIndex == 2 }
 elif { var.probeAxisIndex == 3 }
     M6515 A{var.targetVector[3]}
 
-var roughSpeed = { exists(param.F) ? param.F : sensors.probes[param.I].speeds[0] }
-var fineSpeed = { exists(param.F) ? param.F : sensors.probes[param.I].speeds[1] }
+; Callers pass F{var.feedRate}, which is F{null} when no feed was given: treat that as no F.
+var hasF = { exists(param.F) && param.F != null }
+var roughSpeed = { var.hasF ? param.F : sensors.probes[param.I].speeds[0] }
+var fineSpeed = { var.hasF ? param.F : sensors.probes[param.I].speeds[1] }
 
-if { var.roughSpeed == var.fineSpeed && !exists(param.F) }
+if { var.roughSpeed == var.fineSpeed && !var.hasF }
     set var.fineSpeed = { var.roughSpeed / 5 }
 
 ; Touch probe: clamp to ≤200 / ≤50 mm/min (reliable trigger; matches G6511)
