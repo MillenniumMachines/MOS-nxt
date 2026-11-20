@@ -157,6 +157,8 @@ nxt implements milling canned cycles as RRF macros under `macros/canned/`, align
 | `G85` | `Z`, `R`, `F` | Feed out to R then rapid clear |
 | `G89` | `Z`, `R`, `F`, `P` | Dwell then feed out to clear height |
 
+**Pause and resume:** a pause during a cycle takes effect once the hole is finished. Each cycle ends with `M400`, and RRF holds a pause until the cycle macro returns. Without the `M400` the macro returns as soon as its moves are queued, so RRF could pause mid-hole and resume the job at the line after the cycle, dropping the rest of the hole and moving to the next hole from drilling depth (#78).
+
 ---
 
 ## 9. Parameter Naming

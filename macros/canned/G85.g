@@ -58,3 +58,8 @@ var mode = { global.nxtCannedCycle[6] }
 var endZ = { var.mode == 99 ? var.tR : (var.seriesZ > var.tR ? var.seriesZ : var.tR) }
 G90 G0 Z{var.endZ}
 set global.nxtCannedCycle[8] = { var.endZ }
+
+; Wait for the hole's moves before returning. RRF holds a pause until the cycle macro
+; returns, so it lands between holes. Without this the macro returns as soon as the moves
+; are queued, a pause can land mid-hole, and the job resumes after the cycle (#78).
+M400
