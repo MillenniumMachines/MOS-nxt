@@ -23,5 +23,7 @@ if { global.nxtCannedPreX != null || global.nxtCannedPreY != null }
         abort { "nxt-canned: machine needs X and Y axes for canned XY positioning" }
     G90 G0 X{var.tx} Y{var.ty}
 
-if { move.axes[var.zi].userPosition < var.tR }
+; Rapid to R, down from the start height as well (LinuxCNC preliminary motion).
+; Without the move down, the cycle fed from the start height to R at F.
+if { abs(move.axes[var.zi].userPosition - var.tR) > 0.0005 }
     G90 G0 Z{var.tR}
