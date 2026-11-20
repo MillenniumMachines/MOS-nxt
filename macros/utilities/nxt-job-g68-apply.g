@@ -71,4 +71,4 @@ echo "nxt-job-g68-apply: G10 X=" ^ var.ox ^ " Y=" ^ var.oy
 echo "nxt-job-g68-apply: centre X=" ^ var.cx ^ " Y=" ^ var.cy
 echo "nxt-job-g68-apply: user X=" ^ var.nxtUx ^ " Y=" ^ var.nxtUy
 echo "nxt-job-g68-apply: machine X=" ^ var.nxtMx ^ " Y=" ^ var.nxtMy
-echo "nxt-job-g68-apply: G68 R" ^ var.thetaDeg ^ " on G" ^ (53 + var.wcsNumber)
+echo { "nxt-job-g68-apply: G68 R" ^ var.thetaDeg ^ " on G" ^ (53 + var.wcsNumber) }

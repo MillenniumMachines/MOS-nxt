@@ -15,4 +15,4 @@ elif { exists(move.motionSystems) }
         set var.wcsNumber = { move.motionSystems[0].workplaceNumber + 1 }
 
 M98 P"nxt-job-g68-apply.g" R{var.thetaDeg} W{var.wcsNumber}
-echo "nxt-job-g68-restore: G68 R" ^ var.thetaDeg ^ " on G" ^ (53 + var.wcsNumber)
+echo { "nxt-job-g68-restore: G68 R" ^ var.thetaDeg ^ " on G" ^ (53 + var.wcsNumber) }
