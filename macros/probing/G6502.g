@@ -110,7 +110,7 @@ var yMinusTarget = { var.centerY - var.yProbeDistance }
 G6512 Y{var.yMinusTarget} I{global.nxtTouchProbeID} F{var.feedRate} R{var.retries} H3
 
 ; Chord vectors from opposing pocket walls; skew θ = angle of X chord vs machine X.
-; Center = mean of (midpoint of X pair) and (midpoint of Y pair) — see G6500 header.
+; Center = intersection of the X-pair and Y-pair mid-lines (see below).
 if { !exists(global.nxtProbeHitXY) || global.nxtProbeHitXY == null || #global.nxtProbeHitXY < 8 }
     abort { "G6502: Missing probe hits in nxtProbeHitXY" }
 
@@ -148,8 +148,14 @@ var m1x = { (var.xPx + var.xMx) / 2 }
 var m1y = { (var.xPy + var.xMy) / 2 }
 var m2x = { (var.yPx + var.yMx) / 2 }
 var m2y = { (var.yPy + var.yMy) / 2 }
-var calculatedCenterX = { (var.m1x + var.m2x) / 2 }
-var calculatedCenterY = { (var.m1y + var.m2y) / 2 }
+; Centre = where the X mid-line (halfway between the ±X faces) meets the Y mid-line.
+; m1y and m2x are where the probe stood, not measurements, so they must not be averaged in.
+var cosT = { cos(var.thetaDeg * pi / 180) }
+var sinT = { sin(var.thetaDeg * pi / 180) }
+var midU = { var.m1x * var.cosT + var.m1y * var.sinT }
+var midN = { var.m2y * var.cosT - var.m2x * var.sinT }
+var calculatedCenterX = { var.midU * var.cosT - var.midN * var.sinT }
+var calculatedCenterY = { var.midU * var.sinT + var.midN * var.cosT }
 
 var xPlusEdge = { var.calculatedCenterX + var.vx / 2 }
 var xMinusEdge = { var.calculatedCenterX - var.vx / 2 }
