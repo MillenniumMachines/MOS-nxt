@@ -1,85 +1,135 @@
 #!/usr/bin/env node
 /**
- * Pure-logic mirrors of nxt.cps MQTT helpers (job_file + event naming).
- * Keeps Fusion post payload rules covered without the Autodesk CPS runtime.
+ * Tests the MQTT telemetry code in nxt.cps itself, not a copy of it.
+ *
+ * The post is loaded in a node vm context. getProperty, getOutputPath, writeln,
+ * writeComment and error are stubbed; every other Fusion global the post uses at
+ * load time (createFormat, setCodePage, MM, ...) resolves to a no-op stub.
+ *
+ *   node post-processors/fusion-360/run-mqtt-helper-tests.mjs
  */
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import vm from "node:vm";
+import { fileURLToPath } from "node:url";
 
-function mqttTrimString(s) {
-  if (s === undefined || s === null) return "";
-  return String(s).replace(/^\s+|\s+$/g, "");
+const here = path.dirname(fileURLToPath(import.meta.url));
+const source = fs.readFileSync(path.join(here, "nxt.cps"), "utf8");
+
+const MQTT_ON = {
+  mqttTelemetryEnabled: true,
+  mqttDeviceId: "milo",
+  mqttBrokerHost: "192.168.2.12",
+  mqttBrokerPort: 1883,
+};
+
+/** A fresh copy of the post, as Fusion loads one for each post run. */
+function loadPost({ props = {}, outputPath = "", programName = "", programComment = "" } = {}) {
+  const out = [];
+  const errors = [];
+  const base = {
+    console, Math, String, Number, Array, Object, JSON, Date, RegExp, Error,
+    parseInt, parseFloat, isNaN,
+    FileSystem: undefined,
+    getProperty: (name) => props[name],
+    getOutputPath: () => outputPath,
+    programName,
+    programComment,
+    writeln: (line) => out.push(String(line)),
+    writeComment: (text) => out.push("(" + text + ")"),
+    error: (message) => errors.push(String(message)),
+  };
+  const stub = function () {
+    return stub;
+  };
+  const ctx = vm.createContext(
+    new Proxy(base, {
+      has: () => true,
+      get: (target, key) => (key in target ? target[key] : typeof key === "symbol" ? undefined : stub),
+      set: (target, key, value) => {
+        target[key] = value;
+        return true;
+      },
+    })
+  );
+  vm.runInContext(source, ctx, { filename: "nxt.cps" });
+  return { post: ctx, out, errors };
 }
 
-function mqttSanitizeJobFile(name) {
-  return mqttTrimString(name).replace(/[^0-9a-zA-Z._\- /]/gi, "").substring(0, 64);
+/** Code lines only: no comments, no blank lines. */
+const codeLines = (out) => out.filter((l) => l !== "" && !l.startsWith("("));
+
+/** The JSON payload of an M118 P6 line. */
+function payloadOf(line) {
+  const m = /^M118 P6 S"(.*)" T"duet\/milo\/tool"$/.exec(line);
+  assert.ok(m, `not an M118 P6 publish: ${line}`);
+  return JSON.parse(m[1].replace(/""/g, '"'));
 }
 
-function mqttLooksLikeJobFileName(s) {
-  const t = mqttTrimString(s);
-  if (!t) return false;
-  if (/^[0-9]+$/.test(t)) return false;
-  if (/^[0-9]+\.(gcode|g|gc|nc|tap|cnc)$/i.test(t)) return false;
-  return true;
+// job_file: prefer the output file name, never a bare program number
+{
+  const name = (opts) => loadPost(opts).post.mqttJobFileName();
+  assert.equal(
+    name({ outputPath: "/cam/Golf/Putter/01 Putter - 3 axis - Op1.gcode", programName: "8910" }),
+    "01 Putter - 3 axis - Op1.gcode"
+  );
+  assert.equal(name({ outputPath: "C:\\cam\\part.gcode" }), "part.gcode");
+  assert.equal(name({ outputPath: "/tmp/8910.gcode", programName: "8910" }), "job.gcode");
+  assert.equal(
+    name({ outputPath: "/tmp/8910.gcode", props: { mqttJobFile: "01 Putter - 3 axis - Op1.gcode" } }),
+    "01 Putter - 3 axis - Op1.gcode"
+  );
+  assert.equal(name({ programName: "part.nc" }), "part.nc");
 }
 
-function mqttBasenameFromPath(path) {
-  const p = mqttTrimString(path);
-  if (!p) return "";
-  const normalized = p.replace(/\\/g, "/");
-  const slash = normalized.lastIndexOf("/");
-  return slash >= 0 ? normalized.substring(slash + 1) : normalized;
+// Preamble: disable first, because the board refuses M586.4 while MQTT is enabled;
+// the waits are G4 S (seconds), not G4 P (milliseconds)
+{
+  const { post, out, errors } = loadPost({ props: MQTT_ON });
+  post.writeMqttConnectPreamble();
+  assert.deepEqual(codeLines(out), [
+    "M586 P4 S0",
+    "G4 S2",
+    'M586.4 C"milo"',
+    'M586 P4 H"192.168.2.12" R1883 S1',
+    "G4 S3",
+  ]);
+  assert.deepEqual(errors, []);
+}
+{
+  const { post, out } = loadPost();
+  post.writeMqttConnectPreamble();
+  assert.deepEqual(out, [], "no MQTT lines when telemetry is off");
+}
+{
+  const { post, out, errors } = loadPost({ props: { ...MQTT_ON, mqttBrokerHost: "" } });
+  post.writeMqttConnectPreamble();
+  assert.deepEqual(out, []);
+  assert.equal(errors.length, 1, "a blank broker host is an error when posting");
 }
 
-function mqttJobFileName({ outputPath, programName, programComment, override }) {
-  let name = mqttBasenameFromPath(override || "");
-  if (!mqttLooksLikeJobFileName(name)) name = "";
-  if (!name) name = mqttBasenameFromPath(outputPath);
-  if (!mqttLooksLikeJobFileName(name)) name = "";
-  if (!name && programName && mqttLooksLikeJobFileName(programName)) {
-    name = String(programName);
-  }
-  if (!name && programComment && mqttLooksLikeJobFileName(programComment)) {
-    name = String(programComment);
-  }
-  if (!name) name = "job.gcode";
-  return mqttSanitizeJobFile(name) || "job.gcode";
+// Tool events: "start" for the first tool of a post run, "change" after it
+{
+  const { post, out } = loadPost({ props: MQTT_ON, outputPath: "/cam/part.gcode" });
+  post.writeMqttToolPublish(5);
+  post.writeMqttToolPublish(7, 5);
+  post.writeMqttToolPublish(5);
+  const [first, second, third] = codeLines(out).map(payloadOf);
+  assert.deepEqual(first, { event: "start", tool_number: 5, job_file: "part.gcode" });
+  assert.deepEqual(second, { event: "change", tool_number: 7, previous_tool: 5, job_file: "part.gcode" });
+  assert.equal(third.event, "change");
+  assert.ok(codeLines(out).every((l) => l.length <= 240), "M118 lines stay within 240 characters");
 }
-
-function mqttEventName(mqttToolEventCount, previousTool) {
-  const hasPrev = previousTool !== undefined && previousTool !== null && previousTool >= 0;
-  return mqttToolEventCount === 0 && !hasPrev ? "start" : "change";
+{
+  const { post, out } = loadPost({ props: MQTT_ON });
+  post.writeMqttToolPublish(3, 2);
+  assert.equal(payloadOf(codeLines(out)[0]).event, "change", "a known previous tool is a change");
 }
-
-assert.equal(
-  mqttJobFileName({
-    outputPath: "/cam/Golf/Putter/01 Putter - 3 axis - Op1.gcode",
-    programName: "8910",
-  }),
-  "01 Putter - 3 axis - Op1.gcode"
-);
-assert.equal(
-  mqttJobFileName({ outputPath: "/tmp/8910.gcode", programName: "8910" }),
-  "job.gcode"
-);
-assert.equal(
-  mqttJobFileName({
-    outputPath: "/tmp/8910.gcode",
-    programName: "8910",
-    override: "01 Putter - 3 axis - Op1.gcode",
-  }),
-  "01 Putter - 3 axis - Op1.gcode"
-);
-assert.equal(
-  mqttJobFileName({ outputPath: "", programName: "8910" }),
-  "job.gcode"
-);
-assert.equal(
-  mqttJobFileName({ outputPath: "", programName: "part.nc" }),
-  "part.nc"
-);
-assert.equal(mqttEventName(0, null), "start");
-assert.equal(mqttEventName(0, 1), "change");
-assert.equal(mqttEventName(1, null), "change");
-assert.equal(mqttEventName(1, 2), "change");
+{
+  const { post, out } = loadPost({ props: MQTT_ON });
+  post.writeMqttToolPublish(5);
+  assert.equal(payloadOf(codeLines(out)[0]).event, "start", "each post run starts again");
+}
 
 console.log("mqtt helper tests: ok");
