@@ -233,7 +233,7 @@ function macroAssertions() {
 		}
 		return -1;
 	};
-	const fGuardRe = /^\s*if\s*\{\s*exists\s*\(\s*param\.F\s*\)\s*\}\s*$/;
+	const fGuardRe = /^\s*if\s*\{\s*var\.hasF\s*\}\s*$/;
 
 	// (e) fastLeft cleared in the attempt loop body, after the inner touch loop
 	if (attemptIdx < 0) {
@@ -283,7 +283,7 @@ function macroAssertions() {
 		failures.push("(f) no set var.speed = { var.fineSpeed } in the inner touch loop body");
 	}
 
-	// (g) fastFirst is set only under a top-level `if { !exists(param.F) }`, between `var fastFirst`
+	// (g) fastFirst is set only under a top-level `if { !var.hasF }`, between `var fastFirst`
 	// and `var fastLeft` (with F there is no fast touch, and G6511's F200 R1 L0 quick find, where the
 	// caps lower fine to 50, stays at one touch; the feeds are never compared when F binds)
 	const fastLeftIdx = idxOf(/^\s*var\s+fastLeft\s*=\s*\{\s*var\.fastFirst\s*\}\s*$/);
@@ -294,18 +294,18 @@ function macroAssertions() {
 		const p = i >= 0 ? parentOf(i) : -1;
 		const ok =
 			p >= 0 &&
-			/^if\s*\{\s*!\s*exists\s*\(\s*param\.F\s*\)\s*\}\s*$/.test(lines[p]) &&
+			/^if\s*\{\s*!\s*var\.hasF\s*\}\s*$/.test(lines[p]) &&
 			ffIdx >= 0 &&
 			ffIdx < p &&
 			i < fastLeftIdx;
 		if (!ok) {
-			failures.push("(g) set var.fastFirst is not under a top-level if { !exists(param.F) } between var fastFirst and var fastLeft");
+			failures.push("(g) set var.fastFirst is not under a top-level if { !var.hasF } between var fastFirst and var fastLeft");
 		}
 	}
 
 	// (h) with F, the first touch of every set runs at roughSpeed, as before: in the attempt body,
 	// after `var speed = …` and before the inner loop, `set var.speed = { var.roughSpeed }`
-	// nested under `if { exists(param.F) }`
+	// nested under `if { var.hasF }`
 	if (attemptIdx < 0 || innerIdx < 0) {
 		failures.push("(h) attempt loop or inner touch loop not found");
 	} else {
@@ -326,7 +326,7 @@ function macroAssertions() {
 		});
 		if (!ok) {
 			failures.push(
-				"(h) no if { exists(param.F) } / set var.speed = { var.roughSpeed } in the attempt body between var speed and the inner loop"
+				"(h) no if { var.hasF } / set var.speed = { var.roughSpeed } in the attempt body between var speed and the inner loop"
 			);
 		}
 	}
@@ -342,6 +342,16 @@ function macroAssertions() {
 	const sampleOk = innerIdx >= 0 && lines.some((l, i) => sampleRe.test(l) && i > innerIdx && i < innerEnd);
 	if (!sampleOk) {
 		failures.push("(j) missing in the inner loop: var sampleIdx = { var.fastLeft ? var.touchIdx - 1 : var.touchIdx }");
+	}
+
+	// (k) F{null} (a canned cycle with no feed) counts as no F: var hasF is the only place that
+	// tests exists(param.F), and every other F check goes through var.hasF
+	const hasFRe = /^var\s+hasF\s*=\s*\{\s*exists\s*\(\s*param\.F\s*\)\s*&&\s*param\.F\s*!=\s*null\s*\}\s*$/;
+	const existsF = lines
+		.map((l, i) => (isCode(l) && /exists\s*\(\s*param\.F\s*\)/.test(l) ? i : -1))
+		.filter((i) => i >= 0);
+	if (existsF.length !== 1 || !hasFRe.test(lines[existsF[0]])) {
+		failures.push("(k) exists(param.F) must appear only in: var hasF = { exists(param.F) && param.F != null }");
 	}
 }
 
