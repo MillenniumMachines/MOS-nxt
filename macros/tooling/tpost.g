@@ -169,6 +169,13 @@ elif { global.nxtFeatureToolSetter && global.nxtToolSetterPos != null }
     echo "tpost.g: Toolsetter slow confirm"
     G6512 Z{var.tsProbeTargetZ} I{global.nxtToolSetterID} F{var.tsFineSpeed} R{var.tsSamples} L{var.tsTol} O{var.tsOuterRetries}
     var newToolMeasurement = { global.nxtLastProbeResult }
+    ; A tool wider than the pad may be lowest at its rim: probe around it, and if the rim is
+    ; lower, repeat the slow confirm there (nxt-ts-large-tool.g leaves the tool above that point)
+    M98 P"nxt-ts-large-tool.g" X{var.tsX} Y{var.tsY} Z{var.newToolMeasurement} F{var.tsFineSpeed}
+    if { global.nxtTsRimXY != null }
+        echo "tpost.g: Toolsetter slow confirm at the rim"
+        G6512 Z{var.tsProbeTargetZ} I{global.nxtToolSetterID} F{var.tsFineSpeed} R{var.tsSamples} L{var.tsTol} O{var.tsOuterRetries}
+        set var.newToolMeasurement = { global.nxtLastProbeResult }
     M98 P"nxt-g38-cancel.g"
     ; Raise to machine Z0 off the platen before G10 / dialogs
     G90

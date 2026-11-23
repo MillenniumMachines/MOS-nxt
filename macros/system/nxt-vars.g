@@ -81,7 +81,8 @@ global nxtToolSetterPos = null     ; Toolsetter position vector [X, Y, Z]
 global nxtToolSetterV2 = false     ; V2.0: fixed ref pad geometry (13mm XY / -6mm Z vs platen)
 global nxtToolSetterRefDir = 0     ; V2 ref pad side of platen: 0=+X 1=-X 2=+Y 3=-Y
 global nxtToolSetterProbeTravelMm = 80.0 ; Downward travel from known Z (mill tpost platen; G6511 mill-touch)
-global nxtToolSetterRadius = null ; Toolsetter platen radius for large-tool multi-point G37 (mm)
+global nxtToolSetterRadius = null ; Toolsetter pad radius (mm): tools with a larger radius are also probed at their rim in tpost
+global nxtTsRimXY = null          ; scratch: {X, Y} of a tool's lowest rim point, from nxt-ts-large-tool.g
 global nxtToolChangeState = null   ; Tracks the current tool change state (1=tfree, 2=tfree done, 3=tpre done, 4=tpost, null=complete)
 global nxtToolChangeCancelled = false ; Operator Cancel: tpost skips measure; pause.g stops an active job after the T stack
 global nxtUserToolsFilePresent = false     ; set at boot by nxt.g: nxt-user-tools.g exists on SD
