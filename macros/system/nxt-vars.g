@@ -102,10 +102,12 @@ global nxtSkipJobPark = false
 ; aborted operation can never leave the light showing the wrong thing.
 ; (global nxtWS is declared above with operator / tutorial modes.)
 
-; LED strip hardware. Configured in DWC and saved to nxt-user-vars.g. The strip
-; is created on first run from these values. Strip length is nxtRGBCount.
+; LED strip hardware. Configured in DWC and saved to nxt-user-vars.g. When nxtRGBPin is set
+; (board pack rgb.g), the strip is created on first run from these values. When it is null and
+; the machine's config already created strip nxtRGBStrip (M950 E0 ...), that strip is used as
+; configured there, and nxtRGBType / nxtRGBOrder don't apply. Strip length is nxtRGBCount.
 global nxtRGBStrip = 0      ; LED strip number (the E in M950 E0 / M150 E0)
-global nxtRGBPin   = null   ; data pin, e.g. "PA_10" - null until configured
+global nxtRGBPin   = null   ; data pin, e.g. "PA_10" - null: use the config's strip, if any
 global nxtRGBType  = 1      ; M950 T: 1=RGB NeoPixel, 2=RGBW NeoPixel
 global nxtRGBOrder = 5      ; M950 K colour order: 0=BGR … 5=GRB (NeoPixel default)
 global nxtRGBCount = 1      ; number of LEDs in the strip

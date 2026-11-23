@@ -5,10 +5,17 @@
 ; strip. Only touches the strip when the state actually changes, so it never
 ; floods the command queue.
 
-; Create the LED strip once, the first time we run with a pin configured.
-if { !global.nxtRGBReady && global.nxtRGBPin != null }
-    M950 E{global.nxtRGBStrip} C{global.nxtRGBPin} T{global.nxtRGBType} K{global.nxtRGBOrder} U{global.nxtRGBCount}
-    set global.nxtRGBReady = true
+; Create the LED strip once, the first time we run with a pin configured. Without a pin,
+; use the strip the machine's own config created, if there is one (see nxt.g).
+if { !global.nxtRGBReady }
+    if { global.nxtRGBPin != null }
+        M950 E{global.nxtRGBStrip} C{global.nxtRGBPin} T{global.nxtRGBType} K{global.nxtRGBOrder} U{global.nxtRGBCount}
+        set global.nxtRGBReady = true
+    elif { #ledStrips > global.nxtRGBStrip && ledStrips[global.nxtRGBStrip] != null }
+        set global.nxtRGBReady = true
+    ; Draw the current state now, even if it was recorded while there was no strip
+    if { global.nxtRGBReady }
+        set global.nxtRGBLast = "none"
 
 ; Work out the effective state, highest priority first:
 ; error > paused > tool change > probing > homing > running > idle.
