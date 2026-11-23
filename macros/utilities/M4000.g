@@ -235,7 +235,7 @@ if { exists(param.B) }
 else
     set global.nxtTT[param.P][5] = { var.preserveB }
 
-; Persist full tool library to SD (optional; disable with global nxtAutoPersistTools = false).
+; Persist full tool library to SD (opt out: set global.nxtAutoPersistTools = false in nxt-user-overrides.g).
 ; Skip while loading library, and skip K1 probe system writes (not in user-tools file).
 if { var.nxtDoToolsSync }
     M98 P"nxt-user-tools-sync.g"
