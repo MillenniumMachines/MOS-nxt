@@ -87,6 +87,8 @@ global nxtToolChangeCancelled = false ; Operator Cancel: tpost skips measure; pa
 global nxtUserToolsFilePresent = false     ; set at boot by nxt.g: nxt-user-tools.g exists on SD
 global nxtUserToolsDaemonReload = false      ; if true, daemon reloads library when 0:/sys/nxt-user-tools.reload.requested exists (see TOOLCHANGING.md)
 global nxtTTLocked = false                   ; Tool Library edit-lock (persisted via nxt-user-tools-sync.g)
+; After M4000 / M4001 / tpost measure, rewrite 0:/sys/nxt-user-tools.g (M4000 + G10 L1).
+global nxtAutoPersistTools = true
 ; After M6520 / nxt-wcs-apply, rewrite 0:/sys/nxt-user-wcs.g (G10 L2 + select).
 global nxtAutoPersistWcs = true
 ; Probe cycles set true so stop.g skips XY G27 after numbered G65xx.
@@ -220,10 +222,15 @@ global nxtVSPT = 0          ; Last phase timestamp (state.upTime*1000+state.msUp
 
 ; --- Canned drilling cycles (G81, G73, G83, …) ---
 ; When non-null, nxtCannedCycle is a vector:
-; [0]=kind (81,73,83,82,85,89), [1]=Z, [2]=R, [3]=Q or null, [4]=F, [5]=seriesInitZ (G98), [6]=retractMode (98|99), [7]=P dwell s or null
+; [0]=kind (81,73,83,82,85,89), [1]=Z, [2]=R, [3]=Q or null, [4]=F, [5]=seriesInitZ (G98), [6]=retractMode (98|99), [7]=P dwell s or null,
+; [8]=Z of the last final retract (a different Z at the next cycle starts a new series)
 global nxtCannedCycle = null
 global nxtCannedRetractMode = 98   ; G98 initial plane / G99 R plane — set by G98.g / G99.g
 global nxtCannedZi = 0              ; scratch: Z axis index (set by nxt-canned-zindex.g)
+global nxtCannedPreR = null         ; scratch: R plane passed to nxt-canned-preliminary.g
+global nxtCannedPreX = null         ; scratch: hole X for nxt-canned-preliminary.g (null = stay)
+global nxtCannedPreY = null         ; scratch: hole Y for nxt-canned-preliminary.g (null = stay)
+global nxtCannedRetR = null         ; scratch: R plane passed to nxt-canned-finish-retract.g
 
 ; --- Board / platform selection (UI + pack loader) ---
 ; Custom-platform keys: nxt-custom-globals.g when Custom is active (sentinel / overlays).

@@ -1,6 +1,6 @@
 # Standalone M292 hang: DWC 3.6 vs 3.7 code map
 
-**Verdict:** The hang is **not** in NeXT macros. It is stock **DuetWebControl** `MessageBoxDialog` on standalone boards (**PollConnector**). Duet added `noWait: true` for every `M292` on the **3.6** line only; the **3.7** Vue 3 rewrite never received that change. NeXT restores the workaround at plugin load via a Pinia `sendCode` wrapper.
+**Verdict:** The hang is **not** in NeXT macros. It is stock **DuetWebControl** `MessageBoxDialog` on standalone boards (**PollConnector**). Duet added `noWait: true` for every `M292` on the **3.6** line; the **3.7** Vue 3 rewrite lost it until **DWC 3.7.0** ([`2f837862`](https://github.com/Duet3D/DuetWebControl/commit/2f837862246376dcc8c34c3980dd24bc4fb89294), 2026-09-01), so the 3.7.0 betas hang. NeXT restores the workaround at plugin load via a Pinia `sendCode` wrapper. On DWC 3.7.0 the wrapper is redundant but harmless: it passes the same arguments DWC now passes.
 
 ## Symptom
 
@@ -49,12 +49,12 @@ if (!noWait && seq === this.lastSeqs.reply && strippedCode !== "" /* … */) {
 return (noWait ? undefined : "");
 ```
 
-## Code that exists in 3.6 but not in 3.7
+## Code that exists in 3.6 but not in the 3.7.0 betas
 
 **Commit:** [`d02661dd`](https://github.com/Duet3D/DuetWebControl/commit/d02661dd257418afdbc3732c0834b25458466716) — *“M292 no longer waits for replies (v3.6 only)”* (2025-04-29, Christian Hammacher).
 
 - Present on `v3.6-dev`
-- **Not** an ancestor of `v3.7-dev` (never ported through the Vue 3 rewrite)
+- **Not** an ancestor of `v3.7-dev` (not ported through the Vue 3 rewrite); DWC 3.7.0 re-implemented it in [`2f837862`](https://github.com/Duet3D/DuetWebControl/commit/2f837862246376dcc8c34c3980dd24bc4fb89294)
 
 ### DWC 3.6 (`MessageBoxDialog.vue`)
 
@@ -73,7 +73,7 @@ await store.dispatch("machine/sendCode", {
 
 Branch file: [v3.6-dev MessageBoxDialog.vue](https://github.com/Duet3D/DuetWebControl/blob/v3.6-dev/src/components/dialogs/MessageBoxDialog.vue)
 
-### DWC 3.7.0-beta.1 (NeXT build pin)
+### DWC 3.7.0-beta.1 (earlier NeXT build pin)
 
 Pinia positional call with **no** fourth argument — still waits for a reply:
 
@@ -81,7 +81,7 @@ Pinia positional call with **no** fourth argument — still waits for a reply:
 await machineStore.sendCode(`M292 S${messageBox.seq}`);
 ```
 
-### Current `v3.7-dev` tip
+### `v3.7-dev` in July 2026
 
 [`327401ee`](https://github.com/Duet3D/DuetWebControl/commit/327401ee08e2246e68d95d32fca9ad953c3c1ca7) (2026-07-09) only sets `fromInput=false, logReply=false` — still **omits** `noWait`:
 
@@ -94,7 +94,17 @@ The missing piece vs 3.6 is specifically **`noWait: true` / 4th parameter `true`
 
 Branch file: [v3.7-dev MessageBoxDialog.vue](https://github.com/Duet3D/DuetWebControl/blob/v3.7-dev/src/components/dialogs/MessageBoxDialog.vue)
 
+### DWC 3.7.0 (NeXT build pin)
+
+[`2f837862`](https://github.com/Duet3D/DuetWebControl/commit/2f837862246376dcc8c34c3980dd24bc4fb89294) (2026-09-01, *"M292 no longer waits for G-code replies"*) passes `noWait` on all five `M292` calls:
+
+```js
+await machineStore.sendCode(`M292 S${messageBox.seq}`, false, false, true);
+```
+
 ## Minimal upstream fix
+
+**Done upstream in DWC 3.7.0** (see above). Kept for reference:
 
 In DWC 3.7+ `src/components/dialogs/MessageBoxDialog.vue`, on all five `sendCode(M292…)` sites in `ok` / `accept` / `cancel`, pass the fourth argument:
 
@@ -106,7 +116,7 @@ await machineStore.sendCode(`M292 S${messageBox.seq}`, false, false, true);
 
 ## NeXT mitigation
 
-Until Duet ports the 3.6 workaround, the nxt plugin forces fire-and-forget for every `M292` at load:
+The nxt plugin forces fire-and-forget for every `M292` at load. The 3.7.0 betas needed this; on DWC 3.7.0 it changes nothing, and it can be removed in a later cleanup:
 
 | File | Role |
 |------|------|

@@ -116,6 +116,17 @@ while { var.leg < 3 }
 
         var hit0 = { global.nxtLastProbeResult }
 
+        ; RRF 3.7 clamps a relative move at the M208 limits (M564 R1) without an
+        ; error, which would shorten this move and skew R. G6512 leaves us at its
+        ; backoff point, so check from there. The limits apply to machinePosition.
+        M400
+        var awayPos = { move.axes[var.axisIdx].machinePosition + var.dirAway * var.dCmd }
+        var axMin = { move.axes[var.axisIdx].min }
+        var axMax = { move.axes[var.axisIdx].max }
+        var pastLimit = { var.awayPos < var.axMin || var.awayPos > var.axMax }
+        if { move.limitAxes && move.axes[var.axisIdx].homed && var.pastLimit }
+            abort { "G9000: a " ^ var.dCmd ^ " mm move away would pass the " ^ var.letter ^ " limit. Start further from it." }
+
         ; Away from surface by commanded test travel
         G91
         if { var.axisIdx == 0 }

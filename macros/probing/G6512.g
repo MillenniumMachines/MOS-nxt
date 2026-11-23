@@ -5,12 +5,15 @@
 ; A: raw trigger, no diveHeight backoff (rotary; those distances are millimetres).
 ; Touch probe IDs: probe feeds clamped to ≤200 / ≤50 mm/min (G6511 caps).
 ; Defaults: macros/system/nxt-vars.g (Probe repeatability).
-; When nxtProbeMaxSampleSpreadMm > 0: strict consecutive-pair tolerance, 3 touches, R ignored.
+; When nxtProbeMaxSampleSpreadMm > 0: strict consecutive-pair tolerance, 3 kept touches, R ignored.
 ; Per-invocation override: R = inner sample count when tolerance disabled (limit = 0).
+; Without F, when the first touch runs faster than the rest, it only locates the surface: it is not
+; pair-checked, averaged or put in the H hit sums, and retries repeat the fine touches only.
+; With F every touch counts, as before.
 ;
 ; USAGE: G6512 [X|Y|Z|A]<pos> I<probeID> [F] [R] [L] [O] [H]
 ;   L = tolerance limit override in mm (default global.nxtProbeMaxSampleSpreadMm)
-;   O = extra full 3-touch retry cycles when tolerance is enabled
+;   O = extra 3-touch retry cycles when tolerance is enabled
 
 if { !inputs[state.thisInput].active }
     M99
@@ -98,6 +101,15 @@ if { var.isTouchProbe }
     if { var.fineSpeed > 50 || var.fineSpeed <= 0 }
         set var.fineSpeed = 50
 
+; A fast touch exists only when the first touch really runs faster, so this is worked out after the caps.
+; A slower first touch (fine feed set above rough) is counted like the rest and adds no touch.
+var fastFirst = false
+; With F every touch counts, as before. The caps can still run the first touch faster with F
+; (G6511's R1 L0 quick find runs at 200, fine is capped to 50); that call stays one touch.
+; The feeds are compared only without F, so an F{null} binding never reaches the comparison.
+if { !exists(param.F) }
+    set var.fastFirst = { var.roughSpeed > var.fineSpeed }
+
 ; Resolve touch-probe deflection (µm). nxtProbeDeflection is {X,Y,Z}; Z unused for now.
 ; Legacy: scalar, {x}, or {x,y}. Toolsetter must NOT apply stylus defl.
 ; A-axis / Z: no linear tip/deflection compensation (Z = raw trigger).
@@ -134,7 +146,8 @@ if { var.applyAxisDefl }
 if { exists(param.H) && param.H != null && (param.H < 0 || param.H > 3) }
     abort { "G6512: Hit slot H must be 0..3 when provided" }
 
-; --- Outer: repeat 3-touch block if consecutive-pair tolerance fails ---
+; --- Outer: repeat the set of counted touches if consecutive-pair tolerance fails ---
+; The fast touch (fastFirst) runs once, as the first touch of the first set. Retry sets have no fast touch.
 
 var attempt = 0
 var toleranceOk = false
@@ -149,13 +162,21 @@ var finalHitN = 0
 var finalV1Mm = 0.0
 var finalV2Mm = 0.0
 var finalV3Mm = 0.0
+; True only while a fast touch is still to run: during the first set when fastFirst is true.
+; False from the start when there is no faster first touch (F given, or equal or slower rough feed).
+var fastLeft = { var.fastFirst }
 
 while { var.attempt < var.outerLimit && var.toleranceOk == false }
     set var.attempt = { var.attempt + 1 }
 
     var sum = 0.0
     var count = 0
-    var speed = { var.roughSpeed }
+    ; Feed for the first touch of the set: rough for the fast touch, and as before whenever there is
+    ; no faster first touch (F given, equal feeds, rough below fine); fine only in a retry set after a fast touch
+    var speed = { (var.fastLeft || !var.fastFirst) ? var.roughSpeed : var.fineSpeed }
+    ; With F, the first touch of every set runs at roughSpeed, as before
+    if { exists(param.F) }
+        set var.speed = { var.roughSpeed }
     var pairsOk = true
     var v1Um = 0.0
     var v2Um = 0.0
@@ -164,8 +185,12 @@ while { var.attempt < var.outerLimit && var.toleranceOk == false }
     var hitSumY = 0.0
     var hitN = 0
 
-    var innerIdx = 0
-    while { var.innerIdx < var.retries }
+    ; touchIdx counts every touch of the set; sampleIdx counts the touches that are kept
+    var touchIdx = 0
+    while { var.touchIdx < var.retries + (var.fastLeft ? 1 : 0) }
+        var isFast = { var.fastLeft && var.touchIdx == 0 }
+        var sampleIdx = { var.fastLeft ? var.touchIdx - 1 : var.touchIdx }
+
         M5000
 
         var startPos = { global.nxtAbsPos }
@@ -189,48 +214,52 @@ while { var.attempt < var.outerLimit && var.toleranceOk == false }
             var tipMinusDefl = { var.probeTipRadiusUm - var.probeDeflectionUm }
             set var.compensated = { var.compensated + (var.tipMinusDefl * var.direction) }
 
-        if { var.toleranceEnabled }
-            echo "G6512: attempt " ^ { var.innerIdx + 1 } ^ "/3 axis " ^ move.axes[var.probeAxisIndex].letter ^ " = " ^ { var.compensated / 1000 } ^ " mm"
+        if { var.isFast }
+            echo "G6512: locate axis " ^ move.axes[var.probeAxisIndex].letter ^ " = " ^ { var.compensated / 1000 } ^ " mm (not averaged)"
+        elif { var.toleranceEnabled }
+            echo "G6512: attempt " ^ { var.sampleIdx + 1 } ^ "/3 axis " ^ move.axes[var.probeAxisIndex].letter ^ " = " ^ { var.compensated / 1000 } ^ " mm"
         else
-            echo "G6512: attempt " ^ { var.innerIdx + 1 } ^ "/" ^ var.retries ^ " axis " ^ move.axes[var.probeAxisIndex].letter ^ " = " ^ { var.compensated / 1000 } ^ " mm"
+            echo "G6512: attempt " ^ { var.sampleIdx + 1 } ^ "/" ^ var.retries ^ " axis " ^ move.axes[var.probeAxisIndex].letter ^ " = " ^ { var.compensated / 1000 } ^ " mm"
 
-        if { var.toleranceEnabled && var.innerIdx == 0 }
-            set var.v1Um = var.compensated
-        elif { var.toleranceEnabled && var.innerIdx == 1 }
-            set var.v2Um = var.compensated
-            var pairDeltaMm = { abs(var.compensated - var.v1Um) / 1000 }
-            if { var.pairDeltaMm > var.toleranceLimitMm }
-                set var.pairsOk = false
-                set var.lastPairDeltaMm = var.pairDeltaMm
-                set var.lastPairOverMm = { var.pairDeltaMm - var.toleranceLimitMm }
-                set var.lastFailedPairLabel = "1-2"
-                echo "G6512: pair 1-2 delta " ^ var.pairDeltaMm ^ " mm exceeds limit " ^ var.toleranceLimitMm ^ " mm (over by " ^ var.lastPairOverMm ^ " mm)"
-        elif { var.toleranceEnabled && var.innerIdx == 2 }
-            set var.v3Um = var.compensated
-            var pairDeltaMm = { abs(var.compensated - var.v2Um) / 1000 }
-            if { var.pairDeltaMm > var.toleranceLimitMm }
-                set var.pairsOk = false
-                set var.lastPairDeltaMm = var.pairDeltaMm
-                set var.lastPairOverMm = { var.pairDeltaMm - var.toleranceLimitMm }
-                set var.lastFailedPairLabel = "2-3"
-                echo "G6512: pair 2-3 delta " ^ var.pairDeltaMm ^ " mm exceeds limit " ^ var.toleranceLimitMm ^ " mm (over by " ^ var.lastPairOverMm ^ " mm)"
+        ; Only kept touches are pair-checked, averaged and put in the H hit sums
+        if { !var.isFast }
+            if { var.toleranceEnabled && var.sampleIdx == 0 }
+                set var.v1Um = var.compensated
+            elif { var.toleranceEnabled && var.sampleIdx == 1 }
+                set var.v2Um = var.compensated
+                var pairDeltaMm = { abs(var.compensated - var.v1Um) / 1000 }
+                if { var.pairDeltaMm > var.toleranceLimitMm }
+                    set var.pairsOk = false
+                    set var.lastPairDeltaMm = var.pairDeltaMm
+                    set var.lastPairOverMm = { var.pairDeltaMm - var.toleranceLimitMm }
+                    set var.lastFailedPairLabel = "1-2"
+                    echo "G6512: pair 1-2 delta " ^ var.pairDeltaMm ^ " mm exceeds limit " ^ var.toleranceLimitMm ^ " mm (over by " ^ var.lastPairOverMm ^ " mm)"
+            elif { var.toleranceEnabled && var.sampleIdx == 2 }
+                set var.v3Um = var.compensated
+                var pairDeltaMm = { abs(var.compensated - var.v2Um) / 1000 }
+                if { var.pairDeltaMm > var.toleranceLimitMm }
+                    set var.pairsOk = false
+                    set var.lastPairDeltaMm = var.pairDeltaMm
+                    set var.lastPairOverMm = { var.pairDeltaMm - var.toleranceLimitMm }
+                    set var.lastFailedPairLabel = "2-3"
+                    echo "G6512: pair 2-3 delta " ^ var.pairDeltaMm ^ " mm exceeds limit " ^ var.toleranceLimitMm ^ " mm (over by " ^ var.lastPairOverMm ^ " mm)"
 
-        set var.sum = { var.sum + var.compensated }
-        set var.count = { var.count + 1 }
+            set var.sum = { var.sum + var.compensated }
+            set var.count = { var.count + 1 }
 
-        if { exists(param.H) && param.H != null }
-            var hitX = { var.probeAxisIndex == 0 ? var.compensated / 1000 : global.nxtAbsPos[0] }
-            var hitY = { var.probeAxisIndex == 1 ? var.compensated / 1000 : global.nxtAbsPos[1] }
-            set var.hitSumX = { var.hitSumX + var.hitX }
-            set var.hitSumY = { var.hitSumY + var.hitY }
-            set var.hitN = { var.hitN + 1 }
+            if { exists(param.H) && param.H != null }
+                var hitX = { var.probeAxisIndex == 0 ? var.compensated / 1000 : global.nxtAbsPos[0] }
+                var hitY = { var.probeAxisIndex == 1 ? var.compensated / 1000 : global.nxtAbsPos[1] }
+                set var.hitSumX = { var.hitSumX + var.hitX }
+                set var.hitSumY = { var.hitSumY + var.hitY }
+                set var.hitN = { var.hitN + 1 }
 
         set var.speed = { var.fineSpeed }
 
         ; A is rotary — skip diveHeight backoff (those distances are millimetres)
         var nxtSkipBackoff = { var.probeAxisIndex == 3 }
         if { !var.nxtSkipBackoff }
-            var backoffDistance = { var.innerIdx == 0 ? sensors.probes[param.I].diveHeights[0] : sensors.probes[param.I].diveHeights[1] }
+            var backoffDistance = { var.touchIdx == 0 ? sensors.probes[param.I].diveHeights[0] : sensors.probes[param.I].diveHeights[1] }
             var backoffRequested = { var.triggeredPos - (var.direction * var.backoffDistance) }
             var backoffTarget = { var.backoffRequested }
             var axisMin = { move.axes[var.probeAxisIndex].min }
@@ -259,7 +288,10 @@ while { var.attempt < var.outerLimit && var.toleranceOk == false }
         if { sensors.probes[param.I].recoveryTime > 0 }
             G4 P{ ceil(sensors.probes[param.I].recoveryTime * 1000) }
 
-        set var.innerIdx = { var.innerIdx + 1 }
+        set var.touchIdx = { var.touchIdx + 1 }
+
+    ; The fast touch has run: retry sets are fine touches only
+    set var.fastLeft = false
 
     if { var.toleranceEnabled && var.count < 3 }
         set var.pairsOk = false

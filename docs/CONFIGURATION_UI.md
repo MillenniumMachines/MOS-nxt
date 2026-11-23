@@ -35,6 +35,7 @@ Configure your CNC spindle parameters:
 **Usage Notes:**
 - Spindle ID should match your RRF configuration
 - Acceleration/deceleration times are the full wait ceiling for M3.9/M4.9/M5.9 (and the VFD ramp when Apply pushes `J`/`K`). Boot default is **10 s**. With ArborCTL status live, those macros early-exit when the VFD reports ready/stopped, otherwise continue after the timeout. When ArborCTL firmware is live, Configuration disables hold-to-measure and shows the VFD ramp; **VFD Apply** persists `nxtSpindleAccelSec` / `nxtSpindleDecelSec`.
+- With ArborCTL + RS485 VFD: keep `arborctlDaemonEnabled` **true** (it is paused only during plugin ZIP updates). Prefer **`M3.9` / `M4.9` / `M5.9`** over plain `M3`/`M5` so nxt issues a control tick and waits on `arborVFDStatus`. Plain `M3` only updates RRF spindle OM; the daemon must be running for the drive to spin. Huanyang: after Apply, confirm keypad **`PD001=2`** and **`PD002=2`**, then power-cycle the VFD.
 
 ### 3. Touch Probe Configuration
 

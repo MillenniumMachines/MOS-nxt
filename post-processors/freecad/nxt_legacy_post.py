@@ -21,6 +21,8 @@
 
 import sys
 import argparse
+import json
+import os
 import shlex
 import re
 from enum import Flag, auto
@@ -198,11 +200,126 @@ parser.add_argument('--vssc', action=argparse.BooleanOptionalAction, default=Tru
     which helps to avoid harmonic resonance between tool and work piece.
     """)
 
+parser.add_argument('--mqtt-telemetry', action=argparse.BooleanOptionalAction, default=False,
+    help="""
+    When enabled, emit M586 reconnect + M118 P6 tool publishes to duet/{device}/tool for Jarvis
+    tap-collector. Requires --mqtt-device-id and --mqtt-broker-host. Does not mint tap/ or cam/ sessions.
+    """)
+parser.add_argument('--mqtt-device-id', type=str, default="",
+    help="Device segment for duet/{device}/tool (must match your collector). Default empty.")
+parser.add_argument('--mqtt-broker-host', type=str, default="",
+    help="Broker hostname for M586 P4 (no mqtt:// prefix). Default empty.")
+parser.add_argument('--mqtt-broker-port', type=int, default=1883,
+    help="Broker TCP port for M586 P4 (default 1883).")
+parser.add_argument('--mqtt-job-file', type=str, default="",
+    help="Optional override for duet/{device}/tool job_file when the output basename is only a program number.")
+
 
 # RRF Strings are not allowed to contain certain characters and
 # quotes must be doubled up.
 def rrf_safe_string(s):
     return re.sub(r'([^"0-9a-z\.:,=_\-\s])', "", s, flags=re.IGNORECASE).replace('"', '""')
+
+MQTT_M118_MAX = 240
+
+
+def mqtt_trim(s):
+    if s is None:
+        return ""
+    return str(s).strip()
+
+
+def mqtt_sanitize_segment(s):
+    return re.sub(r"[^0-9a-zA-Z._-]", "", mqtt_trim(s))
+
+
+def mqtt_looks_like_job_file_name(name):
+    """Reject bare Fusion-style program numbers (e.g. '8910' / '8910.gcode')."""
+    t = mqtt_trim(name)
+    if not t:
+        return False
+    if re.fullmatch(r"[0-9]+", t):
+        return False
+    if re.fullmatch(r"[0-9]+\.(gcode|g|gc|nc|tap|cnc)", t, flags=re.IGNORECASE):
+        return False
+    return True
+
+
+def mqtt_job_file_name(path, override=""):
+    """Prefer explicit override, then path basename; never keep '<number>.gcode'."""
+    for candidate in (override, path):
+        name = os.path.basename(candidate) if candidate else ""
+        name = re.sub(r"[^0-9a-zA-Z._\- /]", "", name, flags=re.IGNORECASE)[:64]
+        if mqtt_looks_like_job_file_name(name):
+            return name
+    return "job.gcode"
+
+
+def mqtt_require_config(args):
+    if not args.mqtt_telemetry:
+        return False
+    device_id = mqtt_sanitize_segment(args.mqtt_device_id)
+    host = mqtt_trim(args.mqtt_broker_host)
+    if not device_id or not host:
+        raise ValueError(
+            "MQTT telemetry is enabled but --mqtt-device-id and --mqtt-broker-host "
+            "must both be set for the collector."
+        )
+    return True
+
+
+def mqtt_connect_preamble_lines(args):
+    device_id = mqtt_sanitize_segment(args.mqtt_device_id)
+    host = mqtt_trim(args.mqtt_broker_host).replace('"', "")
+    port = args.mqtt_broker_port if args.mqtt_broker_port else 1883
+    return [
+        "; MQTT: ensure RRF client connected (SBC)",
+        "G4 P2",
+        f'M586.4 C"{device_id}"',
+        f'M586 P4 H"{host}" R{port} S1',
+        "G4 P3",
+        "",
+    ]
+
+
+def mqtt_tool_publish_line(args, event_name, tool_number, previous_tool, job_file):
+    device_id = mqtt_sanitize_segment(args.mqtt_device_id)
+    topic = f"duet/{device_id}/tool"
+    payload = {
+        "event": event_name,
+        "tool_number": int(tool_number),
+    }
+    if previous_tool is not None and int(previous_tool) >= 0:
+        payload["previous_tool"] = int(previous_tool)
+    if job_file:
+        payload["job_file"] = job_file
+
+    def render(data):
+        body = json.dumps(data, separators=(",", ":"), ensure_ascii=True)
+        escaped = body.replace('"', '""')
+        return f'M118 P6 S"{escaped}" T"{topic}"'
+
+    line = render(payload)
+    while len(line) > MQTT_M118_MAX:
+        jf = payload.get("job_file")
+        if isinstance(jf, str) and len(jf) > 12:
+            payload["job_file"] = jf[: max(8, len(jf) - 16)].rstrip() + "~"
+            line = render(payload)
+            continue
+        if "previous_tool" in payload:
+            del payload["previous_tool"]
+            line = render(payload)
+            continue
+        if "job_file" in payload:
+            del payload["job_file"]
+            line = render(payload)
+            continue
+        raise ValueError(
+            f"MQTT M118 line still {len(line)} chars after compacting "
+            f"(limit {MQTT_M118_MAX})"
+        )
+    return line
+
 
 # Define output class. This is used to output both
 # commands and their nested variables. Output() instances
@@ -558,7 +675,7 @@ class NxtPostProcessor(PostProcessor):
 
     _T   = Output(fmt=FORMATS.CMD, prefix='T', ctrl=Control.FORCE)
 
-    def __init__(self, args={}):
+    def __init__(self, args={}, job_file=""):
         super().__init__(POST_PREFIX, vendor=RELEASE.VENDOR, args=args)
         self._MOVES           = self._LINEAR_MOVES + self._ARC_MOVES + self._CANNED_CYCLES
         self._SPINDLE_ACTIONS = self._SPINDLE_ACTIONS_START + self._SPINDLE_ACTIONS_STOP
@@ -573,6 +690,14 @@ class NxtPostProcessor(PostProcessor):
         self.cur_x = None
         self.cur_y = None
         self.cur_z = None
+        override = ""
+        if isinstance(args, dict):
+            override = args.get("mqtt_job_file", "") or ""
+        else:
+            override = getattr(args, "mqtt_job_file", "") or ""
+        self.job_file = mqtt_job_file_name(job_file, override=override)
+        self.mqtt_tool_event_count = 0
+        self.mqtt_previous_tool = None
 
         with self.Section(Section.PRE):
             # Warn operator
@@ -832,9 +957,32 @@ class NxtPostProcessor(PostProcessor):
         self._updateCurrentPose(params)
 
     def ontoolchange(self, _, params):
-        self.T(params[ARGS.TOOL])
+        tool_number = params[ARGS.TOOL]
+        self.T(tool_number)
         self.spindle_started = False
         self.brk()
+        if mqtt_require_config(self.args):
+            has_prev = (
+                self.mqtt_previous_tool is not None
+                and int(self.mqtt_previous_tool) >= 0
+            )
+            event_name = (
+                "start"
+                if self.mqtt_tool_event_count == 0 and not has_prev
+                else "change"
+            )
+            self.mqtt_tool_event_count += 1
+            self.comment("MQTT: duet tool change (active session)")
+            line = mqtt_tool_publish_line(
+                self.args,
+                event_name,
+                tool_number,
+                self.mqtt_previous_tool,
+                self.job_file,
+            )
+            self.cmd(line)
+            self.brk()
+            self.mqtt_previous_tool = int(tool_number)
         return False
 
     def onspindle(self, code, params):
@@ -1019,6 +1167,18 @@ class NxtPostProcessor(PostProcessor):
             self.G(GCODES.FEED_PER_MIN) # Feeds are per-minute
             self.brk()
 
+            if mqtt_require_config(self.args):
+                for line in mqtt_connect_preamble_lines(self.args):
+                    if line == "":
+                        self.brk()
+                    elif line.startswith(";"):
+                        # comment() adds its own delimiters — strip leading "; "
+                        text = line[1:].lstrip()
+                        self.comment(text)
+                    else:
+                        self.cmd(line)
+                self.brk()
+
             if self.args.vssc:
                 self.comment("Enable Variable Spindle Speed Control")
                 self.M(MCODES.VSSC_ENABLE, P=self.args.vssc_period, V=self.args.vssc_variance)
@@ -1043,7 +1203,7 @@ class NxtPostProcessor(PostProcessor):
         return super().output()
 
 # Parse and export the CAM objects.
-def export(objectslist, _, argstring):
+def export(objectslist, filename, argstring):
     try:
         args = parser.parse_args(shlex.split(argstring))
     except Exception as e:
@@ -1051,8 +1211,11 @@ def export(objectslist, _, argstring):
         pprint.pprint(e)
         sys.exit(1)
 
+    # Fail fast if MQTT is on without collector identity fields.
+    mqtt_require_config(args)
+
     # Instantiate the Milo post-processor
-    pp = NxtPostProcessor(args=args)
+    pp = NxtPostProcessor(args=args, job_file=filename or "")
 
     pp.parse(objectslist)
 

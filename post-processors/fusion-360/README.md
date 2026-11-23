@@ -82,3 +82,21 @@ In this mode, no work piece probing code will be generated automatically - but y
 You can set individual output settings to `No` to disable some of the default functionality (e.g. "Home Before Start" can be turned off, amongst others), or you can disable all the pre-configuration commands by setting "Output job setup commands" to `No`.
 
 If disabling any or all of these settings, please read the output g-code before running it on your machine to confirm that you have configured the machine in the way that the g-code expects prior to running the program.
+
+## MQTT telemetry (optional)
+
+For Jarvis / tap-testing collectors, enable **MQTT telemetry** in Post properties:
+
+| Property | Default | Role |
+|----------|---------|------|
+| Enable MQTT telemetry | Off | Emit `M586` reconnect + `M118 P6` tool publishes |
+| MQTT device ID | *(blank)* | `duet/{device}/tool` segment — fill to match your collector |
+| MQTT broker host | *(blank)* | Hostname for `M586 P4` (no `mqtt://`) |
+| MQTT broker port | `1883` | Static default; overridable |
+| MQTT job file name | *(blank)* | Optional `job_file` override when NC output is only `8910.gcode` |
+
+When enabled, **device ID and broker host are required** or the post errors. Publishes go to `duet/{device}/tool` (flat JSON: `event`, `tool_number`, optional `previous_tool` / `job_file`) so Jarvis binds to the **active** live-spindle session. This does **not** replace Pi `tap-spindle` ADXL on `tap/#`, and it does **not** mint `cam/.../session`. Duet MQTT must already be usable on the SBC (see tap-testing docs: `dsf-config.g`, not `nxt-user-overrides.g`).
+
+**`job_file` / `event` with Post Process All:** Use the local **`PPAll`** add-in (sibling repo). It posts each op as temp `8910` (Personal Use split) then renames to the setup name, and **rewrites** MQTT `job_file` to the final basename plus `start`→`change` after combine. For a manual Fusion post (no add-in), set NC output name or **MQTT job file name** yourself.
+
+**`event`:** first tool publish is `start`; later tools are `change` when the post runs as one invocation. Accel/spectrum still requires tap-spindle on `tap/#`.

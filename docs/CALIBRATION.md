@@ -149,6 +149,8 @@ What the Calibration tab (and related cycles) can and cannot do with a touch pro
 
 **Dial stroke:** `M5014` commanded legs must stay within typical indicator travel (**~25 mm**). Default **8 / 16 / 24 mm** (TR8×8 1×/2×/3× lead) is intentional — do not raise the third leg above ~25 mm without a longer-stroke gauge. Probe-side positioning moves (`M5017`/`M5018` outside, `G9000` overshoot) are machine travel, not dial reads.
 
+**Axis limits:** RRF 3.7 shortens a relative move at the axis limits without an error (`M564 R1`), which would make the result wrong. `M5014` checks that the 24 mm leg stays inside the limits before it starts, and stops with an error if it doesn't. Start further from the limit and run it again.
+
 **Procedure** (Calibration tab → `M5014`):
 1. Secure the 1-2-3 block (**3″∥X**). Select which face you are measuring; travel is **away** from that face.
 2. Jog the indicator onto the face and **zero the dial**.
@@ -287,6 +289,7 @@ The Calibration tab wizard:
 4. Same approach direction/speed ⇒ **tip radius and stylus deflection cancel in R**
 5. With backlash `b` and no M425: `hit1 ≈ hit0 + dirToward×b` ⇒ `R ≈ b`
 6. UI `classifyTravelCalibration` proposes M425 = constant intercept of `(measured − D)` vs D (not mean |error|)
+7. Before each away move, `G9000` checks that D stays inside the axis limits and stops with an error if it doesn't. RRF 3.7 would otherwise shorten the move without an error (`M564 R1`).
 
 **Cluster refine (`|mean+ − mean−|`) — only when both approaches are free-space safe:**
 

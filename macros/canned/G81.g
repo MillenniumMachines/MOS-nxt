@@ -9,26 +9,30 @@ M98 P"nxt-canned-spindle.g"
 M98 P"nxt-canned-zindex.g"
 
 var zi = { global.nxtCannedZi }
-var startSeriesZ = { move.axes[zi].userPosition }
+var startSeriesZ = { move.axes[var.zi].userPosition }
 
 if { global.nxtCannedCycle != null && global.nxtCannedCycle[0] != 81 }
     set global.nxtCannedCycle = { null }
 
 var prev = { global.nxtCannedCycle }
-var tZ = { exists(param.Z) ? param.Z : (prev != null ? prev[1] : null) }
-var tR = { exists(param.R) ? param.R : (prev != null ? prev[2] : null) }
-var tF = { exists(param.F) ? param.F : (prev != null ? prev[4] : null) }
+var tZ = { exists(param.Z) ? param.Z : (var.prev != null ? var.prev[1] : null) }
+var tR = { exists(param.R) ? param.R : (var.prev != null ? var.prev[2] : null) }
+var tF = { exists(param.F) ? param.F : (var.prev != null ? var.prev[4] : null) }
 var tX = { exists(param.X) ? param.X : null }
 var tY = { exists(param.Y) ? param.Y : null }
 
-if { prev == null }
+if { var.prev == null }
     if { var.tZ == null || var.tR == null || var.tF == null }
         abort { "G81: Z, R, and F required on first use after G80 or other cycle" }
-    set global.nxtCannedCycle = { vector(8, null) }
+    set global.nxtCannedCycle = { vector(9, null) }
     set global.nxtCannedCycle[0] = { 81 }
     set global.nxtCannedCycle[3] = { null }
-    set global.nxtCannedCycle[5] = { var.startSeriesZ }
     set global.nxtCannedCycle[7] = { null }
+
+; G98 initial Z: taken at the start of a series, i.e. the first cycle after G80 or another
+; cycle, or when Z has moved since the last final retract ([8]), e.g. a CAM G0 between operations.
+if { global.nxtCannedCycle[8] == null || abs(var.startSeriesZ - global.nxtCannedCycle[8]) > 0.001 }
+    set global.nxtCannedCycle[5] = { var.startSeriesZ }
 
 set global.nxtCannedCycle[1] = { var.tZ }
 set global.nxtCannedCycle[2] = { var.tR }

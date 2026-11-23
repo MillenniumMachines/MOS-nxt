@@ -61,11 +61,23 @@ if { result != 0 }
 M5000 P0
 var startPos = { global.nxtAbsPos }
 
+; TR8x8 lead 8 mm → travel legs 1× / 2× / 3× lead (≤ ~25 mm dial stroke)
+var distances = { 8.0, 16.0, 24.0 }
+
+; RRF 3.7 clamps a relative move at the M208 limits (M564 R1) without an error,
+; which would shorten the away move and skew the result. Every leg starts here,
+; so check the longest one before starting. The limits apply to machinePosition
+; (after tool offsets), not to nxtAbsPos. M5000 above has already run M400.
+var farPos = { move.axes[var.axisIdx].machinePosition + var.dirAway * var.distances[2] }
+var axMin = { move.axes[var.axisIdx].min }
+var axMax = { move.axes[var.axisIdx].max }
+var pastLimit = { var.farPos < var.axMin || var.farPos > var.axMax }
+if { move.limitAxes && move.axes[var.axisIdx].homed && var.pastLimit }
+    abort { "M5014: a " ^ var.distances[2] ^ " mm move away would pass the " ^ var.letter ^ " limit. Start further from it." }
+
 M98 P"nxt-cal-travel-seed.g"
 set global.nxtCalTravelAxis = { var.letter }
 
-; TR8x8 lead 8 mm → travel legs 1× / 2× / 3× lead (≤ ~25 mm dial stroke)
-var distances = { 8.0, 16.0, 24.0 }
 var meas0 = 0.0
 var meas1 = 0.0
 var meas2 = 0.0
