@@ -695,77 +695,15 @@ function mqttRenderToolLine(eventName, toolNumber, previousTool, jobFile) {
   return line;
 }
 
-/** Sidecar next to NC output so multi-setup concatenations keep event start/change. */
-function mqttEventStatePath() {
-  try {
-    if (typeof getOutputPath !== "function") {
-      return "";
-    }
-    var out = getOutputPath();
-    if (!out) {
-      return "";
-    }
-    return String(out) + ".nxt-mqtt-events";
-  } catch (e) {
-    return "";
-  }
-}
-
-function mqttLoadEventCount() {
-  var count = mqttToolEventCount;
-  var path = mqttEventStatePath();
-  if (!path || typeof FileSystem === "undefined") {
-    return count;
-  }
-  try {
-    if (FileSystem.isFile && FileSystem.isFile(path) && FileSystem.openTextFile) {
-      var f = FileSystem.openTextFile(path, false);
-      var line = f.readln ? f.readln() : "";
-      if (f.close) {
-        f.close();
-      }
-      var n = parseInt(mqttTrimString(line), 10);
-      if (!isNaN(n) && n > count) {
-        count = n;
-      }
-    }
-  } catch (eLoad) {
-    // ignore — fall back to in-memory count
-  }
-  return count;
-}
-
-function mqttSaveEventCount(count) {
-  var path = mqttEventStatePath();
-  if (!path || typeof FileSystem === "undefined" || !FileSystem.openTextFile) {
-    return;
-  }
-  try {
-    var f = FileSystem.openTextFile(path, true);
-    if (f.writeln) {
-      f.writeln(String(count));
-    } else if (f.write) {
-      f.write(String(count));
-    }
-    if (f.close) {
-      f.close();
-    }
-  } catch (eSave) {
-    // ignore
-  }
-}
-
 function writeMqttToolPublish(toolNumber, previousTool) {
   if (!mqttTelemetryActive()) {
     return;
   }
-  // Prefer previousTool when known; otherwise fall back to publish count in this
-  // invocation (and sidecar across multi-setup concatenations).
-  mqttToolEventCount = mqttLoadEventCount();
+  // Prefer previousTool when known; otherwise fall back to the publish count in this
+  // post invocation (all setups posted into one file share it).
   var hasPrev = previousTool !== undefined && previousTool !== null && previousTool >= 0;
   var eventName = (mqttToolEventCount === 0 && !hasPrev) ? "start" : "change";
   mqttToolEventCount++;
-  mqttSaveEventCount(mqttToolEventCount);
   writeComment("MQTT: duet tool change (active session)");
   // writeln so tool MQTT is not dropped if writeBlock/formatWords is empty.
   writeln(mqttRenderToolLine(eventName, toolNumber, previousTool, mqttJobFileName()));
