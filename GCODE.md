@@ -194,16 +194,16 @@ Probes 2 points along a surface in X or Y to find the rotation angle. Stores the
 
 ### G6508: Outside Corner Probe
 
-Probes an outside corner with **adaptive multi-point** faces. Operator supplies face lengths **`H`** (X-normal face along Y) and **`I`** (Y-normal face along X). Each face is sampled **near → mid → far along the face, away from the corner**. Positioning is **XY then Z** (never simultaneous XYZ). After the X-face, Z raises to jog start height; the Y-face uses **flipped** `dirX`/`dirY` (same as **G6508.1**) so **`E`** is along X and **`C`** is off the Y-wall. Point count is **3** when face length ≥ **2 × tip diameter** (`2 × nxtProbeTipRadius`) and span allows end insets **`E`**; otherwise **1** point at **`E`**. Line-fit + intersection → corner XY and skew **θ** (stored for **M5011** job-start **G68** when **`U`**). **`C`** defaults to **5** mm. Finish: **`M400`**, raise to jog **startZ** with **XY pinned** (`G53 G1`), then **`G53 G1`** to the fitted corner XY at that Z (not **`G6550`/`G38.3`**, not work **`G0 X0 Y0`**). With **`U`**, applies WCS via **`M98 P"nxt-wcs-apply.g"`** (no post-apply **`G0`**). Without **`U`**, already parked at the corner. Never work **Z0**.
+Probes an outside corner with **adaptive multi-point** faces. Operator supplies the part's lengths along X (**`H`**) and Y (**`I`**), away from the corner. Each face is sampled **near → mid → far along the face, away from the corner**. Positioning is **XY then Z** (never simultaneous XYZ). After the X-face, Z raises to jog start height; the Y-face uses **flipped** `dirX`/`dirY` (same as **G6508.1**) so **`E`** is along X and **`C`** is off the Y-wall. Point count is **3** when face length ≥ **2 × tip diameter** (`2 × nxtProbeTipRadius`) and span allows end insets **`E`**; otherwise **1** point at **`E`**. Line-fit + intersection → corner XY and skew **θ** (stored for **M5011** job-start **G68** when **`U`**). **`C`** defaults to **5** mm. Finish: **`M400`**, raise to jog **startZ** with **XY pinned** (`G53 G1`), then **`G53 G1`** to the fitted corner XY at that Z (not **`G6550`/`G38.3`**, not work **`G0 X0 Y0`**). With **`U`**, applies WCS via **`M98 P"nxt-wcs-apply.g"`** (no post-apply **`G0`**). Without **`U`**, already parked at the corner. Never work **Z0**.
 
-**Usage:** `G6508 P|U N<corner> L<depth> H<xFaceLen> I<yFaceLen> [X] [Y] [F] [R] [C] [O] [E] [Q]`
+**Usage:** `G6508 P|U N<corner> L<depth> H<lengthX> I<lengthY> [X] [Y] [F] [R] [C] [O] [E] [Q]`
 
 **Parameters:**
 - `P` or `U`: Result row **`P`** **or** workplace **`U`** (1–9) — **REQUIRED** (one of)
 - `N`: Corner index — **REQUIRED** — `0` Front Left, `1` Front Right, `2` Back Right, `3` Back Left
 - `L`: Depth to move down before probing (mm) - **REQUIRED**
-- `H`: X-normal face length along Y, away from corner (mm) — **REQUIRED**
-- `I`: Y-normal face length along X, away from corner (mm) — **REQUIRED**
+- `H`: Part length along X (front/back edge), away from corner (mm) — **REQUIRED**
+- `I`: Part length along Y (left/right edge), away from corner (mm) — **REQUIRED**
 - `X`, `Y`: Optional absolute probe targets (override N-derived targets)
 - `F`: Optional speed override (mm/min)
 - `R`: Number of retries for averaging
@@ -220,14 +220,14 @@ Probes an outside corner with **adaptive multi-point** faces. Operator supplies 
 
 Same adaptive multi-point / line-fit behavior as **G6508**, with pocket-air dirs on the first face then the **same relative flip** for the Y-face (`E` along X, `C` off Y). Positioning is **XY then Z**. **`C`** defaults to **5** mm. Finish matches **G6508**: **`G53 G1`** raise to **startZ** with XY pinned, then **`G53 G1`** to the fitted corner; **`U`** applies via **`nxt-wcs-apply.g`** (no **`G0`**). Never work **Z0**.
 
-**Usage:** `G6509 P|U N<corner> L<depth> H<xFaceLen> I<yFaceLen> [X] [Y] [F] [R] [C] [O] [E] [Q]`
+**Usage:** `G6509 P|U N<corner> L<depth> H<lengthX> I<lengthY> [X] [Y] [F] [R] [C] [O] [E] [Q]`
 
 **Parameters:**
 - `P` or `U`: Result row **`P`** **or** workplace **`U`** (1–9) — **REQUIRED** (one of)
 - `N`: Corner index 0–3 — **REQUIRED** (same names as **G6508**)
 - `L`: Depth to move down into corner (mm) - **REQUIRED**
-- `H`: X-normal face length along Y, away from corner (mm) — **REQUIRED**
-- `I`: Y-normal face length along X, away from corner (mm) — **REQUIRED**
+- `H`: Part length along X (front/back edge), away from corner (mm) — **REQUIRED**
+- `I`: Part length along Y (left/right edge), away from corner (mm) — **REQUIRED**
 - `X`, `Y`: Optional absolute probe targets (override N-derived targets)
 - `F`: Optional speed override (mm/min)
 - `R`: Number of retries for averaging
@@ -347,22 +347,22 @@ Probe-mode travel residual test on one axis (TR8×8 legs). Estimates **backlash 
 
 ### G6520: Vise Corner Probe
 
-Runs a **single** Z probe for vise top (multi-point Z deferred), then outside-corner X/Y faces with the same adaptive **H/I** multi-point / line-fit as **G6508** (including **flipped dirs** on the Y-face). Positioning is **XY then Z**; Z raises to jog start height between faces. **`C`** defaults to **5** mm. Probe id is always **`global.nxtTouchProbeID`** (**`I`** is the Y-face length). Finish matches **G6508**: **`G53 G1`** to **corner XY at jog start Z** (never work **Z0** / probed top). With **`U`**, **`nxt-wcs-apply.g`** with **X1 Y1 Z1** (no **`G0`**).
+Jog the probe over the top of the part near the corner, within **`C`** of both edges and less than **`C`** above the top. Runs a **single** Z probe straight down from there for the vise top (multi-point Z deferred), then outside-corner X/Y faces, each sampled over its length minus **`C`** from the jog position (so **`H`** and **`I`** must exceed **`C` + `E`**) with the same adaptive **H/I** multi-point / line-fit as **G6508** (including **flipped dirs** on the Y-face). Positioning is **XY then Z**; Z raises to jog start height between faces. **`C`** defaults to **5** mm. Probe id is always **`global.nxtTouchProbeID`** (**`I`** is the length along Y). Finish matches **G6508**: **`G53 G1`** to **corner XY at jog start Z** (never work **Z0** / probed top). With **`U`**, **`nxt-wcs-apply.g`** with **X1 Y1 Z1** (no **`G0`**).
 
-**Usage:** `G6520 P|U N<corner> L<depth> H<xFaceLen> I<yFaceLen> [X] [Y] [F] [R] [C] [O] [E] [Q]`
+**Usage:** `G6520 P|U N<corner> L<depth> H<lengthX> I<lengthY> [X] [Y] [F] [R] [C] [O] [E] [Q]`
 
 **Parameters:**
 - `P` or `U`: Result row **`P`** **or** workplace **`U`** (1–9) — **REQUIRED** (one of)
 - `N`: Corner index 0–3 — **REQUIRED** (same names as **G6508**)
-- `L`: Probe depth below starting position - **REQUIRED**
-- `H`: X-normal face length along Y (mm) — **REQUIRED**
-- `I`: Y-normal face length along X (mm) — **REQUIRED**
+- `L`: Depth below the top surface for the side probes; must be more than the probe tip radius - **REQUIRED**
+- `H`: Part length along X (front/back edge) (mm) — **REQUIRED**
+- `I`: Part length along Y (left/right edge) (mm) — **REQUIRED**
 - `X`, `Y`: Optional absolute probe targets (override N-derived targets)
 - `F`: Optional speed override (mm/min)
 - `R`: Number of retries for averaging
-- `C`: Approach clearance — air gap from the face being probed (default: **5** mm)
-- `O`: Overtravel toward faces (default: 2mm)
-- `E`: Corner offset — inset from the corner for samples / Z (default: `global.nxtCornerOffset`, **5** mm)
+- `C`: Approach clearance — air gap from the face being probed, and the most the start may be above the top (default: **5** mm)
+- `O`: Overtravel toward faces, and past the top for the top search, which goes down **`C` + `O`** (default: 2mm)
+- `E`: Corner offset — inset from the corner for the face samples (default: `global.nxtCornerOffset`, **5** mm)
 - `Q`: Job-start **M5011** policy when **`U`** is used (via **nxt-wcs-apply Q**)
 
 **Results:** Stores X, Y, Z and rotation slot **θ**. Sets `nxtWPCnrNum[slot]` when present.
