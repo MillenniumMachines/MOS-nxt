@@ -242,7 +242,7 @@ properties = {
   },
   mqttBrokerHost: {
     title: "MQTT broker host",
-    description: "Broker hostname for M586 P4 (no mqtt:// prefix). Leave blank until you enable MQTT telemetry.",
+    description: "Broker for M586 P4 (no mqtt:// prefix). A standalone board needs an IPv4 address; a hostname only works in SBC mode. Leave blank until you enable MQTT telemetry.",
     group: "mqttTelemetry",
     scope: "post",
     type: "string",
@@ -627,11 +627,14 @@ function writeMqttConnectPreamble() {
     port = 1883;
   }
   // Use writeln (not writeBlock) so multi-setup re-entry cannot modal-suppress M586.
-  writeComment("MQTT: ensure RRF client connected (SBC)");
-  writeln("G4 P2");
+  // RRF and DSF refuse M586.4 (and DSF M586 P4 S1) while MQTT is already enabled, the
+  // case from the second job on, so disable it first. G4 S is seconds; G4 P is milliseconds.
+  writeComment("MQTT: connect the RRF client to the broker");
+  writeln("M586 P4 S0");
+  writeln("G4 S2");
   writeln('M586.4 C"' + deviceId + '"');
   writeln('M586 P4 H"' + host + '" R' + port + " S1");
-  writeln("G4 P3");
+  writeln("G4 S3");
   writeln("");
 }
 

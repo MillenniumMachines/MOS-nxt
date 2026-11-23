@@ -91,11 +91,11 @@ For Jarvis / tap-testing collectors, enable **MQTT telemetry** in Post propertie
 |----------|---------|------|
 | Enable MQTT telemetry | Off | Emit `M586` reconnect + `M118 P6` tool publishes |
 | MQTT device ID | *(blank)* | `duet/{device}/tool` segment — fill to match your collector |
-| MQTT broker host | *(blank)* | Hostname for `M586 P4` (no `mqtt://`) |
+| MQTT broker host | *(blank)* | Broker for `M586 P4` (no `mqtt://`). A standalone board needs an IPv4 address (RRF doesn't look up hostnames); a hostname only works in SBC mode. |
 | MQTT broker port | `1883` | Static default; overridable |
 | MQTT job file name | *(blank)* | Optional `job_file` override when NC output is only `8910.gcode` |
 
-When enabled, **device ID and broker host are required** or the post errors. Publishes go to `duet/{device}/tool` (flat JSON: `event`, `tool_number`, optional `previous_tool` / `job_file`) so Jarvis binds to the **active** live-spindle session. This does **not** replace Pi `tap-spindle` ADXL on `tap/#`, and it does **not** mint `cam/.../session`. Duet MQTT must already be usable on the SBC (see tap-testing docs: `dsf-config.g`, not `nxt-user-overrides.g`).
+When enabled, **device ID and broker host are required** or the post errors. At job start the post disables MQTT (`M586 P4 S0`), configures the client (`M586.4`) and enables it again, because the board refuses `M586.4` while MQTT is already on. Publishes go to `duet/{device}/tool` (flat JSON: `event`, `tool_number`, optional `previous_tool` / `job_file`) so Jarvis binds to the **active** live-spindle session. This does **not** replace Pi `tap-spindle` ADXL on `tap/#`, and it does **not** mint `cam/.../session`. Duet MQTT must already be usable on the SBC (see tap-testing docs: `dsf-config.g`, not `nxt-user-overrides.g`).
 
 **`job_file` / `event` with Post Process All:** Use the local **`PPAll`** add-in (sibling repo). It posts each op as temp `8910` (Personal Use split) then renames to the setup name, and **rewrites** MQTT `job_file` to the final basename plus `start`→`change` after combine. For a manual Fusion post (no add-in), set NC output name or **MQTT job file name** yourself.
 

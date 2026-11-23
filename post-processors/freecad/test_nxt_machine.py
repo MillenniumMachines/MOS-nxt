@@ -124,11 +124,11 @@ class TestJobFileName(unittest.TestCase):
 
 
 class TestConnectLines(unittest.TestCase):
-    def test_waits_are_seconds_and_values_quoted(self):
+    def test_disables_first_waits_are_seconds_and_values_quoted(self):
         lines = post.mqtt_connect_lines("milo", "mqtt.lan", 1883)
         self.assertEqual(
             lines[1:],
-            ["G4 S2", 'M586.4 C"milo"', 'M586 P4 H"mqtt.lan" R1883 S1', "G4 S3"],
+            ["M586 P4 S0", "G4 S2", 'M586.4 C"milo"', 'M586 P4 H"mqtt.lan" R1883 S1', "G4 S3"],
         )
 
     def test_comment_has_no_nested_parentheses(self):

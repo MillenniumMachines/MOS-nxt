@@ -183,16 +183,17 @@ Set these in the Machine editor. They are stored in the `.fcm`:
 |---|---|---|
 | `mqtt_telemetry` | off | Turns it on. Can also be changed for one export on the post dialog's Options tab. |
 | `mqtt_device_id` | empty | Device segment of the `duet/<device>/tool` topic, also the RRF MQTT client ID. Must match your collector. |
-| `mqtt_broker_host` | empty | Broker hostname or IP address, without `mqtt://`. |
+| `mqtt_broker_host` | empty | Broker, without `mqtt://`. A standalone board needs an IPv4 address (RRF doesn't look up hostnames); a hostname only works in SBC mode. |
 | `mqtt_broker_port` | `1883` | Broker TCP port. |
 | `mqtt_job_file` | empty | Set per export on the post dialog's Overview tab, never saved to the `.fcm`. Overrides `job_file`, below. |
 
 Posting fails with an error if `mqtt_telemetry` is on and the device ID or broker host is empty.
 
-The preamble connects the client before the first tool change:
+The preamble connects the client before the first tool change. It disables MQTT first, because the board refuses `M586.4` while MQTT is already on, as it is from the second job on:
 
 ```gcode
 (MQTT: connect the RRF client to the broker)
+M586 P4 S0
 G4 S2
 M586.4 C"milo"
 M586 P4 H"mqtt.lan" R1883 S1

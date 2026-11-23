@@ -263,12 +263,16 @@ def mqtt_job_file_name(*candidates):
 def mqtt_connect_lines(device_id, host, port):
     """Preamble block that (re)connects RRF's MQTT client before the first publish.
 
-    The waits are G4 S (seconds); G4 P would be milliseconds. The first lets an
-    earlier client settle before it is reconfigured, the second gives the broker
-    connection time to come up before the first M118.
+    From the second job on MQTT is already enabled, and both RRF (standalone)
+    and DSF (SBC) then refuse M586.4, and DSF also refuses M586 P4 S1. M586 P4 S0
+    disables it first; that is harmless when it was already off.
+    The waits are G4 S (seconds); G4 P would be milliseconds. The first lets the
+    earlier session close before the client is reconfigured, the second gives the
+    broker connection time to come up before the first M118.
     """
     return [
         "(MQTT: connect the RRF client to the broker)",
+        "M586 P4 S0",
         "G4 S2",
         f'M586.4 C"{device_id}"',
         f'M586 P4 H"{host}" R{int(port)} S1',
@@ -495,7 +499,9 @@ class NxtMachine(PostProcessor):
                 "label": translate("CAM", "MQTT Broker Host"),
                 "default": "",
                 "help": translate(
-                    "CAM", "Broker hostname or IP address for M586 P4, without mqtt://."
+                    "CAM",
+                    "Broker for M586 P4, without mqtt://. A standalone board needs an IPv4 "
+                    "address such as 192.168.1.10; a hostname only works in SBC mode.",
                 ),
             },
             {
