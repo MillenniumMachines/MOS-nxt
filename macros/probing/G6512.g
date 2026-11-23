@@ -82,10 +82,12 @@ elif { var.probeAxisIndex == 2 }
 elif { var.probeAxisIndex == 3 }
     M6515 A{var.targetVector[3]}
 
-var roughSpeed = { exists(param.F) ? param.F : sensors.probes[param.I].speeds[0] }
-var fineSpeed = { exists(param.F) ? param.F : sensors.probes[param.I].speeds[1] }
+; Callers pass F{var.feedRate}, which is F{null} when no feed was given: treat that as no F.
+var hasF = { exists(param.F) && param.F != null }
+var roughSpeed = { var.hasF ? param.F : sensors.probes[param.I].speeds[0] }
+var fineSpeed = { var.hasF ? param.F : sensors.probes[param.I].speeds[1] }
 
-if { var.roughSpeed == var.fineSpeed && !exists(param.F) }
+if { var.roughSpeed == var.fineSpeed && !var.hasF }
     set var.fineSpeed = { var.roughSpeed / 5 }
 
 ; Touch probe: clamp to ≤200 / ≤50 mm/min (reliable trigger; matches G6511)
@@ -104,8 +106,8 @@ if { var.isTouchProbe }
 var fastFirst = false
 ; With F every touch counts, as before. The caps can still run the first touch faster with F
 ; (G6511's R1 L0 quick find runs at 200, fine is capped to 50); that call stays one touch.
-; The feeds are compared only without F, so an F{null} binding never reaches the comparison.
-if { !exists(param.F) }
+; F{null} (no feed from a canned cycle) counts as no F, and roughSpeed/fineSpeed are probe feeds then.
+if { !var.hasF }
     set var.fastFirst = { var.roughSpeed > var.fineSpeed }
 
 ; Resolve touch-probe deflection (µm). nxtProbeDeflection is {X,Y,Z}; Z unused for now.
@@ -173,7 +175,7 @@ while { var.attempt < var.outerLimit && var.toleranceOk == false }
     ; no faster first touch (F given, equal feeds, rough below fine); fine only in a retry set after a fast touch
     var speed = { (var.fastLeft || !var.fastFirst) ? var.roughSpeed : var.fineSpeed }
     ; With F, the first touch of every set runs at roughSpeed, as before
-    if { exists(param.F) }
+    if { var.hasF }
         set var.speed = { var.roughSpeed }
     var pairsOk = true
     var v1Um = 0.0

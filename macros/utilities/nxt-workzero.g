@@ -30,8 +30,9 @@ if { state.currentTool >= 0 }
 var wzClr = { 10 }
 if { exists(global.nxtClearance) && global.nxtClearance != null }
     set var.wzClr = { global.nxtClearance }
-var wzZSafe = { var.wzOffZ + var.wzToolZ + var.wzClr }
-var wzZ0 = { var.wzOffZ + var.wzToolZ }
+; Machine Z for work Z0 with this tool: RRF has machine = user + workplace - tool offset (#76)
+var wzZSafe = { var.wzOffZ - var.wzToolZ + var.wzClr }
+var wzZ0 = { var.wzOffZ - var.wzToolZ }
 var wzHasA = { #move.axes > 3 }
 var wzA = { 0 }
 if { var.wzHasA }

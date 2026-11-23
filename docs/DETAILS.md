@@ -586,7 +586,7 @@ In nxt, **“skew” means in-plane workpiece rotation vs machine +X**, not mach
 
 > **nxt note (v0.7):** Cycle **`G65xx.1`** macros are **guided** entry (prompts → modern **`G65xx`**). They are **not** the old MOS silent execute bodies. Prefer **`GCODE.md`** for current contracts. Sections below that still say “EXECUTE” / absolute `J/K/L` describe **legacy MOS** behavior and may be stale.
 
-**WCS Z save (nxt vs legacy MOS):** Legacy **`G6510.1`** / **`G37.1`** applied raw **`mosMI[2]`** (M5000 tip hit) to **`G10 L2 Z`**, relying on probe **`L1 = 0`** or **`G37`** zeroing L1 before touch. nxt **`G6512`** stores **`hitZ − tools[].offsets[2]`** in **`nxtProbeResults`** via **`nxt-wcs-z-from-hit.g`** (shorter tool → negative L1 vs **`nxtProbeVirtualTsZ`** / probe reference). **`mosMI` ↔ `nxtAbsPos`**, **`mosTSAP` ↔ `nxtProbeVirtualTsZ`**. Regression: **`node dist/check-wcs-z-math.mjs`**.
+**WCS Z save (nxt vs legacy MOS):** Legacy **`G6510.1`** / **`G37.1`** applied raw **`mosMI[2]`** (M5000 tip hit) to **`G10 L2 Z`**, relying on probe **`L1 = 0`** or **`G37`** zeroing L1 before touch. nxt **`G6512`** stores **`hitZ + tools[].offsets[2]`** in **`nxtProbeResults`** via **`nxt-wcs-z-from-hit.g`**, where `hitZ` is the machine Z from **`M5000`** (RRF: user = machine − workplace + tool offset). A longer tool has a negative L1 against **`nxtProbeVirtualTsZ`** / the probe reference. **`mosMI` ↔ `nxtAbsPos`**, **`mosTSAP` ↔ `nxtProbeVirtualTsZ`**. Regression: **`node dist/check-wcs-z-math.mjs`**.
 
 ### G6500.1: BORE - GUIDED (was MOS execute)
 

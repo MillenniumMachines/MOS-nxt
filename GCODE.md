@@ -528,7 +528,7 @@ Applies **G68** from the last probed skew stored in **`global.nxtWPDeg`**, accor
 
 ### M5000: Get Machine Position
 
-Retrieves the current tool-compensated machine position for all axes and stores in `global.nxtAbsPos`.
+Retrieves the current machine position for all axes (the coordinates `G53` moves use, with no workplace or tool offset) and stores it in `global.nxtAbsPos`.
 
 **Usage:** `M5000`
 
@@ -603,7 +603,7 @@ Validates that target coordinates are within machine limits.
 
 Sets a Work Coordinate System (WCS) origin from the probe results table. **`G10 L2`**: **X/Y** use stored tip **M5000** coordinates; **Z** uses **tool-normalized** work-surface machine coords (**G6512** stores `hit − L1` at capture). Does **not** subtract `tools[].offsets` again at apply. Does **not** use **`G10 L20`**. After **G10** and WCS select, **`G53 G1` parks only when both X and Y were flagged** (corner/center) to those stored millimetres (**Z/A pinned** from the current pose — **never work `G0 X0 Y0`**, which nested **G53/G38** treat as **machine home**). **Single-axis X1 or Y1 does not travel** (avoids parking into a probed face; callers self-park first). **Never `G0 Z0`**. Callers raise to jog **startZ** first. **`M400`** before **G10** and before the park. Aborts if applied XY origin is **0,0** while the mill is not near machine origin (empty table vs real origin at home).
 
-**Z:** **G6512** writes **`hitZ − tools[].offsets[2]`** into the results table (legacy MOS **G6510.1** / **G37.1** used raw **`mosMI`** with **L1 = 0** by convention). No Z deflection / tip radius. **`M6520 … Z1`** sets that value as work **Z0** via **G10 L2** only — no **`G0 Z0`**. Cycles (**G6510** / **G6520**) return to jog **startZ**.
+**Z:** **G6512** writes **`hitZ + tools[].offsets[2]`** (machine Z of the touch plus the tool's L1, so user Z is 0 there) into the results table (legacy MOS **G6510.1** / **G37.1** used raw **`mosMI`** with **L1 = 0** by convention). No Z deflection / tip radius. **`M6520 … Z1`** sets that value as work **Z0** via **G10 L2** only — no **`G0 Z0`**. Cycles (**G6510** / **G6520**) return to jog **startZ**.
 
 **A:** **`M6520 … A1`** touches off the **current homed machine A** (`move.axes[3].machinePosition`), not probe-table slot 3 (XY/Z cycles leave that slot **0**). **`G10 L2 A{current}`** so work A reads **0**; A is **not** G53-parked. Aborts if A is unmapped or not homed.
 
@@ -800,7 +800,7 @@ Pauses or resumes the nxt daemon forever-loop so DWC/DSF can install or upgrade 
 
 ### Absolute Position
 
-- **`global.nxtAbsPos`**: Current tool-compensated machine position
+- **`global.nxtAbsPos`**: Current machine position (`G53` coordinates, no offsets)
   - Updated by M5000
   - Vector: `[X, Y, Z, A]`
 

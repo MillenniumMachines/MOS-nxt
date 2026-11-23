@@ -216,8 +216,14 @@ var m1x = { (var.xPx + var.xMx) / 2 }
 var m1y = { (var.xPy + var.xMy) / 2 }
 var m2x = { (var.yPx + var.yMx) / 2 }
 var m2y = { (var.yPy + var.yMy) / 2 }
-var solvedCx = { (var.m1x + var.m2x) / 2 }
-var solvedCy = { (var.m1y + var.m2y) / 2 }
+; Centre = where the X mid-line (halfway between the ±X faces) meets the Y mid-line.
+; m1y and m2x are where the probe stood, not measurements, so they must not be averaged in.
+var cosT = { cos(var.thetaDeg * pi / 180) }
+var sinT = { sin(var.thetaDeg * pi / 180) }
+var midU = { var.m1x * var.cosT + var.m1y * var.sinT }
+var midN = { var.m2y * var.cosT - var.m2x * var.sinT }
+var solvedCx = { var.midU * var.cosT - var.midN * var.sinT }
+var solvedCy = { var.midU * var.sinT + var.midN * var.cosT }
 
 var actualWidth = { sqrt(var.vx * var.vx + var.vy * var.vy) }
 var actualHeight = { sqrt(var.wx * var.wx + var.wy * var.wy) }

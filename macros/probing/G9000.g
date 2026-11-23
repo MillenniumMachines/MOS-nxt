@@ -140,7 +140,9 @@ while { var.leg < 3 }
 
         M5000 P0
         var cur2 = { global.nxtAbsPos[var.axisIdx] }
-        var tgt1 = { var.cur2 + var.dir * var.overshoot }
+        ; Return probe must cover the away move as well as the overshoot, or legs 2/3
+        ; (16/24 mm + backoff) stop short of the face with "Probe failed to trigger".
+        var tgt1 = { var.cur2 + var.dir * (var.dCmd + var.overshoot) }
 
         if { var.axisIdx == 0 }
             G6512 X{var.tgt1} I{var.probeId}
