@@ -101,8 +101,16 @@ if { var.tsProbeTravelAvail < 5.0 }
 ; --- 4. Probe toolsetter with datum ---
 echo "M5016: Probing toolsetter at X=" ^ var.tsX ^ " Y=" ^ var.tsY
 G53 G0 X{var.tsX} Y{var.tsY}
+; The datum is a raw machine Z. G6512's Z result (nxtLastProbeResult) adds the selected
+; tool's L1, and M5016 doesn't change the selected tool, so a measured cutter left
+; selected would shift the datum and every tool measured after it (#82). Use the raw
+; hit that G6512 records in nxtWcsHitZ, cleared first so a stale value can't be used.
+if { exists(global.nxtWcsHitZ) }
+    set global.nxtWcsHitZ = null
 G6512 Z{var.tsProbeTargetZ} I{global.nxtToolSetterID}
-var zAct = { global.nxtLastProbeResult }
+if { !exists(global.nxtWcsHitZ) || global.nxtWcsHitZ == null }
+    abort { "M5016: G6512 did not record a Z hit" }
+var zAct = { global.nxtWcsHitZ }
 
 set global.nxtToolSetterPos = { var.tsX, var.tsY, var.zAct }
 echo "M5016: nxtToolSetterPos = {" ^ var.tsX ^ ", " ^ var.tsY ^ ", " ^ var.zAct ^ "}"
