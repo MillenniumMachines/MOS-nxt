@@ -139,21 +139,17 @@ var parkFeed = { 3000 }
 var parkPid = { global.nxtTouchProbeID }
 if { var.parkPid != null && sensors.probes[var.parkPid] != null }
     set var.parkFeed = { sensors.probes[var.parkPid].travelSpeed }
-var pinX = { move.axes[0].machinePosition }
-var pinY = { move.axes[1].machinePosition }
 var pinZ = { move.axes[2].machinePosition }
 var pinA = { 0 }
 var parkHasA = { #move.axes > 3 }
 if { var.parkHasA }
     set var.pinA = { move.axes[3].machinePosition }
-var parkX = { var.offsetX != null ? var.offsetX : var.pinX }
-var parkY = { var.offsetY != null ? var.offsetY : var.pinY }
 var parkBothXY = { var.offsetX != null && var.offsetY != null }
 if { var.parkBothXY }
     if { var.parkHasA }
-        G53 G1 F{var.parkFeed} X{var.parkX} Y{var.parkY} Z{var.pinZ} A{var.pinA}
+        G53 G1 F{var.parkFeed} X{var.offsetX} Y{var.offsetY} Z{var.pinZ} A{var.pinA}
     else
-        G53 G1 F{var.parkFeed} X{var.parkX} Y{var.parkY} Z{var.pinZ}
+        G53 G1 F{var.parkFeed} X{var.offsetX} Y{var.offsetY} Z{var.pinZ}
     M400
 
 ; G69 + clear job G68 so setup jogging is unrotated. Job-start M5011 re-applies.
@@ -171,7 +167,10 @@ if { var.offsetX != null }
 if { var.offsetY != null }
     var nxtDy = { var.nxtMy - var.offsetY }
     echo "M6520: origin Y vs machine dY=" ^ var.nxtDy
-echo "M6520: WCS updated; G53 G1 flagged XY (Z stays startZ)"
+if { var.parkBothXY }
+    echo "M6520: WCS updated; moved to the new XY origin (Z unchanged)"
+else
+    echo "M6520: WCS updated; no XY move (single axis)"
 
 ; Persist G10 L2 origins to SD (opt-out: set global.nxtAutoPersistWcs = false)
 M98 P"nxt-user-wcs-sync.g"
