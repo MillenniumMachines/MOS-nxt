@@ -72,3 +72,8 @@ while { var.curBottom > var.tZ + var.eps }
 
 set global.nxtCannedRetR = { var.tR }
 M98 P"nxt-canned-finish-retract.g"
+
+; Wait for the hole's moves before returning. RRF holds a pause until the cycle macro
+; returns, so it lands between holes. Without this the macro returns as soon as the moves
+; are queued, a pause can land mid-hole, and the job resumes after the cycle (#78).
+M400
