@@ -240,6 +240,14 @@ M118 P6 S"{""event"":""op"",""op_index"":2,""op_count"":5,""op_name"":""Adaptive
 - **`{"event":"end","op_count":5,"job_file":"Bracket.gcode"}`** follows the file's last operation, before the postamble.
 - RRF runs an `M118` when it reads the line, ahead of the moves still queued, so an op event can arrive a little before the machine reaches that operation; an `end` event, a little before the last moves finish.
 
+Within each operation, the cutting height publishes to `duet/<device>/z` whenever the cut moves to a new level: just before the first feed move (`G1`, `G2` or `G3`) at constant Z at a height at least 0.1 mm from the last one published. Each operation publishes its first height:
+
+```gcode
+M118 P6 S"{""event"":""z"",""z"":-9.5}" T"duet/milo/z" R1
+```
+
+That's one event per pass for facing, pocketing and profiles, and one per level for each helix hole. Moves whose Z changes as they go, such as helix ramps and 3D surfacing, don't publish, and nor do canned cycles, so a 3D finishing pass doesn't flood the broker.
+
 Every publish is retained (`R1`): the broker keeps the last message of each topic and sends it to a client as soon as it subscribes. A display started in the middle of a job shows the current tool, operation and tool details at once. Tool details have a topic per tool so that all of them are kept.
 
 `python3 post-processors/freecad/test_nxt_machine.py` tests the payload helpers and the event logic without FreeCAD.

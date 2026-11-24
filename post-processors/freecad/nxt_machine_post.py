@@ -233,6 +233,12 @@ def nxt_tool_number_message(tools):
 #   {"event":"tool","tool_number":5,"tool_name":"6mm Endmill","diameter":6,
 #    "flutes":3,"rpm":18000}
 #
+# Within each operation, the first feed move at each new cutting height (a move at
+# constant Z, at least MQTT_Z_MIN_STEP from the last height published) publishes
+# that height to duet/<device>/z; each operation publishes its first height:
+#
+#   {"event":"z","z":-9.5}
+#
 # Every publish is retained (M118 R1), so a display that connects later gets
 # the latest tool event, op event and each tool's details from the broker
 # straight away. The broker keeps the last message of each topic.
@@ -265,6 +271,16 @@ MQTT_TOOLDEF_COMPACT_STEPS = (
     ("tool_name", True), ("tool_name", False), ("rpm", False), ("flutes", False),
     ("diameter", False),
 )
+
+#: Least change in cutting height that publishes a new z event, in mm. Keeps 3D passes,
+#: whose flat moves sit at many heights, from flooding the broker.
+MQTT_Z_MIN_STEP = 0.1
+
+#: One word of a G-code line, such as X12.5 or G1.
+MQTT_GCODE_WORD = re.compile(r"([A-Z])(-?[0-9]*\.?[0-9]+)")
+
+#: Canned cycles: their Z word is the hole's depth, not a move.
+MQTT_CANNED_CYCLES = (73, 74, 76, 81, 82, 83, 84, 85, 86, 87, 88, 89)
 
 #: next_tool when the post can't tell which tool comes next: leaves it out.
 MQTT_NEXT_UNKNOWN = object()
@@ -420,6 +436,11 @@ def mqtt_tooldef_publish_line(device_id, tool_number, tool_name="", diameter=Non
         payload["rpm"] = int(mqtt_number(rpm, 0))
     return mqtt_publish_line(f"duet/{device_id}/tooldef/{int(tool_number)}", payload,
                              MQTT_TOOLDEF_COMPACT_STEPS, retain=True)
+
+
+def mqtt_z_publish_line(device_id, z):
+    """An M118 P6 line publishing a cutting height to duet/<device>/z."""
+    return mqtt_publish_line(f"duet/{device_id}/z", {"event": "z", "z": mqtt_number(z)}, (), retain=True)
 
 
 def mqtt_end_publish_line(device_id, op_count, job_file=""):
@@ -700,6 +721,9 @@ class NxtMachine(PostProcessor):
         self._mqtt_order_pos = 0
         self._mqtt_ops: List[tuple] = []  # (name, tool number) of each operation in this file
         self._mqtt_op_pos = 0
+        self._mqtt_motion = None  # modal G0-G3 of the output so far (None in a canned cycle)
+        self._mqtt_cur_z = None  # modal Z of the output so far
+        self._mqtt_pub_z = None  # the cutting height last published in this operation
         Path.Log.debug("nxt machine post processor initialized.")
 
     def init_values(self, values: Values) -> None:
@@ -1295,6 +1319,7 @@ class NxtMachine(PostProcessor):
         self._mqtt_order_pos = 0
         self._mqtt_ops = self._section_ops(sublist)
         self._mqtt_op_pos = 0
+        self._mqtt_motion = self._mqtt_cur_z = self._mqtt_pub_z = None
         if self.values.get("MQTT_TELEMETRY"):
             self._mqtt_job_file = mqtt_job_file_name(
                 self.values.get("MQTT_JOB_FILE"),
@@ -1348,17 +1373,52 @@ class NxtMachine(PostProcessor):
         return ops
 
     def _convert_item_commands(self, item, gcode_lines):
-        """Publish an MQTT op event before each operation, and an end event after the last."""
-        mqtt = self._mqtt_settings() if getattr(item, "item_type", None) == "operation" else None
-        if mqtt and self._mqtt_op_pos < len(self._mqtt_ops):
+        """Publish an MQTT op event before each operation, its cutting heights within it, and an
+        end event after the last operation."""
+        mqtt = self._mqtt_settings()
+        is_op = getattr(item, "item_type", None) == "operation"
+        if mqtt and is_op and self._mqtt_op_pos < len(self._mqtt_ops):
             gcode_lines.extend(self._mqtt_op_lines(mqtt[0]))
+        first = len(gcode_lines)
         super()._convert_item_commands(item, gcode_lines)
-        if mqtt and self._mqtt_ops and self._mqtt_op_pos == len(self._mqtt_ops):
+        if mqtt:  # every item's moves keep the modal Z; only operations publish heights
+            if is_op:
+                self._mqtt_pub_z = None
+            gcode_lines[first:] = [self._mqtt_z_lines(mqtt[0], chunk, is_op)
+                                   for chunk in gcode_lines[first:]]
+        if mqtt and is_op and self._mqtt_ops and self._mqtt_op_pos == len(self._mqtt_ops):
             gcode_lines.extend([
                 "(MQTT: publish end of file)",
                 mqtt_end_publish_line(mqtt[0], len(self._mqtt_ops), self._mqtt_job_file),
             ])
             self._mqtt_op_pos += 1  # only once
+
+    def _mqtt_z_lines(self, device_id, chunk, publish):
+        """`chunk` (one or more G-code lines) with a z event before each feed move at a new
+        cutting height, when `publish`. Follows the modal motion and Z either way."""
+        out = []
+        for line in chunk.split("\n"):
+            code = line.split("(", 1)[0].split(";", 1)[0].strip().upper()
+            if code[:1] in ("G", "X", "Y", "Z", "I", "J"):
+                words = MQTT_GCODE_WORD.findall(code)
+                for letter, value in words:
+                    if letter == "G" and float(value) in (0, 1, 2, 3):
+                        self._mqtt_motion = int(float(value))
+                    elif letter == "G" and float(value) in MQTT_CANNED_CYCLES:
+                        self._mqtt_motion = None
+                if self._mqtt_motion is not None:
+                    z = next((float(v) for letter, v in words if letter == "Z"), None)
+                    cur = self._mqtt_cur_z
+                    flat = cur is not None and (z is None or abs(z - cur) < 1e-6)
+                    cuts = self._mqtt_motion in (1, 2, 3) and any(w[0] in "XYIJ" for w in words)
+                    if (publish and flat and cuts and (self._mqtt_pub_z is None
+                                                      or abs(cur - self._mqtt_pub_z) >= MQTT_Z_MIN_STEP - 1e-9)):
+                        out.append(mqtt_z_publish_line(device_id, cur))
+                        self._mqtt_pub_z = cur
+                    if z is not None:
+                        self._mqtt_cur_z = z
+            out.append(line)
+        return "\n".join(out)
 
     def _mqtt_op_lines(self, device_id):
         """Comment and M118 P6 publish for the operation at _mqtt_op_pos, which then advances."""

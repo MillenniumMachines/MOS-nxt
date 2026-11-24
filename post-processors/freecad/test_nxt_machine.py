@@ -524,6 +524,85 @@ class TestOpEvents(unittest.TestCase):
 # ----------------------------------------------------------------------
 # Tool numbers
 # ----------------------------------------------------------------------
+class TestCuttingHeights(unittest.TestCase):
+    def setUp(self):
+        _StubFilenameGenerator.template = "/cam/out/Part"
+        _StubFilenameGenerator.fail = False
+        self.pp = _make_post()
+        self.pp._convert_start_section("allitems", [])
+
+    def heights(self, lines, publish=True):
+        out = self.pp._mqtt_z_lines("milo", "\n".join(lines), publish).split("\n")
+        return out, [json.loads(_decode(x))["z"] for x in out if ' T"duet/milo/z" R1' in x]
+
+    def test_line(self):
+        line = post.mqtt_z_publish_line("milo", -9.5)
+        self.assertEqual(line, 'M118 P6 S"{""event"":""z"",""z"":-9.5}" T"duet/milo/z" R1')
+        self.assertEqual(_decode(post.mqtt_z_publish_line("milo", -1.0)), '{"event":"z","z":-1}')
+
+    def test_facing_passes(self):
+        # MillFacing as posted: retract, rapid, then each pass steps down with X and cuts arcs.
+        lines = ["G0 Z5", "G0 Z3", "G1 F300 Z-0.5", "G2 F1900 I-37.4 J-36.0 X67.6 Y-57.3",
+                 "G2 I-48.8 J14.1 X31.0 Y-92.5", "G0 Z3", "G1 F300 X55.151 Z-1", "G2 I-37 J-36 X67 Y-57"]
+        out, zs = self.heights(lines)
+        self.assertEqual(zs, [-0.5, -1])
+        self.assertEqual(out[3], post.mqtt_z_publish_line("milo", -0.5))  # just before the first cut
+        self.assertEqual(out[4], lines[3])
+
+    def test_adaptive_plunge_then_cut(self):
+        lines = ["G0 X-0.1 Y-94.3 Z5", "G1 F960 Z-9", "G1 F920", "G1 X-0.05 Y-94.2", "G1 X0 Y-94.1",
+                 "G0 Z5", "G1 F960 Z-10", "G1 X-0.05 Y-94.2"]
+        self.assertEqual(self.heights(lines)[1], [-9, -10])
+
+    def test_helix_and_3d_publish_only_flat_levels(self):
+        helix = ["G0 X5 Y-30 Z3", "G1 F200 Z-15", "G2 I-1 J0 X3 Y-30 Z-15.25", "G2 I1 J0 X5 Y-30 Z-15.5",
+                 "G2 I-1 J0 X3 Y-30", "G2 I1 J0 X5 Y-30"]  # ramps down, then a flat circle at the bottom
+        self.assertEqual(self.heights(helix)[1], [-15.5])
+        surface = ["G1 X0 Y0 Z-1.00", "G1 X1 Z-1.04", "G1 X2 Z-1.08", "G1 X3", "G1 X4 Z-1.11", "G1 X5"]
+        self.assertEqual(self.heights(surface)[1], [-1.08])  # -1.11 is within MQTT_Z_MIN_STEP of it
+
+    def test_canned_cycles_and_rapids_publish_nothing(self):
+        lines = ["G0 X1 Y1 Z5", "G83 X1 Y1 Z-10 R2 Q1 F100", "X2 Y2", "G80", "G0 X3 Y3", "G0 Z2"]
+        self.assertEqual(self.heights(lines)[1], [])
+
+    def test_only_operations_publish_but_all_track_z(self):
+        self.assertEqual(self.heights(["G0 Z5", "G1 F100 Z-2", "G1 X1 Y1"], publish=False)[1], [])
+        self.assertEqual(self.heights(["G1 X2 Y2"])[1], [-2])  # an op starting at the height already set
+
+    def test_each_op_publishes_its_first_height(self):
+        lines = self.pp._mqtt_z_lines("milo", "G0 Z5\nG1 F100 Z-20\nG1 X1 Y1", True)
+        self.assertIn("duet/milo/z", lines)
+        self.pp._mqtt_pub_z = None  # what _convert_item_commands does at each operation
+        self.assertEqual(self.heights(["G1 X2 Y2"])[1], [-20])
+
+    def test_events_from_operations(self):
+        pp = _make_post()
+        sublist = [_tc_item(5, "6mm Endmill"), _op_item("Adaptive", 5)]
+        pp._expand_prefix([("allitems", sublist)])
+        pp._convert_start_section("allitems", sublist)
+        orig = post.PostProcessor._convert_item_commands
+
+        def fake(self, item, gcode_lines):  # an operation's moves as the base class gives them
+            gcode_lines.extend(["G0 Z5", "G1 F100 Z-3", "G1 X1 Y1", "G1 X2 Y2"])
+        post.PostProcessor._convert_item_commands = fake
+        try:
+            lines = []
+            for item in sublist:
+                pp._convert_item_commands(item, lines)
+        finally:
+            post.PostProcessor._convert_item_commands = orig
+        zs = [json.loads(_decode(x)) for x in lines if ' T"duet/milo/z" R1' in x]
+        self.assertEqual(zs, [{"event": "z", "z": -3}])  # the tool controller item publishes none
+        self.assertEqual(lines[-1], post.mqtt_end_publish_line("milo", 1, "Part.gcode"))
+
+    def test_none_with_mqtt_off(self):
+        pp = _make_post(MQTT_TELEMETRY=False)
+        pp._convert_start_section("allitems", [])
+        lines = []
+        pp._convert_item_commands(_op_item("Adaptive", 5), lines)
+        self.assertFalse(any("duet/" in line for line in lines))
+
+
 class _Quantity:
     def __init__(self, mm):
         self.mm = mm

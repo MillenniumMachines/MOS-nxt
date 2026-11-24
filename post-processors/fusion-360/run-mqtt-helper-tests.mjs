@@ -299,4 +299,36 @@ function payloadOf(line) {
   assert.deepEqual(out, []);
 }
 
+// Cutting heights on duet/<device>/z: before the first flat feed move at each new level
+{
+  const { post, out } = loadPost({ props: MQTT_ON });
+  let pos = { x: 0, y: 0, z: 5 };
+  post.getCurrentPosition = () => pos;
+  const move = (x, y, z, circular = false) => {
+    post.writeMqttZLevel(x, y, z, circular);
+    pos = { x, y, z };
+  };
+  move(0, 0, -0.5);         // plunge: not a level
+  move(10, 0, -0.5);        // first cut at -0.5
+  move(20, 0, -0.5);        // same level
+  move(20, 0, 3);           // retract (a feed move here, still not a level)
+  move(20, 0, -1);          // plunge
+  move(20, 0, -1, true);    // full circle at -1
+  move(30, 0, -1.04);       // 3D: Z changes, not a level
+  move(40, 0, -1.04);       // flat, but within MQTT_Z_MIN_STEP of -1
+  const zs = codeLines(out).map((line) => {
+    const m = /^M118 P6 S"(.*)" T"duet\/milo\/z" R1$/.exec(line);
+    assert.ok(m, line);
+    return JSON.parse(m[1].replace(/""/g, '"'));
+  });
+  assert.deepEqual(zs, [{ event: "z", z: -0.5 }, { event: "z", z: -1 }]);
+  assert.equal(post.mqttRenderZLine(-9.5), 'M118 P6 S"{""event"":""z"",""z"":-9.5}" T"duet/milo/z" R1');
+}
+{
+  const { post, out } = loadPost();  // telemetry off: no z events
+  post.getCurrentPosition = () => ({ x: 0, y: 0, z: -1 });
+  post.writeMqttZLevel(5, 0, -1, false);
+  assert.deepEqual(out, []);
+}
+
 console.log("mqtt helper tests: ok");
