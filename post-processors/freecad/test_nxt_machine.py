@@ -193,6 +193,31 @@ class TestPublishLine(unittest.TestCase):
         self.assertEqual(post.mqtt_tool_name('1/4" Endmill (3F) {x}'), "14 Endmill 3F x")
         self.assertEqual(post.mqtt_tool_name(None), "")
 
+    def test_next_tool(self):
+        line = post.mqtt_tool_publish_line(
+            "milo", "change", 2, 1, "part.gcode", "6mm Endmill", 7, "Spot Drill"
+        )
+        self.assertEqual(
+            _decode(line),
+            '{"event":"change","tool_number":2,"tool_name":"6mm Endmill","previous_tool":1,'
+            '"next_tool":7,"next_tool_name":"Spot Drill","job_file":"part.gcode"}',
+        )
+
+    def test_last_tool_has_null_next_tool(self):
+        line = post.mqtt_tool_publish_line("milo", "change", 2, 1, "part.gcode", "", None, "x")
+        self.assertIn('"next_tool":null,"job_file"', _decode(line))
+        self.assertNotIn("next_tool_name", _decode(line))
+
+    def test_next_tool_name_is_compacted_before_tool_name(self):
+        base = len(post.mqtt_tool_publish_line("d", "change", 2, 1, "part.gcode", "6mm Endmill", 7))
+        device = "d" * (post.MQTT_M118_MAX - base + 1)
+        line = post.mqtt_tool_publish_line(
+            device, "change", 2, 1, "part.gcode", "6mm Endmill", 7, "Long Next Tool Name For Test"
+        )
+        self.assertLessEqual(len(line), post.MQTT_M118_MAX)
+        self.assertNotIn("next_tool_name", _decode(line))
+        self.assertIn('"tool_name":"6mm Endmill","previous_tool":1,"next_tool":7,', _decode(line))
+
     def test_oversized_device_id_raises(self):
         with self.assertRaises(ValueError):
             post.mqtt_tool_publish_line("d" * 300, "start", 1)
@@ -275,6 +300,37 @@ class TestToolChange(unittest.TestCase):
         # A tool with no controller in the job publishes without a name.
         third = _decode(pp._convert_tool_change(_Command(9)).split("\n")[2])
         self.assertNotIn("tool_name", third)
+
+    def test_next_tool_follows_each_files_tool_order(self):
+        pp = _make_post()
+        first = [_tc_item(5, "6mm Endmill"), _tc_item(5, "6mm Endmill"), _tc_item(3, "Drill"),
+                 _tc_item(9, "Chamfer")]
+        second = [_tc_item(9, "Chamfer"), _tc_item(5, "6mm Endmill")]
+        pp._expand_prefix([("T5", first), ("T9", second)])
+
+        def publish(tool):
+            lines = pp._convert_tool_change(_Command(tool)).split("\n")
+            return _decode(lines[2]) if len(lines) > 2 else None
+
+        pp._convert_start_section("T5", first)
+        self.assertIn('"next_tool":3,"next_tool_name":"Drill"', publish(5))
+        self.assertIsNone(publish(5))  # the loaded tool again: no event
+        self.assertIn('"next_tool":9,"next_tool_name":"Chamfer"', publish(3))
+        self.assertIn('"next_tool":null', publish(9))
+
+        pp._convert_start_section("T9", second)  # each output file has its own order
+        line = publish(9)
+        self.assertIn('"event":"start","tool_number":9,', line)
+        self.assertIn('"next_tool":5,"next_tool_name":"6mm Endmill"', line)
+        self.assertIn('"next_tool":null', publish(5))
+
+    def test_next_tool_left_out_when_unknown(self):
+        pp = _make_post()
+        sublist = [_tc_item(5, "6mm Endmill"), _tc_item(3, "Drill")]
+        pp._expand_prefix([("allitems", sublist)])
+        pp._convert_start_section("allitems", sublist)
+        line = _decode(pp._convert_tool_change(_Command(8)).split("\n")[2])  # not in the order
+        self.assertNotIn("next_tool", line)
 
     def test_job_file_override_wins(self):
         pp = _make_post(MQTT_JOB_FILE="01 Putter - Op1.gcode")

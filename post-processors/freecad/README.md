@@ -205,12 +205,13 @@ Each tool change then publishes one payload after its `T` word:
 ```gcode
 T48
 (MQTT: publish tool change)
-M118 P6 S"{""event"":""change"",""tool_number"":48,""tool_name"":""6mm Endmill"",""previous_tool"":3,""job_file"":""Bracket.gcode""}" T"duet/milo/tool"
+M118 P6 S"{""event"":""change"",""tool_number"":48,""tool_name"":""6mm Endmill"",""previous_tool"":3,""next_tool"":5,""next_tool_name"":""Spot Drill"",""job_file"":""Bracket.gcode""}" T"duet/milo/tool"
 ```
 
 - **`event`** is `start` for the first tool of each output file, without `previous_tool`, and `change` after that. A repeated `T` with the same number publishes nothing, because RRF ignores it.
 - **`tool_name`** is the tool controller's name as `M4000` gets it: the label without `TC: `, cut to 32 characters, without the characters RRF strings can't hold. It's left out if the tool has no tool controller in the job.
-- The `M118` line is kept to 240 characters. Over that, `tool_name` is shortened and then dropped first, then `job_file` is shortened, and finally `previous_tool` and `job_file` are dropped.
+- **`next_tool`** is the next different tool this output file changes to, so a display can show which tool to get ready. It's `null` after the file's last tool change, and left out if the post can't tell. **`next_tool_name`** is that tool's name, worked out like `tool_name`.
+- The `M118` line is kept to 240 characters. Over that, `next_tool_name` and then `tool_name` are shortened and dropped first, then `job_file` is shortened, and finally `next_tool`, `previous_tool` and `job_file` are dropped.
 - **`job_file`** is the name of the file FreeCAD writes, worked out the same way FreeCAD names it. If that name is only a program number, such as `8910.gcode`, the document name is used instead. Set `mqtt_job_file` if you save under a different name or FreeCAD renames the file to avoid a clash.
 - The topic and payload match the Fusion 360 post's MQTT option. The legacy FreeCAD post does not support MQTT.
 

@@ -164,4 +164,46 @@ function payloadOf(line) {
   assert.equal(decode(shortened).job_file, "part.gcode");
 }
 
+// next_tool: the next different tool in the file, null after the last change
+{
+  const tools = [
+    { number: 5, description: "6mm Endmill" },
+    { number: 5, description: "6mm Endmill" },  // same tool, no change
+    { number: 3, description: "Drill" },
+  ];
+  const { post } = loadPost({ props: MQTT_ON });
+  post.getNumberOfSections = () => tools.length;
+  post.getSection = (i) => ({ getTool: () => tools[i] });
+  post.getCurrentSectionId = () => 0;
+  assert.equal(post.mqttNextTool(5).number, 3, "skips sections with the same tool");
+  post.getCurrentSectionId = () => 2;
+  assert.equal(post.mqttNextTool(3), null, "nothing after the last section");
+  post.getSection = () => { throw new Error("no sections"); };
+  post.getCurrentSectionId = () => 0;
+  assert.equal(post.mqttNextTool(5), undefined, "unknown when the API fails");
+}
+{
+  const { post, out } = loadPost({ props: MQTT_ON, outputPath: "/cam/part.gcode" });
+  post.writeMqttToolPublish(5, null, "6mm Endmill", { number: 3, description: 'Spot "Drill" (90)' });
+  post.writeMqttToolPublish(3, 5, "Drill", null);
+  const [first, last] = codeLines(out).map(payloadOf);
+  assert.deepEqual(first, { event: "start", tool_number: 5, tool_name: "6mm Endmill", next_tool: 3,
+                            next_tool_name: "Spot Drill 90", job_file: "part.gcode" });
+  assert.equal(last.next_tool, null);
+  assert.equal(last.next_tool_name, undefined);
+  const line = codeLines(out)[0];
+  assert.ok(line.includes('""tool_name"":""6mm Endmill"",""next_tool"":3,""next_tool_name""'), line);
+}
+{
+  // next_tool_name gives way before tool_name.
+  const render = (dev, nextName) =>
+    loadPost({ props: { ...MQTT_ON, mqttDeviceId: dev } }).post.mqttRenderToolLine(
+      "change", 2, 1, "part.gcode", "6mm Endmill", 7, nextName);
+  const base = render("d", "").length;
+  const line = render("d".repeat(240 - base + 1), "Long Next Tool Name For Test");
+  assert.ok(line.length <= 240);
+  assert.ok(!line.includes("next_tool_name"), line);
+  assert.ok(line.includes('""tool_name"":""6mm Endmill"",""previous_tool"":1,""next_tool"":7,'), line);
+}
+
 console.log("mqtt helper tests: ok");

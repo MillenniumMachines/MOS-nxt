@@ -647,7 +647,18 @@ function writeMqttConnectPreamble() {
   writeln("");
 }
 
-function mqttRenderToolLine(eventName, toolNumber, previousTool, jobFile, toolName) {
+// Compacting order for an M118 line over MQTT_M118_MAX: [key, true] shortens a string
+// to at least 8 characters plus "~", [key, false] drops the key. Same as the FreeCAD post.
+var MQTT_COMPACT_STEPS = [
+  ["next_tool_name", true], ["next_tool_name", false],
+  ["tool_name", true], ["tool_name", false],
+  ["job_file", true],
+  ["next_tool", false], ["previous_tool", false], ["job_file", false]
+];
+
+// nextTool is a tool number, null for "no more tool changes in this file" (published
+// as null), or undefined to leave it out.
+function mqttRenderToolLine(eventName, toolNumber, previousTool, jobFile, toolName, nextTool, nextToolName) {
   var deviceId = mqttSanitizeSegment(getProperty("mqttDeviceId"));
   var topic = "duet/" + deviceId + "/tool";
   var payload = {
@@ -660,8 +671,18 @@ function mqttRenderToolLine(eventName, toolNumber, previousTool, jobFile, toolNa
   if (previousTool !== undefined && previousTool !== null && previousTool >= 0) {
     payload.previous_tool = previousTool;
   }
+  if (nextTool !== undefined) {
+    payload.next_tool = nextTool;
+    if (nextTool !== null && nextToolName) {
+      payload.next_tool_name = nextToolName;
+    }
+  }
   if (jobFile) {
     payload.job_file = jobFile;
+  }
+
+  function str(value) {
+    return '"' + String(value).replace(/"/g, "") + '"';
   }
 
   function render(obj) {
@@ -673,13 +694,19 @@ function mqttRenderToolLine(eventName, toolNumber, previousTool, jobFile, toolNa
       parts.push('"tool_number":' + obj.tool_number);
     }
     if (obj.tool_name !== undefined) {
-      parts.push('"tool_name":"' + String(obj.tool_name).replace(/"/g, "") + '"');
+      parts.push('"tool_name":' + str(obj.tool_name));
     }
     if (obj.previous_tool !== undefined) {
       parts.push('"previous_tool":' + obj.previous_tool);
     }
+    if (obj.next_tool !== undefined) {
+      parts.push('"next_tool":' + (obj.next_tool === null ? "null" : obj.next_tool));
+    }
+    if (obj.next_tool_name !== undefined) {
+      parts.push('"next_tool_name":' + str(obj.next_tool_name));
+    }
     if (obj.job_file !== undefined) {
-      parts.push('"job_file":"' + String(obj.job_file).replace(/"/g, "") + '"');
+      parts.push('"job_file":' + str(obj.job_file));
     }
     var body = "{" + parts.join(",") + "}";
     var escaped = body.replace(/"/g, '""');
@@ -688,41 +715,48 @@ function mqttRenderToolLine(eventName, toolNumber, previousTool, jobFile, toolNa
 
   var line = render(payload);
   while (line.length > MQTT_M118_MAX) {
-    // tool_name goes first, then the job_file, previous_tool and job_file steps.
-    if (payload.tool_name && String(payload.tool_name).length > 12) {
-      var tn = String(payload.tool_name);
-      payload.tool_name = tn.substring(0, Math.max(8, tn.length - 16)).replace(/\s+$/g, "") + "~";
-      line = render(payload);
-      continue;
+    var done = false;
+    for (var i = 0; i < MQTT_COMPACT_STEPS.length && !done; i++) {
+      var key = MQTT_COMPACT_STEPS[i][0];
+      if (payload[key] === undefined) {
+        continue;
+      }
+      if (!MQTT_COMPACT_STEPS[i][1]) {
+        delete payload[key];
+        done = true;
+      } else if (typeof payload[key] === "string" && payload[key].length > 12) {
+        var v = payload[key];
+        payload[key] = v.substring(0, Math.max(8, v.length - 16)).replace(/\s+$/g, "") + "~";
+        done = true;
+      }
     }
-    if (payload.tool_name !== undefined) {
-      delete payload.tool_name;
-      line = render(payload);
-      continue;
+    if (!done) {
+      error("MQTT M118 line exceeds 240 characters after compacting.");
+      return "";
     }
-    if (payload.job_file && String(payload.job_file).length > 12) {
-      var jf = String(payload.job_file);
-      payload.job_file = jf.substring(0, Math.max(8, jf.length - 16)).replace(/\s+$/g, "") + "~";
-      line = render(payload);
-      continue;
-    }
-    if (payload.previous_tool !== undefined) {
-      delete payload.previous_tool;
-      line = render(payload);
-      continue;
-    }
-    if (payload.job_file !== undefined) {
-      delete payload.job_file;
-      line = render(payload);
-      continue;
-    }
-    error("MQTT M118 line exceeds 240 characters after compacting.");
-    return "";
+    line = render(payload);
   }
   return line;
 }
 
-function writeMqttToolPublish(toolNumber, previousTool, toolDescription) {
+// The next different tool after the current section: a Fusion tool, null when no
+// later section changes tool, or undefined when the post API can't tell.
+function mqttNextTool(toolNumber) {
+  try {
+    for (var i = getCurrentSectionId() + 1; i < getNumberOfSections(); i++) {
+      var next = getSection(i).getTool();
+      if (next.number != toolNumber) {
+        return next;
+      }
+    }
+    return null;
+  } catch (e) {
+    return undefined;
+  }
+}
+
+// nextTool: a Fusion tool, null after the last tool change, or undefined (unknown).
+function writeMqttToolPublish(toolNumber, previousTool, toolDescription, nextTool) {
   if (!mqttTelemetryActive()) {
     return;
   }
@@ -733,8 +767,10 @@ function writeMqttToolPublish(toolNumber, previousTool, toolDescription) {
   mqttToolEventCount++;
   writeComment("MQTT: duet tool change (active session)");
   // writeln so tool MQTT is not dropped if writeBlock/formatWords is empty.
+  var nextNumber = nextTool ? nextTool.number : nextTool;  // null and undefined pass through
   writeln(mqttRenderToolLine(eventName, toolNumber, previousTool, mqttJobFileName(),
-    mqttSanitizeToolName(toolDescription)));
+    mqttSanitizeToolName(toolDescription), nextNumber,
+    nextTool ? mqttSanitizeToolName(nextTool.description) : ""));
   writeln("");
 }
 
@@ -1011,7 +1047,7 @@ function onSection() {
     }
     // If Fusion cleared section linkage but we already published in this run,
     // still emit "change" via mqttToolEventCount inside writeMqttToolPublish.
-    writeMqttToolPublish(tool.number, mqttPrevTool, tool.description);
+    writeMqttToolPublish(tool.number, mqttPrevTool, tool.description, mqttNextTool(tool.number));
   }
 
   var s = sVar.format(curTool['rpm']);

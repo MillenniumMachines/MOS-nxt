@@ -207,14 +207,28 @@ def nxt_tool_number_message(tools):
 # M118 P6. Topic and payload match the Fusion 360 post (nxt.cps):
 #
 #   {"event":"start"|"change","tool_number":5,"tool_name":"6mm Endmill",
-#    "previous_tool":3,"job_file":"part.gcode"}
+#    "previous_tool":3,"next_tool":7,"next_tool_name":"Spot Drill","job_file":"part.gcode"}
 #
 # "start" is the first tool of each output file; previous_tool is omitted then.
 # tool_name is the name M4000 gives the tool, left out when the job has none.
+# next_tool is the next different tool this output file changes to, null after
+# its last tool change; next_tool_name is that tool's name.
 # These helpers do not touch FreeCAD, so test_nxt_machine.py runs them without it.
 
 #: DSF rejects serialised codes over ~256 characters; stay well under.
 MQTT_M118_MAX = 240
+
+#: Compacting order for an M118 line over MQTT_M118_MAX: (key, True) shortens a
+#: string to at least 8 characters plus "~", (key, False) drops the key.
+MQTT_COMPACT_STEPS = (
+    ("next_tool_name", True), ("next_tool_name", False),
+    ("tool_name", True), ("tool_name", False),
+    ("job_file", True),
+    ("next_tool", False), ("previous_tool", False), ("job_file", False),
+)
+
+#: next_tool when the post can't tell which tool comes next: leaves it out.
+MQTT_NEXT_UNKNOWN = object()
 
 #: job_file used when no usable name is known.
 MQTT_DEFAULT_JOB_FILE = "job.gcode"
@@ -288,12 +302,14 @@ def mqtt_connect_lines(device_id, host, port):
 
 
 def mqtt_tool_publish_line(
-    device_id, event, tool_number, previous_tool=None, job_file="", tool_name=""
+    device_id, event, tool_number, previous_tool=None, job_file="", tool_name="",
+    next_tool=MQTT_NEXT_UNKNOWN, next_tool_name="",
 ):
     """An M118 P6 line publishing one tool event, at most MQTT_M118_MAX characters.
 
-    Over the limit, tool_name is shortened and then dropped, then job_file is
-    shortened, and finally previous_tool and job_file are dropped. Raises
+    next_tool is a tool number, None for "no more tool changes in this file"
+    (published as null), or MQTT_NEXT_UNKNOWN to leave it out. Over the limit,
+    the keys are shortened or dropped in MQTT_COMPACT_STEPS order. Raises
     ValueError if even the bare payload is too long.
     """
     topic = f"duet/{device_id}/tool"
@@ -302,6 +318,10 @@ def mqtt_tool_publish_line(
         payload["tool_name"] = tool_name
     if previous_tool is not None and int(previous_tool) >= 0:
         payload["previous_tool"] = int(previous_tool)
+    if next_tool is not MQTT_NEXT_UNKNOWN:
+        payload["next_tool"] = None if next_tool is None else int(next_tool)
+        if next_tool is not None and next_tool_name:
+            payload["next_tool_name"] = next_tool_name
     if job_file:
         payload["job_file"] = job_file
 
@@ -311,18 +331,16 @@ def mqtt_tool_publish_line(
 
     line = render(payload)
     while len(line) > MQTT_M118_MAX:
-        tool_name = payload.get("tool_name")
-        job_file = payload.get("job_file")
-        if tool_name and len(tool_name) > 12:
-            payload["tool_name"] = tool_name[: max(8, len(tool_name) - 16)].rstrip() + "~"
-        elif tool_name is not None:
-            del payload["tool_name"]
-        elif isinstance(job_file, str) and len(job_file) > 12:
-            payload["job_file"] = job_file[: max(8, len(job_file) - 16)].rstrip() + "~"
-        elif "previous_tool" in payload:
-            del payload["previous_tool"]
-        elif "job_file" in payload:
-            del payload["job_file"]
+        for key, shorten in MQTT_COMPACT_STEPS:
+            if key not in payload:
+                continue
+            value = payload[key]
+            if not shorten:
+                del payload[key]
+                break
+            if isinstance(value, str) and len(value) > 12:
+                payload[key] = value[: max(8, len(value) - 16)].rstrip() + "~"
+                break
         else:
             raise ValueError(
                 f"MQTT M118 line is {len(line)} characters after compacting "
@@ -565,6 +583,8 @@ class NxtMachine(PostProcessor):
         self._mqtt_job_file = MQTT_DEFAULT_JOB_FILE
         self._mqtt_previous_tool = None
         self._mqtt_tool_names: Dict[int, str] = {}
+        self._mqtt_tool_order: List[int] = []  # tool changes in this output file
+        self._mqtt_order_pos = 0
         Path.Log.debug("nxt machine post processor initialized.")
 
     def init_values(self, values: Values) -> None:
@@ -1151,12 +1171,39 @@ class NxtMachine(PostProcessor):
         """Reset MQTT event state for each output file and work out its job_file."""
         super()._convert_start_section(section_name, sublist)
         self._mqtt_previous_tool = None
+        self._mqtt_tool_order = self._section_tool_order(sublist)
+        self._mqtt_order_pos = 0
         if self.values.get("MQTT_TELEMETRY"):
             self._mqtt_job_file = mqtt_job_file_name(
                 self.values.get("MQTT_JOB_FILE"),
                 self._mqtt_output_filename(section_name),
                 self._mqtt_document_filename(),
             )
+
+    @staticmethod
+    def _section_tool_order(sublist):
+        """Tool numbers in the order this output file changes to them, without repeats in a row.
+
+        Each tool controller in the sublist is a tool change; a repeat of the
+        loaded tool changes nothing, so it isn't one.
+        """
+        order: List[int] = []
+        for item in sublist:
+            if getattr(item, "item_type", None) != "tool_controller":
+                continue
+            number = item.data.get("tool_number")
+            if number is not None and (not order or order[-1] != int(number)):
+                order.append(int(number))
+        return order
+
+    def _mqtt_next_tool(self, tool):
+        """Next tool after `tool` in this file, None after its last, or MQTT_NEXT_UNKNOWN."""
+        try:
+            i = self._mqtt_tool_order.index(tool, self._mqtt_order_pos)
+        except ValueError:
+            return MQTT_NEXT_UNKNOWN
+        self._mqtt_order_pos = i + 1
+        return self._mqtt_tool_order[i + 1] if i + 1 < len(self._mqtt_tool_order) else None
 
     def _mqtt_output_filename(self, section_name):
         """Best guess at the path FreeCAD will write this section to, or "".
@@ -1198,11 +1245,13 @@ class NxtMachine(PostProcessor):
             return []
         self._mqtt_previous_tool = tool
         event = "start" if previous is None else "change"
+        next_tool = self._mqtt_next_tool(tool)
+        next_name = self._mqtt_tool_names.get(next_tool, "") if isinstance(next_tool, int) else ""
         return [
             "(MQTT: publish tool change)",
             mqtt_tool_publish_line(
                 device_id, event, tool, previous, self._mqtt_job_file,
-                self._mqtt_tool_names.get(tool, ""),
+                self._mqtt_tool_names.get(tool, ""), next_tool, next_name,
             ),
         ]
 
