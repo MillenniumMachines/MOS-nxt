@@ -114,7 +114,7 @@ groupDefinitions = {
   },
   mqttTelemetry: {
     title: "MQTT telemetry",
-    description: "Optional RRF MQTT publishes for Jarvis / tap-testing collectors (duet/{device}/tool). Does not replace Pi tap-spindle ADXL streams.",
+    description: "Optional MQTT tool-change events from RRF (duet/{device}/tool) for a display, logger or other MQTT subscriber.",
     collapsed: true,
     order: 30
   }
@@ -226,7 +226,7 @@ properties = {
   },
   mqttTelemetryEnabled: {
     title: "Enable MQTT telemetry",
-    description: "When enabled, emit M586 reconnect + M118 P6 tool publishes to duet/{device}/tool for Jarvis tap-collector. Requires Device ID and Broker Host. Does not mint tap/ or cam/ sessions.",
+    description: "When enabled, reconnect RRF's MQTT client at job start (M586) and publish each tool change to duet/{device}/tool (M118 P6). Requires Device ID and Broker Host.",
     group: "mqttTelemetry",
     scope: "post",
     type: "boolean",
@@ -525,7 +525,7 @@ function mqttLooksLikeJobFileName(s) {
   if (!t) {
     return false;
   }
-  // Reject pure program numbers (e.g. "8910") — Jarvis CAM resolve needs a real basename.
+  // Reject pure program numbers (e.g. "8910"): a subscriber can't map them back to a CAM job.
   if (/^[0-9]+$/.test(t)) {
     return false;
   }
@@ -557,7 +557,7 @@ function mqttBasenameFromPath(path) {
 }
 
 /**
- * job_file for duet/.../tool — prefer NC output basename so Jarvis can resolve CAM.
+ * job_file for duet/.../tool — prefer the NC output basename, which names the CAM job.
  * Do not use Fusion programName / "<number>.gcode" output names.
  */
 function mqttJobFileName() {
