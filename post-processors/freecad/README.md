@@ -215,6 +215,18 @@ M118 P6 S"{""event"":""change"",""tool_number"":48,""tool_name"":""6mm Endmill""
 - **`job_file`** is the name of the file FreeCAD writes, worked out the same way FreeCAD names it. If that name is only a program number, such as `8910.gcode`, the document name is used instead. Set `mqtt_job_file` if you save under a different name or FreeCAD renames the file to avoid a clash.
 - The topic and payload match the Fusion 360 post's MQTT option. The legacy FreeCAD post does not support MQTT.
 
+Each operation also publishes as it starts, to `duet/<device>/op`, and each output file ends with an `end` event:
+
+```gcode
+(MQTT: publish operation start)
+M118 P6 S"{""event"":""op"",""op_index"":2,""op_count"":5,""op_name"":""Adaptive"",""tool_number"":48,""next_op_name"":""Profile"",""next_op_tool"":3,""job_file"":""Bracket.gcode""}" T"duet/milo/op"
+```
+
+- **`op_index`** counts from 1 within the output file, out of **`op_count`**. **`op_name`** is the operation's label, cut to 40 characters and to the characters RRF strings can hold, so parentheses go: in CNC mode RRF reads them as a comment.
+- **`next_op_name`** is `null` on the file's last operation. **`next_op_tool`** is the next operation's tool.
+- **`{"event":"end","op_count":5,"job_file":"Bracket.gcode"}`** follows the file's last operation, before the postamble.
+- RRF runs an `M118` when it reads the line, ahead of the moves still queued, so an op event can arrive a little before the machine reaches that operation; an `end` event, a little before the last moves finish.
+
 `python3 post-processors/freecad/test_nxt_machine.py` tests the payload helpers and the event logic without FreeCAD.
 
 ---

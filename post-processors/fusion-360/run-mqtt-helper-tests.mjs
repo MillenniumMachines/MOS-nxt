@@ -206,4 +206,47 @@ function payloadOf(line) {
   assert.ok(line.includes('""tool_name"":""6mm Endmill"",""previous_tool"":1,""next_tool"":7,'), line);
 }
 
+// Op events on duet/<device>/op: one per section, then an end event
+{
+  const opPayload = (line) => {
+    const m = /^M118 P6 S"(.*)" T"duet\/milo\/op"$/.exec(line);
+    assert.ok(m, `not an op publish: ${line}`);
+    return JSON.parse(m[1].replace(/""/g, '"'));
+  };
+  const sections = [
+    { comment: "Adaptive", tool: 5 },
+    { comment: "Profile (finish)", tool: 5 },
+    { comment: "Drilling", tool: 3 },
+  ];
+  const { post, out } = loadPost({ props: MQTT_ON, outputPath: "/cam/part.gcode" });
+  const section = (s) => ({
+    hasParameter: (k) => k === "operation-comment",
+    getParameter: () => s.comment,
+    getTool: () => ({ number: s.tool }),
+  });
+  post.getNumberOfSections = () => sections.length;
+  post.getSection = (i) => section(sections[i]);
+  for (let i = 0; i < sections.length; i++) {
+    post.getCurrentSectionId = () => i;
+    post.currentSection = section(sections[i]);
+    post.tool = { number: sections[i].tool };
+    post.writeMqttOpPublish();
+  }
+  post.writeMqttEndPublish();
+  const events = codeLines(out).map(opPayload);
+  assert.deepEqual(events[0], { event: "op", op_index: 1, op_count: 3, op_name: "Adaptive", tool_number: 5,
+                                next_op_name: "Profile finish", next_op_tool: 5, job_file: "part.gcode" });
+  assert.equal(events[1].next_op_tool, 3);
+  assert.equal(events[2].next_op_name, null);
+  assert.equal(events[2].next_op_tool, undefined);
+  assert.deepEqual(events[3], { event: "end", op_count: 3, job_file: "part.gcode" });
+  assert.ok(codeLines(out)[0].includes('""op_name"":""Adaptive"",""tool_number"":5,""next_op_name""'));
+}
+{
+  const { post, out } = loadPost();  // telemetry off: no op or end events
+  post.writeMqttOpPublish();
+  post.writeMqttEndPublish();
+  assert.deepEqual(out, []);
+}
+
 console.log("mqtt helper tests: ok");

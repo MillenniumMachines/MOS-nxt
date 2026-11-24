@@ -12,6 +12,7 @@ search path as a post processor, and these stubs would replace FreeCAD's modules
 from __future__ import annotations
 
 import importlib.util
+import json
 import sys
 import types
 import unittest
@@ -43,6 +44,9 @@ class _StubPostProcessor:
 
     def _expand_prefix(self, postables):
         pass
+
+    def _convert_item_commands(self, item, gcode_lines):
+        gcode_lines.append(f"(item {item.label})")
 
     def get_file_extension(self):
         return self.values.get("FILE_EXTENSION", "gcode")
@@ -357,6 +361,84 @@ class TestToolChange(unittest.TestCase):
                     pp._mqtt_settings()
 
 
+class TestOpEvents(unittest.TestCase):
+    def setUp(self):
+        _StubFilenameGenerator.template = "/cam/out/Part"
+        _StubFilenameGenerator.fail = False
+
+    def test_op_line(self):
+        line = post.mqtt_op_publish_line("milo", 3, 7, "Adaptive", 5, "Profile", 3, "part.gcode")
+        self.assertTrue(line.endswith(' T"duet/milo/op"'))
+        self.assertEqual(
+            _decode(line),
+            '{"event":"op","op_index":3,"op_count":7,"op_name":"Adaptive","tool_number":5,'
+            '"next_op_name":"Profile","next_op_tool":3,"job_file":"part.gcode"}',
+        )
+
+    def test_last_op_and_end(self):
+        line = post.mqtt_op_publish_line("milo", 7, 7, "Chamfer", 9, None, 4, "part.gcode")
+        self.assertIn('"next_op_name":null,"job_file"', _decode(line))
+        self.assertEqual(
+            _decode(post.mqtt_end_publish_line("milo", 7, "part.gcode")),
+            '{"event":"end","op_count":7,"job_file":"part.gcode"}',
+        )
+
+    def test_op_names_lose_what_rrf_cannot_hold(self):
+        self.assertEqual(post.mqtt_text('Pocket (rough) "A"', 40), "Pocket rough A")
+        self.assertEqual(len(post.mqtt_text("x" * 60, 40)), 40)
+
+    def test_op_line_is_compacted(self):
+        base = len(post.mqtt_op_publish_line("d", 3, 7, "Adaptive", 5, "Profile", 3, "part.gcode"))
+        device = "d" * (post.MQTT_M118_MAX - base + 1)
+        line = post.mqtt_op_publish_line(
+            device, 3, 7, "Adaptive", 5, "A Long Next Operation Name", 3, "part.gcode"
+        )
+        self.assertLessEqual(len(line), post.MQTT_M118_MAX)
+        self.assertRegex(
+            _decode(line), r'"op_name":"Adaptive","tool_number":5,"next_op_name":"[^"]*~"'
+        )
+
+    def test_current_op_name_outlasts_the_next(self):
+        line = post.mqtt_op_publish_line(
+            "d" * 100, 2, 7, "A Very Long Operation Name For The Test 1", 5,
+            "Another Very Long Operation Name Here 22", 3, "a-long-job-file-name-for-testing.gcode",
+        )
+        self.assertLessEqual(len(line), post.MQTT_M118_MAX)
+        self.assertRegex(_decode(line), r'"op_name":"A Very L[^"]*~"')
+        self.assertNotIn("next_op_name", _decode(line))
+
+    def _run(self, pp, sublist):
+        pp._expand_prefix([("allitems", sublist)])
+        pp._convert_start_section("allitems", sublist)
+        lines = []
+        for item in sublist:
+            pp._convert_item_commands(item, lines)
+        return lines
+
+    def test_events_around_each_operation(self):
+        sublist = [_tc_item(5, "6mm Endmill"), _op_item("Adaptive", 5),
+                   _op_item("Profile (finish)", 5), _tc_item(3, "Drill"), _op_item("Drilling", 3)]
+        lines = self._run(_make_post(), sublist)
+        ops = [i for i, line in enumerate(lines) if line.endswith('T"duet/milo/op"')]
+        self.assertEqual(len(ops), 4)
+        events = [json.loads(_decode(lines[i])) for i in ops]
+        self.assertEqual(events[0], {
+            "event": "op", "op_index": 1, "op_count": 3, "op_name": "Adaptive", "tool_number": 5,
+            "next_op_name": "Profile finish", "next_op_tool": 5, "job_file": "Part.gcode",
+        })
+        self.assertEqual(events[1]["next_op_tool"], 3)
+        self.assertEqual((events[2]["op_index"], events[2]["next_op_name"]), (3, None))
+        self.assertEqual(events[3], {"event": "end", "op_count": 3, "job_file": "Part.gcode"})
+        # Each op event comes right before its operation; the end event after the last.
+        self.assertEqual(lines[ops[0] + 1], "(item Adaptive)")
+        self.assertEqual(lines[ops[2] + 1], "(item Drilling)")
+        self.assertEqual(lines[ops[3] - 2], "(item Drilling)")
+
+    def test_no_op_events_with_mqtt_off(self):
+        lines = self._run(_make_post(MQTT_TELEMETRY=False), [_op_item("Adaptive", 5)])
+        self.assertEqual(lines, ["(item Adaptive)"])
+
+
 # ----------------------------------------------------------------------
 # Tool numbers
 # ----------------------------------------------------------------------
@@ -364,6 +446,11 @@ def _tc_item(number, label):
     return types.SimpleNamespace(
         item_type="tool_controller", data={"tool_number": number}, label=f"TC: {label}"
     )
+
+
+def _op_item(label, tool):
+    tc = types.SimpleNamespace(data={"tool_number": tool})
+    return types.SimpleNamespace(item_type="operation", label=label, data={"tool_controller": tc})
 
 
 def _op(number, label, active=True):

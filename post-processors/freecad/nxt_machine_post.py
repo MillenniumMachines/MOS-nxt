@@ -213,6 +213,17 @@ def nxt_tool_number_message(tools):
 # tool_name is the name M4000 gives the tool, left out when the job has none.
 # next_tool is the next different tool this output file changes to, null after
 # its last tool change; next_tool_name is that tool's name.
+#
+# Each operation also publishes to duet/<device>/op as it starts, and the end of
+# each output file publishes an "end" event:
+#
+#   {"event":"op","op_index":3,"op_count":7,"op_name":"Adaptive","tool_number":5,
+#    "next_op_name":"Profile","next_op_tool":3,"job_file":"part.gcode"}
+#   {"event":"end","op_count":7,"job_file":"part.gcode"}
+#
+# next_op_name is null on the file's last operation. RRF runs an M118 when it
+# reads the line, ahead of the queued moves, so an op event can arrive a little
+# before the machine reaches that operation.
 # These helpers do not touch FreeCAD, so test_nxt_machine.py runs them without it.
 
 #: DSF rejects serialised codes over ~256 characters; stay well under.
@@ -225,6 +236,12 @@ MQTT_COMPACT_STEPS = (
     ("tool_name", True), ("tool_name", False),
     ("job_file", True),
     ("next_tool", False), ("previous_tool", False), ("job_file", False),
+)
+
+#: The same for op and end events on duet/<device>/op.
+MQTT_OP_COMPACT_STEPS = (
+    ("next_op_name", True), ("op_name", True), ("job_file", True),
+    ("next_op_tool", False), ("job_file", False), ("next_op_name", False), ("op_name", False),
 )
 
 #: next_tool when the post can't tell which tool comes next: leaves it out.
@@ -244,9 +261,17 @@ def mqtt_sanitize_host(value):
     return re.sub(r"[^0-9a-zA-Z._:\-]", "", str(value or "").strip())
 
 
+def mqtt_text(value, limit):
+    """Payload text: at most `limit` characters, only those RRF strings hold, without quotes.
+
+    Parentheses go too: in CNC mode RRF reads them as a comment.
+    """
+    return re.sub(r"[^0-9a-zA-Z.:,=_\- ]", "", str(value or "")[:limit]).strip()
+
+
 def mqtt_tool_name(label):
     """The payload's tool name: the M4000 S name (32 characters, rrf_safe_string) without quotes."""
-    return re.sub(r"[^0-9a-zA-Z.:,=_\- ]", "", str(label or "")[:32]).strip()
+    return mqtt_text(label, 32)
 
 
 def mqtt_looks_like_job_file_name(name):
@@ -324,6 +349,41 @@ def mqtt_tool_publish_line(
             payload["next_tool_name"] = next_tool_name
     if job_file:
         payload["job_file"] = job_file
+    return mqtt_publish_line(topic, payload, MQTT_COMPACT_STEPS)
+
+
+def mqtt_op_publish_line(device_id, op_index, op_count, op_name, tool_number=None,
+                         next_op_name=None, next_op_tool=None, job_file=""):
+    """An M118 P6 line publishing an operation start to duet/<device>/op.
+
+    next_op_name None means this is the file's last operation (published as null).
+    """
+    payload = {"event": "op", "op_index": int(op_index), "op_count": int(op_count),
+               "op_name": op_name}
+    if tool_number is not None:
+        payload["tool_number"] = int(tool_number)
+    payload["next_op_name"] = next_op_name
+    if next_op_name is not None and next_op_tool is not None:
+        payload["next_op_tool"] = int(next_op_tool)
+    if job_file:
+        payload["job_file"] = job_file
+    return mqtt_publish_line(f"duet/{device_id}/op", payload, MQTT_OP_COMPACT_STEPS)
+
+
+def mqtt_end_publish_line(device_id, op_count, job_file=""):
+    """An M118 P6 line publishing the end of an output file to duet/<device>/op."""
+    payload = {"event": "end", "op_count": int(op_count)}
+    if job_file:
+        payload["job_file"] = job_file
+    return mqtt_publish_line(f"duet/{device_id}/op", payload, MQTT_OP_COMPACT_STEPS)
+
+
+def mqtt_publish_line(topic, payload, steps):
+    """`M118 P6 S"<payload as JSON>" T"<topic>"`, compacted by `steps` to MQTT_M118_MAX characters.
+
+    (key, True) shortens a string value to at least 8 characters plus "~";
+    (key, False) drops the key. Raises ValueError if that isn't enough.
+    """
 
     def render(data):
         body = json.dumps(data, separators=(",", ":"), ensure_ascii=True)
@@ -331,7 +391,7 @@ def mqtt_tool_publish_line(
 
     line = render(payload)
     while len(line) > MQTT_M118_MAX:
-        for key, shorten in MQTT_COMPACT_STEPS:
+        for key, shorten in steps:
             if key not in payload:
                 continue
             value = payload[key]
@@ -585,6 +645,8 @@ class NxtMachine(PostProcessor):
         self._mqtt_tool_names: Dict[int, str] = {}
         self._mqtt_tool_order: List[int] = []  # tool changes in this output file
         self._mqtt_order_pos = 0
+        self._mqtt_ops: List[tuple] = []  # (name, tool number) of each operation in this file
+        self._mqtt_op_pos = 0
         Path.Log.debug("nxt machine post processor initialized.")
 
     def init_values(self, values: Values) -> None:
@@ -1173,6 +1235,8 @@ class NxtMachine(PostProcessor):
         self._mqtt_previous_tool = None
         self._mqtt_tool_order = self._section_tool_order(sublist)
         self._mqtt_order_pos = 0
+        self._mqtt_ops = self._section_ops(sublist)
+        self._mqtt_op_pos = 0
         if self.values.get("MQTT_TELEMETRY"):
             self._mqtt_job_file = mqtt_job_file_name(
                 self.values.get("MQTT_JOB_FILE"),
@@ -1195,6 +1259,44 @@ class NxtMachine(PostProcessor):
             if number is not None and (not order or order[-1] != int(number)):
                 order.append(int(number))
         return order
+
+    @staticmethod
+    def _section_ops(sublist):
+        """(name, tool number or None) for each operation in this output file, in order."""
+        ops = []
+        for item in sublist:
+            if getattr(item, "item_type", None) != "operation":
+                continue
+            tc = (getattr(item, "data", None) or {}).get("tool_controller")
+            number = getattr(tc, "data", {}).get("tool_number") if tc is not None else None
+            ops.append((mqtt_text(item.label, 40), None if number is None else int(number)))
+        return ops
+
+    def _convert_item_commands(self, item, gcode_lines):
+        """Publish an MQTT op event before each operation, and an end event after the last."""
+        mqtt = self._mqtt_settings() if getattr(item, "item_type", None) == "operation" else None
+        if mqtt and self._mqtt_op_pos < len(self._mqtt_ops):
+            gcode_lines.extend(self._mqtt_op_lines(mqtt[0]))
+        super()._convert_item_commands(item, gcode_lines)
+        if mqtt and self._mqtt_ops and self._mqtt_op_pos == len(self._mqtt_ops):
+            gcode_lines.extend([
+                "(MQTT: publish end of file)",
+                mqtt_end_publish_line(mqtt[0], len(self._mqtt_ops), self._mqtt_job_file),
+            ])
+            self._mqtt_op_pos += 1  # only once
+
+    def _mqtt_op_lines(self, device_id):
+        """Comment and M118 P6 publish for the operation at _mqtt_op_pos, which then advances."""
+        i = self._mqtt_op_pos
+        name, tool = self._mqtt_ops[i]
+        last = i + 1 >= len(self._mqtt_ops)
+        next_name, next_tool = (None, None) if last else self._mqtt_ops[i + 1]
+        self._mqtt_op_pos = i + 1
+        return [
+            "(MQTT: publish operation start)",
+            mqtt_op_publish_line(device_id, i + 1, len(self._mqtt_ops), name, tool,
+                                 next_name, next_tool, self._mqtt_job_file),
+        ]
 
     def _mqtt_next_tool(self, tool):
         """Next tool after `tool` in this file, None after its last, or MQTT_NEXT_UNKNOWN."""

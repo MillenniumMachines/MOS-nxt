@@ -506,13 +506,19 @@ function mqttSanitizeSegment(s) {
   return mqttTrimString(s).replace(/[^0-9a-zA-Z._-]/g, "");
 }
 
+// Payload text: at most limit characters, only those RRF strings hold, without quotes.
+// Parentheses go too: in CNC mode RRF reads them as a comment.
+function mqttSanitizeText(value, limit) {
+  if (value === undefined || value === null) {
+    return "";
+  }
+  return mqttTrimString(String(value).substring(0, limit).replace(/[^0-9a-zA-Z.:,=_\- ]/g, ""));
+}
+
 // The name M4000 S gets (description, 32 characters), cut to characters that are
 // safe inside the M118 string and the JSON.
 function mqttSanitizeToolName(description) {
-  if (description === undefined || description === null) {
-    return "";
-  }
-  return mqttTrimString(String(description).substring(0, 32).replace(/[^0-9a-zA-Z.:,=_\- ]/g, ""));
+  return mqttSanitizeText(description, 32);
 }
 
 function mqttSanitizeJobFile(name) {
@@ -655,12 +661,65 @@ var MQTT_COMPACT_STEPS = [
   ["job_file", true],
   ["next_tool", false], ["previous_tool", false], ["job_file", false]
 ];
+// The same for op and end events on duet/<device>/op.
+var MQTT_OP_COMPACT_STEPS = [
+  ["next_op_name", true], ["op_name", true], ["job_file", true],
+  ["next_op_tool", false], ["job_file", false], ["next_op_name", false], ["op_name", false]
+];
+// Payload keys in output order; it matches the FreeCAD post's, so both give the same line.
+var MQTT_KEY_ORDER = ["event", "op_index", "op_count", "op_name", "tool_number", "tool_name",
+  "previous_tool", "next_tool", "next_tool_name", "next_op_name", "next_op_tool", "job_file"];
+
+// M118 P6 S"<payload as JSON>" T"<topic>", compacted by steps to MQTT_M118_MAX characters.
+function mqttPublishLine(topic, payload, steps) {
+  function render(obj) {
+    var parts = [];
+    for (var k = 0; k < MQTT_KEY_ORDER.length; k++) {
+      var key = MQTT_KEY_ORDER[k];
+      var value = obj[key];
+      if (value === undefined) {
+        continue;
+      }
+      if (value === null) {
+        value = "null";
+      } else if (typeof value === "string") {
+        value = '"' + value.replace(/"/g, "") + '"';
+      }
+      parts.push('"' + key + '":' + value);
+    }
+    var body = "{" + parts.join(",") + "}";
+    return 'M118 P6 S"' + body.replace(/"/g, '""') + '" T"' + topic + '"';
+  }
+
+  var line = render(payload);
+  while (line.length > MQTT_M118_MAX) {
+    var done = false;
+    for (var i = 0; i < steps.length && !done; i++) {
+      var key = steps[i][0];
+      if (payload[key] === undefined) {
+        continue;
+      }
+      if (!steps[i][1]) {
+        delete payload[key];
+        done = true;
+      } else if (typeof payload[key] === "string" && payload[key].length > 12) {
+        var v = payload[key];
+        payload[key] = v.substring(0, Math.max(8, v.length - 16)).replace(/\s+$/g, "") + "~";
+        done = true;
+      }
+    }
+    if (!done) {
+      error("MQTT M118 line exceeds 240 characters after compacting.");
+      return "";
+    }
+    line = render(payload);
+  }
+  return line;
+}
 
 // nextTool is a tool number, null for "no more tool changes in this file" (published
 // as null), or undefined to leave it out.
 function mqttRenderToolLine(eventName, toolNumber, previousTool, jobFile, toolName, nextTool, nextToolName) {
-  var deviceId = mqttSanitizeSegment(getProperty("mqttDeviceId"));
-  var topic = "duet/" + deviceId + "/tool";
   var payload = {
     event: eventName,
     tool_number: toolNumber
@@ -680,63 +739,67 @@ function mqttRenderToolLine(eventName, toolNumber, previousTool, jobFile, toolNa
   if (jobFile) {
     payload.job_file = jobFile;
   }
+  var deviceId = mqttSanitizeSegment(getProperty("mqttDeviceId"));
+  return mqttPublishLine("duet/" + deviceId + "/tool", payload, MQTT_COMPACT_STEPS);
+}
 
-  function str(value) {
-    return '"' + String(value).replace(/"/g, "") + '"';
+// An operation start on duet/<device>/op. nextOpName null marks the file's last operation.
+function mqttRenderOpLine(opIndex, opCount, opName, toolNumber, nextOpName, nextOpTool, jobFile) {
+  var payload = { event: "op", op_index: opIndex, op_count: opCount, op_name: opName };
+  if (toolNumber !== undefined && toolNumber !== null) {
+    payload.tool_number = toolNumber;
   }
+  payload.next_op_name = nextOpName;
+  if (nextOpName !== null && nextOpTool !== undefined && nextOpTool !== null) {
+    payload.next_op_tool = nextOpTool;
+  }
+  if (jobFile) {
+    payload.job_file = jobFile;
+  }
+  var deviceId = mqttSanitizeSegment(getProperty("mqttDeviceId"));
+  return mqttPublishLine("duet/" + deviceId + "/op", payload, MQTT_OP_COMPACT_STEPS);
+}
 
-  function render(obj) {
-    var parts = [];
-    if (obj.event !== undefined) {
-      parts.push('"event":"' + obj.event + '"');
-    }
-    if (obj.tool_number !== undefined) {
-      parts.push('"tool_number":' + obj.tool_number);
-    }
-    if (obj.tool_name !== undefined) {
-      parts.push('"tool_name":' + str(obj.tool_name));
-    }
-    if (obj.previous_tool !== undefined) {
-      parts.push('"previous_tool":' + obj.previous_tool);
-    }
-    if (obj.next_tool !== undefined) {
-      parts.push('"next_tool":' + (obj.next_tool === null ? "null" : obj.next_tool));
-    }
-    if (obj.next_tool_name !== undefined) {
-      parts.push('"next_tool_name":' + str(obj.next_tool_name));
-    }
-    if (obj.job_file !== undefined) {
-      parts.push('"job_file":' + str(obj.job_file));
-    }
-    var body = "{" + parts.join(",") + "}";
-    var escaped = body.replace(/"/g, '""');
-    return 'M118 P6 S"' + escaped + '" T"' + topic + '"';
+// The end of the file on duet/<device>/op.
+function mqttRenderEndLine(opCount, jobFile) {
+  var payload = { event: "end", op_count: opCount };
+  if (jobFile) {
+    payload.job_file = jobFile;
   }
+  var deviceId = mqttSanitizeSegment(getProperty("mqttDeviceId"));
+  return mqttPublishLine("duet/" + deviceId + "/op", payload, MQTT_OP_COMPACT_STEPS);
+}
 
-  var line = render(payload);
-  while (line.length > MQTT_M118_MAX) {
-    var done = false;
-    for (var i = 0; i < MQTT_COMPACT_STEPS.length && !done; i++) {
-      var key = MQTT_COMPACT_STEPS[i][0];
-      if (payload[key] === undefined) {
-        continue;
-      }
-      if (!MQTT_COMPACT_STEPS[i][1]) {
-        delete payload[key];
-        done = true;
-      } else if (typeof payload[key] === "string" && payload[key].length > 12) {
-        var v = payload[key];
-        payload[key] = v.substring(0, Math.max(8, v.length - 16)).replace(/\s+$/g, "") + "~";
-        done = true;
-      }
-    }
-    if (!done) {
-      error("MQTT M118 line exceeds 240 characters after compacting.");
-      return "";
-    }
-    line = render(payload);
+// A section's operation name (its comment), cut like the FreeCAD post's op names.
+function mqttOpName(section) {
+  try {
+    return section.hasParameter("operation-comment")
+      ? mqttSanitizeText(section.getParameter("operation-comment"), 40) : "";
+  } catch (e) {
+    return "";
   }
-  return line;
+}
+
+function writeMqttOpPublish() {
+  if (!mqttTelemetryActive()) {
+    return;
+  }
+  var id = getCurrentSectionId();
+  var count = getNumberOfSections();
+  var next = id + 1 < count ? getSection(id + 1) : null;
+  writeComment("MQTT: publish operation start");
+  writeln(mqttRenderOpLine(id + 1, count, mqttOpName(currentSection), tool.number,
+    next ? mqttOpName(next) : null, next ? next.getTool().number : undefined, mqttJobFileName()));
+  writeln("");
+}
+
+function writeMqttEndPublish() {
+  if (!mqttTelemetryActive()) {
+    return;
+  }
+  writeComment("MQTT: publish end of file");
+  writeln(mqttRenderEndLine(getNumberOfSections(), mqttJobFileName()));
+  writeln("");
 }
 
 // The next different tool after the current section: a Fusion tool, null when no
@@ -1049,6 +1112,8 @@ function onSection() {
     // still emit "change" via mqttToolEventCount inside writeMqttToolPublish.
     writeMqttToolPublish(tool.number, mqttPrevTool, tool.description, mqttNextTool(tool.number));
   }
+
+  writeMqttOpPublish();
 
   var s = sVar.format(curTool['rpm']);
 
@@ -1494,6 +1559,8 @@ function writeConfirmableDialog(text) {
 }
 
 function onClose() {
+  writeMqttEndPublish();
+
   writeComment("Begin postamble");
 
   // Spindle is assumed to be above work piece at this point.
