@@ -249,4 +249,32 @@ function payloadOf(line) {
   assert.deepEqual(out, []);
 }
 
+// Tool details on duet/<device>/tooldef, one line per tool after the connect
+{
+  const { post, out } = loadPost({ props: MQTT_ON });
+  const tools = [
+    { number: 5, description: "6mm Endmill", diameter: 6, numberOfFlutes: 3, spindleRPM: 18000 },
+    { number: 21, description: 'Spot "Drill" (90)', diameter: 6.35, numberOfFlutes: 2, spindleRPM: 10000.4 },
+    { number: 9, description: "", diameter: 0, numberOfFlutes: 0, spindleRPM: 0 },
+  ];
+  post.getToolTable = () => ({ getNumberOfTools: () => tools.length, getTool: (i) => tools[i] });
+  post.writeMqttToolDefs();
+  const defs = codeLines(out).map((line) => {
+    const m = /^M118 P6 S"(.*)" T"duet\/milo\/tooldef"$/.exec(line);
+    assert.ok(m, line);
+    return JSON.parse(m[1].replace(/""/g, '"'));
+  });
+  assert.deepEqual(defs, [
+    { event: "tool", tool_number: 5, tool_name: "6mm Endmill", diameter: 6, flutes: 3, rpm: 18000 },
+    { event: "tool", tool_number: 21, tool_name: "Spot Drill 90", diameter: 6.35, flutes: 2, rpm: 10000 },
+    { event: "tool", tool_number: 9 },
+  ]);
+  assert.equal(post.mqttNumber(1.5875), 1.587);
+}
+{
+  const { post, out } = loadPost();  // telemetry off
+  post.writeMqttToolDefs();
+  assert.deepEqual(out, []);
+}
+
 console.log("mqtt helper tests: ok");

@@ -361,6 +361,51 @@ class TestToolChange(unittest.TestCase):
                     pp._mqtt_settings()
 
 
+class TestToolDefs(unittest.TestCase):
+    def test_line(self):
+        line = post.mqtt_tooldef_publish_line("milo", 21, "Spot Drill 90", 6.0, 2, 10000.0)
+        self.assertTrue(line.endswith(' T"duet/milo/tooldef"'))
+        self.assertEqual(
+            _decode(line),
+            '{"event":"tool","tool_number":21,"tool_name":"Spot Drill 90","diameter":6,'
+            '"flutes":2,"rpm":10000}',
+        )
+
+    def test_numbers_and_unknowns(self):
+        self.assertEqual(post.mqtt_number(6.35), 6.35)
+        self.assertEqual(post.mqtt_number(1.5875), 1.587)  # 3 decimals, as M4000's fmt_mm
+        self.assertIs(type(post.mqtt_number(6.0)), int)
+        self.assertEqual(post.mqtt_number(2.0625), 2.063)  # exact halves round up, as in Fusion
+        self.assertEqual(post.mqtt_number(10000.5, 0), 10001)
+        self.assertEqual(_decode(post.mqtt_tooldef_publish_line("milo", 3, "", 0, None, 0)),
+                         '{"event":"tool","tool_number":3}')
+
+    def test_one_line_per_tool_after_the_connect(self):
+        pp = _make_post()
+        sublist = [
+            _tc_item(5, "6mm Endmill", 6, 3, 18000),
+            _tc_item(5, "6mm Endmill", 6, 3, 9000),
+            _tc_item(21, 'Spot "Drill" (90)', 6.35, 2, 10000),
+        ]
+        pp._expand_prefix([("allitems", sublist)])
+        lines = pp.values["PREAMBLE"].split("\n")
+        defs = [json.loads(_decode(x)) for x in lines if x.endswith('T"duet/milo/tooldef"')]
+        self.assertEqual(defs, [
+            {"event": "tool", "tool_number": 5, "tool_name": "6mm Endmill", "diameter": 6,
+             "flutes": 3, "rpm": 18000},  # the first use's speed
+            {"event": "tool", "tool_number": 21, "tool_name": "Spot Drill 90", "diameter": 6.35,
+             "flutes": 2, "rpm": 10000},
+        ])
+        connect = next(i for i, line in enumerate(lines) if line.startswith("M586 P4 H"))
+        first_def = next(i for i, line in enumerate(lines) if "tooldef" in line)
+        self.assertLess(connect, first_def)
+
+    def test_none_with_mqtt_off(self):
+        pp = _make_post(MQTT_TELEMETRY=False)
+        pp._expand_prefix([("allitems", [_tc_item(5, "6mm Endmill")])])
+        self.assertNotIn("tooldef", pp.values.get("PREAMBLE", ""))
+
+
 class TestOpEvents(unittest.TestCase):
     def setUp(self):
         _StubFilenameGenerator.template = "/cam/out/Part"
@@ -442,9 +487,20 @@ class TestOpEvents(unittest.TestCase):
 # ----------------------------------------------------------------------
 # Tool numbers
 # ----------------------------------------------------------------------
-def _tc_item(number, label):
+class _Quantity:
+    def __init__(self, mm):
+        self.mm = mm
+
+    def getValueAs(self, unit):
+        assert unit == "mm"
+        return self.mm
+
+
+def _tc_item(number, label, diameter=6.0, flutes=2, rpm=10000):
+    tool = types.SimpleNamespace(Diameter=_Quantity(diameter), Flutes=flutes)
+    tc = types.SimpleNamespace(Tool=tool, SpindleSpeed=rpm)
     return types.SimpleNamespace(
-        item_type="tool_controller", data={"tool_number": number}, label=f"TC: {label}"
+        item_type="tool_controller", data={"tool_number": number}, label=f"TC: {label}", source=tc
     )
 
 

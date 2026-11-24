@@ -29,6 +29,7 @@ from typing import Any, Dict, List
 import inspect
 import json
 import math
+from decimal import ROUND_HALF_UP, Decimal
 import os
 import re
 
@@ -221,6 +222,12 @@ def nxt_tool_number_message(tools):
 #    "next_op_name":"Profile","next_op_tool":3,"job_file":"part.gcode"}
 #   {"event":"end","op_count":7,"job_file":"part.gcode"}
 #
+# At the start of each file, after the MQTT connect, every tool the job uses
+# publishes its details to duet/<device>/tooldef (rpm: its first use):
+#
+#   {"event":"tool","tool_number":5,"tool_name":"6mm Endmill","diameter":6,
+#    "flutes":3,"rpm":18000}
+#
 # next_op_name is null on the file's last operation. RRF runs an M118 when it
 # reads the line, ahead of the queued moves, so an op event can arrive a little
 # before the machine reaches that operation.
@@ -242,6 +249,12 @@ MQTT_COMPACT_STEPS = (
 MQTT_OP_COMPACT_STEPS = (
     ("next_op_name", True), ("op_name", True), ("job_file", True),
     ("next_op_tool", False), ("job_file", False), ("next_op_name", False), ("op_name", False),
+)
+
+#: The same for the tool details on duet/<device>/tooldef.
+MQTT_TOOLDEF_COMPACT_STEPS = (
+    ("tool_name", True), ("tool_name", False), ("rpm", False), ("flutes", False),
+    ("diameter", False),
 )
 
 #: next_tool when the post can't tell which tool comes next: leaves it out.
@@ -368,6 +381,34 @@ def mqtt_op_publish_line(device_id, op_index, op_count, op_name, tool_number=Non
     if job_file:
         payload["job_file"] = job_file
     return mqtt_publish_line(f"duet/{device_id}/op", payload, MQTT_OP_COMPACT_STEPS)
+
+
+def mqtt_number(value, places=3):
+    """A length or speed for the payload: at most `places` decimals, a whole number as an int.
+
+    Halves round up from the float's exact value, like JavaScript's toFixed() and
+    Math.round() in the Fusion post, so both posts give the same digits.
+    """
+    exact = Decimal(float(value)).quantize(Decimal(1).scaleb(-places), rounding=ROUND_HALF_UP)
+    return int(exact) if exact == exact.to_integral_value() else float(exact)
+
+
+def mqtt_tooldef_publish_line(device_id, tool_number, tool_name="", diameter=None, flutes=None,
+                              rpm=None):
+    """An M118 P6 line publishing one tool's details to duet/<device>/tooldef.
+
+    diameter is in mm. Unknown or zero values are left out.
+    """
+    payload = {"event": "tool", "tool_number": int(tool_number)}
+    if tool_name:
+        payload["tool_name"] = tool_name
+    if diameter:
+        payload["diameter"] = mqtt_number(diameter)
+    if flutes:
+        payload["flutes"] = int(flutes)
+    if rpm:
+        payload["rpm"] = int(mqtt_number(rpm, 0))
+    return mqtt_publish_line(f"duet/{device_id}/tooldef", payload, MQTT_TOOLDEF_COMPACT_STEPS)
 
 
 def mqtt_end_publish_line(device_id, op_count, job_file=""):
@@ -825,8 +866,9 @@ class NxtMachine(PostProcessor):
         """Walk the postable list and gather tool definitions for M4000.
 
         Returns an ordered dict of tool_number -> {name, radius, flutes,
-        flute_length}. flutes and flute_length are None when the tool bit's
+        flute_length, rpm}. flutes and flute_length are None when the tool bit's
         shape lacks them or they are left at 0 (drills have no flute length).
+        rpm is the spindle speed of the tool's first tool controller.
         """
         tools: Dict[int, Dict[str, Any]] = {}
 
@@ -852,11 +894,13 @@ class NxtMachine(PostProcessor):
                         f"Duplicate tool index {number} with different descriptions"
                     )
 
+                first = tools.get(number)
                 tools[number] = {
                     "name": name,
                     "radius": radius,
                     "flutes": self._tool_flutes(tool),
                     "flute_length": self._tool_flute_length_mm(tool),
+                    "rpm": first["rpm"] if first else float(getattr(tc, "SpindleSpeed", 0) or 0),
                 }
 
         return tools
@@ -960,6 +1004,7 @@ class NxtMachine(PostProcessor):
         mqtt = self._mqtt_settings()
         if mqtt:
             lines.extend(mqtt_connect_lines(*mqtt))
+            lines.extend(self._mqtt_tooldef_lines(mqtt[0], postables))
             self._mqtt_tool_names = {
                 number: mqtt_tool_name(label)
                 for number, label in self._tool_labels(postables).items()
@@ -1259,6 +1304,23 @@ class NxtMachine(PostProcessor):
             if number is not None and (not order or order[-1] != int(number)):
                 order.append(int(number))
         return order
+
+    def _mqtt_tooldef_lines(self, device_id, postables):
+        """Comment and one M118 P6 publish per tool, with its diameter, flutes and rpm."""
+        try:
+            tools = self._collect_tools(postables)
+        except (ValueError, AttributeError) as exc:  # optional telemetry must not stop a post
+            Path.Log.warning(f"nxt: no MQTT tool details: {exc}")
+            return []
+        if not tools:
+            return []
+        lines = ["(MQTT: publish the job's tools)"]
+        for number, tool in tools.items():
+            lines.append(mqtt_tooldef_publish_line(
+                device_id, number, mqtt_tool_name(tool["name"]), 2 * tool["radius"],
+                tool["flutes"], tool["rpm"],
+            ))
+        return lines
 
     @staticmethod
     def _section_ops(sublist):

@@ -215,6 +215,15 @@ M118 P6 S"{""event"":""change"",""tool_number"":48,""tool_name"":""6mm Endmill""
 - **`job_file`** is the name of the file FreeCAD writes, worked out the same way FreeCAD names it. If that name is only a program number, such as `8910.gcode`, the document name is used instead. Set `mqtt_job_file` if you save under a different name or FreeCAD renames the file to avoid a clash.
 - The topic and payload match the Fusion 360 post's MQTT option. The legacy FreeCAD post does not support MQTT.
 
+At the start of each file, right after the MQTT connect, each tool the job uses publishes its details to `duet/<device>/tooldef`, so a display can show them for the loaded and the next tool:
+
+```gcode
+(MQTT: publish the job's tools)
+M118 P6 S"{""event"":""tool"",""tool_number"":48,""tool_name"":""6mm Endmill"",""diameter"":6,""flutes"":3,""rpm"":18000}" T"duet/milo/tooldef"
+```
+
+`diameter` is in mm (3 decimals at most), `flutes` comes from the tool bit, and `rpm` is the spindle speed of the tool's first tool controller in the job. Unknown or zero values are left out.
+
 Each operation also publishes as it starts, to `duet/<device>/op`, and each output file ends with an `end` event:
 
 ```gcode

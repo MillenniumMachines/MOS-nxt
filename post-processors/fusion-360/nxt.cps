@@ -666,9 +666,19 @@ var MQTT_OP_COMPACT_STEPS = [
   ["next_op_name", true], ["op_name", true], ["job_file", true],
   ["next_op_tool", false], ["job_file", false], ["next_op_name", false], ["op_name", false]
 ];
+// The same for the tool details on duet/<device>/tooldef.
+var MQTT_TOOLDEF_COMPACT_STEPS = [
+  ["tool_name", true], ["tool_name", false], ["rpm", false], ["flutes", false], ["diameter", false]
+];
 // Payload keys in output order; it matches the FreeCAD post's, so both give the same line.
 var MQTT_KEY_ORDER = ["event", "op_index", "op_count", "op_name", "tool_number", "tool_name",
-  "previous_tool", "next_tool", "next_tool_name", "next_op_name", "next_op_tool", "job_file"];
+  "diameter", "flutes", "rpm", "previous_tool", "next_tool", "next_tool_name", "next_op_name",
+  "next_op_tool", "job_file"];
+
+// A length or speed for the payload: 3 decimals at most (as the FreeCAD post's mqtt_number).
+function mqttNumber(value) {
+  return Number(Number(value).toFixed(3));
+}
 
 // M118 P6 S"<payload as JSON>" T"<topic>", compacted by steps to MQTT_M118_MAX characters.
 function mqttPublishLine(topic, payload, steps) {
@@ -758,6 +768,44 @@ function mqttRenderOpLine(opIndex, opCount, opName, toolNumber, nextOpName, next
   }
   var deviceId = mqttSanitizeSegment(getProperty("mqttDeviceId"));
   return mqttPublishLine("duet/" + deviceId + "/op", payload, MQTT_OP_COMPACT_STEPS);
+}
+
+// One tool's details on duet/<device>/tooldef; diameter in mm, unknown or zero values left out.
+function mqttRenderToolDefLine(toolNumber, toolName, diameter, flutes, rpm) {
+  var payload = { event: "tool", tool_number: toolNumber };
+  if (toolName) {
+    payload.tool_name = toolName;
+  }
+  if (diameter) {
+    payload.diameter = mqttNumber(diameter);
+  }
+  if (flutes) {
+    payload.flutes = flutes;
+  }
+  if (rpm) {
+    payload.rpm = Math.round(rpm);
+  }
+  var deviceId = mqttSanitizeSegment(getProperty("mqttDeviceId"));
+  return mqttPublishLine("duet/" + deviceId + "/tooldef", payload, MQTT_TOOLDEF_COMPACT_STEPS);
+}
+
+// The job's tools, after the MQTT connect: one line each with diameter, flutes and rpm.
+function writeMqttToolDefs() {
+  if (!mqttTelemetryActive()) {
+    return;
+  }
+  var tools = getToolTable();
+  var n = tools.getNumberOfTools();
+  if (n < 1) {
+    return;
+  }
+  writeComment("MQTT: publish the job's tools");
+  for (var i = 0; i < n; i++) {
+    var t = tools.getTool(i);
+    writeln(mqttRenderToolDefLine(t.number, mqttSanitizeToolName(t.description), t.diameter,
+      t.numberOfFlutes, t.spindleRPM));
+  }
+  writeln("");
 }
 
 // The end of the file on duet/<device>/op.
@@ -945,6 +993,7 @@ function onOpen() {
   writeln("");
 
   writeMqttConnectPreamble();
+  writeMqttToolDefs();
 };
 
 // Track parameter values required for the current operation.
