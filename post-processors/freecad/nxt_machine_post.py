@@ -206,9 +206,11 @@ def nxt_tool_number_message(tools):
 # and every tool change publishes one JSON payload to duet/<device>/tool with
 # M118 P6. Topic and payload match the Fusion 360 post (nxt.cps):
 #
-#   {"event":"start"|"change","tool_number":5,"previous_tool":3,"job_file":"part.gcode"}
+#   {"event":"start"|"change","tool_number":5,"tool_name":"6mm Endmill",
+#    "previous_tool":3,"job_file":"part.gcode"}
 #
 # "start" is the first tool of each output file; previous_tool is omitted then.
+# tool_name is the name M4000 gives the tool, left out when the job has none.
 # These helpers do not touch FreeCAD, so test_nxt_machine.py runs them without it.
 
 #: DSF rejects serialised codes over ~256 characters; stay well under.
@@ -226,6 +228,11 @@ def mqtt_sanitize_segment(value):
 def mqtt_sanitize_host(value):
     """Reduce a broker host to hostname or IP characters, so it cannot break out of its quotes."""
     return re.sub(r"[^0-9a-zA-Z._:\-]", "", str(value or "").strip())
+
+
+def mqtt_tool_name(label):
+    """The payload's tool name: the M4000 S name (32 characters, rrf_safe_string) without quotes."""
+    return re.sub(r"[^0-9a-zA-Z.:,=_\- ]", "", str(label or "")[:32]).strip()
 
 
 def mqtt_looks_like_job_file_name(name):
@@ -280,14 +287,19 @@ def mqtt_connect_lines(device_id, host, port):
     ]
 
 
-def mqtt_tool_publish_line(device_id, event, tool_number, previous_tool=None, job_file=""):
+def mqtt_tool_publish_line(
+    device_id, event, tool_number, previous_tool=None, job_file="", tool_name=""
+):
     """An M118 P6 line publishing one tool event, at most MQTT_M118_MAX characters.
 
-    Over the limit, job_file is shortened first, then previous_tool and finally
-    job_file are dropped. Raises ValueError if even the bare payload is too long.
+    Over the limit, tool_name is shortened and then dropped, then job_file is
+    shortened, and finally previous_tool and job_file are dropped. Raises
+    ValueError if even the bare payload is too long.
     """
     topic = f"duet/{device_id}/tool"
     payload = {"event": event, "tool_number": int(tool_number)}
+    if tool_name:
+        payload["tool_name"] = tool_name
     if previous_tool is not None and int(previous_tool) >= 0:
         payload["previous_tool"] = int(previous_tool)
     if job_file:
@@ -299,8 +311,13 @@ def mqtt_tool_publish_line(device_id, event, tool_number, previous_tool=None, jo
 
     line = render(payload)
     while len(line) > MQTT_M118_MAX:
+        tool_name = payload.get("tool_name")
         job_file = payload.get("job_file")
-        if isinstance(job_file, str) and len(job_file) > 12:
+        if tool_name and len(tool_name) > 12:
+            payload["tool_name"] = tool_name[: max(8, len(tool_name) - 16)].rstrip() + "~"
+        elif tool_name is not None:
+            del payload["tool_name"]
+        elif isinstance(job_file, str) and len(job_file) > 12:
             payload["job_file"] = job_file[: max(8, len(job_file) - 16)].rstrip() + "~"
         elif "previous_tool" in payload:
             del payload["previous_tool"]
@@ -547,6 +564,7 @@ class NxtMachine(PostProcessor):
         self._mqtt_filenames = None
         self._mqtt_job_file = MQTT_DEFAULT_JOB_FILE
         self._mqtt_previous_tool = None
+        self._mqtt_tool_names: Dict[int, str] = {}
         Path.Log.debug("nxt machine post processor initialized.")
 
     def init_values(self, values: Values) -> None:
@@ -671,11 +689,9 @@ class NxtMachine(PostProcessor):
             return None
         return length
 
-    def _check_tool_numbers(self, postables):
-        """Refuse to post a tool number nxt cannot use, see nxt_tool_number_problem().
-
-        Checked whether or not M4000 lines are emitted: RRF rejects the T word too.
-        """
+    @staticmethod
+    def _tool_labels(postables):
+        """tool_number -> tool controller label (without "TC: "), first one wins."""
         tools: Dict[int, str] = {}
         for _section_name, sublist in postables:
             for item in sublist:
@@ -684,8 +700,14 @@ class NxtMachine(PostProcessor):
                 number = item.data.get("tool_number")
                 if number is not None:
                     tools.setdefault(int(number), item.label.replace("TC: ", "").strip())
+        return tools
 
-        message = nxt_tool_number_message(tools.items())
+    def _check_tool_numbers(self, postables):
+        """Refuse to post a tool number nxt cannot use, see nxt_tool_number_problem().
+
+        Checked whether or not M4000 lines are emitted: RRF rejects the T word too.
+        """
+        message = nxt_tool_number_message(self._tool_labels(postables).items())
         if message:
             raise ValueError(message)
 
@@ -856,6 +878,10 @@ class NxtMachine(PostProcessor):
         mqtt = self._mqtt_settings()
         if mqtt:
             lines.extend(mqtt_connect_lines(*mqtt))
+            self._mqtt_tool_names = {
+                number: mqtt_tool_name(label)
+                for number, label in self._tool_labels(postables).items()
+            }
 
         nxt_block = "\n".join(lines)
 
@@ -1174,7 +1200,10 @@ class NxtMachine(PostProcessor):
         event = "start" if previous is None else "change"
         return [
             "(MQTT: publish tool change)",
-            mqtt_tool_publish_line(device_id, event, tool, previous, self._mqtt_job_file),
+            mqtt_tool_publish_line(
+                device_id, event, tool, previous, self._mqtt_job_file,
+                self._mqtt_tool_names.get(tool, ""),
+            ),
         ]
 
     def _convert_spindle_command(self, command: Path.Command) -> str:

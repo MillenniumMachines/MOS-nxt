@@ -506,6 +506,15 @@ function mqttSanitizeSegment(s) {
   return mqttTrimString(s).replace(/[^0-9a-zA-Z._-]/g, "");
 }
 
+// The name M4000 S gets (description, 32 characters), cut to characters that are
+// safe inside the M118 string and the JSON.
+function mqttSanitizeToolName(description) {
+  if (description === undefined || description === null) {
+    return "";
+  }
+  return mqttTrimString(String(description).substring(0, 32).replace(/[^0-9a-zA-Z.:,=_\- ]/g, ""));
+}
+
 function mqttSanitizeJobFile(name) {
   return mqttTrimString(name).replace(/[^0-9a-zA-Z._\- \/]/gi, "").substring(0, 64);
 }
@@ -638,13 +647,16 @@ function writeMqttConnectPreamble() {
   writeln("");
 }
 
-function mqttRenderToolLine(eventName, toolNumber, previousTool, jobFile) {
+function mqttRenderToolLine(eventName, toolNumber, previousTool, jobFile, toolName) {
   var deviceId = mqttSanitizeSegment(getProperty("mqttDeviceId"));
   var topic = "duet/" + deviceId + "/tool";
   var payload = {
     event: eventName,
     tool_number: toolNumber
   };
+  if (toolName) {
+    payload.tool_name = toolName;
+  }
   if (previousTool !== undefined && previousTool !== null && previousTool >= 0) {
     payload.previous_tool = previousTool;
   }
@@ -660,6 +672,9 @@ function mqttRenderToolLine(eventName, toolNumber, previousTool, jobFile) {
     if (obj.tool_number !== undefined) {
       parts.push('"tool_number":' + obj.tool_number);
     }
+    if (obj.tool_name !== undefined) {
+      parts.push('"tool_name":"' + String(obj.tool_name).replace(/"/g, "") + '"');
+    }
     if (obj.previous_tool !== undefined) {
       parts.push('"previous_tool":' + obj.previous_tool);
     }
@@ -673,6 +688,18 @@ function mqttRenderToolLine(eventName, toolNumber, previousTool, jobFile) {
 
   var line = render(payload);
   while (line.length > MQTT_M118_MAX) {
+    // tool_name goes first, then the job_file, previous_tool and job_file steps.
+    if (payload.tool_name && String(payload.tool_name).length > 12) {
+      var tn = String(payload.tool_name);
+      payload.tool_name = tn.substring(0, Math.max(8, tn.length - 16)).replace(/\s+$/g, "") + "~";
+      line = render(payload);
+      continue;
+    }
+    if (payload.tool_name !== undefined) {
+      delete payload.tool_name;
+      line = render(payload);
+      continue;
+    }
     if (payload.job_file && String(payload.job_file).length > 12) {
       var jf = String(payload.job_file);
       payload.job_file = jf.substring(0, Math.max(8, jf.length - 16)).replace(/\s+$/g, "") + "~";
@@ -695,7 +722,7 @@ function mqttRenderToolLine(eventName, toolNumber, previousTool, jobFile) {
   return line;
 }
 
-function writeMqttToolPublish(toolNumber, previousTool) {
+function writeMqttToolPublish(toolNumber, previousTool, toolDescription) {
   if (!mqttTelemetryActive()) {
     return;
   }
@@ -706,7 +733,8 @@ function writeMqttToolPublish(toolNumber, previousTool) {
   mqttToolEventCount++;
   writeComment("MQTT: duet tool change (active session)");
   // writeln so tool MQTT is not dropped if writeBlock/formatWords is empty.
-  writeln(mqttRenderToolLine(eventName, toolNumber, previousTool, mqttJobFileName()));
+  writeln(mqttRenderToolLine(eventName, toolNumber, previousTool, mqttJobFileName(),
+    mqttSanitizeToolName(toolDescription)));
   writeln("");
 }
 
@@ -983,7 +1011,7 @@ function onSection() {
     }
     // If Fusion cleared section linkage but we already published in this run,
     // still emit "change" via mqttToolEventCount inside writeMqttToolPublish.
-    writeMqttToolPublish(tool.number, mqttPrevTool);
+    writeMqttToolPublish(tool.number, mqttPrevTool, tool.description);
   }
 
   var s = sVar.format(curTool['rpm']);

@@ -132,4 +132,36 @@ function payloadOf(line) {
   assert.equal(payloadOf(codeLines(out)[0]).event, "start", "each post run starts again");
 }
 
+// tool_name: the M4000 description, after tool_number, compacted before anything else
+{
+  const { post, out } = loadPost({ props: MQTT_ON, outputPath: "/cam/part.gcode" });
+  post.writeMqttToolPublish(5, null, "6mm Endmill");
+  post.writeMqttToolPublish(7, 5, '1/4" Endmill (3F) {x}');
+  post.writeMqttToolPublish(9, 7);
+  const lines = codeLines(out);
+  assert.ok(lines[0].includes('""tool_number"":5,""tool_name"":""6mm Endmill""'), lines[0]);
+  const [first, second, third] = lines.map(payloadOf);
+  assert.deepEqual(first, { event: "start", tool_number: 5, tool_name: "6mm Endmill", job_file: "part.gcode" });
+  assert.equal(second.tool_name, "14 Endmill 3F x");
+  assert.equal(third.tool_name, undefined, "no description, no tool_name");
+  assert.equal(post.mqttSanitizeToolName("x".repeat(40)), "x".repeat(32));
+}
+{
+  // A device ID that leaves no room for the name but fits everything else.
+  const { post } = loadPost({ props: { ...MQTT_ON, mqttDeviceId: "d" } });
+  const base = post.mqttRenderToolLine("change", 2, 1, "part.gcode").length;
+  const device = "d".repeat(240 - base + 1);
+  const render = (dev, name) =>
+    loadPost({ props: { ...MQTT_ON, mqttDeviceId: dev } }).post.mqttRenderToolLine("change", 2, 1, "part.gcode", name);
+  const decode = (line) => JSON.parse(/ S"(.*)" T"/.exec(line)[1].replace(/""/g, '"'));
+  const name = "Long Tool Name For Compacting 32";
+  const dropped = render(device, name);
+  assert.ok(dropped.length <= 240);
+  assert.deepEqual(decode(dropped), { event: "change", tool_number: 2, previous_tool: 1, job_file: "part.gcode" });
+  const shortened = render(device.slice(40), name);
+  assert.ok(shortened.length <= 240);
+  assert.match(decode(shortened).tool_name, /^Long Tool.*~$/);
+  assert.equal(decode(shortened).job_file, "part.gcode");
+}
+
 console.log("mqtt helper tests: ok");
