@@ -204,13 +204,18 @@ def nxt_tool_number_message(tools):
 # MQTT tool telemetry (optional, off by default)
 # ----------------------------------------------------------------------
 # With mqtt_telemetry on, the preamble connects RRF's MQTT client to the broker
-# and every tool change publishes one JSON payload to duet/<device>/tool with
+# and every tool change publishes JSON payloads to duet/<device>/tool with
 # M118 P6. Topic and payload match the Fusion 360 post (nxt.cps):
 #
+#   {"event":"load","tool_number":5,"tool_name":"6mm Endmill","previous_tool":3,
+#    "job_file":"part.gcode"}
 #   {"event":"start"|"change","tool_number":5,"tool_name":"6mm Endmill",
 #    "previous_tool":3,"next_tool":7,"next_tool_name":"Spot Drill","job_file":"part.gcode"}
 #
-# "start" is the first tool of each output file; previous_tool is omitted then.
+# "load" comes just before the T word, after an M400, so it arrives when the
+# machine stops for the change: the tool to put in. "start" or "change" follows
+# the T word, once the tool is in. "start" is the first tool of each output file;
+# previous_tool is omitted then.
 # tool_name is the name M4000 gives the tool, left out when the job has none.
 # next_tool is the next different tool this output file changes to, null after
 # its last tool change; next_tool_name is that tool's name.
@@ -223,10 +228,14 @@ def nxt_tool_number_message(tools):
 #   {"event":"end","op_count":7,"job_file":"part.gcode"}
 #
 # At the start of each file, after the MQTT connect, every tool the job uses
-# publishes its details to duet/<device>/tooldef (rpm: its first use):
+# publishes its details to duet/<device>/tooldef/<tool number> (rpm: its first use):
 #
 #   {"event":"tool","tool_number":5,"tool_name":"6mm Endmill","diameter":6,
 #    "flutes":3,"rpm":18000}
+#
+# Every publish is retained (M118 R1), so a display that connects later gets
+# the latest tool event, op event and each tool's details from the broker
+# straight away. The broker keeps the last message of each topic.
 #
 # next_op_name is null on the file's last operation. RRF runs an M118 when it
 # reads the line, ahead of the queued moves, so an op event can arrive a little
@@ -362,7 +371,7 @@ def mqtt_tool_publish_line(
             payload["next_tool_name"] = next_tool_name
     if job_file:
         payload["job_file"] = job_file
-    return mqtt_publish_line(topic, payload, MQTT_COMPACT_STEPS)
+    return mqtt_publish_line(topic, payload, MQTT_COMPACT_STEPS, retain=True)
 
 
 def mqtt_op_publish_line(device_id, op_index, op_count, op_name, tool_number=None,
@@ -380,7 +389,7 @@ def mqtt_op_publish_line(device_id, op_index, op_count, op_name, tool_number=Non
         payload["next_op_tool"] = int(next_op_tool)
     if job_file:
         payload["job_file"] = job_file
-    return mqtt_publish_line(f"duet/{device_id}/op", payload, MQTT_OP_COMPACT_STEPS)
+    return mqtt_publish_line(f"duet/{device_id}/op", payload, MQTT_OP_COMPACT_STEPS, retain=True)
 
 
 def mqtt_number(value, places=3):
@@ -395,9 +404,10 @@ def mqtt_number(value, places=3):
 
 def mqtt_tooldef_publish_line(device_id, tool_number, tool_name="", diameter=None, flutes=None,
                               rpm=None):
-    """An M118 P6 line publishing one tool's details to duet/<device>/tooldef.
+    """An M118 P6 line publishing one tool's details to duet/<device>/tooldef/<tool number>.
 
-    diameter is in mm. Unknown or zero values are left out.
+    diameter is in mm. Unknown or zero values are left out. One topic per tool, so
+    the broker keeps every tool's details, not only the last one's.
     """
     payload = {"event": "tool", "tool_number": int(tool_number)}
     if tool_name:
@@ -408,7 +418,8 @@ def mqtt_tooldef_publish_line(device_id, tool_number, tool_name="", diameter=Non
         payload["flutes"] = int(flutes)
     if rpm:
         payload["rpm"] = int(mqtt_number(rpm, 0))
-    return mqtt_publish_line(f"duet/{device_id}/tooldef", payload, MQTT_TOOLDEF_COMPACT_STEPS)
+    return mqtt_publish_line(f"duet/{device_id}/tooldef/{int(tool_number)}", payload,
+                             MQTT_TOOLDEF_COMPACT_STEPS, retain=True)
 
 
 def mqtt_end_publish_line(device_id, op_count, job_file=""):
@@ -416,19 +427,20 @@ def mqtt_end_publish_line(device_id, op_count, job_file=""):
     payload = {"event": "end", "op_count": int(op_count)}
     if job_file:
         payload["job_file"] = job_file
-    return mqtt_publish_line(f"duet/{device_id}/op", payload, MQTT_OP_COMPACT_STEPS)
+    return mqtt_publish_line(f"duet/{device_id}/op", payload, MQTT_OP_COMPACT_STEPS, retain=True)
 
 
-def mqtt_publish_line(topic, payload, steps):
+def mqtt_publish_line(topic, payload, steps, retain=False):
     """`M118 P6 S"<payload as JSON>" T"<topic>"`, compacted by `steps` to MQTT_M118_MAX characters.
 
+    retain adds R1, so the broker keeps the message for clients that subscribe later.
     (key, True) shortens a string value to at least 8 characters plus "~";
     (key, False) drops the key. Raises ValueError if that isn't enough.
     """
 
     def render(data):
         body = json.dumps(data, separators=(",", ":"), ensure_ascii=True)
-        return 'M118 P6 S"{}" T"{}"'.format(body.replace('"', '""'), topic)
+        return 'M118 P6 S"{}" T"{}"{}'.format(body.replace('"', '""'), topic, " R1" if retain else "")
 
     line = render(payload)
     while len(line) > MQTT_M118_MAX:
@@ -611,9 +623,9 @@ class NxtMachine(PostProcessor):
                 "default": False,
                 "help": translate(
                     "CAM",
-                    "Connect RRF's MQTT client at job start and publish each tool change "
-                    "to duet/<device>/tool with M118 P6. Needs MQTT Device ID and MQTT "
-                    "Broker Host.",
+                    "Connect RRF's MQTT client at job start and publish tool changes, "
+                    "operations and tool details under duet/<device>/ with M118 P6 (retained). "
+                    "Needs MQTT Device ID and MQTT Broker Host.",
                 ),
             },
             {
@@ -1248,7 +1260,8 @@ class NxtMachine(PostProcessor):
 
         mqtt = self._mqtt_settings()
         if mqtt:
-            gcode = "\n".join([gcode] + self._mqtt_tool_change_lines(mqtt[0], int(tool)))
+            before, after = self._mqtt_tool_change_lines(mqtt[0], int(tool))
+            gcode = "\n".join(before + [gcode] + after)
         return gcode
 
     # ------------------------------------------------------------------
@@ -1399,25 +1412,33 @@ class NxtMachine(PostProcessor):
         return f"{label}.{self.get_file_extension()}" if label else ""
 
     def _mqtt_tool_change_lines(self, device_id, tool):
-        """Comment and M118 P6 publish for a change to `tool`, or [] for no change.
+        """(lines before the T word, lines after it) for a change to `tool`; ([], []) for no change.
 
-        RRF ignores selecting the tool that is already active, so a repeated T
-        (two tool controllers with the same number) publishes nothing.
+        Before: M400 and the "load" event, so it arrives when the machine stops for the
+        change. After: "start" or "change", once the tool is in. RRF ignores selecting
+        the tool that is already active, so a repeated T (two tool controllers with the
+        same number) publishes nothing.
         """
         previous = self._mqtt_previous_tool
         if previous == tool:
-            return []
+            return [], []
         self._mqtt_previous_tool = tool
         event = "start" if previous is None else "change"
+        name = self._mqtt_tool_names.get(tool, "")
         next_tool = self._mqtt_next_tool(tool)
         next_name = self._mqtt_tool_names.get(next_tool, "") if isinstance(next_tool, int) else ""
-        return [
+        before = [
+            "(MQTT: publish the tool to load)",
+            "M400",
+            mqtt_tool_publish_line(device_id, "load", tool, previous, self._mqtt_job_file, name),
+        ]
+        after = [
             "(MQTT: publish tool change)",
             mqtt_tool_publish_line(
-                device_id, event, tool, previous, self._mqtt_job_file,
-                self._mqtt_tool_names.get(tool, ""), next_tool, next_name,
+                device_id, event, tool, previous, self._mqtt_job_file, name, next_tool, next_name,
             ),
         ]
+        return before, after
 
     def _convert_spindle_command(self, command: Path.Command) -> str:
         """Append the .9 wait suffix so RRF blocks until the spindle is at speed."""

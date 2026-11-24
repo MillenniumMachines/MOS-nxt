@@ -226,7 +226,7 @@ properties = {
   },
   mqttTelemetryEnabled: {
     title: "Enable MQTT telemetry",
-    description: "When enabled, reconnect RRF's MQTT client at job start (M586) and publish each tool change to duet/{device}/tool (M118 P6). Requires Device ID and Broker Host.",
+    description: "When enabled, reconnect RRF's MQTT client at job start (M586) and publish tool changes, operations and tool details under duet/{device}/ (M118 P6, retained). Requires Device ID and Broker Host.",
     group: "mqttTelemetry",
     scope: "post",
     type: "boolean",
@@ -681,7 +681,8 @@ function mqttNumber(value) {
 }
 
 // M118 P6 S"<payload as JSON>" T"<topic>", compacted by steps to MQTT_M118_MAX characters.
-function mqttPublishLine(topic, payload, steps) {
+// retain adds R1, so the broker keeps the message for clients that subscribe later.
+function mqttPublishLine(topic, payload, steps, retain) {
   function render(obj) {
     var parts = [];
     for (var k = 0; k < MQTT_KEY_ORDER.length; k++) {
@@ -698,7 +699,7 @@ function mqttPublishLine(topic, payload, steps) {
       parts.push('"' + key + '":' + value);
     }
     var body = "{" + parts.join(",") + "}";
-    return 'M118 P6 S"' + body.replace(/"/g, '""') + '" T"' + topic + '"';
+    return 'M118 P6 S"' + body.replace(/"/g, '""') + '" T"' + topic + '"' + (retain ? " R1" : "");
   }
 
   var line = render(payload);
@@ -750,7 +751,7 @@ function mqttRenderToolLine(eventName, toolNumber, previousTool, jobFile, toolNa
     payload.job_file = jobFile;
   }
   var deviceId = mqttSanitizeSegment(getProperty("mqttDeviceId"));
-  return mqttPublishLine("duet/" + deviceId + "/tool", payload, MQTT_COMPACT_STEPS);
+  return mqttPublishLine("duet/" + deviceId + "/tool", payload, MQTT_COMPACT_STEPS, true);
 }
 
 // An operation start on duet/<device>/op. nextOpName null marks the file's last operation.
@@ -767,10 +768,11 @@ function mqttRenderOpLine(opIndex, opCount, opName, toolNumber, nextOpName, next
     payload.job_file = jobFile;
   }
   var deviceId = mqttSanitizeSegment(getProperty("mqttDeviceId"));
-  return mqttPublishLine("duet/" + deviceId + "/op", payload, MQTT_OP_COMPACT_STEPS);
+  return mqttPublishLine("duet/" + deviceId + "/op", payload, MQTT_OP_COMPACT_STEPS, true);
 }
 
-// One tool's details on duet/<device>/tooldef; diameter in mm, unknown or zero values left out.
+// One tool's details on duet/<device>/tooldef/<tool number> (a topic per tool, so the broker
+// keeps every tool's); diameter in mm, unknown or zero values left out.
 function mqttRenderToolDefLine(toolNumber, toolName, diameter, flutes, rpm) {
   var payload = { event: "tool", tool_number: toolNumber };
   if (toolName) {
@@ -786,7 +788,8 @@ function mqttRenderToolDefLine(toolNumber, toolName, diameter, flutes, rpm) {
     payload.rpm = Math.round(rpm);
   }
   var deviceId = mqttSanitizeSegment(getProperty("mqttDeviceId"));
-  return mqttPublishLine("duet/" + deviceId + "/tooldef", payload, MQTT_TOOLDEF_COMPACT_STEPS);
+  return mqttPublishLine("duet/" + deviceId + "/tooldef/" + toolNumber, payload,
+    MQTT_TOOLDEF_COMPACT_STEPS, true);
 }
 
 // The job's tools, after the MQTT connect: one line each with diameter, flutes and rpm.
@@ -815,7 +818,7 @@ function mqttRenderEndLine(opCount, jobFile) {
     payload.job_file = jobFile;
   }
   var deviceId = mqttSanitizeSegment(getProperty("mqttDeviceId"));
-  return mqttPublishLine("duet/" + deviceId + "/op", payload, MQTT_OP_COMPACT_STEPS);
+  return mqttPublishLine("duet/" + deviceId + "/op", payload, MQTT_OP_COMPACT_STEPS, true);
 }
 
 // A section's operation name (its comment), cut like the FreeCAD post's op names.
@@ -864,6 +867,18 @@ function mqttNextTool(toolNumber) {
   } catch (e) {
     return undefined;
   }
+}
+
+// Before the T word: the tool to put in. M400 first, so the event arrives when the machine
+// stops for the change rather than when RRF reads ahead to it.
+function writeMqttToolLoad(toolNumber, previousTool, toolDescription) {
+  if (!mqttTelemetryActive()) {
+    return;
+  }
+  writeComment("MQTT: publish the tool to load");
+  writeln("M400");
+  writeln(mqttRenderToolLine("load", toolNumber, previousTool, mqttJobFileName(),
+    mqttSanitizeToolName(toolDescription), undefined, ""));
 }
 
 // nextTool: a Fusion tool, null after the last tool change, or undefined (unknown).
@@ -1144,11 +1159,6 @@ function onSection() {
   if(toolChanging || (wcsChanging && doProbe)) {
     writeComment("TC: {desc} L={length}".supplant(curTool));
 
-    // Write tool change command.
-    writeBlock(tCmd.format(tool.number));
-
-    writeln("");
-
     var mqttPrevTool = null;
     if (!isFirstSection()) {
       try {
@@ -1157,6 +1167,12 @@ function onSection() {
         mqttPrevTool = null;
       }
     }
+    writeMqttToolLoad(tool.number, mqttPrevTool, tool.description);
+
+    // Write tool change command.
+    writeBlock(tCmd.format(tool.number));
+
+    writeln("");
     // If Fusion cleared section linkage but we already published in this run,
     // still emit "change" via mqttToolEventCount inside writeMqttToolPublish.
     writeMqttToolPublish(tool.number, mqttPrevTool, tool.description, mqttNextTool(tool.number));

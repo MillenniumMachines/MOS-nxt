@@ -155,7 +155,7 @@ class TestPublishLine(unittest.TestCase):
             _decode(line), '{"event":"start","tool_number":1,"job_file":"part.gcode"}'
         )
         self.assertTrue(line.startswith('M118 P6 S"'))
-        self.assertTrue(line.endswith(' T"duet/milo/tool"'))
+        self.assertTrue(line.endswith(' T"duet/milo/tool" R1'))
 
     def test_change_has_previous_tool(self):
         line = post.mqtt_tool_publish_line("milo", "change", 2, 1, "part.gcode")
@@ -222,6 +222,22 @@ class TestPublishLine(unittest.TestCase):
         self.assertNotIn("next_tool_name", _decode(line))
         self.assertIn('"tool_name":"6mm Endmill","previous_tool":1,"next_tool":7,', _decode(line))
 
+    def test_every_publish_is_retained(self):
+        lines = [
+            post.mqtt_tool_publish_line("milo", "load", 2, 1, "part.gcode"),
+            post.mqtt_op_publish_line("milo", 1, 2, "Adaptive", 2, "Profile", 2, "part.gcode"),
+            post.mqtt_end_publish_line("milo", 2, "part.gcode"),
+            post.mqtt_tooldef_publish_line("milo", 2, "6mm Endmill", 6, 3, 18000),
+        ]
+        self.assertTrue(all(line.endswith(" R1") for line in lines))
+
+    def test_retain_counts_towards_the_limit(self):
+        base = len(post.mqtt_tool_publish_line("", "change", 2, 1, "part.gcode", "x" * 30))
+        line = post.mqtt_tool_publish_line("d" * (post.MQTT_M118_MAX - base + 1), "change", 2, 1,
+                                           "part.gcode", "x" * 30)
+        self.assertLessEqual(len(line), post.MQTT_M118_MAX)
+        self.assertTrue(line.endswith(" R1"))
+
     def test_oversized_device_id_raises(self):
         with self.assertRaises(ValueError):
             post.mqtt_tool_publish_line("d" * 300, "start", 1)
@@ -266,14 +282,21 @@ class TestToolChange(unittest.TestCase):
         pp._convert_start_section("allitems", [])
 
         first = pp._convert_tool_change(_Command(5)).split("\n")
-        self.assertEqual(first[:2], ["T5", "(MQTT: publish tool change)"])
+        self.assertEqual(first[:2], ["(MQTT: publish the tool to load)", "M400"])
+        self.assertEqual(_decode(first[2]), '{"event":"load","tool_number":5,"job_file":"Part.gcode"}')
+        self.assertEqual(first[3:5], ["T5", "(MQTT: publish tool change)"])
         self.assertEqual(
-            _decode(first[2]), '{"event":"start","tool_number":5,"job_file":"Part.gcode"}'
+            _decode(first[5]), '{"event":"start","tool_number":5,"job_file":"Part.gcode"}'
         )
 
         second = pp._convert_tool_change(_Command(3)).split("\n")
         self.assertEqual(
             _decode(second[2]),
+            '{"event":"load","tool_number":3,"previous_tool":5,"job_file":"Part.gcode"}',
+        )
+        self.assertEqual(second[3], "T3")
+        self.assertEqual(
+            _decode(second[5]),
             '{"event":"change","tool_number":3,"previous_tool":5,"job_file":"Part.gcode"}',
         )
 
@@ -287,7 +310,7 @@ class TestToolChange(unittest.TestCase):
         self.assertEqual(pp._mqtt_job_file, "Part-T5.gcode")
 
         pp._convert_start_section("T3", [])
-        line = pp._convert_tool_change(_Command(3)).split("\n")[2]
+        line = pp._convert_tool_change(_Command(3)).split("\n")[-1]
         self.assertIn('"event":"start"', _decode(line))
         self.assertNotIn("previous_tool", _decode(line))
         self.assertEqual(pp._mqtt_job_file, "Part-T3-1.gcode")
@@ -297,12 +320,12 @@ class TestToolChange(unittest.TestCase):
         postables = [("allitems", [_tc_item(5, '6mm "Flat" Endmill'), _tc_item(3, "Drill")])]
         pp._expand_prefix(postables)
         pp._convert_start_section("allitems", [])
-        first = _decode(pp._convert_tool_change(_Command(5)).split("\n")[2])
+        first = _decode(pp._convert_tool_change(_Command(5)).split("\n")[-1])
         self.assertIn('"tool_number":5,"tool_name":"6mm Flat Endmill"', first)
-        second = _decode(pp._convert_tool_change(_Command(3)).split("\n")[2])
+        second = _decode(pp._convert_tool_change(_Command(3)).split("\n")[-1])
         self.assertIn('"tool_number":3,"tool_name":"Drill"', second)
         # A tool with no controller in the job publishes without a name.
-        third = _decode(pp._convert_tool_change(_Command(9)).split("\n")[2])
+        third = _decode(pp._convert_tool_change(_Command(9)).split("\n")[-1])
         self.assertNotIn("tool_name", third)
 
     def test_next_tool_follows_each_files_tool_order(self):
@@ -314,7 +337,7 @@ class TestToolChange(unittest.TestCase):
 
         def publish(tool):
             lines = pp._convert_tool_change(_Command(tool)).split("\n")
-            return _decode(lines[2]) if len(lines) > 2 else None
+            return _decode(lines[-1]) if len(lines) > 1 else None
 
         pp._convert_start_section("T5", first)
         self.assertIn('"next_tool":3,"next_tool_name":"Drill"', publish(5))
@@ -328,12 +351,26 @@ class TestToolChange(unittest.TestCase):
         self.assertIn('"next_tool":5,"next_tool_name":"6mm Endmill"', line)
         self.assertIn('"next_tool":null', publish(5))
 
+    def test_load_has_the_name_but_no_next_tool(self):
+        pp = _make_post()
+        sublist = [_tc_item(5, "6mm Endmill"), _tc_item(3, "Drill")]
+        pp._expand_prefix([("allitems", sublist)])
+        pp._convert_start_section("allitems", sublist)
+        pp._convert_tool_change(_Command(5))
+        lines = pp._convert_tool_change(_Command(3)).split("\n")
+        self.assertEqual(json.loads(_decode(lines[2])), {
+            "event": "load", "tool_number": 3, "tool_name": "Drill", "previous_tool": 5,
+            "job_file": "Part.gcode",
+        })
+        self.assertEqual(lines[1], "M400")  # so the event arrives when the machine stops
+        self.assertTrue(all(x.endswith(' T"duet/milo/tool" R1') for x in (lines[2], lines[5])))
+
     def test_next_tool_left_out_when_unknown(self):
         pp = _make_post()
         sublist = [_tc_item(5, "6mm Endmill"), _tc_item(3, "Drill")]
         pp._expand_prefix([("allitems", sublist)])
         pp._convert_start_section("allitems", sublist)
-        line = _decode(pp._convert_tool_change(_Command(8)).split("\n")[2])  # not in the order
+        line = _decode(pp._convert_tool_change(_Command(8)).split("\n")[-1])  # not in the order
         self.assertNotIn("next_tool", line)
 
     def test_job_file_override_wins(self):
@@ -364,7 +401,7 @@ class TestToolChange(unittest.TestCase):
 class TestToolDefs(unittest.TestCase):
     def test_line(self):
         line = post.mqtt_tooldef_publish_line("milo", 21, "Spot Drill 90", 6.0, 2, 10000.0)
-        self.assertTrue(line.endswith(' T"duet/milo/tooldef"'))
+        self.assertTrue(line.endswith(' T"duet/milo/tooldef/21" R1'))  # one topic per tool
         self.assertEqual(
             _decode(line),
             '{"event":"tool","tool_number":21,"tool_name":"Spot Drill 90","diameter":6,'
@@ -389,7 +426,7 @@ class TestToolDefs(unittest.TestCase):
         ]
         pp._expand_prefix([("allitems", sublist)])
         lines = pp.values["PREAMBLE"].split("\n")
-        defs = [json.loads(_decode(x)) for x in lines if x.endswith('T"duet/milo/tooldef"')]
+        defs = [json.loads(_decode(x)) for x in lines if ' T"duet/milo/tooldef/' in x]
         self.assertEqual(defs, [
             {"event": "tool", "tool_number": 5, "tool_name": "6mm Endmill", "diameter": 6,
              "flutes": 3, "rpm": 18000},  # the first use's speed
@@ -413,7 +450,7 @@ class TestOpEvents(unittest.TestCase):
 
     def test_op_line(self):
         line = post.mqtt_op_publish_line("milo", 3, 7, "Adaptive", 5, "Profile", 3, "part.gcode")
-        self.assertTrue(line.endswith(' T"duet/milo/op"'))
+        self.assertTrue(line.endswith(' T"duet/milo/op" R1'))
         self.assertEqual(
             _decode(line),
             '{"event":"op","op_index":3,"op_count":7,"op_name":"Adaptive","tool_number":5,'
@@ -464,7 +501,7 @@ class TestOpEvents(unittest.TestCase):
         sublist = [_tc_item(5, "6mm Endmill"), _op_item("Adaptive", 5),
                    _op_item("Profile (finish)", 5), _tc_item(3, "Drill"), _op_item("Drilling", 3)]
         lines = self._run(_make_post(), sublist)
-        ops = [i for i, line in enumerate(lines) if line.endswith('T"duet/milo/op"')]
+        ops = [i for i, line in enumerate(lines) if line.endswith('T"duet/milo/op" R1')]
         self.assertEqual(len(ops), 4)
         events = [json.loads(_decode(lines[i])) for i in ops]
         self.assertEqual(events[0], {

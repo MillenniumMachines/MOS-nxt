@@ -62,7 +62,7 @@ const codeLines = (out) => out.filter((l) => l !== "" && !l.startsWith("("));
 
 /** The JSON payload of an M118 P6 line. */
 function payloadOf(line) {
-  const m = /^M118 P6 S"(.*)" T"duet\/milo\/tool"$/.exec(line);
+  const m = /^M118 P6 S"(.*)" T"duet\/milo\/tool" R1$/.exec(line);
   assert.ok(m, `not an M118 P6 publish: ${line}`);
   return JSON.parse(m[1].replace(/""/g, '"'));
 }
@@ -120,6 +120,26 @@ function payloadOf(line) {
   assert.deepEqual(second, { event: "change", tool_number: 7, previous_tool: 5, job_file: "part.gcode" });
   assert.equal(third.event, "change");
   assert.ok(codeLines(out).every((l) => l.length <= 240), "M118 lines stay within 240 characters");
+}
+// Before the T word: M400, then the tool to load, without next_tool
+{
+  const { post, out } = loadPost({ props: MQTT_ON, outputPath: "/cam/part.gcode" });
+  post.writeMqttToolLoad(7, 5, "6mm Endmill");
+  const lines = codeLines(out);
+  assert.equal(lines[0], "M400");
+  assert.deepEqual(payloadOf(lines[1]),
+    { event: "load", tool_number: 7, tool_name: "6mm Endmill", previous_tool: 5, job_file: "part.gcode" });
+  assert.equal(lines.length, 2);
+}
+{
+  const { post, out } = loadPost({ props: MQTT_ON, outputPath: "/cam/part.gcode" });
+  post.writeMqttToolLoad(5, null, "");
+  assert.deepEqual(payloadOf(codeLines(out)[1]), { event: "load", tool_number: 5, job_file: "part.gcode" });
+}
+{
+  const { post, out } = loadPost();  // telemetry off: no load event
+  post.writeMqttToolLoad(5, null, "6mm Endmill");
+  assert.deepEqual(out, []);
 }
 {
   const { post, out } = loadPost({ props: MQTT_ON });
@@ -209,7 +229,7 @@ function payloadOf(line) {
 // Op events on duet/<device>/op: one per section, then an end event
 {
   const opPayload = (line) => {
-    const m = /^M118 P6 S"(.*)" T"duet\/milo\/op"$/.exec(line);
+    const m = /^M118 P6 S"(.*)" T"duet\/milo\/op" R1$/.exec(line);
     assert.ok(m, `not an op publish: ${line}`);
     return JSON.parse(m[1].replace(/""/g, '"'));
   };
@@ -249,7 +269,7 @@ function payloadOf(line) {
   assert.deepEqual(out, []);
 }
 
-// Tool details on duet/<device>/tooldef, one line per tool after the connect
+// Tool details on duet/<device>/tooldef/<tool number>, one retained line per tool after the connect
 {
   const { post, out } = loadPost({ props: MQTT_ON });
   const tools = [
@@ -260,9 +280,11 @@ function payloadOf(line) {
   post.getToolTable = () => ({ getNumberOfTools: () => tools.length, getTool: (i) => tools[i] });
   post.writeMqttToolDefs();
   const defs = codeLines(out).map((line) => {
-    const m = /^M118 P6 S"(.*)" T"duet\/milo\/tooldef"$/.exec(line);
+    const m = /^M118 P6 S"(.*)" T"duet\/milo\/tooldef\/(\d+)" R1$/.exec(line);
     assert.ok(m, line);
-    return JSON.parse(m[1].replace(/""/g, '"'));
+    const def = JSON.parse(m[1].replace(/""/g, '"'));
+    assert.equal(Number(m[2]), def.tool_number, "one topic per tool");
+    return def;
   });
   assert.deepEqual(defs, [
     { event: "tool", tool_number: 5, tool_name: "6mm Endmill", diameter: 6, flutes: 3, rpm: 18000 },
