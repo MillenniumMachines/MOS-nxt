@@ -17,10 +17,12 @@ In nxt, **“skew” means in-plane workpiece rotation vs machine +X**, not mach
 | Cycle | θ | Notes |
 |-------|---|--------|
 | **G6506** | `atan2(dy, dx)` along two edge touches | Edge angle vs +X |
-| **G6500**–**G6503** | `atan2(vy, vx)` on the **±X chord only** | Y chord is for size/center; remapped Y angle would be θ+90°. **G6503** uses means of 3 pts/face for the chord endpoints |
+| **G6502** | `atan2(vy, vx)` on the **±X chord only** | Y chord is for size/center; remapped Y angle would be θ+90° |
+| **G6503** | `atan2(ΣadY − ΣadX, Σa²)`: one least-squares slope through all four faces' hits | `a` = probe point along the face, `d` = hit, both from the jog point. X faces give −tan θ, Y faces +tan θ. The echo also shows the X-face and Y-face angles separately |
 | Store | `nxtProbeResults[row][#move.axes]` | Degrees; folded into **(−90°, 90°]** so reversed hit order does not yield ~±180° |
 | Abort | `\|θ\| > T` / `nxtProbeMaxSkewDeg` (default **5°**) | |
-| Size echo (G6502/G6503) | `hypot(vx,vy)` / `hypot(wx,wy)` | Chord length = true wall spacing |
+| Size echo (G6502) | `hypot(vx,vy)` / `hypot(wx,wy)` | Chord length = true wall spacing |
+| Size echo (G6503) | `vx·cos θ + vy·sin θ` / `wy·cos θ − wx·sin θ` | Face spacing square to the faces |
 
 **G68 polarity:** RRF **≥ 3.6.1** rotates **anticlockwise** for positive **R**. nxt passes measured θ through unchanged into **`G68 X0 Y0 R{θ}`** so a stock edge at +α from machine +X aligns programmed +X with that edge. Offline checks: `node dist/check-rotation-skew-math.mjs`.
 

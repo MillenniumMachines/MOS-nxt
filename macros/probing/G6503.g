@@ -4,7 +4,8 @@
 ; Outside clearance C defaults to 5 mm; edge inset E (corner clearance) defaults to 10 mm.
 ; Stay at dive Z along a face; raise to start Z only between faces. CCW from −Y/−X.
 ;
-; Face means → nxtProbeHitXY H0..H3 → skew + center; nxtProbeResults; M6520 if U.
+; Skew = one line slope fitted through every face's hits. Face means → nxtProbeHitXY
+; H0..H3 → center + size; nxtProbeResults; M6520 if U.
 ;
 ; USAGE: G6503 P|U W H L [F] [R] [C] [O] [E] [N] [T] [Q]
 ;   C: Outside face clearance (default 5)
@@ -104,6 +105,12 @@ var sumXn = 0
 var sumXnAlongY = 0
 var fi = 0
 var along = 0
+; Skew fit sums. a = probe point along the face, d = hit, both from the jog point.
+; The points sit symmetrically about the jog point, so each face's a sums to 0.
+var sumAdX = 0
+var sumAaX = 0
+var sumAdY = 0
+var sumAaY = 0
 
 ; --- Face −Y: N pts along +X at dive Z ---
 echo { "G6503: Face -Y (" ^ var.nPts ^ " pts along +X)" }
@@ -116,6 +123,8 @@ while { var.fi < var.nPts }
     G6512 Y{var.yTgtN} I{var.probeId} F{var.feedRate} R{var.retries}
     set var.sumYm = { var.sumYm + global.nxtLastProbeResult }
     set var.sumYmAlongX = { var.sumYmAlongX + var.along }
+    set var.sumAdY = { var.sumAdY + (var.along - var.centerX) * (global.nxtLastProbeResult - var.centerY) }
+    set var.sumAaY = { var.sumAaY + (var.along - var.centerX) * (var.along - var.centerX) }
     set var.fi = { var.fi + 1 }
 
 ; --- Face +X: N pts along +Y ---
@@ -130,6 +139,8 @@ while { var.fi < var.nPts }
     G6512 X{var.xTgtP} I{var.probeId} F{var.feedRate} R{var.retries}
     set var.sumXp = { var.sumXp + global.nxtLastProbeResult }
     set var.sumXpAlongY = { var.sumXpAlongY + var.along }
+    set var.sumAdX = { var.sumAdX + (var.along - var.centerY) * (global.nxtLastProbeResult - var.centerX) }
+    set var.sumAaX = { var.sumAaX + (var.along - var.centerY) * (var.along - var.centerY) }
     set var.fi = { var.fi + 1 }
 
 ; --- Face +Y: N pts along −X ---
@@ -144,6 +155,8 @@ while { var.fi < var.nPts }
     G6512 Y{var.yTgtP} I{var.probeId} F{var.feedRate} R{var.retries}
     set var.sumYp = { var.sumYp + global.nxtLastProbeResult }
     set var.sumYpAlongX = { var.sumYpAlongX + var.along }
+    set var.sumAdY = { var.sumAdY + (var.along - var.centerX) * (global.nxtLastProbeResult - var.centerY) }
+    set var.sumAaY = { var.sumAaY + (var.along - var.centerX) * (var.along - var.centerX) }
     set var.fi = { var.fi + 1 }
 
 ; --- Face −X: N pts along −Y ---
@@ -158,6 +171,8 @@ while { var.fi < var.nPts }
     G6512 X{var.xTgtN} I{var.probeId} F{var.feedRate} R{var.retries}
     set var.sumXn = { var.sumXn + global.nxtLastProbeResult }
     set var.sumXnAlongY = { var.sumXnAlongY + var.along }
+    set var.sumAdX = { var.sumAdX + (var.along - var.centerY) * (global.nxtLastProbeResult - var.centerX) }
+    set var.sumAaX = { var.sumAaX + (var.along - var.centerY) * (var.along - var.centerY) }
     set var.fi = { var.fi + 1 }
 
 G6550 Z{var.startZ}
@@ -171,7 +186,7 @@ var alongYn = { var.sumXnAlongY / var.nPts }
 var alongXp = { var.sumYpAlongX / var.nPts }
 var alongXm = { var.sumYmAlongX / var.nPts }
 
-; Representative H0..H3 for existing chord / skew math
+; Face means as H0..H3 (G6502's layout) for the centre and size
 if { !exists(global.nxtProbeHitXY) }
     global nxtProbeHitXY = { vector(8, 0.0) }
 elif { global.nxtProbeHitXY == null }
@@ -202,12 +217,13 @@ var vy = { var.xPy - var.xMy }
 var wx = { var.yPx - var.yMx }
 var wy = { var.yPy - var.yMy }
 
-var thetaRad = { atan2(var.vy, var.vx) }
-var thetaDeg = { var.thetaRad * 180 / pi }
-if { var.thetaDeg > 90 }
-    set var.thetaDeg = { var.thetaDeg - 180 }
-elif { var.thetaDeg <= -90 }
-    set var.thetaDeg = { var.thetaDeg + 180 }
+; Skew θ, anticlockwise positive like G68 R. The X faces run x = c - tan(θ)·y and the Y faces
+; y = c + tan(θ)·x, so tan(θ) is the least-squares slope shared by all four faces. vy is always 0
+; (both X faces are probed at the same Y), so the face means can't give θ (#60).
+; Σa² > 0, so atan2 stays inside ±90°.
+var skewXDeg = { degrees(atan2(-var.sumAdX, var.sumAaX)) }
+var skewYDeg = { degrees(atan2(var.sumAdY, var.sumAaY)) }
+var thetaDeg = { degrees(atan2(var.sumAdY - var.sumAdX, var.sumAaX + var.sumAaY)) }
 
 if { abs(var.thetaDeg) > var.skewLimit }
     abort { "G6503: |skew| " ^ var.thetaDeg ^ " deg exceeds limit " ^ var.skewLimit }
@@ -225,8 +241,9 @@ var midN = { var.m2y * var.cosT - var.m2x * var.sinT }
 var solvedCx = { var.midU * var.cosT - var.midN * var.sinT }
 var solvedCy = { var.midU * var.sinT + var.midN * var.cosT }
 
-var actualWidth = { sqrt(var.vx * var.vx + var.vy * var.vy) }
-var actualHeight = { sqrt(var.wx * var.wx + var.wy * var.wy) }
+; Face spacing square to the faces. Across the block along X or Y, it's W/cos(θ).
+var actualWidth = { var.vx * var.cosT + var.vy * var.sinT }
+var actualHeight = { var.wy * var.cosT - var.wx * var.sinT }
 
 if { global.nxtProbeResults[var.pSlot] == null || #global.nxtProbeResults[var.pSlot] < 3 }
     set global.nxtProbeResults[var.pSlot] = { vector(#move.axes + 1, 0.0) }
@@ -240,7 +257,7 @@ G6550 X{var.solvedCx} Y{var.solvedCy}
 var totalPts = { 4 * var.nPts }
 echo { "G6503: Rectangle block probe completed (" ^ var.totalPts ^ " pts)" }
 echo "G6503: Block center at X=" ^ var.solvedCx ^ " Y=" ^ var.solvedCy
-echo "G6503: Approx skew: " ^ var.thetaDeg ^ " deg"
+echo { "G6503: Skew " ^ var.thetaDeg ^ " deg (X faces " ^ var.skewXDeg ^ ", Y faces " ^ var.skewYDeg ^ ")" }
 echo "G6503: Measured dimensions: " ^ var.actualWidth ^ "x" ^ var.actualHeight ^ "mm"
 echo "G6503: Result logged to table index " ^ var.pSlot
 
