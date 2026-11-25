@@ -62,7 +62,7 @@ const codeLines = (out) => out.filter((l) => l !== "" && !l.startsWith("("));
 
 /** The JSON payload of an M118 P6 line. */
 function payloadOf(line) {
-  const m = /^M118 P6 S"(.*)" T"duet\/milo\/tool"$/.exec(line);
+  const m = /^M118 P6 S"(.*)" T"duet\/milo\/tool" R1$/.exec(line);
   assert.ok(m, `not an M118 P6 publish: ${line}`);
   return JSON.parse(m[1].replace(/""/g, '"'));
 }
@@ -120,6 +120,26 @@ function payloadOf(line) {
   assert.deepEqual(second, { event: "change", tool_number: 7, previous_tool: 5, job_file: "part.gcode" });
   assert.equal(third.event, "change");
   assert.ok(codeLines(out).every((l) => l.length <= 240), "M118 lines stay within 240 characters");
+}
+// Before the T word: M400, then the tool to load, without next_tool
+{
+  const { post, out } = loadPost({ props: MQTT_ON, outputPath: "/cam/part.gcode" });
+  post.writeMqttToolLoad(7, 5, "6mm Endmill");
+  const lines = codeLines(out);
+  assert.equal(lines[0], "M400");
+  assert.deepEqual(payloadOf(lines[1]),
+    { event: "load", tool_number: 7, tool_name: "6mm Endmill", previous_tool: 5, job_file: "part.gcode" });
+  assert.equal(lines.length, 2);
+}
+{
+  const { post, out } = loadPost({ props: MQTT_ON, outputPath: "/cam/part.gcode" });
+  post.writeMqttToolLoad(5, null, "");
+  assert.deepEqual(payloadOf(codeLines(out)[1]), { event: "load", tool_number: 5, job_file: "part.gcode" });
+}
+{
+  const { post, out } = loadPost();  // telemetry off: no load event
+  post.writeMqttToolLoad(5, null, "6mm Endmill");
+  assert.deepEqual(out, []);
 }
 {
   const { post, out } = loadPost({ props: MQTT_ON });
@@ -204,6 +224,190 @@ function payloadOf(line) {
   assert.ok(line.length <= 240);
   assert.ok(!line.includes("next_tool_name"), line);
   assert.ok(line.includes('""tool_name"":""6mm Endmill"",""previous_tool"":1,""next_tool"":7,'), line);
+}
+
+// Op events on duet/<device>/op: one per section, then an end event
+{
+  const opPayload = (line) => {
+    const m = /^M118 P6 S"(.*)" T"duet\/milo\/op" R1$/.exec(line);
+    assert.ok(m, `not an op publish: ${line}`);
+    return JSON.parse(m[1].replace(/""/g, '"'));
+  };
+  const sections = [
+    { comment: "Adaptive", tool: 5 },
+    { comment: "Profile (finish)", tool: 5 },
+    { comment: "Drilling", tool: 3 },
+  ];
+  const { post, out } = loadPost({ props: MQTT_ON, outputPath: "/cam/part.gcode" });
+  const section = (s) => ({
+    hasParameter: (k) => k === "operation-comment",
+    getParameter: () => s.comment,
+    getTool: () => ({ number: s.tool }),
+  });
+  post.getNumberOfSections = () => sections.length;
+  post.getSection = (i) => section(sections[i]);
+  for (let i = 0; i < sections.length; i++) {
+    post.getCurrentSectionId = () => i;
+    post.currentSection = section(sections[i]);
+    post.tool = { number: sections[i].tool };
+    post.writeMqttOpPublish();
+  }
+  post.writeMqttEndPublish();
+  const events = codeLines(out).map(opPayload);
+  assert.deepEqual(events[0], { event: "op", op_index: 1, op_count: 3, op_name: "Adaptive", tool_number: 5,
+                                next_op_name: "Profile finish", next_op_tool: 5, job_file: "part.gcode" });
+  assert.equal(events[1].next_op_tool, 3);
+  assert.equal(events[2].next_op_name, null);
+  assert.equal(events[2].next_op_tool, undefined);
+  assert.deepEqual(events[3], { event: "end", op_count: 3, job_file: "part.gcode" });
+  assert.ok(codeLines(out)[0].includes('""op_name"":""Adaptive"",""tool_number"":5,""next_op_name""'));
+}
+{
+  const { post, out } = loadPost();  // telemetry off: no op or end events
+  post.writeMqttOpPublish();
+  post.writeMqttEndPublish();
+  assert.deepEqual(out, []);
+}
+
+// Tool details on duet/<device>/tooldef/<tool number>, one retained line per tool after the connect
+{
+  const { post, out } = loadPost({ props: MQTT_ON });
+  const tools = [
+    { number: 5, description: "6mm Endmill", diameter: 6, numberOfFlutes: 3, spindleRPM: 18000 },
+    { number: 21, description: 'Spot "Drill" (90)', diameter: 6.35, numberOfFlutes: 2, spindleRPM: 10000.4 },
+    { number: 9, description: "", diameter: 0, numberOfFlutes: 0, spindleRPM: 0 },
+  ];
+  post.getToolTable = () => ({ getNumberOfTools: () => tools.length, getTool: (i) => tools[i] });
+  post.writeMqttToolDefs();
+  const defs = codeLines(out).map((line) => {
+    const m = /^M118 P6 S"(.*)" T"duet\/milo\/tooldef\/(\d+)" R1$/.exec(line);
+    assert.ok(m, line);
+    const def = JSON.parse(m[1].replace(/""/g, '"'));
+    assert.equal(Number(m[2]), def.tool_number, "one topic per tool");
+    return def;
+  });
+  assert.deepEqual(defs, [
+    { event: "tool", tool_number: 5, tool_name: "6mm Endmill", diameter: 6, flutes: 3, rpm: 18000 },
+    { event: "tool", tool_number: 21, tool_name: "Spot Drill 90", diameter: 6.35, flutes: 2, rpm: 10000 },
+    { event: "tool", tool_number: 9 },
+  ]);
+  assert.equal(post.mqttNumber(1.5875), 1.587);
+}
+{
+  const { post, out } = loadPost();  // telemetry off
+  post.writeMqttToolDefs();
+  assert.deepEqual(out, []);
+}
+
+// Cutting heights on duet/<device>/z: before the first flat feed move at each new level
+{
+  const { post, out } = loadPost({ props: MQTT_ON });
+  let pos = { x: 0, y: 0, z: 5 };
+  post.getCurrentPosition = () => pos;
+  const move = (x, y, z, circular = false) => {
+    post.writeMqttZLevel(x, y, z, circular);
+    pos = { x, y, z };
+  };
+  move(0, 0, -0.5);         // plunge: not a level
+  move(10, 0, -0.5);        // first cut at -0.5
+  move(20, 0, -0.5);        // same level
+  move(20, 0, 3);           // retract (a feed move here, still not a level)
+  move(20, 0, -1);          // plunge
+  move(20, 0, -1, true);    // full circle at -1
+  move(30, 0, -1.04);       // 3D: Z changes, not a level
+  move(40, 0, -1.04);       // flat, but within MQTT_Z_MIN_STEP of -1
+  const zs = codeLines(out).map((line) => {
+    const m = /^M118 P6 S"(.*)" T"duet\/milo\/z" R1$/.exec(line);
+    assert.ok(m, line);
+    return JSON.parse(m[1].replace(/""/g, '"'));
+  });
+  assert.deepEqual(zs, [{ event: "z", z: -0.5 }, { event: "z", z: -1 }]);
+  assert.equal(post.mqttRenderZLine(-9.5), 'M118 P6 S"{""event"":""z"",""z"":-9.5}" T"duet/milo/z" R1');
+}
+// Each level publishes once per section: raster rows across a flat top and a floor give two
+// events, not two a row
+{
+  const { post, out } = loadPost({ props: MQTT_ON });
+  let pos = { x: 0, y: 0, z: 5 };
+  post.getCurrentPosition = () => pos;
+  const move = (x, y, z) => {
+    post.writeMqttZLevel(x, y, z, false);
+    pos = { x, y, z };
+  };
+  for (let y = 0; y < 5; y++) {
+    move(0, y, -1);
+    move(10, y, -1);
+    move(15, y, -5);
+    move(25, y, -5);
+    move(30, y, -1);
+    move(40, y, -1);
+  }
+  const zs = codeLines(out).map((line) => JSON.parse(/S"(.*)" T/.exec(line)[1].replace(/""/g, '"')).z);
+  assert.deepEqual(zs, [-1, -5]);
+}
+
+// Through the motion callbacks: arcs outside the XY plane and warp moves (G0) are not levels
+{
+  const PLANES = { PLANE_XY: 17, PLANE_ZX: 18, PLANE_YZ: 19 };
+  const run = (props, moves) => {
+    const { post, out } = loadPost({ props: { ...MQTT_ON, ...props } });
+    // The output side of the callbacks, as far as they need it: modal words and no-op arcs.
+    const modal = (letter) => {
+      let last;
+      return { format: (v) => (v === last ? "" : ((last = v), letter + v)), reset: () => (last = undefined) };
+    };
+    Object.assign(post, PLANES, {
+      xVar: modal("X"), yVar: modal("Y"), zVar: modal("Z"), fVar: modal("F"),
+      gCodesF: { format: (g) => "G" + g },
+      writeBlock: (...words) => out.push(words.filter((w) => w).join(" ")),
+      outputPlaneCommand: () => {}, outputArcCommand: () => {}, isFullCircle: () => false,
+      properties: {},
+    });
+    let pos = { x: 0, y: 0, z: 2 };
+    let plane = 17;
+    post.getCurrentPosition = () => pos;
+    post.getCircularPlane = () => plane;
+    post.curOp = { clearance: 10, retract: 5 };
+    for (const m of moves) {
+      if (m.plane !== undefined) {
+        plane = m.plane;
+        post.onCircular(true, 0, 0, 0, m.x, m.y, m.z, 100);
+      } else {
+        post.onLinear(m.x, m.y, m.z, 100);
+      }
+      pos = { x: m.x, y: m.y, z: m.z };
+    }
+    return out.filter((l) => l.includes('T"duet/milo/z"'))
+      .map((l) => JSON.parse(/S"(.*)" T/.exec(l)[1].replace(/""/g, '"')).z);
+  };
+  // a G18 arc whose ends share a Z is not a level; a G17 arc and a G1 at the same Z are
+  assert.deepEqual(run({}, [{ x: 0, y: 0, z: -1 }, { x: 10, y: 0, z: -1, plane: 18 }]), []);
+  assert.deepEqual(run({}, [{ x: 0, y: 0, z: -1 }, { x: 10, y: 0, z: -1, plane: 17 }]), [-1]);
+  assert.deepEqual(run({}, [{ x: 0, y: 0, z: -1 }, { x: 10, y: 0, z: -1 }]), [-1]);
+  // with warp speed on, a horizontal feed move above the retract height is a G0
+  assert.deepEqual(run({ warpSpeedMode: "RETRACT" }, [{ x: 0, y: 0, z: 6 }, { x: 10, y: 0, z: 6 }]), []);
+  assert.deepEqual(run({ warpSpeedMode: "RETRACT" }, [{ x: 0, y: 0, z: 4 }, { x: 10, y: 0, z: 4 }]), [4]);
+  // without warp speed (Fusion for Personal Use outputs rapids as feed moves), a move at or
+  // above the retract height (5 here) is between cuts and publishes nothing
+  assert.deepEqual(run({}, [{ x: 0, y: 0, z: -3 }, { x: 10, y: 0, z: -3 }, { x: 10, y: 0, z: 5 },
+    { x: 10, y: 20, z: 5 }, { x: 10, y: 20, z: 7 }, { x: 0, y: 20, z: 7 },
+    { x: 0, y: 20, z: -6 }, { x: 10, y: 20, z: -6 }]), [-3, -6]);
+}
+
+// The heights come from the parameters Fusion passes (retractHeight_value, not zRetract)
+{
+  const { post } = loadPost({ props: MQTT_ON });
+  post.onParameter("operation:clearanceHeight_value", 15);
+  post.onParameter("operation:retractHeight_value", 5);
+  assert.equal(post.curOp.clearance, 15);
+  assert.equal(post.curOp.retract, 5);
+}
+
+{
+  const { post, out } = loadPost();  // telemetry off: no z events
+  post.getCurrentPosition = () => ({ x: 0, y: 0, z: -1 });
+  post.writeMqttZLevel(5, 0, -1, false);
+  assert.deepEqual(out, []);
 }
 
 console.log("mqtt helper tests: ok");
