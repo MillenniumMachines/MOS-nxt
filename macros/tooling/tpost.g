@@ -272,7 +272,8 @@ else
 ; Full park: Z max, M5.9, table XY (CAM M3.9 / G0 XY assume tpost ended parked)
 G27
 
-; Re-assert job G68 (native G6512 uses G53; G6512.2 / G37.1 may have issued G69)
+; Re-assert job G68 (G27, G6512.2 and G37.1 issue G69). RRF keeps the position
+; unrotated from here; the post's first move after the T names X and Y, which resets it.
 if { exists(global.nxtJobG68Deg) && global.nxtJobG68Deg != null }
     M98 P"nxt-job-g68-restore.g"
 

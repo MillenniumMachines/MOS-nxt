@@ -3,6 +3,12 @@
 ; Job-start M5011 (after Apply / Q1) and nxt-job-g68-restore.
 ; USAGE: M98 P"nxt-job-g68-apply.g" R<thetaDeg> W<wcs 1-9>
 ; No nested P (M98 steals P).
+;
+; G68 rebuilds RRF's current position in the rotated frame only when it is issued
+; from the job file (or a macro it calls). From tpost or resume.g RRF keeps it
+; unrotated, so a later job move that names only X or only Y would place the other
+; axis off by about θ × distance from the work origin. Both posts name X and Y in
+; the first move after a tool change, which resets it.
 
 if { !inputs[state.thisInput].active }
     M99
@@ -25,32 +31,13 @@ M98 P"nxt-select-wcs.g" W{var.wcsNumber}
 var ox = { move.axes[0].workplaceOffsets[var.wpIdx] }
 var oy = { move.axes[1].workplaceOffsets[var.wpIdx] }
 
+; RRF stores the centre as X/Y plus the selected workplace's offset, so X0 Y0 is the
+; work origin (machine ox, oy).
 G68 X0 Y0 R{var.thetaDeg}
 
-var cx = { 0 }
-var cy = { 0 }
-var haveC = false
-if { exists(move.rotation) }
-    if { exists(move.rotation.centre) }
-        if { move.rotation.centre != null }
-            set var.haveC = true
-            set var.cx = { move.rotation.centre[0] }
-            set var.cy = { move.rotation.centre[1] }
-
-var g10Far = { abs(var.ox) > 5 || abs(var.oy) > 5 }
-var ctrNear0 = { abs(var.cx) < 0.5 && abs(var.cy) < 0.5 }
-var retryCtr = { var.haveC && var.g10Far && var.ctrNear0 }
-if { var.retryCtr }
-    G69
-    var g68x = { 0 - var.ox }
-    var g68y = { 0 - var.oy }
-    G68 X{var.g68x} Y{var.g68y} R{var.thetaDeg}
-    echo "nxt-job-g68-apply: retried G68 XY compensating G10"
-    if { exists(move.rotation) }
-        if { exists(move.rotation.centre) }
-            if { move.rotation.centre != null }
-                set var.cx = { move.rotation.centre[0] }
-                set var.cy = { move.rotation.centre[1] }
+; move.rotation is obsolete in RRF 3.7; the rotation is per motion system.
+var cx = { move.motionSystems[0].rotation.centre[0] }
+var cy = { move.motionSystems[0].rotation.centre[1] }
 
 M98 P"nxt-select-wcs.g" W{var.wcsNumber}
 

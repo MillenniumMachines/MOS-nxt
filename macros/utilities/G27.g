@@ -8,6 +8,15 @@
 if { !inputs[state.thisInput].active }
     M99
 
+; Cancel any G68 first. RRF doesn't rotate G53 moves, but it rebuilds every axis
+; from the last position, which it keeps in the rotated frame, so the Z move below
+; would also shift X/Y by about θ × distance from the work origin, with no limit
+; check. Keeps nxtJobG68Deg: tpost, resume.g and the next M5011 put G68 back.
+if { exists(move.motionSystems) }
+    if { #move.motionSystems > 0 }
+        if { move.motionSystems[0].rotation.angle != 0 }
+            G69
+
 ; Use absolute positions in mm
 G90
 G21

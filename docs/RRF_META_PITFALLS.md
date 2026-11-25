@@ -199,7 +199,8 @@ A correct `G10 L2` plus a real work-space `G0 X0 Y0` would park at the **feature
 
 | Symptom | Cause |
 |---------|--------|
-| After **M5011**, `G0 X0 Y0` / `Y±1` → **G0: target position outside machine limits**; **G69** restores jogging | Console **M5011** applied **G68** (often **Q1**) during setup. RRF 3.7 does not clamp; mill **M208** min is **0**. Tiny **R** around the wrong centre maps work 0 near machine 0. |
+| After **M5011**, `G0 X0 Y0` / `Y±1` → **G0: target position outside machine limits**; **G69** restores jogging | Under **G68**, RRF rotates every target about the centre (`G68 X0 Y0` = the work origin: RRF adds the selected workplace offset) and then checks it against **M208**, with only 0.02 mm slack. A point on or near a limit (machine **M208** min is **0**) lands past it once rotated, and a move that names only **X** or only **Y** is a slight diagonal in machine coordinates, so it can leave a limit the machine was sitting on. **G69** removes the rotation, so the same move passes. |
+| **X/Y** shift by about θ × distance from the work origin on a **`G53`** Z move, or after **tfree/tpre/tpost** | RRF applies **G68** only to job-file moves: not to **`G53`** lines or system macros (`GCodeBuffer::DoingCoordinateRotation`). It still rebuilds every axis from its last position, which it keeps in the rotated frame, so a **`G53 G0 Z…`** moves **X/Y** too, and only the named axes are limit-checked. The other way round, a position set by tpost or `resume.g` stays unrotated until a job move names both **X** and **Y**. **G27** therefore **G69**s before its **`G53`** moves. Same in RRF 3.6.x. |
 
 **Do:** **G68** only while `job.file.fileName` is set (CAM **M5011**). Console **M5011** **G69**s and echoes signed skew (`+` CCW / `-` CW). Probe apply already **G69**s (`nxt-job-g68-clear.g`). Job apply uses **`nxt-job-g68-apply.g`**. Job **cancel** / **stop** (not pause) clear session keys.
 
