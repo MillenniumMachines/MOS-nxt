@@ -394,6 +394,15 @@ function payloadOf(line) {
     { x: 0, y: 20, z: -6 }, { x: 10, y: 20, z: -6 }]), [-3, -6]);
 }
 
+// The heights come from the parameters Fusion passes (retractHeight_value, not zRetract)
+{
+  const { post } = loadPost({ props: MQTT_ON });
+  post.onParameter("operation:clearanceHeight_value", 15);
+  post.onParameter("operation:retractHeight_value", 5);
+  assert.equal(post.curOp.clearance, 15);
+  assert.equal(post.curOp.retract, 5);
+}
+
 {
   const { post, out } = loadPost();  // telemetry off: no z events
   post.getCurrentPosition = () => ({ x: 0, y: 0, z: -1 });

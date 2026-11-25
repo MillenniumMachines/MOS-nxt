@@ -1123,10 +1123,14 @@ function onParameter(param, value) {
       curTool['run_cmd'] = (value === 1) ? M.SPINDLE_ON_CW : M.SPINDLE_ON_CCW;
     break;
 
-    // Track feed height and clearance height
+    // Track retract height and clearance height (absolute, in the setup's WCS). Fusion passes
+    // them as clearanceHeight_value / retractHeight_value; zClearance / zRetract are the
+    // toolpath kernel's names and never reach the post.
+    case 'operation:clearanceHeight_value':
     case 'operation:zClearance':
       curOp['clearance'] = value;
     break;
+    case 'operation:retractHeight_value':
     case 'operation:zRetract':
       curOp['retract'] = value;
     break;
