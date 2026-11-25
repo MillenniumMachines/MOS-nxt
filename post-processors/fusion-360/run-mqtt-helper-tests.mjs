@@ -387,6 +387,11 @@ function payloadOf(line) {
   // with warp speed on, a horizontal feed move above the retract height is a G0
   assert.deepEqual(run({ warpSpeedMode: "RETRACT" }, [{ x: 0, y: 0, z: 6 }, { x: 10, y: 0, z: 6 }]), []);
   assert.deepEqual(run({ warpSpeedMode: "RETRACT" }, [{ x: 0, y: 0, z: 4 }, { x: 10, y: 0, z: 4 }]), [4]);
+  // without warp speed (Fusion for Personal Use outputs rapids as feed moves), a move at or
+  // above the retract height (5 here) is between cuts and publishes nothing
+  assert.deepEqual(run({}, [{ x: 0, y: 0, z: -3 }, { x: 10, y: 0, z: -3 }, { x: 10, y: 0, z: 5 },
+    { x: 10, y: 20, z: 5 }, { x: 10, y: 20, z: 7 }, { x: 0, y: 20, z: 7 },
+    { x: 0, y: 20, z: -6 }, { x: 10, y: 20, z: -6 }]), [-3, -6]);
 }
 
 {

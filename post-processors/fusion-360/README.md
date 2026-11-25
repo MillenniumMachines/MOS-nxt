@@ -106,7 +106,7 @@ What is particular to the Fusion post:
 - **`next_tool`** looks ahead through the sections posted in the same run.
 - **`event`** is `start` for the first tool published in a post run and `change` after that, also across setups posted into one file.
 - **`op_name`** is the operation comment.
-- A feed move that warp speed turns into a `G0` publishes no cutting height.
+- A feed move that warp speed turns into a `G0` publishes no cutting height, and nor does any move at or above the operation's retract height. Fusion for Personal Use outputs rapid moves as feed moves, and those would otherwise show up as cutting heights.
 
 **Post Process All (PPAll):** use the local **`PPAll`** add-in (sibling repo). It posts each op as temp `8910` (Personal Use split), renames the result to the setup name, and rewrites MQTT `job_file` to the final name and `start` to `change` after the first tool. Each op is still posted on its own, so `next_tool`, the op count and the `end` event are only about that op; see [MQTT telemetry from the posts](../MQTT.md#fusion-360-with-post-process-all-ppall). For a manual Fusion post (no add-in), set the NC output name or **MQTT job file name** yourself.
 

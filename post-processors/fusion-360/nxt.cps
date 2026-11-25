@@ -835,6 +835,12 @@ function writeMqttZLevel(x, y, z, circular) {
   if (!flat || !cuts) {
     return;
   }
+  // At or above the operation's retract height a move goes between cuts, not through stock.
+  // Fusion for Personal Use outputs rapid moves as feed moves, so without this each
+  // operation would publish its retract height as a level unless warp mode restores G0.
+  if (start.z >= curOp['retract'] - 1e-6) {
+    return;
+  }
   for (var i = 0; i < mqttZPublished.length; i++) {
     if (Math.abs(start.z - mqttZPublished[i]) < MQTT_Z_MIN_STEP - 1e-9) {
       return;

@@ -108,6 +108,7 @@ These publish nothing:
 - canned cycles
 - rapid moves
 - in the Fusion post, feed moves that warp speed turns into `G0`
+- in the Fusion post, moves at or above the operation's retract height. Fusion for Personal Use outputs rapid moves as feed moves, so the moves between passes would otherwise count as levels.
 
 ## Timing
 
