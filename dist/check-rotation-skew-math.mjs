@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Offline regression for workpiece XY skew / G68 rotation maths.
- * Mirrors G6500–G6503 / G6506 atan2 → deg, wrap to (−90, 90], chord length.
+ * Mirrors G6502 / G6506 atan2 → deg, wrap to (−90, 90], chord length; G6503's face-line fit.
  *
  * Usage: node dist/check-rotation-skew-math.mjs
  */
@@ -86,6 +86,46 @@ function main() {
 	// Part rotated +α CCW: X face direction (−sinα, cosα) → +α, same sign as Y face / G68 R.
 	assertClose("G6510 X face +α", g6510X(0, 0, -20 * Math.sin(aRad), 20 * Math.cos(aRad)), alpha, 1e-6);
 	assertClose("G6510 Y face +α", wrapSkewDeg(atan2Deg(20 * Math.sin(aRad), 20 * Math.cos(aRad))), alpha, 1e-6);
+
+	// G6503 (#60): both X faces are probed at the same Y, so the chord between the face means
+	// is always level. Skew is the least-squares slope shared by the four faces' hits instead.
+	const g6503 = (deg, n, jx, jy) => {
+		const t = (deg * Math.PI) / 180;
+		const c = Math.cos(t);
+		const s = Math.sin(t);
+		const W = 100, H = 60, E = 10;
+		// Block centred on (0,0), rotated by t; the probe moves along one machine axis.
+		const hitX = (y, side) => (side * W / 2 - y * s) / c;
+		const hitY = (x, side) => (side * H / 2 + x * s) / c;
+		const along = (half) => Array.from({ length: n }, (_, i) => -(half - E) + (i * 2 * (half - E)) / (n - 1));
+		let sumAdX = 0, sumAaX = 0, sumAdY = 0, sumAaY = 0, sumXp = 0, sumXn = 0, sumYp = 0, sumYm = 0;
+		for (const a of along(H / 2)) {
+			const xp = hitX(jy + a, 1), xn = hitX(jy + a, -1);
+			sumAdX += a * (xp - jx) + a * (xn - jx);
+			sumAaX += 2 * a * a;
+			sumXp += xp;
+			sumXn += xn;
+		}
+		for (const a of along(W / 2)) {
+			const yp = hitY(jx + a, 1), ym = hitY(jx + a, -1);
+			sumAdY += a * (yp - jy) + a * (ym - jy);
+			sumAaY += 2 * a * a;
+			sumYp += yp;
+			sumYm += ym;
+		}
+		const theta = atan2Deg(sumAdY - sumAdX, sumAaX + sumAaY);
+		const ct = Math.cos((theta * Math.PI) / 180);
+		const st = Math.sin((theta * Math.PI) / 180);
+		const vx = (sumXp - sumXn) / n, wy = (sumYp - sumYm) / n;
+		return { theta, chord: atan2Deg(0, vx), width: vx * ct, height: wy * ct };
+	};
+	for (const [deg, n] of [[3, 2], [-2, 3], [0.05, 5]]) {
+		const r = g6503(deg, n, 0.7, -0.4);
+		assertClose(`G6503 skew ${deg}° N=${n}`, r.theta, deg, 1e-9);
+		assertClose(`G6503 width ${deg}° N=${n}`, r.width, 100, 1e-9);
+		assertClose(`G6503 height ${deg}° N=${n}`, r.height, 60, 1e-9);
+		assertClose(`G6503 face-mean chord stays level ${deg}°`, r.chord, 0, 0);
+	}
 
 	// Circular mean (M6522): 179° and −179° → ~±180, not ~0.
 	const r1 = (179 * Math.PI) / 180;

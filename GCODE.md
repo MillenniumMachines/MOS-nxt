@@ -130,7 +130,7 @@ Probes all 4 faces of a rectangular block from outside to find the center. **`N`
 - `N`: Points per face (default: **2**, range **2–5**); evenly spaced between inset ends (`N=3` is near/mid/far)
 - `T`, `Q`: Skew limit and job-start **M5011** policy (via **M6520 Q**)
 
-**Results:** Face means → `nxtProbeHitXY` H0–H3 → center / skew / size in `nxtProbeResults`. Parks at solved center.
+**Results:** Skew from one line fit through every face's points; face means → `nxtProbeHitXY` H0–H3 → center. Center and skew go to `nxtProbeResults`; size is echoed. Parks at solved center.
 
 ---
 
