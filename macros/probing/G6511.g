@@ -105,16 +105,26 @@ G53 G0 Z0
 G53 G0 X{var.refX} Y{var.refY}
 G53 G0 Z{var.approachZ}
 
+; Use G6512's raw machine Z hit (nxtWcsHitZ), not nxtLastProbeResult: that adds the selected
+; tool's L1, which would shift the reference datum if a measured cutter were selected (#82).
+if { exists(global.nxtWcsHitZ) }
+    set global.nxtWcsHitZ = null
+
 ; Fast single find (L0 = no pair tolerance / one rough path via R1)
 G6512 Z{var.probeTargetZ} I{var.probeId} F{var.fastSpd} L0 R1
-var fastHit = { global.nxtLastProbeResult }
+if { !exists(global.nxtWcsHitZ) || global.nxtWcsHitZ == null }
+    abort { "G6511: G6512 did not record a Z hit" }
+var fastHit = { global.nxtWcsHitZ }
+set global.nxtWcsHitZ = null
 echo { "G6511: fast hit Z=" ^ var.fastHit ^ " mm" }
 
 ; Short slow validate: target 2 mm past fast hit (G6512 backs off between)
 var shortTarget = { var.fastHit - 2 }
 M6515 Z{var.shortTarget}
 G6512 Z{var.shortTarget} I{var.probeId} F{var.slowSpd} L{var.tpTol} O{var.tpOuter}
-var meanZ = { global.nxtLastProbeResult }
+if { global.nxtWcsHitZ == null }
+    abort { "G6511: G6512 did not record a Z hit" }
+var meanZ = { global.nxtWcsHitZ }
 echo { "G6511: slow validate mean Z=" ^ var.meanZ ^ " mm" }
 
 ; Clear baked Z D (tipR-era) — Z deflection discarded for now
