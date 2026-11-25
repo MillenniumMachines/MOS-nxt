@@ -25,7 +25,7 @@ This document provides reference documentation for custom G-codes and M-codes im
 
 ### G27: Parking
 
-Moves the machine to a safe, known parking position. Echoes the table XY target. **`stop.g`** calls **`G27`** at CAM job end but **skips** it after numbered probe cycles (`nxtSkipJobPark` / no `job.file.fileName`) so leftover **G38** cannot be combined with a park toward machine 0,0.
+Moves the machine to a safe, known parking position. Echoes the table XY target. If **G68** is active it issues **`G69`** first (its moves are **`G53`**; see [`docs/RRF_META_PITFALLS.md`](docs/RRF_META_PITFALLS.md) §10). It keeps **`nxtJobG68Deg`**, so **tpost**, **resume.g** and the next **M5011** put **G68** back. **`stop.g`** calls **`G27`** at CAM job end but **skips** it after numbered probe cycles (`nxtSkipJobPark` / no `job.file.fileName`) so leftover **G38** cannot be combined with a park toward machine 0,0.
 
 **`tpost`:** On a real tool change (`previousTool != current`, including first select from T-1), **`G10 L1 P{current} Z0`** before the start **`G27 Z1`**. Probe install then **`G6511 R1 S0`** (saved **`nxtTouchProbeRefPos`**, not the setter pad). After mill setter measure, **`G10 L1 Z{-(Z_act − nxtProbeVirtualTsZ)}`**, then **`nxt-user-tools-sync.g`** when **`nxtAutoPersistTools`** is true so measured offsets survive reboot. Then a **full `G27`**. Same-T does not run tpost.
 
