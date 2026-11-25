@@ -6,8 +6,8 @@
 ; With U: nxt-wcs-apply (G10 L2, no G0). Never G6550/G0 after the fit.
 ;
 ; USAGE: G6508 P|U N L H I [X] [Y] [F] [R] [C] [O] [E] [Q]
-;   H: X-normal face length (span along Y, away from corner)
-;   I: Y-normal face length (span along X, away from corner)
+;   H: part length along X, away from corner (front/back edge)
+;   I: part length along Y, away from corner (left/right edge)
 
 if { !inputs[state.thisInput].active }
     M99
@@ -49,10 +49,10 @@ if { !exists(param.L) || param.L == null || param.L <= 0 }
     abort { "G6508: Depth (L) parameter is required and must be positive" }
 
 if { !exists(param.H) || param.H == null || param.H <= 0 }
-    abort { "G6508: Face length H (X-face along Y) is required and must be positive" }
+    abort { "G6508: Length along X (H) is required and must be positive" }
 
 if { !exists(param.I) || param.I == null || param.I <= 0 }
-    abort { "G6508: Face length I (Y-face along X) is required and must be positive" }
+    abort { "G6508: Length along Y (I) is required and must be positive" }
 
 var clearance = { exists(param.C) ? param.C : 5.0 }
 if { var.clearance <= 0 }
@@ -66,8 +66,10 @@ var feedRate = { exists(param.F) ? param.F : null }
 var retries = { exists(param.R) ? param.R : global.nxtProbeInnerSampleCount }
 var probeDepth = { param.L }
 var overtravel = { exists(param.O) ? param.O : 10.0 }
-var faceLenX = { param.H }
-var faceLenY = { param.I }
+; H is the part's length along X and I its length along Y, as in MillenniumOS and the
+; guided cycles. The X-face (probed in X) runs along Y, so its length is I; the Y-face runs along X: H.
+var faceLenX = { param.I }
+var faceLenY = { param.H }
 
 ; Air-side signs (same as G6508.1): FL=0 FR=1 BR=2 BL=3
 var dirX = { (param.N == 0 || param.N == 3) ? -1 : 1 }

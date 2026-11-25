@@ -508,9 +508,9 @@ interface CycleParams {
   clearance: number | null
   /** Along-face inset from corner before Z dive (E); corner cycles */
   cornerOffset: number | null
-  /** X-normal face length (H) for corner cycles */
+  /** Part length along X (H) for corner cycles */
   faceLengthX: number | null
-  /** Y-normal face length (I) for corner cycles */
+  /** Part length along Y (I) for corner cycles */
   faceLengthY: number | null
   /** Face length (S) for G6510 X/Y multi-point */
   faceLengthS: number | null
@@ -893,10 +893,10 @@ export default defineNxtComponent({
         this.selectedCycle === 'G6520'
       ) {
         if (this.params.faceLengthX == null || !(this.params.faceLengthX > 0)) {
-          throw new Error('X-face length (H) is required')
+          throw new Error('Length along X (H) is required')
         }
         if (this.params.faceLengthY == null || !(this.params.faceLengthY > 0)) {
-          throw new Error('Y-face length (I) is required')
+          throw new Error('Length along Y (I) is required')
         }
         gcode += ` H${this.params.faceLengthX}`
         gcode += ` I${this.params.faceLengthY}`

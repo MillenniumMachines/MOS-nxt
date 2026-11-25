@@ -47,11 +47,16 @@ if { param.N < 0 || param.N > 3 }
 if { !exists(param.L) || param.L == null || param.L <= 0 }
     abort { "G6520: Depth L required" }
 
+; L is the depth below the top surface for the side probes. The ball must be fully
+; below the top edge, or the side touches land on the edge.
+if { exists(global.nxtProbeTipRadius) && global.nxtProbeTipRadius != null && param.L <= global.nxtProbeTipRadius }
+    abort { "G6520: L (depth below the top for the sides) must be more than the probe tip radius (" ^ global.nxtProbeTipRadius ^ " mm)" }
+
 if { !exists(param.H) || param.H == null || param.H <= 0 }
-    abort { "G6520: Face length H (X-face along Y) is required and must be positive" }
+    abort { "G6520: Length along X (H) is required and must be positive" }
 
 if { !exists(param.I) || param.I == null || param.I <= 0 }
-    abort { "G6520: Face length I (Y-face along X) is required and must be positive" }
+    abort { "G6520: Length along Y (I) is required and must be positive" }
 
 var probeID = { global.nxtTouchProbeID }
 var clearance = { exists(param.C) ? param.C : 5.0 }
@@ -66,8 +71,17 @@ var feedRate = { exists(param.F) ? param.F : null }
 var retries = { exists(param.R) ? param.R : global.nxtProbeInnerSampleCount }
 var depth = { param.L }
 var overtravel = { exists(param.O) ? param.O : 2.0 }
-var faceLenX = { param.H }
-var faceLenY = { param.I }
+; H is the part's length along X and I its length along Y, as in MillenniumOS and the
+; guided cycles. The X-face (probed in X) runs along Y, so its length is I; the Y-face runs along X: H.
+var faceLenX = { param.I }
+var faceLenY = { param.H }
+; The start can be up to C inside the corner, and the face helper measures along each side
+; from the start, so sample each side over its length minus C. That keeps the far point at
+; least E from the far end.
+var sampleLenX = { var.faceLenX - var.clearance }
+var sampleLenY = { var.faceLenY - var.clearance }
+if { var.sampleLenX <= var.cornerOffset || var.sampleLenY <= var.cornerOffset }
+    abort { "G6520: H and I must each be more than C + E (" ^ (var.clearance + var.cornerOffset) ^ " mm)" }
 
 var dirX = { (param.N == 0 || param.N == 3) ? -1 : 1 }
 var dirY = { (param.N == 0 || param.N == 1) ? 1 : -1 }
@@ -81,27 +95,24 @@ var startZ = { global.nxtAbsPos[2] }
 
 var xSurfaceTarget = { exists(param.X) ? param.X : var.startX - var.dirX * var.overtravel }
 
-; Onto the top: inward from jogged air corner by E on both axes (single Z — multi deferred)
+; Top surface first, straight down where the probe was jogged: over the part, near the
+; corner, as in MillenniumOS. It searches down C + O, so jog to less than C above the top.
+; Single Z (multi deferred).
 echo "G6520: Probing Z surface"
-var zDiveX = { var.startX - var.dirX * var.cornerOffset }
-var zDiveY = { var.startY - var.dirY * var.cornerOffset }
-G6550 X{var.zDiveX} Y{var.zDiveY}
-var zTarget = { var.startZ - var.depth }
+var zTarget = { var.startZ - var.clearance - var.overtravel }
 G6512 Z{var.zTarget} I{var.probeID} F{var.feedRate} R{var.retries}
 var zSurface = { global.nxtLastProbeResult }
-
-M5000
-var currentZ = { global.nxtAbsPos[2] }
 
 var airX = { var.startX + var.dirX * var.clearance }
 var xFaceT = { var.xSurfaceTarget }
 var eIns = { var.cornerOffset }
-var zFace = { var.currentZ }
+; Sides are probed L below the top surface
+var zFace = { var.zSurface - var.depth }
 
 ; Raise then XY+dive for X-face (never XY at vise-top Z from Z probe)
 G6550 Z{var.startZ}
 echo "G6520: Probing X surface"
-M98 P"nxt-probe-face-line.g" A0 T{var.xFaceT} W{var.airX} J{var.startX} K{var.startY} D{var.dirY} S{var.faceLenX} E{var.eIns} Z{var.zFace} F{var.feedRate} R{var.retries}
+M98 P"nxt-probe-face-line.g" A0 T{var.xFaceT} W{var.airX} J{var.startX} K{var.startY} D{var.dirY} S{var.sampleLenX} E{var.eIns} Z{var.zFace} F{var.feedRate} R{var.retries}
 
 var fx0 = { global.nxtProbeHitXY[0] }
 var fy0 = { global.nxtProbeHitXY[1] }
@@ -115,7 +126,7 @@ var flipY = { 0 - var.dirY }
 var airY2 = { var.startY + var.flipY * var.clearance }
 var yFaceT = { exists(param.Y) ? param.Y : var.startY - var.flipY * var.overtravel }
 echo "G6520: Probing Y surface"
-M98 P"nxt-probe-face-line.g" A1 T{var.yFaceT} W{var.airY2} J{var.startX} K{var.startY} D{var.flipX} S{var.faceLenY} E{var.eIns} Z{var.zFace} F{var.feedRate} R{var.retries}
+M98 P"nxt-probe-face-line.g" A1 T{var.yFaceT} W{var.airY2} J{var.startX} K{var.startY} D{var.flipX} S{var.sampleLenY} E{var.eIns} Z{var.zFace} F{var.feedRate} R{var.retries}
 
 var yx0 = { global.nxtProbeHitXY[0] }
 var yy0 = { global.nxtProbeHitXY[1] }

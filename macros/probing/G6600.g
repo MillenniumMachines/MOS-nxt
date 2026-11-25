@@ -90,26 +90,26 @@ var defI = 100
 if { exists(global.nxtWPDims) && global.nxtWPDims != null }
     if { var.wpIdx < #global.nxtWPDims }
         if { global.nxtWPDims[var.wpIdx] != null }
-            if { global.nxtWPDims[var.wpIdx][1] != null }
-                set var.defH = { global.nxtWPDims[var.wpIdx][1] }
             if { global.nxtWPDims[var.wpIdx][0] != null }
-                set var.defI = { global.nxtWPDims[var.wpIdx][0] }
+                set var.defH = { global.nxtWPDims[var.wpIdx][0] }
+            if { global.nxtWPDims[var.wpIdx][1] != null }
+                set var.defI = { global.nxtWPDims[var.wpIdx][1] }
 
-var hMsg = "Approximate X-face length along Y (mm)."
+var hMsg = "Approximate part length along X (mm)."
 M291 P{var.hMsg} R"Vise corner" J1 T0 S6 F{var.defH}
 if { result != 0 }
     abort { "G6600: Vise corner probing cancelled" }
 var faceH = { input }
 if { var.faceH <= 0 }
-    abort { "G6600: Face length H must be positive" }
+    abort { "G6600: Length along X (H) must be positive" }
 
-var iMsg = "Approximate Y-face length along X (mm)."
+var iMsg = "Approximate part length along Y (mm)."
 M291 P{var.iMsg} R"Vise corner" J1 T0 S6 F{var.defI}
 if { result != 0 }
     abort { "G6600: Vise corner probing cancelled" }
 var faceI = { input }
 if { var.faceI <= 0 }
-    abort { "G6600: Face length I must be positive" }
+    abort { "G6600: Length along Y (I) must be positive" }
 
 var depth = 10.0
 echo "G6600: Running G6520 vise corner U" ^ var.wcsNum ^ " N" ^ var.cnr

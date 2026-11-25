@@ -47,10 +47,10 @@ if { !exists(param.L) || param.L == null || param.L <= 0 }
     abort { "G6509: Depth L required" }
 
 if { !exists(param.H) || param.H == null || param.H <= 0 }
-    abort { "G6509: Face length H (X-face along Y) is required and must be positive" }
+    abort { "G6509: Length along X (H) is required and must be positive" }
 
 if { !exists(param.I) || param.I == null || param.I <= 0 }
-    abort { "G6509: Face length I (Y-face along X) is required and must be positive" }
+    abort { "G6509: Length along Y (I) is required and must be positive" }
 
 var clearance = { exists(param.C) ? param.C : 5.0 }
 if { var.clearance <= 0 }
@@ -64,8 +64,10 @@ var feedRate = { exists(param.F) ? param.F : null }
 var retries = { exists(param.R) ? param.R : global.nxtProbeInnerSampleCount }
 var probeDepth = { param.L }
 var overtravel = { exists(param.O) ? param.O : 10.0 }
-var faceLenX = { param.H }
-var faceLenY = { param.I }
+; H is the part's length along X and I its length along Y, as in MillenniumOS and the
+; guided cycles. The X-face (probed in X) runs along Y, so its length is I; the Y-face runs along X: H.
+var faceLenX = { param.I }
+var faceLenY = { param.H }
 
 var dirX = { (param.N == 0 || param.N == 3) ? -1 : 1 }
 var dirY = { (param.N == 0 || param.N == 1) ? 1 : -1 }
