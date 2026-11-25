@@ -765,7 +765,7 @@ function writeMqttToolPublish(toolNumber, previousTool, toolDescription, nextToo
   var hasPrev = previousTool !== undefined && previousTool !== null && previousTool >= 0;
   var eventName = (mqttToolEventCount === 0 && !hasPrev) ? "start" : "change";
   mqttToolEventCount++;
-  writeComment("MQTT: duet tool change (active session)");
+  writeComment("MQTT: publish tool change");
   // writeln so tool MQTT is not dropped if writeBlock/formatWords is empty.
   var nextNumber = nextTool ? nextTool.number : nextTool;  // null and undefined pass through
   writeln(mqttRenderToolLine(eventName, toolNumber, previousTool, mqttJobFileName(),

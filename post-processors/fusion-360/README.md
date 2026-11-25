@@ -99,4 +99,6 @@ When enabled, **device ID and broker host are required** or the post errors. At 
 
 **`job_file` / `event` with Post Process All:** Use the local **`PPAll`** add-in (sibling repo). It posts each op as temp `8910` (Personal Use split) then renames to the setup name, and **rewrites** MQTT `job_file` to the final basename plus `start`→`change` after combine. For a manual Fusion post (no add-in), set NC output name or **MQTT job file name** yourself.
 
+PPAll doesn't fix `next_tool`: each op is posted on its own, so the post sees no later tool and every tool event in the combined file says `next_tool: null`. A display can't show the next tool for a PPAll job until PPAll rewrites it as well.
+
 **`event`:** first tool publish is `start`; later tools are `change` when the post runs as one invocation.
