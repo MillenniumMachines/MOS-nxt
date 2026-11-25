@@ -11,14 +11,18 @@ if { !inputs[state.thisInput].active }
 if { !exists(global.nxtFeatureRgbLight) || !global.nxtFeatureRgbLight }
     abort { "M6524: RGB light feature not enabled" }
 
-; Ensure the strip exists (board rgb.g / daemon may already have created it).
+; Ensure the strip exists (board rgb.g / daemon may already have created it). Without a
+; board pack pin, use the strip the machine's own config created (see nxt.g).
 if { exists(global.nxtRGBPin) && global.nxtRGBPin != null }
     if { !exists(global.nxtRGBReady) || !global.nxtRGBReady }
         M950 E{global.nxtRGBStrip} C{global.nxtRGBPin} T{global.nxtRGBType} K{global.nxtRGBOrder} U{global.nxtRGBCount}
         if { exists(global.nxtRGBReady) }
             set global.nxtRGBReady = true
 elif { !exists(global.nxtRGBReady) || !global.nxtRGBReady }
-    abort { "M6524: LED strip not configured (nxtRGBPin unset — load board pack)" }
+    if { exists(global.nxtRGBReady) && #ledStrips > global.nxtRGBStrip && ledStrips[global.nxtRGBStrip] != null }
+        set global.nxtRGBReady = true
+    else
+        abort { "M6524: LED strip not configured (no nxtRGBPin from the board pack and no strip E" ^ global.nxtRGBStrip ^ " in the machine config)" }
 
 var nxtR = 0
 var nxtG = 0

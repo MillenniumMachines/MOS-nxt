@@ -763,7 +763,7 @@ Sets the addressable RGB work light via **M150** when the RGB light feature is e
 - `R`, `U`, `B`: Color components (each clamped to 0–255; default 0 if omitted).  
   Green is **`U`**, not `G` — RRF treats `Gnnn` on the same line as a G-code (e.g. `G102`).
 
-**Requirements:** `nxtFeatureRgbLight`; strip created with `M950` (`nxtRGBPin` from board pack / daemon).
+**Requirements:** `nxtFeatureRgbLight`; a strip: nxt creates it with `M950` when the board pack sets `nxtRGBPin`, or uses strip `E{nxtRGBStrip}` from the machine's own config (for example the stock Milo `leds.g`).
 
 **Behavior:** Ensures `M950` if needed, then `M150 E{nxtRGBStrip} R… U… B… W0 P255 S{nxtRGBCount} F0`.
 

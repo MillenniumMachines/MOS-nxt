@@ -260,11 +260,16 @@ if { var.nxtRgbLegacy && exists(global.nxtRGBCol) }
 
 ; Re-apply M950 after colour/count load (board rgb.g may have run earlier with defaults).
 ; Single post-colour M950 owner for boot (daemon may lazy-fallback later).
+; Without a board pack pin, use the strip the machine's own config created, as configured there
+; (stock Milo config: leds.g M950 E0 C"PD_6"; type and order stay as set by that M950).
 var nxtRgbPinOk = { exists(global.nxtRGBPin) && global.nxtRGBPin != null }
 if { var.nxtRgbPinOk }
     M950 E{global.nxtRGBStrip} C{global.nxtRGBPin} T{global.nxtRGBType} K{global.nxtRGBOrder} U{global.nxtRGBCount}
     if { exists(global.nxtRGBReady) }
         set global.nxtRGBReady = true
+elif { exists(global.nxtRGBReady) && #ledStrips > global.nxtRGBStrip && ledStrips[global.nxtRGBStrip] != null }
+    set global.nxtRGBReady = true
+    echo { "nxt: using LED strip E" ^ global.nxtRGBStrip ^ " from the machine config" }
 
 ; Daemon defaults live in nxt-vars.g (nxtDaemonEnabled / nxtDaemonInterval).
 
