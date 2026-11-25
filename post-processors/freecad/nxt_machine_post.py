@@ -272,8 +272,9 @@ MQTT_TOOLDEF_COMPACT_STEPS = (
     ("diameter", False),
 )
 
-#: Least change in cutting height that publishes a new z event, in mm. Keeps 3D passes,
-#: whose flat moves sit at many heights, from flooding the broker.
+#: Least distance from every height an operation has published already that publishes a new
+#: z event, in mm. Each level publishes once per operation, so 3D passes, which go back to the
+#: same flat levels row after row, don't flood the broker.
 MQTT_Z_MIN_STEP = 0.1
 
 #: One word of a G-code line, such as X12.5 or G1.
@@ -281,6 +282,17 @@ MQTT_GCODE_WORD = re.compile(r"([A-Z])(-?[0-9]*\.?[0-9]+)")
 
 #: Canned cycles: their Z word is the hole's depth, not a move.
 MQTT_CANNED_CYCLES = (73, 74, 76, 81, 82, 83, 84, 85, 86, 87, 88, 89)
+
+#: A line number and block delete in front of a G-code line, such as "/N100 ".
+MQTT_GCODE_PREFIX = re.compile(r"^(?:/\s*)?(?:N\d+\s*)?")
+
+#: First letters of the lines that can move or change the modal state followed for z events;
+#: M, S and T lines (and the M118 publishes, whose strings could hold such words) can't.
+MQTT_GCODE_MOVE_LETTERS = "GXYZIJKRFABC"
+
+#: G codes whose axis words are not a move in work coordinates.
+MQTT_NOT_A_MOVE = (4, 10)
+MQTT_POSITION_UNKNOWN = (28, 30, 53, 92)
 
 #: next_tool when the post can't tell which tool comes next: leaves it out.
 MQTT_NEXT_UNKNOWN = object()
@@ -722,8 +734,9 @@ class NxtMachine(PostProcessor):
         self._mqtt_ops: List[tuple] = []  # (name, tool number) of each operation in this file
         self._mqtt_op_pos = 0
         self._mqtt_motion = None  # modal G0-G3 of the output so far (None in a canned cycle)
-        self._mqtt_cur_z = None  # modal Z of the output so far
-        self._mqtt_pub_z = None  # the cutting height last published in this operation
+        self._mqtt_plane = 17  # modal G17/G18/G19 of the output so far
+        self._mqtt_pos = {"X": None, "Y": None, "Z": None}  # modal position of the output so far
+        self._mqtt_pub_zs: List[float] = []  # the cutting heights published in this operation
         Path.Log.debug("nxt machine post processor initialized.")
 
     def init_values(self, values: Values) -> None:
@@ -1319,7 +1332,10 @@ class NxtMachine(PostProcessor):
         self._mqtt_order_pos = 0
         self._mqtt_ops = self._section_ops(sublist)
         self._mqtt_op_pos = 0
-        self._mqtt_motion = self._mqtt_cur_z = self._mqtt_pub_z = None
+        self._mqtt_motion = None
+        self._mqtt_plane = 17
+        self._mqtt_pos = {"X": None, "Y": None, "Z": None}
+        self._mqtt_pub_zs = []
         if self.values.get("MQTT_TELEMETRY"):
             self._mqtt_job_file = mqtt_job_file_name(
                 self.values.get("MQTT_JOB_FILE"),
@@ -1344,21 +1360,27 @@ class NxtMachine(PostProcessor):
         return order
 
     def _mqtt_tooldef_lines(self, device_id, postables):
-        """Comment and one M118 P6 publish per tool, with its diameter, flutes and rpm."""
+        """Comment and one M118 P6 publish per tool, with its diameter, flutes and rpm.
+
+        A tool whose details the post can't read still publishes its number and name, so
+        the broker doesn't keep another job's retained details for that tool number.
+        """
         try:
             tools = self._collect_tools(postables)
         except (ValueError, AttributeError) as exc:  # optional telemetry must not stop a post
             Path.Log.warning(f"nxt: no MQTT tool details: {exc}")
-            return []
-        if not tools:
-            return []
-        lines = ["(MQTT: publish the job's tools)"]
-        for number, tool in tools.items():
-            lines.append(mqtt_tooldef_publish_line(
-                device_id, number, mqtt_tool_name(tool["name"]), 2 * tool["radius"],
-                tool["flutes"], tool["rpm"],
-            ))
-        return lines
+            tools = {}
+        lines = []
+        for number, label in self._tool_labels(postables).items():
+            tool = tools.get(number)
+            if tool is None:
+                lines.append(mqtt_tooldef_publish_line(device_id, number, mqtt_tool_name(label)))
+            else:
+                lines.append(mqtt_tooldef_publish_line(
+                    device_id, number, mqtt_tool_name(tool["name"]), 2 * tool["radius"],
+                    tool["flutes"], tool["rpm"],
+                ))
+        return ["(MQTT: publish the job's tools)"] + lines if lines else []
 
     @staticmethod
     def _section_ops(sublist):
@@ -1369,8 +1391,25 @@ class NxtMachine(PostProcessor):
                 continue
             tc = (getattr(item, "data", None) or {}).get("tool_controller")
             number = getattr(tc, "data", {}).get("tool_number") if tc is not None else None
-            ops.append((mqtt_text(item.label, 40), None if number is None else int(number)))
+            ops.append((mqtt_text(NxtMachine._op_label(item), 40),
+                        None if number is None else int(number)))
         return ops
+
+    @staticmethod
+    def _op_label(item):
+        """The operation's label; for a dressup, the label of the operation it wraps.
+
+        A dressup has no tool controller of its own and wraps its Base, as FreeCAD's
+        toolControllerForOp() follows it. An operation's own Base is a list of shapes.
+        """
+        obj = getattr(item, "source", None)
+        for _ in range(10):  # dressups of dressups, but never a loop
+            if obj is None or hasattr(obj, "ToolController"):
+                break
+            base = getattr(obj, "Base", None)
+            obj = None if isinstance(base, (list, tuple)) else base
+        label = getattr(obj, "Label", None) if obj is not None else None
+        return str(label) if label else item.label
 
     def _convert_item_commands(self, item, gcode_lines):
         """Publish an MQTT op event before each operation, its cutting heights within it, and an
@@ -1383,7 +1422,7 @@ class NxtMachine(PostProcessor):
         super()._convert_item_commands(item, gcode_lines)
         if mqtt:  # every item's moves keep the modal Z; only operations publish heights
             if is_op:
-                self._mqtt_pub_z = None
+                self._mqtt_pub_zs = []
             gcode_lines[first:] = [self._mqtt_z_lines(mqtt[0], chunk, is_op)
                                    for chunk in gcode_lines[first:]]
         if mqtt and is_op and self._mqtt_ops and self._mqtt_op_pos == len(self._mqtt_ops):
@@ -1394,29 +1433,50 @@ class NxtMachine(PostProcessor):
             self._mqtt_op_pos += 1  # only once
 
     def _mqtt_z_lines(self, device_id, chunk, publish):
-        """`chunk` (one or more G-code lines) with a z event before each feed move at a new
-        cutting height, when `publish`. Follows the modal motion and Z either way."""
+        """`chunk` (one or more G-code lines) with a z event before each feed move at a cutting
+        height new for this operation, when `publish`. Follows the modal motion, plane and
+        position either way."""
         out = []
+        pos = self._mqtt_pos
         for line in chunk.split("\n"):
             code = line.split("(", 1)[0].split(";", 1)[0].strip().upper()
-            if code[:1] in ("G", "X", "Y", "Z", "I", "J"):
+            code = MQTT_GCODE_PREFIX.sub("", code)
+            if code[:1] and code[0] in MQTT_GCODE_MOVE_LETTERS:
                 words = MQTT_GCODE_WORD.findall(code)
-                for letter, value in words:
-                    if letter == "G" and float(value) in (0, 1, 2, 3):
-                        self._mqtt_motion = int(float(value))
-                    elif letter == "G" and float(value) in MQTT_CANNED_CYCLES:
+                gs = [float(v) for letter, v in words if letter == "G"]
+                axes = {letter: float(v) for letter, v in words if letter in "XYZ"}
+                if any(g in MQTT_NOT_A_MOVE for g in gs):
+                    out.append(line)
+                    continue
+                if any(g in MQTT_POSITION_UNKNOWN for g in gs):  # not in work coordinates
+                    for letter in axes:
+                        pos[letter] = None
+                    out.append(line)
+                    continue
+                for g in gs:
+                    if g in (0, 1, 2, 3):
+                        self._mqtt_motion = int(g)
+                    elif g in MQTT_CANNED_CYCLES:
                         self._mqtt_motion = None
+                    elif g in (17, 18, 19):
+                        self._mqtt_plane = int(g)
                 if self._mqtt_motion is not None:
-                    z = next((float(v) for letter, v in words if letter == "Z"), None)
-                    cur = self._mqtt_cur_z
-                    flat = cur is not None and (z is None or abs(z - cur) < 1e-6)
-                    cuts = self._mqtt_motion in (1, 2, 3) and any(w[0] in "XYIJ" for w in words)
-                    if (publish and flat and cuts and (self._mqtt_pub_z is None
-                                                      or abs(cur - self._mqtt_pub_z) >= MQTT_Z_MIN_STEP - 1e-9)):
+                    cur = pos["Z"]
+                    flat = cur is not None and abs(axes.get("Z", cur) - cur) < 1e-6
+                    if self._mqtt_motion == 1:  # a cut only if it moves in X or Y
+                        cuts = any(a in axes and (pos[a] is None or abs(axes[a] - pos[a]) > 1e-6)
+                                   for a in "XY")
+                    elif self._mqtt_motion in (2, 3):  # an arc in another plane sweeps through Z
+                        cuts = self._mqtt_plane == 17 and any(w[0] in "XYIJR" for w in words)
+                    else:
+                        cuts = False
+                    if (publish and flat and cuts
+                            and all(abs(cur - h) >= MQTT_Z_MIN_STEP - 1e-9 for h in self._mqtt_pub_zs)):
                         out.append(mqtt_z_publish_line(device_id, cur))
-                        self._mqtt_pub_z = cur
-                    if z is not None:
-                        self._mqtt_cur_z = z
+                        self._mqtt_pub_zs.append(cur)
+                    pos.update(axes)
+                else:  # a canned cycle: X and Y are each hole, Z is its depth, not a move
+                    pos.update({a: v for a, v in axes.items() if a != "Z"})
             out.append(line)
         return "\n".join(out)
 

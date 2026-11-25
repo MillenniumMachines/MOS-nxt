@@ -324,6 +324,71 @@ function payloadOf(line) {
   assert.deepEqual(zs, [{ event: "z", z: -0.5 }, { event: "z", z: -1 }]);
   assert.equal(post.mqttRenderZLine(-9.5), 'M118 P6 S"{""event"":""z"",""z"":-9.5}" T"duet/milo/z" R1');
 }
+// Each level publishes once per section: raster rows across a flat top and a floor give two
+// events, not two a row
+{
+  const { post, out } = loadPost({ props: MQTT_ON });
+  let pos = { x: 0, y: 0, z: 5 };
+  post.getCurrentPosition = () => pos;
+  const move = (x, y, z) => {
+    post.writeMqttZLevel(x, y, z, false);
+    pos = { x, y, z };
+  };
+  for (let y = 0; y < 5; y++) {
+    move(0, y, -1);
+    move(10, y, -1);
+    move(15, y, -5);
+    move(25, y, -5);
+    move(30, y, -1);
+    move(40, y, -1);
+  }
+  const zs = codeLines(out).map((line) => JSON.parse(/S"(.*)" T/.exec(line)[1].replace(/""/g, '"')).z);
+  assert.deepEqual(zs, [-1, -5]);
+}
+
+// Through the motion callbacks: arcs outside the XY plane and warp moves (G0) are not levels
+{
+  const PLANES = { PLANE_XY: 17, PLANE_ZX: 18, PLANE_YZ: 19 };
+  const run = (props, moves) => {
+    const { post, out } = loadPost({ props: { ...MQTT_ON, ...props } });
+    // The output side of the callbacks, as far as they need it: modal words and no-op arcs.
+    const modal = (letter) => {
+      let last;
+      return { format: (v) => (v === last ? "" : ((last = v), letter + v)), reset: () => (last = undefined) };
+    };
+    Object.assign(post, PLANES, {
+      xVar: modal("X"), yVar: modal("Y"), zVar: modal("Z"), fVar: modal("F"),
+      gCodesF: { format: (g) => "G" + g },
+      writeBlock: (...words) => out.push(words.filter((w) => w).join(" ")),
+      outputPlaneCommand: () => {}, outputArcCommand: () => {}, isFullCircle: () => false,
+      properties: {},
+    });
+    let pos = { x: 0, y: 0, z: 2 };
+    let plane = 17;
+    post.getCurrentPosition = () => pos;
+    post.getCircularPlane = () => plane;
+    post.curOp = { clearance: 10, retract: 5 };
+    for (const m of moves) {
+      if (m.plane !== undefined) {
+        plane = m.plane;
+        post.onCircular(true, 0, 0, 0, m.x, m.y, m.z, 100);
+      } else {
+        post.onLinear(m.x, m.y, m.z, 100);
+      }
+      pos = { x: m.x, y: m.y, z: m.z };
+    }
+    return out.filter((l) => l.includes('T"duet/milo/z"'))
+      .map((l) => JSON.parse(/S"(.*)" T/.exec(l)[1].replace(/""/g, '"')).z);
+  };
+  // a G18 arc whose ends share a Z is not a level; a G17 arc and a G1 at the same Z are
+  assert.deepEqual(run({}, [{ x: 0, y: 0, z: -1 }, { x: 10, y: 0, z: -1, plane: 18 }]), []);
+  assert.deepEqual(run({}, [{ x: 0, y: 0, z: -1 }, { x: 10, y: 0, z: -1, plane: 17 }]), [-1]);
+  assert.deepEqual(run({}, [{ x: 0, y: 0, z: -1 }, { x: 10, y: 0, z: -1 }]), [-1]);
+  // with warp speed on, a horizontal feed move above the retract height is a G0
+  assert.deepEqual(run({ warpSpeedMode: "RETRACT" }, [{ x: 0, y: 0, z: 6 }, { x: 10, y: 0, z: 6 }]), []);
+  assert.deepEqual(run({ warpSpeedMode: "RETRACT" }, [{ x: 0, y: 0, z: 4 }, { x: 10, y: 0, z: 4 }]), [4]);
+}
+
 {
   const { post, out } = loadPost();  // telemetry off: no z events
   post.getCurrentPosition = () => ({ x: 0, y: 0, z: -1 });

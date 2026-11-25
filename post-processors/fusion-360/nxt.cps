@@ -817,13 +817,14 @@ function mqttRenderZLine(z) {
   return mqttPublishLine("duet/" + deviceId + "/z", { event: "z", z: mqttNumber(z) }, [], true);
 }
 
-// Least change in cutting height that publishes a new z event, in mm. Keeps 3D passes,
-// whose flat moves sit at many heights, from flooding the broker. Same as the FreeCAD post.
+// Least distance from every height a section has published already that publishes a new z
+// event, in mm. Each level publishes once per section, so 3D passes, which go back to the
+// same flat levels row after row, don't flood the broker. Same as the FreeCAD post.
 var MQTT_Z_MIN_STEP = 0.1;
-var mqttZPublished = undefined;  // the height last published in this section; undefined at its start
+var mqttZPublished = [];  // the heights published in this section
 
-// Before a feed move: publish the cutting height when the move cuts at constant Z (a level)
-// and that level is new for this section. circular: an arc, which always moves in XY.
+// Before a G1 or an XY-plane arc: publish the cutting height when the move cuts at constant Z
+// (a level) and that level is new for this section. circular: an arc in the XY plane.
 function writeMqttZLevel(x, y, z, circular) {
   if (!mqttTelemetryActive()) {
     return;
@@ -831,11 +832,16 @@ function writeMqttZLevel(x, y, z, circular) {
   var start = getCurrentPosition();
   var flat = Math.abs(z - start.z) < 1e-6;
   var cuts = circular || Math.abs(x - start.x) > 1e-6 || Math.abs(y - start.y) > 1e-6;
-  if (flat && cuts && (mqttZPublished === undefined ||
-                       Math.abs(start.z - mqttZPublished) >= MQTT_Z_MIN_STEP - 1e-9)) {
-    writeln(mqttRenderZLine(start.z));
-    mqttZPublished = start.z;
+  if (!flat || !cuts) {
+    return;
   }
+  for (var i = 0; i < mqttZPublished.length; i++) {
+    if (Math.abs(start.z - mqttZPublished[i]) < MQTT_Z_MIN_STEP - 1e-9) {
+      return;
+    }
+  }
+  writeln(mqttRenderZLine(start.z));
+  mqttZPublished.push(start.z);
 }
 
 // The end of the file on duet/<device>/op.
@@ -1206,7 +1212,7 @@ function onSection() {
   }
 
   writeMqttOpPublish();
-  mqttZPublished = undefined;  // each operation publishes its first cutting height
+  mqttZPublished = [];  // each operation publishes its first cutting height
 
   var s = sVar.format(curTool['rpm']);
 
@@ -1417,7 +1423,6 @@ function onRapid(x, y, z) {
 
 // Called when a controlled linear move is requested
 function onLinear(x, y, z, f) {
-  writeMqttZLevel(x, y, z, false);
   var a1 = xVar.format(x);
   var a2 = yVar.format(y);
   var a3 = zVar.format(z);
@@ -1451,6 +1456,7 @@ function onLinear(x, y, z, f) {
       fVar.reset();
   // Otherwise output normal linear move
   } else if (a1 || a2 || a3) {
+    writeMqttZLevel(x, y, z, false);  // not for a warp move: that's a G0
     writeBlock(gCodesF.format(1), a1, a2, a3, a4);
   // Otherwise output just feed change if necessary
   } else if(a4) {
@@ -1587,8 +1593,10 @@ function outputArcRadiusCommand(clockwise, x, y, z, f) {
 // Uses the above output* functions to generate the correct G2 or G3 calls
 // Linearizes arcs that cannot be processed by RRF.
 function onCircular(clockwise, cx, cy, cz, x, y, z, f) {
-  writeMqttZLevel(x, y, z, true);
   var plane = getCircularPlane();
+  if (plane == PLANE_XY) {  // an arc in another plane sweeps through Z between its ends
+    writeMqttZLevel(x, y, z, true);
+  }
 
   // Linearize circular moves on non-major planes.
   if(plane === -1) {

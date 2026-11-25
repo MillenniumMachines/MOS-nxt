@@ -437,6 +437,21 @@ class TestToolDefs(unittest.TestCase):
         first_def = next(i for i, line in enumerate(lines) if "tooldef" in line)
         self.assertLess(connect, first_def)
 
+    def test_tools_without_details_still_publish(self):
+        # Another job's retained details for the same number must not outlive this post.
+        no_bit = _tc_item(7, "Chamfer")
+        no_bit.source = types.SimpleNamespace(Tool=None, SpindleSpeed=0)
+        pp = _make_post()
+        pp._expand_prefix([("allitems", [_tc_item(5, "6mm Endmill"), no_bit])])
+        defs = [json.loads(_decode(x)) for x in pp.values["PREAMBLE"].split("\n") if "tooldef" in x]
+        self.assertEqual(defs[1], {"event": "tool", "tool_number": 7, "tool_name": "Chamfer"})
+
+        pp = _make_post()
+        pp._collect_tools = lambda postables: (_ for _ in ()).throw(ValueError("duplicate"))
+        self.assertEqual([json.loads(_decode(x)) for x in pp._mqtt_tooldef_lines("milo", [
+            ("allitems", [_tc_item(5, "6mm Endmill")])]) if "tooldef" in x],
+            [{"event": "tool", "tool_number": 5, "tool_name": "6mm Endmill"}])
+
     def test_none_with_mqtt_off(self):
         pp = _make_post(MQTT_TELEMETRY=False)
         pp._expand_prefix([("allitems", [_tc_item(5, "6mm Endmill")])])
@@ -516,6 +531,19 @@ class TestOpEvents(unittest.TestCase):
         self.assertEqual(lines[ops[2] + 1], "(item Drilling)")
         self.assertEqual(lines[ops[3] - 2], "(item Drilling)")
 
+    def test_dressup_reports_the_operation_it_wraps(self):
+        pocket = types.SimpleNamespace(Label="Pocket001", ToolController=object(),
+                                       Base=[("Body", ("Face1",))])
+        ramp = types.SimpleNamespace(Label="RampEntry001", Base=pocket)
+        tags = types.SimpleNamespace(Label="TagDressup", Base=ramp)
+        item = _op_item("TagDressup", 5)
+        item.source = tags
+        self.assertEqual(post.NxtMachine._section_ops([item]), [("Pocket001", 5)])
+        item.source = pocket
+        self.assertEqual(post.NxtMachine._section_ops([item]), [("Pocket001", 5)])
+        item.source = types.SimpleNamespace(Label="Odd", Base=None)  # no operation underneath
+        self.assertEqual(post.NxtMachine._section_ops([item]), [("TagDressup", 5)])
+
     def test_no_op_events_with_mqtt_off(self):
         lines = self._run(_make_post(MQTT_TELEMETRY=False), [_op_item("Adaptive", 5)])
         self.assertEqual(lines, ["(item Adaptive)"])
@@ -561,6 +589,38 @@ class TestCuttingHeights(unittest.TestCase):
         surface = ["G1 X0 Y0 Z-1.00", "G1 X1 Z-1.04", "G1 X2 Z-1.08", "G1 X3", "G1 X4 Z-1.11", "G1 X5"]
         self.assertEqual(self.heights(surface)[1], [-1.08])  # -1.11 is within MQTT_Z_MIN_STEP of it
 
+    def test_each_level_publishes_once_per_operation(self):
+        # Raster rows across a flat top at -1 and a floor at -5: two events, not two a row.
+        rows = []
+        for y in range(5):
+            rows += [f"G1 X0 Y{y} Z-1", "G1 X10", "G1 X15 Z-5", "G1 X25", "G1 X30 Z-1", "G1 X40"]
+        self.assertEqual(self.heights(rows)[1], [-1, -5])
+
+    def test_arcs_in_other_planes_are_not_levels(self):
+        # A G18 arc whose ends share a Z dips below them; a G17 arc after it is a level again.
+        lines = ["G0 X0 Y0 Z-1", "G18", "G1 F100 X0", "G2 X10 Z-1 I5 K0", "G17", "G2 X0 Y0 I-5 J0"]
+        self.assertEqual(self.heights(lines)[1], [-1])
+        self.assertEqual(self.heights(["G18", "G1 X20 Y0 Z-3", "G3 X30 Z-3 I5 K0"])[1], [])
+
+    def test_a_restated_arc_start_is_not_a_cut(self):
+        # The post restates the arc start after a plane change: a G1 to where the tool is.
+        self.assertEqual(self.heights(["G0 X5 Y5 Z-2", "G1 X5 Y5", "G1 Z-2"])[1], [])
+
+    def test_line_numbers_and_block_delete(self):
+        lines = ["N100 G0 X0 Y0 Z5", "N110 G1 F100 Z-2", "/N120 G1 X1 Y1", "N130 X2 Y2 Z-3", "N140 X3"]
+        self.assertEqual(self.heights(lines)[1], [-2, -3])
+
+    def test_machine_coordinates_make_z_unknown(self):
+        lines = ["G0 X0 Y0 Z-2", "G53 G0 Z0", "G1 X5 Y5", "G1 Z-4", "G1 X6"]
+        self.assertEqual(self.heights(lines)[1], [-4])  # not -2, nor the machine Z0
+
+    def test_publishes_are_not_parsed_as_moves(self):
+        name = post.mqtt_tool_publish_line("milo", "change", 5, 3, "job.gcode", "D6 X50 Z-9")
+        lines = ["G0 X0 Y0 Z-1", name, "G1 X1"]
+        out, zs = self.heights(lines)
+        self.assertEqual(zs, [-1])
+        self.assertEqual(out[1], name)
+
     def test_canned_cycles_and_rapids_publish_nothing(self):
         lines = ["G0 X1 Y1 Z5", "G83 X1 Y1 Z-10 R2 Q1 F100", "X2 Y2", "G80", "G0 X3 Y3", "G0 Z2"]
         self.assertEqual(self.heights(lines)[1], [])
@@ -572,7 +632,7 @@ class TestCuttingHeights(unittest.TestCase):
     def test_each_op_publishes_its_first_height(self):
         lines = self.pp._mqtt_z_lines("milo", "G0 Z5\nG1 F100 Z-20\nG1 X1 Y1", True)
         self.assertIn("duet/milo/z", lines)
-        self.pp._mqtt_pub_z = None  # what _convert_item_commands does at each operation
+        self.pp._mqtt_pub_zs = []  # what _convert_item_commands does at each operation
         self.assertEqual(self.heights(["G1 X2 Y2"])[1], [-20])
 
     def test_events_from_operations(self):
