@@ -111,7 +111,7 @@ To read the firmware values, send `M208` and `M203` with no parameters in the nx
 
 ### Workflow preferences, not machine facts
 
-These sit in `postprocessor.properties` and are yours to set: `probe_mode` (`AT_START`, `ON_CHANGE`, `NONE`), `home_before_start`, `vssc` with `vssc_period` and `vssc_variance`, `output_tools`, `output_job_setup`, and `allow_zero_rpm`. The shipped values are `ON_CHANGE` probing, homing on, VSSC on at 4000 ms / 200 rpm. Change these to match your needs! The optional MQTT settings are covered in [MQTT tool telemetry](#mqtt-tool-telemetry-optional).
+These sit in `postprocessor.properties` and are yours to set: `probe_mode` (`AT_START`, `ON_CHANGE`, `NONE`), `home_before_start`, `vssc` with `vssc_period` and `vssc_variance`, `output_tools`, `output_job_setup`, and `allow_zero_rpm`. The shipped values are `ON_CHANGE` probing, homing on, VSSC on at 4000 ms / 200 rpm. Change these to match your needs! The optional MQTT settings are covered in [MQTT telemetry](#mqtt-telemetry-optional).
 
 One field is deliberately zero and worth understanding before changing: `toolheads[0].toolhead_wait` is `0.0` because this post emits `M3.9`, which already blocks until the spindle reaches speed. Setting it non-zero adds a `G4` dwell on top, so you would wait twice. Raise it only if your spindle genuinely does not reach speed by the time `M3.9` returns (if you have run the nxt config wizard, this should not be the case).
 
@@ -173,82 +173,30 @@ The machine post checks this. The sanity report on the post dialog warns about a
 
 ---
 
-## MQTT tool telemetry (optional)
+## MQTT telemetry (optional)
 
-The machine post can publish each tool change to an MQTT broker, for a collector that logs tool use. It is off by default. It uses RRF's own MQTT client (`M586.4`, `M586 P4`, `M118 P6`), so the board's firmware must support MQTT.
+The machine post can publish the job's progress to an MQTT broker as it runs: the tool to load, the tool in use and the next one, each tool's details, each operation and the cutting height. [MQTT telemetry from the posts](../MQTT.md) describes the topics, payloads and timing; they are the same as the Fusion 360 post's. It is off by default, and the board's firmware must support MQTT. The legacy FreeCAD post does not support it.
 
 Set these in the Machine editor. They are stored in the `.fcm`:
 
 | Property | Default | Purpose |
 |---|---|---|
 | `mqtt_telemetry` | off | Turns it on. Can also be changed for one export on the post dialog's Options tab. |
-| `mqtt_device_id` | empty | Device segment of the `duet/<device>/tool` topic, also the RRF MQTT client ID. Must match your collector. |
+| `mqtt_device_id` | empty | The `<device>` segment of the `duet/<device>/...` topics, also the RRF MQTT client ID. Must match your display or collector. |
 | `mqtt_broker_host` | empty | Broker, without `mqtt://`. A standalone board needs an IPv4 address (RRF doesn't look up hostnames); a hostname only works in SBC mode. |
 | `mqtt_broker_port` | `1883` | Broker TCP port. |
 | `mqtt_job_file` | empty | Set per export on the post dialog's Overview tab, never saved to the `.fcm`. Overrides `job_file`, below. |
 
 Posting fails with an error if `mqtt_telemetry` is on and the device ID or broker host is empty.
 
-The preamble connects the client before the first tool change. It disables MQTT first, because the board refuses `M586.4` while MQTT is already on, as it is from the second job on:
+What is particular to the FreeCAD post:
 
-```gcode
-(MQTT: connect the RRF client to the broker)
-M586 P4 S0
-G4 S2
-M586.4 C"milo"
-M586 P4 H"mqtt.lan" R1883 S1
-G4 S3
-```
-
-Each tool change then publishes two payloads, one before its `T` word and one after:
-
-```gcode
-(MQTT: publish the tool to load)
-M400
-M118 P6 S"{""event"":""load"",""tool_number"":48,""tool_name"":""6mm Endmill"",""previous_tool"":3,""job_file"":""Bracket.gcode""}" T"duet/milo/tool" R1
-T48
-(MQTT: publish tool change)
-M118 P6 S"{""event"":""change"",""tool_number"":48,""tool_name"":""6mm Endmill"",""previous_tool"":3,""next_tool"":5,""next_tool_name"":""Spot Drill"",""job_file"":""Bracket.gcode""}" T"duet/milo/tool" R1
-```
-
-- **`load`** is the tool to put in. The `M400` before it makes it arrive when the machine stops for the change, rather than when RRF reads ahead to it, so a display can show the tool to load while the machine waits.
-- **`event`** after the `T` word is `start` for the first tool of each output file, without `previous_tool`, and `change` after that, once the tool is in. A repeated `T` with the same number publishes nothing, because RRF ignores it.
-- **`tool_name`** is the tool controller's name as `M4000` gets it: the label without `TC: `, cut to 32 characters, without the characters RRF strings can't hold. It's left out if the tool has no tool controller in the job.
-- **`next_tool`** is the next different tool this output file changes to, so a display can show which tool to get ready. It's `null` after the file's last tool change, and left out if the post can't tell. **`next_tool_name`** is that tool's name, worked out like `tool_name`.
-- The `M118` line is kept to 240 characters. Over that, `next_tool_name` and then `tool_name` are shortened and dropped first, then `job_file` is shortened, and finally `next_tool`, `previous_tool` and `job_file` are dropped.
 - **`job_file`** is the name of the file FreeCAD writes, worked out the same way FreeCAD names it. If that name is only a program number, such as `8910.gcode`, the document name is used instead. Set `mqtt_job_file` if you save under a different name or FreeCAD renames the file to avoid a clash.
-- The topic and payload match the Fusion 360 post's MQTT option. The legacy FreeCAD post does not support MQTT.
-
-At the start of each file, right after the MQTT connect, each tool the job uses publishes its details to `duet/<device>/tooldef/<tool number>`, so a display can show them for the loaded and the next tool:
-
-```gcode
-(MQTT: publish the job's tools)
-M118 P6 S"{""event"":""tool"",""tool_number"":48,""tool_name"":""6mm Endmill"",""diameter"":6,""flutes"":3,""rpm"":18000}" T"duet/milo/tooldef/48" R1
-```
-
-`diameter` is in mm (3 decimals at most), `flutes` comes from the tool bit, and `rpm` is the spindle speed of the tool's first tool controller in the job. Unknown or zero values are left out.
-
-Each operation also publishes as it starts, to `duet/<device>/op`, and each output file ends with an `end` event:
-
-```gcode
-(MQTT: publish operation start)
-M118 P6 S"{""event"":""op"",""op_index"":2,""op_count"":5,""op_name"":""Adaptive"",""tool_number"":48,""next_op_name"":""Profile"",""next_op_tool"":3,""job_file"":""Bracket.gcode""}" T"duet/milo/op" R1
-```
-
-- **`op_index`** counts from 1 within the output file, out of **`op_count`**. **`op_name`** is the operation's label, cut to 40 characters and to the characters RRF strings can hold, so parentheses go: in CNC mode RRF reads them as a comment.
-- **`next_op_name`** is `null` on the file's last operation. **`next_op_tool`** is the next operation's tool.
-- **`{"event":"end","op_count":5,"job_file":"Bracket.gcode"}`** follows the file's last operation, before the postamble.
-- RRF runs an `M118` when it reads the line, ahead of the moves still queued, so an op event can arrive a little before the machine reaches that operation; an `end` event, a little before the last moves finish.
-
-Within each operation, the cutting height publishes to `duet/<device>/z` whenever the cut moves to a new level: just before the first feed move (`G1`, `G2` or `G3`) at constant Z at a height at least 0.1 mm from the last one published. Each operation publishes its first height:
-
-```gcode
-M118 P6 S"{""event"":""z"",""z"":-9.5}" T"duet/milo/z" R1
-```
-
-That's one event per pass for facing, pocketing and profiles, and one per level for each helix hole. Moves whose Z changes as they go, such as helix ramps and 3D surfacing, don't publish, and nor do canned cycles, so a 3D finishing pass doesn't flood the broker.
-
-Every publish is retained (`R1`): the broker keeps the last message of each topic and sends it to a client as soon as it subscribes. A display started in the middle of a job shows the current tool, operation and tool details at once. Tool details have a topic per tool so that all of them are kept.
+- **`tool_name`** is the tool controller's label without `TC: `. It's left out if the tool has no tool controller in the job.
+- **`next_tool`** comes from the order of each output file's tool controllers. It's left out if a tool change doesn't fit that order.
+- A `T` word that repeats the loaded tool publishes nothing, because RRF ignores it.
+- **`op_name`** is the operation's label. For an operation with a dressup, it's the label of the operation the dressup wraps.
+- Each output file (one per fixture, tool or operation, as the job's output settings split it) has its own tool order, op count and `end` event.
 
 `python3 post-processors/freecad/test_nxt_machine.py` tests the payload helpers and the event logic without FreeCAD.
 

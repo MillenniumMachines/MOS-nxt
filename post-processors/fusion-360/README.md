@@ -85,20 +85,29 @@ If disabling any or all of these settings, please read the output g-code before 
 
 ## MQTT telemetry (optional)
 
-To publish tool changes to a display, logger or other MQTT subscriber, enable **MQTT telemetry** in Post properties:
+The post can publish the job's progress to an MQTT broker as it runs: the tool to load, the tool in use and the next one, each tool's details, each operation and the cutting height. A display, logger or other MQTT subscriber can then follow the job. [MQTT telemetry from the posts](../MQTT.md) describes the topics, payloads and timing; they are the same as the FreeCAD machine post's. It is off by default, and the board's firmware must support MQTT.
+
+Turn it on in **Post properties**:
 
 | Property | Default | Role |
 |----------|---------|------|
-| Enable MQTT telemetry | Off | Emit `M586` reconnect + `M118 P6` tool publishes |
-| MQTT device ID | *(blank)* | `duet/{device}/tool` segment — fill to match your collector |
+| Enable MQTT telemetry | Off | Connects the board's MQTT client at the start of the file and publishes with `M118 P6` |
+| MQTT device ID | *(blank)* | The `{device}` segment of the `duet/{device}/...` topics, also the RRF MQTT client ID. Must match your display or collector. |
 | MQTT broker host | *(blank)* | Broker for `M586 P4` (no `mqtt://`). A standalone board needs an IPv4 address (RRF doesn't look up hostnames); a hostname only works in SBC mode. |
-| MQTT broker port | `1883` | Static default; overridable |
-| MQTT job file name | *(blank)* | Optional `job_file` override when NC output is only `8910.gcode` |
+| MQTT broker port | `1883` | Broker TCP port |
+| MQTT job file name | *(blank)* | Overrides `job_file`, below |
 
-When enabled, **device ID and broker host are required** or the post errors. At job start the post disables MQTT (`M586 P4 S0`), configures the client (`M586.4`) and enables it again, because the board refuses `M586.4` while MQTT is already on. Publishes go to `duet/{device}/tool` (flat JSON: `event`, `tool_number`, optional `tool_name` / `previous_tool` / `next_tool` / `next_tool_name` / `job_file`; `tool_name` is the tool description as `M4000` gets it, and `next_tool` is the next different tool in the file, `null` after the last tool change). Each tool change publishes `load` just before its `T` word, after an `M400` so it arrives when the machine stops for the change (the tool to put in, without `next_tool`), then `start` or `change` once the tool is in. Right after the MQTT connect, each tool publishes its details to `duet/{device}/tooldef/{tool number}` (`tool_number`, `tool_name`, `diameter` in mm, `flutes`, `rpm`). Each operation also publishes to `duet/{device}/op` as it starts (`op_index`, `op_count`, `op_name` from the operation comment, `tool_number`, `next_op_name` (`null` on the last), `next_op_tool`, `job_file`), and the postamble publishes `{"event":"end",...}`. These can arrive a little before the machine gets there: RRF runs `M118` when it reads the line, ahead of the queued moves. Within each operation, the cutting height publishes to `duet/{device}/z` (`{"event":"z","z":-9.5}`) just before the first feed move at constant Z at each new level (at least 0.1 mm from the last one published); each operation publishes its first height. Ramps, helixes and 3D surfacing don't publish. Every publish is retained (`R1`), so a display that connects in the middle of a job gets the current tool, operation and every tool's details from the broker straight away. In SBC mode, DSF's MQTT must already be set up (in `dsf-config.g`, not `nxt-user-overrides.g`).
+When it's on, **device ID and broker host are required** or the post errors.
 
-**`job_file` / `event` with Post Process All:** Use the local **`PPAll`** add-in (sibling repo). It posts each op as temp `8910` (Personal Use split) then renames to the setup name, and **rewrites** MQTT `job_file` to the final basename plus `start`→`change` after combine. For a manual Fusion post (no add-in), set NC output name or **MQTT job file name** yourself.
+What is particular to the Fusion post:
 
-PPAll doesn't fix `next_tool`: each op is posted on its own, so the post sees no later tool and every tool event in the combined file says `next_tool: null`. A display can't show the next tool for a PPAll job until PPAll rewrites it as well.
+- **`job_file`** is the name of the output file. If that name is only a program number, such as `8910.gcode`, `job.gcode` is used instead; set **MQTT job file name** to give the real name.
+- **`tool_name`** is the tool description, as `M4000` gets it.
+- **`next_tool`** looks ahead through the sections posted in the same run.
+- **`event`** is `start` for the first tool published in a post run and `change` after that, also across setups posted into one file.
+- **`op_name`** is the operation comment.
+- A feed move that warp speed turns into a `G0` publishes no cutting height.
 
-**`event`:** first tool publish is `start`; later tools are `change` when the post runs as one invocation.
+**Post Process All (PPAll):** use the local **`PPAll`** add-in (sibling repo). It posts each op as temp `8910` (Personal Use split), renames the result to the setup name, and rewrites MQTT `job_file` to the final name and `start` to `change` after the first tool. Each op is still posted on its own, so `next_tool`, the op count and the `end` event are only about that op; see [MQTT telemetry from the posts](../MQTT.md#fusion-360-with-post-process-all-ppall). For a manual Fusion post (no add-in), set the NC output name or **MQTT job file name** yourself.
+
+`node post-processors/fusion-360/run-mqtt-helper-tests.mjs` tests the MQTT code in `nxt.cps` itself, without Fusion.
