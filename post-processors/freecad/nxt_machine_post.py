@@ -206,13 +206,29 @@ def nxt_tool_number_message(tools):
 # and every tool change publishes one JSON payload to duet/<device>/tool with
 # M118 P6. Topic and payload match the Fusion 360 post (nxt.cps):
 #
-#   {"event":"start"|"change","tool_number":5,"previous_tool":3,"job_file":"part.gcode"}
+#   {"event":"start"|"change","tool_number":5,"tool_name":"6mm Endmill",
+#    "previous_tool":3,"next_tool":7,"next_tool_name":"Spot Drill","job_file":"part.gcode"}
 #
 # "start" is the first tool of each output file; previous_tool is omitted then.
+# tool_name is the name M4000 gives the tool, left out when the job has none.
+# next_tool is the next different tool this output file changes to, null after
+# its last tool change; next_tool_name is that tool's name.
 # These helpers do not touch FreeCAD, so test_nxt_machine.py runs them without it.
 
 #: DSF rejects serialised codes over ~256 characters; stay well under.
 MQTT_M118_MAX = 240
+
+#: Compacting order for an M118 line over MQTT_M118_MAX: (key, True) shortens a
+#: string to at least 8 characters plus "~", (key, False) drops the key.
+MQTT_COMPACT_STEPS = (
+    ("next_tool_name", True), ("next_tool_name", False),
+    ("tool_name", True), ("tool_name", False),
+    ("job_file", True),
+    ("next_tool", False), ("previous_tool", False), ("job_file", False),
+)
+
+#: next_tool when the post can't tell which tool comes next: leaves it out.
+MQTT_NEXT_UNKNOWN = object()
 
 #: job_file used when no usable name is known.
 MQTT_DEFAULT_JOB_FILE = "job.gcode"
@@ -226,6 +242,11 @@ def mqtt_sanitize_segment(value):
 def mqtt_sanitize_host(value):
     """Reduce a broker host to hostname or IP characters, so it cannot break out of its quotes."""
     return re.sub(r"[^0-9a-zA-Z._:\-]", "", str(value or "").strip())
+
+
+def mqtt_tool_name(label):
+    """The payload's tool name: the M4000 S name (32 characters, rrf_safe_string) without quotes."""
+    return re.sub(r"[^0-9a-zA-Z.:,=_\- ]", "", str(label or "")[:32]).strip()
 
 
 def mqtt_looks_like_job_file_name(name):
@@ -263,12 +284,16 @@ def mqtt_job_file_name(*candidates):
 def mqtt_connect_lines(device_id, host, port):
     """Preamble block that (re)connects RRF's MQTT client before the first publish.
 
-    The waits are G4 S (seconds); G4 P would be milliseconds. The first lets an
-    earlier client settle before it is reconfigured, the second gives the broker
-    connection time to come up before the first M118.
+    From the second job on MQTT is already enabled, and both RRF (standalone)
+    and DSF (SBC) then refuse M586.4, and DSF also refuses M586 P4 S1. M586 P4 S0
+    disables it first; that is harmless when it was already off.
+    The waits are G4 S (seconds); G4 P would be milliseconds. The first lets the
+    earlier session close before the client is reconfigured, the second gives the
+    broker connection time to come up before the first M118.
     """
     return [
         "(MQTT: connect the RRF client to the broker)",
+        "M586 P4 S0",
         "G4 S2",
         f'M586.4 C"{device_id}"',
         f'M586 P4 H"{host}" R{int(port)} S1',
@@ -276,16 +301,27 @@ def mqtt_connect_lines(device_id, host, port):
     ]
 
 
-def mqtt_tool_publish_line(device_id, event, tool_number, previous_tool=None, job_file=""):
+def mqtt_tool_publish_line(
+    device_id, event, tool_number, previous_tool=None, job_file="", tool_name="",
+    next_tool=MQTT_NEXT_UNKNOWN, next_tool_name="",
+):
     """An M118 P6 line publishing one tool event, at most MQTT_M118_MAX characters.
 
-    Over the limit, job_file is shortened first, then previous_tool and finally
-    job_file are dropped. Raises ValueError if even the bare payload is too long.
+    next_tool is a tool number, None for "no more tool changes in this file"
+    (published as null), or MQTT_NEXT_UNKNOWN to leave it out. Over the limit,
+    the keys are shortened or dropped in MQTT_COMPACT_STEPS order. Raises
+    ValueError if even the bare payload is too long.
     """
     topic = f"duet/{device_id}/tool"
     payload = {"event": event, "tool_number": int(tool_number)}
+    if tool_name:
+        payload["tool_name"] = tool_name
     if previous_tool is not None and int(previous_tool) >= 0:
         payload["previous_tool"] = int(previous_tool)
+    if next_tool is not MQTT_NEXT_UNKNOWN:
+        payload["next_tool"] = None if next_tool is None else int(next_tool)
+        if next_tool is not None and next_tool_name:
+            payload["next_tool_name"] = next_tool_name
     if job_file:
         payload["job_file"] = job_file
 
@@ -295,13 +331,16 @@ def mqtt_tool_publish_line(device_id, event, tool_number, previous_tool=None, jo
 
     line = render(payload)
     while len(line) > MQTT_M118_MAX:
-        job_file = payload.get("job_file")
-        if isinstance(job_file, str) and len(job_file) > 12:
-            payload["job_file"] = job_file[: max(8, len(job_file) - 16)].rstrip() + "~"
-        elif "previous_tool" in payload:
-            del payload["previous_tool"]
-        elif "job_file" in payload:
-            del payload["job_file"]
+        for key, shorten in MQTT_COMPACT_STEPS:
+            if key not in payload:
+                continue
+            value = payload[key]
+            if not shorten:
+                del payload[key]
+                break
+            if isinstance(value, str) and len(value) > 12:
+                payload[key] = value[: max(8, len(value) - 16)].rstrip() + "~"
+                break
         else:
             raise ValueError(
                 f"MQTT M118 line is {len(line)} characters after compacting "
@@ -495,7 +534,9 @@ class NxtMachine(PostProcessor):
                 "label": translate("CAM", "MQTT Broker Host"),
                 "default": "",
                 "help": translate(
-                    "CAM", "Broker hostname or IP address for M586 P4, without mqtt://."
+                    "CAM",
+                    "Broker for M586 P4, without mqtt://. A standalone board needs an IPv4 "
+                    "address such as 192.168.1.10; a hostname only works in SBC mode.",
                 ),
             },
             {
@@ -541,6 +582,9 @@ class NxtMachine(PostProcessor):
         self._mqtt_filenames = None
         self._mqtt_job_file = MQTT_DEFAULT_JOB_FILE
         self._mqtt_previous_tool = None
+        self._mqtt_tool_names: Dict[int, str] = {}
+        self._mqtt_tool_order: List[int] = []  # tool changes in this output file
+        self._mqtt_order_pos = 0
         Path.Log.debug("nxt machine post processor initialized.")
 
     def init_values(self, values: Values) -> None:
@@ -665,11 +709,9 @@ class NxtMachine(PostProcessor):
             return None
         return length
 
-    def _check_tool_numbers(self, postables):
-        """Refuse to post a tool number nxt cannot use, see nxt_tool_number_problem().
-
-        Checked whether or not M4000 lines are emitted: RRF rejects the T word too.
-        """
+    @staticmethod
+    def _tool_labels(postables):
+        """tool_number -> tool controller label (without "TC: "), first one wins."""
         tools: Dict[int, str] = {}
         for _section_name, sublist in postables:
             for item in sublist:
@@ -678,8 +720,14 @@ class NxtMachine(PostProcessor):
                 number = item.data.get("tool_number")
                 if number is not None:
                     tools.setdefault(int(number), item.label.replace("TC: ", "").strip())
+        return tools
 
-        message = nxt_tool_number_message(tools.items())
+    def _check_tool_numbers(self, postables):
+        """Refuse to post a tool number nxt cannot use, see nxt_tool_number_problem().
+
+        Checked whether or not M4000 lines are emitted: RRF rejects the T word too.
+        """
+        message = nxt_tool_number_message(self._tool_labels(postables).items())
         if message:
             raise ValueError(message)
 
@@ -850,6 +898,10 @@ class NxtMachine(PostProcessor):
         mqtt = self._mqtt_settings()
         if mqtt:
             lines.extend(mqtt_connect_lines(*mqtt))
+            self._mqtt_tool_names = {
+                number: mqtt_tool_name(label)
+                for number, label in self._tool_labels(postables).items()
+            }
 
         nxt_block = "\n".join(lines)
 
@@ -1119,12 +1171,39 @@ class NxtMachine(PostProcessor):
         """Reset MQTT event state for each output file and work out its job_file."""
         super()._convert_start_section(section_name, sublist)
         self._mqtt_previous_tool = None
+        self._mqtt_tool_order = self._section_tool_order(sublist)
+        self._mqtt_order_pos = 0
         if self.values.get("MQTT_TELEMETRY"):
             self._mqtt_job_file = mqtt_job_file_name(
                 self.values.get("MQTT_JOB_FILE"),
                 self._mqtt_output_filename(section_name),
                 self._mqtt_document_filename(),
             )
+
+    @staticmethod
+    def _section_tool_order(sublist):
+        """Tool numbers in the order this output file changes to them, without repeats in a row.
+
+        Each tool controller in the sublist is a tool change; a repeat of the
+        loaded tool changes nothing, so it isn't one.
+        """
+        order: List[int] = []
+        for item in sublist:
+            if getattr(item, "item_type", None) != "tool_controller":
+                continue
+            number = item.data.get("tool_number")
+            if number is not None and (not order or order[-1] != int(number)):
+                order.append(int(number))
+        return order
+
+    def _mqtt_next_tool(self, tool):
+        """Next tool after `tool` in this file, None after its last, or MQTT_NEXT_UNKNOWN."""
+        try:
+            i = self._mqtt_tool_order.index(tool, self._mqtt_order_pos)
+        except ValueError:
+            return MQTT_NEXT_UNKNOWN
+        self._mqtt_order_pos = i + 1
+        return self._mqtt_tool_order[i + 1] if i + 1 < len(self._mqtt_tool_order) else None
 
     def _mqtt_output_filename(self, section_name):
         """Best guess at the path FreeCAD will write this section to, or "".
@@ -1166,9 +1245,14 @@ class NxtMachine(PostProcessor):
             return []
         self._mqtt_previous_tool = tool
         event = "start" if previous is None else "change"
+        next_tool = self._mqtt_next_tool(tool)
+        next_name = self._mqtt_tool_names.get(next_tool, "") if isinstance(next_tool, int) else ""
         return [
             "(MQTT: publish tool change)",
-            mqtt_tool_publish_line(device_id, event, tool, previous, self._mqtt_job_file),
+            mqtt_tool_publish_line(
+                device_id, event, tool, previous, self._mqtt_job_file,
+                self._mqtt_tool_names.get(tool, ""), next_tool, next_name,
+            ),
         ]
 
     def _convert_spindle_command(self, command: Path.Command) -> str:

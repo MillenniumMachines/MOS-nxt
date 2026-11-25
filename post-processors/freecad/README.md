@@ -183,16 +183,17 @@ Set these in the Machine editor. They are stored in the `.fcm`:
 |---|---|---|
 | `mqtt_telemetry` | off | Turns it on. Can also be changed for one export on the post dialog's Options tab. |
 | `mqtt_device_id` | empty | Device segment of the `duet/<device>/tool` topic, also the RRF MQTT client ID. Must match your collector. |
-| `mqtt_broker_host` | empty | Broker hostname or IP address, without `mqtt://`. |
+| `mqtt_broker_host` | empty | Broker, without `mqtt://`. A standalone board needs an IPv4 address (RRF doesn't look up hostnames); a hostname only works in SBC mode. |
 | `mqtt_broker_port` | `1883` | Broker TCP port. |
 | `mqtt_job_file` | empty | Set per export on the post dialog's Overview tab, never saved to the `.fcm`. Overrides `job_file`, below. |
 
 Posting fails with an error if `mqtt_telemetry` is on and the device ID or broker host is empty.
 
-The preamble connects the client before the first tool change:
+The preamble connects the client before the first tool change. It disables MQTT first, because the board refuses `M586.4` while MQTT is already on, as it is from the second job on:
 
 ```gcode
 (MQTT: connect the RRF client to the broker)
+M586 P4 S0
 G4 S2
 M586.4 C"milo"
 M586 P4 H"mqtt.lan" R1883 S1
@@ -204,10 +205,13 @@ Each tool change then publishes one payload after its `T` word:
 ```gcode
 T48
 (MQTT: publish tool change)
-M118 P6 S"{""event"":""change"",""tool_number"":48,""previous_tool"":3,""job_file"":""Bracket.gcode""}" T"duet/milo/tool"
+M118 P6 S"{""event"":""change"",""tool_number"":48,""tool_name"":""6mm Endmill"",""previous_tool"":3,""next_tool"":5,""next_tool_name"":""Spot Drill"",""job_file"":""Bracket.gcode""}" T"duet/milo/tool"
 ```
 
 - **`event`** is `start` for the first tool of each output file, without `previous_tool`, and `change` after that. A repeated `T` with the same number publishes nothing, because RRF ignores it.
+- **`tool_name`** is the tool controller's name as `M4000` gets it: the label without `TC: `, cut to 32 characters, without the characters RRF strings can't hold. It's left out if the tool has no tool controller in the job.
+- **`next_tool`** is the next different tool this output file changes to, so a display can show which tool to get ready. It's `null` after the file's last tool change, and left out if the post can't tell. **`next_tool_name`** is that tool's name, worked out like `tool_name`.
+- The `M118` line is kept to 240 characters. Over that, `next_tool_name` and then `tool_name` are shortened and dropped first, then `job_file` is shortened, and finally `next_tool`, `previous_tool` and `job_file` are dropped.
 - **`job_file`** is the name of the file FreeCAD writes, worked out the same way FreeCAD names it. If that name is only a program number, such as `8910.gcode`, the document name is used instead. Set `mqtt_job_file` if you save under a different name or FreeCAD renames the file to avoid a clash.
 - The topic and payload match the Fusion 360 post's MQTT option. The legacy FreeCAD post does not support MQTT.
 
@@ -321,19 +325,3 @@ After a tool change, the post moves to XY while still at park height, then desce
 - The post outputs nxt-specific G/M-codes for probing, tool setup, and job preamble. It targets RRF 3.5+ with nxt macros installed.
 - Version compatibility is checked at job start via `M4005` when **version-check** is enabled (default). `M4005` matches major.minor only, so a 0.7 post runs on `v0.7.0-beta.N` / `v0.7.0-rcN` / `v0.7.x` firmware without re-exporting.
 - If you upgrade nxt firmware to a **new line** (e.g. 0.6 → 0.7), install a post from that line and remove older `nxt-*_post.py` files from your macro directory to avoid duplicate entries in the post list.
-
-## MQTT telemetry (optional)
-
-Pass job arguments (or set them in FreeCAD’s post argument string):
-
-| Flag | Default | Role |
-|------|---------|------|
-| `--mqtt-telemetry` / `--no-mqtt-telemetry` | off | Emit `M586` reconnect + `M118 P6` tool publishes |
-| `--mqtt-device-id` | empty | `duet/{device}/tool` segment — fill to match your collector |
-| `--mqtt-broker-host` | empty | Hostname for `M586 P4` (no `mqtt://`) |
-| `--mqtt-broker-port` | `1883` | Static default; overridable |
-| `--mqtt-job-file` | empty | Optional `job_file` override when basename is only a program number |
-
-When telemetry is enabled, **device ID and broker host are required** or the post raises. Same wire format as the Fusion post / 4th-combinator sim: `duet/{device}/tool`, no `tap/` or `cam/` session mint. Does not replace Pi `tap-spindle` ADXL streams.
-
-**`job_file`:** output basename unless it is `8910` / `8910.gcode` (then `job.gcode`, or `--mqtt-job-file`). **`event`:** `start` then `change`. Charts/accel still need tap-spindle on `tap/#`.

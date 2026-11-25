@@ -41,6 +41,9 @@ class _StubPostProcessor:
     def _convert_tool_change(self, command):
         return "M6"
 
+    def _expand_prefix(self, postables):
+        pass
+
     def get_file_extension(self):
         return self.values.get("FILE_EXTENSION", "gcode")
 
@@ -124,11 +127,11 @@ class TestJobFileName(unittest.TestCase):
 
 
 class TestConnectLines(unittest.TestCase):
-    def test_waits_are_seconds_and_values_quoted(self):
+    def test_disables_first_waits_are_seconds_and_values_quoted(self):
         lines = post.mqtt_connect_lines("milo", "mqtt.lan", 1883)
         self.assertEqual(
             lines[1:],
-            ["G4 S2", 'M586.4 C"milo"', 'M586 P4 H"mqtt.lan" R1883 S1', "G4 S3"],
+            ["M586 P4 S0", "G4 S2", 'M586.4 C"milo"', 'M586 P4 H"mqtt.lan" R1883 S1', "G4 S3"],
         )
 
     def test_comment_has_no_nested_parentheses(self):
@@ -158,6 +161,62 @@ class TestPublishLine(unittest.TestCase):
         line = post.mqtt_tool_publish_line("milo", "change", 2, 1, "x" * 400)
         self.assertLessEqual(len(line), post.MQTT_M118_MAX)
         self.assertIn('"previous_tool":1', _decode(line))
+
+    def test_tool_name_follows_tool_number(self):
+        line = post.mqtt_tool_publish_line("milo", "change", 2, 1, "part.gcode", "6mm Endmill")
+        self.assertEqual(
+            _decode(line),
+            '{"event":"change","tool_number":2,"tool_name":"6mm Endmill",'
+            '"previous_tool":1,"job_file":"part.gcode"}',
+        )
+
+    def test_tool_name_is_compacted_first(self):
+        # A device ID that leaves no room for the name but fits everything else.
+        base = len(post.mqtt_tool_publish_line("d", "change", 2, 1, "part.gcode"))
+        device = "d" * (post.MQTT_M118_MAX - base + 1)
+        name = "Long Tool Name For Compacting 32"
+        line = post.mqtt_tool_publish_line(device, "change", 2, 1, "part.gcode", name)
+        self.assertLessEqual(len(line), post.MQTT_M118_MAX)
+        self.assertNotIn('"tool_name"', _decode(line))
+        self.assertIn('"previous_tool":1,"job_file":"part.gcode"', _decode(line))
+
+        # A little more room: the name is shortened rather than dropped.
+        line = post.mqtt_tool_publish_line(device[:-40], "change", 2, 1, "part.gcode", name)
+        self.assertLessEqual(len(line), post.MQTT_M118_MAX)
+        self.assertRegex(_decode(line), r'"tool_name":"Long Tool[^"]*~","previous_tool":1,')
+
+    def test_tool_name_matches_m4000(self):
+        for label in ("6mm Endmill", "Drill 3.3: tap M4, 118=deg", "x" * 40):
+            with self.subTest(label=label):
+                self.assertEqual(post.mqtt_tool_name(label), post.rrf_safe_string(label[:32]))
+        # Characters M4000 drops (and its doubled quotes) never reach the payload.
+        self.assertEqual(post.mqtt_tool_name('1/4" Endmill (3F) {x}'), "14 Endmill 3F x")
+        self.assertEqual(post.mqtt_tool_name(None), "")
+
+    def test_next_tool(self):
+        line = post.mqtt_tool_publish_line(
+            "milo", "change", 2, 1, "part.gcode", "6mm Endmill", 7, "Spot Drill"
+        )
+        self.assertEqual(
+            _decode(line),
+            '{"event":"change","tool_number":2,"tool_name":"6mm Endmill","previous_tool":1,'
+            '"next_tool":7,"next_tool_name":"Spot Drill","job_file":"part.gcode"}',
+        )
+
+    def test_last_tool_has_null_next_tool(self):
+        line = post.mqtt_tool_publish_line("milo", "change", 2, 1, "part.gcode", "", None, "x")
+        self.assertIn('"next_tool":null,"job_file"', _decode(line))
+        self.assertNotIn("next_tool_name", _decode(line))
+
+    def test_next_tool_name_is_compacted_before_tool_name(self):
+        base = len(post.mqtt_tool_publish_line("d", "change", 2, 1, "part.gcode", "6mm Endmill", 7))
+        device = "d" * (post.MQTT_M118_MAX - base + 1)
+        line = post.mqtt_tool_publish_line(
+            device, "change", 2, 1, "part.gcode", "6mm Endmill", 7, "Long Next Tool Name For Test"
+        )
+        self.assertLessEqual(len(line), post.MQTT_M118_MAX)
+        self.assertNotIn("next_tool_name", _decode(line))
+        self.assertIn('"tool_name":"6mm Endmill","previous_tool":1,"next_tool":7,', _decode(line))
 
     def test_oversized_device_id_raises(self):
         with self.assertRaises(ValueError):
@@ -228,6 +287,50 @@ class TestToolChange(unittest.TestCase):
         self.assertIn('"event":"start"', _decode(line))
         self.assertNotIn("previous_tool", _decode(line))
         self.assertEqual(pp._mqtt_job_file, "Part-T3-1.gcode")
+
+    def test_tool_names_come_from_tool_controllers(self):
+        pp = _make_post()
+        postables = [("allitems", [_tc_item(5, '6mm "Flat" Endmill'), _tc_item(3, "Drill")])]
+        pp._expand_prefix(postables)
+        pp._convert_start_section("allitems", [])
+        first = _decode(pp._convert_tool_change(_Command(5)).split("\n")[2])
+        self.assertIn('"tool_number":5,"tool_name":"6mm Flat Endmill"', first)
+        second = _decode(pp._convert_tool_change(_Command(3)).split("\n")[2])
+        self.assertIn('"tool_number":3,"tool_name":"Drill"', second)
+        # A tool with no controller in the job publishes without a name.
+        third = _decode(pp._convert_tool_change(_Command(9)).split("\n")[2])
+        self.assertNotIn("tool_name", third)
+
+    def test_next_tool_follows_each_files_tool_order(self):
+        pp = _make_post()
+        first = [_tc_item(5, "6mm Endmill"), _tc_item(5, "6mm Endmill"), _tc_item(3, "Drill"),
+                 _tc_item(9, "Chamfer")]
+        second = [_tc_item(9, "Chamfer"), _tc_item(5, "6mm Endmill")]
+        pp._expand_prefix([("T5", first), ("T9", second)])
+
+        def publish(tool):
+            lines = pp._convert_tool_change(_Command(tool)).split("\n")
+            return _decode(lines[2]) if len(lines) > 2 else None
+
+        pp._convert_start_section("T5", first)
+        self.assertIn('"next_tool":3,"next_tool_name":"Drill"', publish(5))
+        self.assertIsNone(publish(5))  # the loaded tool again: no event
+        self.assertIn('"next_tool":9,"next_tool_name":"Chamfer"', publish(3))
+        self.assertIn('"next_tool":null', publish(9))
+
+        pp._convert_start_section("T9", second)  # each output file has its own order
+        line = publish(9)
+        self.assertIn('"event":"start","tool_number":9,', line)
+        self.assertIn('"next_tool":5,"next_tool_name":"6mm Endmill"', line)
+        self.assertIn('"next_tool":null', publish(5))
+
+    def test_next_tool_left_out_when_unknown(self):
+        pp = _make_post()
+        sublist = [_tc_item(5, "6mm Endmill"), _tc_item(3, "Drill")]
+        pp._expand_prefix([("allitems", sublist)])
+        pp._convert_start_section("allitems", sublist)
+        line = _decode(pp._convert_tool_change(_Command(8)).split("\n")[2])  # not in the order
+        self.assertNotIn("next_tool", line)
 
     def test_job_file_override_wins(self):
         pp = _make_post(MQTT_JOB_FILE="01 Putter - Op1.gcode")
