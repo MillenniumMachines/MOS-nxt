@@ -76,6 +76,9 @@ echo "tpost.g: incoming L1 Z0 (was T" ^ var.nxtPrevTool ^ " -> T" ^ state.curren
 ; Stop and park spindle for safety
 G27 Z1
 
+; Set by a measured G10 L1 below; the tool library is written to SD once the change is complete
+var nxtDoToolsSync = false
+
 ; Handle touch probe special case
 if { state.currentTool == global.nxtProbeToolID && global.nxtFeatureTouchProbe }
     ; Every T49: G6511 on saved nxtTouchProbeRefPos (not the setter pad).
@@ -257,13 +260,10 @@ elif { global.nxtFeatureToolSetter && global.nxtToolSetterPos != null }
         M291 P{var.nxtNeedTs} R"tpost" S2
         echo "tpost.g: measure incomplete — soft complete (no abort)"
 
-    ; Persist measured G10 L1 to SD (opt-out: nxtAutoPersistTools = false)
-    var nxtDoToolsSync = false
+    ; Persist the measured G10 L1 after the change completes (opt-out: nxtAutoPersistTools = false)
     if { var.nxtDidL1 }
         if { !exists(global.nxtUserToolsLoadDepth) || global.nxtUserToolsLoadDepth < 1 }
             set var.nxtDoToolsSync = true
-    if { var.nxtDoToolsSync }
-        M98 P"nxt-user-tools-sync.g"
 else
     ; No toolsetter — re-zero Z origin in current WCS with the installed tool.
     echo "tpost.g: Toolsetter unavailable — running G37.1 to set Z origin"
@@ -278,5 +278,10 @@ if { exists(global.nxtJobG68Deg) && global.nxtJobG68Deg != null }
 
 ; Clear tool change state to indicate completion
 set global.nxtToolChangeState = null
+
+; Write the library only now, so a failed SD write (file open in DWC, card full) can't leave
+; the tool change unfinished: the machine is parked and the tool change state is cleared.
+if { var.nxtDoToolsSync }
+    M98 P"nxt-user-tools-sync.g"
 
 echo "tpost.g: Tool " ^ state.currentTool ^ " change process completed"

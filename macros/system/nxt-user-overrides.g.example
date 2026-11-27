@@ -22,3 +22,7 @@
 ; if { !exists(global.nxtToolSetterMaxSampleSpreadMm) }
 ;     global nxtToolSetterMaxSampleSpreadMm = 0.02
 ; set global.nxtToolSetterMaxSampleSpreadMm = 0.02
+;
+; Stop M4000 / M4001 / tpost rewriting 0:/sys/nxt-user-tools.g after each change
+; (Tool Library -> Save to board still writes it). Use set: nxt-vars.g declares it.
+; set global.nxtAutoPersistTools = false
